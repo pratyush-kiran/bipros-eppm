@@ -1,6 +1,8 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+// Empty string = relative URLs, so the browser calls the same host it loaded from.
+// Works on any server via nginx. Override with NEXT_PUBLIC_API_URL only for local IDE dev.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

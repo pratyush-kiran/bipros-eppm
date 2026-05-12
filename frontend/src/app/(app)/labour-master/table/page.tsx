@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   labourMasterApi,
@@ -9,6 +9,14 @@ import {
 import { WorkerTable, WorkerDetailModal, ProjectPickerEmpty, useLabourMasterProject } from "@/components/labour-master";
 
 export default function TablePage() {
+  return (
+    <Suspense>
+      <TablePageContent />
+    </Suspense>
+  );
+}
+
+function TablePageContent() {
   const { projectId } = useLabourMasterProject();
   const [open, setOpen] = useState<LabourDesignationResponse | null>(null);
 

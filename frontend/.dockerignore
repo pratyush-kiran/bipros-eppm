@@ -1,0 +1,7 @@
+node_modules
+.next
+!.next/standalone
+!.next/static
+out
+*.log
+.env*.local

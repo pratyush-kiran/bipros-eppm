@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   async headers() {
     return [
       {
@@ -30,7 +31,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' http://localhost:8080",
+              "connect-src 'self' http://localhost:8080 http://localhost:65000 https:",
               "frame-ancestors 'none'",
             ].join("; "),
           },

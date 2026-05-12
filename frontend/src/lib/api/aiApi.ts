@@ -128,7 +128,7 @@ export const aiApi = {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : "";
     const form = new FormData();
     form.append("audio", audioBlob, "recording.webm");
-    return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/v1/ai/speech-to-text`, {
+    return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ""}/v1/ai/speech-to-text`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -144,7 +144,7 @@ export const aiApi = {
     const form = new FormData();
     form.append("conversationId", conversationId);
     form.append("image", imageFile);
-    return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/v1/ai/images`, {
+    return fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ""}/v1/ai/images`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -251,7 +251,7 @@ export const aiApi = {
 
   streamChat: async function* (req: ChatRequest, signal: AbortSignal): AsyncGenerator<SseEvent> {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : "";
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/v1/ai/chat/stream`, {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ""}/v1/ai/chat/stream`, {
       method: "POST",
       signal,
       headers: {

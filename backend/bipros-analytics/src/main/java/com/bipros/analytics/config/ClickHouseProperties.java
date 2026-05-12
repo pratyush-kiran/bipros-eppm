@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "bipros.analytics.clickhouse")
 public class ClickHouseProperties {
 
-    private String url = "jdbc:clickhouse://127.0.0.1:8123/bipros_analytics";
+    private String url = "jdbc:clickhouse://bipros-clickhouse:8123/bipros_analytics";
     private String username = "bipros";
     private String password = "bipros_dev";
     private Pool pool = new Pool();

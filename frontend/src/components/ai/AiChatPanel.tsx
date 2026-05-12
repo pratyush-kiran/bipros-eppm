@@ -652,7 +652,7 @@ export function AiChatPanel() {
     try {
       const convId = "temp-conv"; // Will be replaced with actual conversation ID
       const result = await aiApi.uploadImage(convId, file);
-      setPendingImage(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${result.url}`);
+      setPendingImage(`${process.env.NEXT_PUBLIC_API_URL ?? ""}${result.url}`);
     } catch (err) {
       console.error("Image upload failed", err);
     }

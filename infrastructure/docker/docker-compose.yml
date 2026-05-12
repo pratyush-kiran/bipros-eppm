@@ -1,0 +1,233 @@
+# infrastructure/docker/docker-compose.yml
+# Full stack: nginx + frontend + backend + all infra services
+#
+# Quick start:
+#   cd infrastructure/docker
+#   ./deploy.sh
+#
+# Force rebuild:
+#   ./deploy.sh --build
+
+name: bipros-eppm
+
+networks:
+  bipros-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  clickhouse_data:
+
+services:
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: bipros-postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${POSTGRES_DB:-bipros}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/01-init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql:ro
+    networks:
+      - bipros-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-bipros}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: bipros-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@bipros.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - bipros-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: bipros-redis
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bipros-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.12-alpine
+    container_name: bipros-clickhouse
+    environment:
+      CLICKHOUSE_DB: bipros_analytics
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bipros}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bipros_dev}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9002}:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ../../docker/clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - bipros-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: bipros-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - bipros-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ── Application ───────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: ../../
+      dockerfile: infrastructure/docker/services/backend/Dockerfile
+    image: bipros-eppm/backend:${APP_VERSION:-latest}
+    container_name: bipros-backend
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-bipros}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-bipros}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-bipros_dev}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      BIPROS_STORAGE_S3_ENDPOINT: http://minio:9000
+      BIPROS_STORAGE_S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      BIPROS_STORAGE_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
+      BIPROS_STORAGE_S3_BUCKET: ${MINIO_BUCKET:-sentinel-tiles}
+      BIPROS_SECURITY_JWT_SECRET: ${JWT_SECRET}
+      SENTINEL_HUB_CLIENT_ID: ${SENTINEL_HUB_CLIENT_ID:-}
+      SENTINEL_HUB_CLIENT_SECRET: ${SENTINEL_HUB_CLIENT_SECRET:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLICKHOUSE_URL: jdbc:clickhouse://clickhouse:8123/bipros_analytics
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bipros}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bipros_dev}
+      BIPROS_SECURITY_CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:65000,http://localhost:3000,http://localhost:3001}
+      SPRINGDOC_SERVER_URL: ${SWAGGER_SERVER_URL:-}
+      SPRING_LIQUIBASE_ENABLED: "true"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: none
+      JAVA_OPTS: ${BACKEND_JAVA_OPTS:--Xms256m -Xmx512m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - bipros-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: ../infrastructure/docker/services/frontend/Dockerfile
+    image: bipros-eppm/frontend:${APP_VERSION:-latest}
+    container_name: bipros-frontend
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:65000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - bipros-network
+    restart: unless-stopped
+
+  docs:
+    build:
+      context: ../../
+      dockerfile: infrastructure/docker/services/docs/Dockerfile
+    image: bipros-eppm/docs:${APP_VERSION:-latest}
+    container_name: bipros-docs
+    networks:
+      - bipros-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./services/nginx
+      dockerfile: Dockerfile
+    image: bipros-eppm/nginx:${APP_VERSION:-latest}
+    container_name: bipros-nginx
+    ports:
+      - "${NGINX_PORT:-65000}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      docs:
+        condition: service_healthy
+    networks:
+      - bipros-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

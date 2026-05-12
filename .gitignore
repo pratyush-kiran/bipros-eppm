@@ -41,6 +41,8 @@ docker/data/
 # Environment
 .env
 *.env.local
+infrastructure/.env
+infrastructure/docker/.env
 
 # LLM-maintained project wiki (auto-generated)
 .claude/wiki/

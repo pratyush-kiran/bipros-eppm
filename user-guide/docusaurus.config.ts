@@ -9,12 +9,8 @@ const config: Config = {
   tagline: 'Enterprise Project Portfolio Management — User Guide',
   favicon: 'img/favicon.ico',
 
-  future: {
-    v4: true,
-  },
-
   url: 'https://bipros-eppm.example.com',
-  baseUrl: '/',
+  baseUrl: '/docs/',
 
   organizationName: 'bipros',
   projectName: 'bipros-eppm',

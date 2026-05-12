@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   labourMasterApi,
@@ -17,6 +17,14 @@ import {
 } from "@/components/labour-master";
 
 export default function CardsPage() {
+  return (
+    <Suspense>
+      <CardsPageContent />
+    </Suspense>
+  );
+}
+
+function CardsPageContent() {
   const { projectId } = useLabourMasterProject();
 
   const [selectedCategory, setCategory] = useState<LabourCategory | null>(null);

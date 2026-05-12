@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { labourMasterApi } from "@/lib/api/labourMasterApi";
 import {
@@ -11,6 +12,14 @@ import {
 } from "@/components/labour-master";
 
 export default function LabourMasterDashboardPage() {
+  return (
+    <Suspense>
+      <LabourMasterDashboardContent />
+    </Suspense>
+  );
+}
+
+function LabourMasterDashboardContent() {
   const { projectId } = useLabourMasterProject();
 
   const dashboardQuery = useQuery({
