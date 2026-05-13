@@ -187,9 +187,13 @@ bipros:
     # Per-module ReAct loop caps. `general` is the global / portfolio mode that
     # typically needs an extra round (list_projects → query → drill in → answer);
     # `default` covers project-scoped chats (cost / schedule / risk / dpr / evm).
+    # The verification pass consumes one round on top of any tool-calling rounds,
+    # so effective "real reasoning" budget = cap - 1. Cross-entity questions
+    # (issues per activity, walk-from-X) regularly need 6+ rounds when the model
+    # discovers + corrects + verifies, so the project cap is set generously.
     max-tool-rounds:
-      general: 8
-      default: 6
+      general: 12
+      default: 10
     conversation:
       max-messages: 32
       max-input-tokens: 200000

@@ -30,12 +30,20 @@ public class QueryClickHouseTool extends ProjectScopedTool {
     @Override
     public String description() {
         return "Use this ONLY when no specialised tool exists. For resources / cost / DPR / "
-                + "assignment questions on a single project, prefer the live JPA tools "
+                + "assignment / issue questions on a single project, prefer the live JPA tools "
                 + "(find_resource_deployment, list_activity_resources, "
                 + "summarize_activity_resources, get_resource_profile, cost_breakdown, "
-                + "query_dpr, get_dpr_details) — see JPA-FIRST ROUTING in the system prompt. "
-                + "Read-only SQL against the analytics warehouse. SELECT only; every query MUST "
-                + "include a `project_id` filter (use IN for multi-project). Schema:\n\n"
+                + "query_dpr, get_dpr_details, list_issues, activity_health_snapshot, "
+                + "traverse_entity) — see JPA-FIRST ROUTING in the system prompt. "
+                + "ONLY warehouse tables under the bipros_analytics schema are accepted "
+                + "(dim_*, fact_*, mv_*). The OLTP tables (project.*, activity.*, resource.*, "
+                + "cost.*, evm.*, baseline.*, scheduling.*, risk.*, contract.*, permit.*, "
+                + "udf.*, document.*) are NOT in the warehouse and will be rejected — for those "
+                + "domains call the JPA tool above instead. Specifically NEVER pass "
+                + "`project.dpr_issues` (use list_issues / activity_health_snapshot) or "
+                + "`project.daily_progress_reports` (use query_dpr / get_dpr_details). "
+                + "Read-only SQL; SELECT only; every query MUST include a `project_id` filter "
+                + "(use IN for multi-project). Schema:\n\n"
                 + schemaCatalog.full();
     }
 

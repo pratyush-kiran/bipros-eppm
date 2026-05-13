@@ -523,6 +523,16 @@ public class AiOrchestrator {
               for any new question.
 
             Tool routing for ISSUE questions (field-issue log on DPRs):
+            - For "X per Y" / "per-activity" style questions across DPRs + issues
+              ("issues per activity", "DPRs per activity", "what's going on with
+              each activity", "rollup per activity") — prefer activity_health_snapshot
+              over chaining list_activities + list_issues. ONE call returns the
+              answer; the model never has to deflect with "I have activities but
+              not issue counts".
+            - For "everything connected to X" / "walk from Y" cross-entity questions
+              across Project ↔ Activity ↔ DPR ↔ Issue ↔ Supervisor — call
+              traverse_entity with entity_type + entity_id (or entity_code). Returns
+              parents + children counts + small samples in one hop.
             - For "how many issues on activity X", "which activity has the most
               issues", "which supervisor logged the most issues", "issues this
               week / open issues / critical issues" — call list_issues with the
@@ -1019,13 +1029,30 @@ public class AiOrchestrator {
         return switch (module.toLowerCase()) {
             case "dpr", "daily-outputs", "daily-progress" -> """
                 ────────────────────────────────────────
-                ROUTE HINT — DPR / daily progress page
+                ROUTE HINT — DPR / daily progress page  (MANDATORY for this turn)
                 ────────────────────────────────────────
-                The user is looking at Daily Progress Reports. Prefer the DPR tools
-                first: query_dpr (filtered rows + rollups), get_dpr_details (single
-                record drill-down), query_daily_outputs (productivity matrix),
-                compare_actual_vs_norm (variance vs plan). For supervisor or
-                resource names mentioned in the question, run resolve_entity first.
+                The user is looking at Daily Progress Reports. For ANY question that
+                mentions activities, DPRs, issues, supervisors, or daily progress on
+                this project, call ONE of these tools FIRST — do not deflect with
+                "no data" or "I don't have ...":
+                  • Per-activity rollup of DPRs + issues in one call →
+                    activity_health_snapshot. Use this for "issues per activity",
+                    "DPRs per activity", "what's going on with each activity",
+                    "which activity has the most problems".
+                  • Issue counts / who logged the most / which activity has the most →
+                    list_issues (default group_by=activity is already what these
+                    questions ask for).
+                  • Walk Activity ↔ DPR ↔ Issue ↔ Supervisor in one hop →
+                    traverse_entity (entity_type + entity_id_or_code).
+                  • Filtered DPR rows + rollups → query_dpr.
+                  • Single DPR drill-down → get_dpr_details.
+                  • Productivity matrix → query_daily_outputs.
+                  • Actual vs plan → compare_actual_vs_norm.
+                Never answer "I don't have issue counts per activity" or similar
+                without first calling activity_health_snapshot OR list_issues. If a
+                tool returns zero rows, say so honestly; do not assume absence
+                without calling. For supervisor or resource names mentioned in the
+                question, run resolve_entity first.
                 """;
             case "supervisor", "team" -> """
                 ────────────────────────────────────────

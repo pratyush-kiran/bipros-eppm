@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -52,6 +53,60 @@ public class SqlGuard {
 
     private static final int MAX_LIMIT = 5000;
 
+    /**
+     * Self-correcting hints for the AI orchestrator. When the model passes an OLTP table name
+     * (or a warehouse-table name that's been retired), the error returned to the model points
+     * at the right JPA tool so the next ReAct round can recover. Keys are bare table names
+     * (with or without schema prefix) lower-cased.
+     */
+    private static final Map<String, String> TABLE_HINTS = Map.ofEntries(
+            Map.entry("project.dpr_issues",
+                    "OLTP table — for issue queries call list_issues (default group_by=activity) "
+                            + "or activity_health_snapshot (per-activity rollup). JPA-backed, "
+                            + "authoritative, immediately consistent. Warehouse equivalent for "
+                            + "cross-project trends only: bipros_analytics.fact_dpr_issues_daily."),
+            Map.entry("dpr_issues",
+                    "warehouse-style name — the warehouse fact is bipros_analytics.fact_dpr_issues_daily, "
+                            + "but for live single-project issue questions prefer list_issues or "
+                            + "activity_health_snapshot (JPA, authoritative)."),
+            Map.entry("project.daily_progress_reports",
+                    "OLTP table — call query_dpr (rows + rollups) or get_dpr_details (single record "
+                            + "drill-down). Warehouse equivalent: bipros_analytics.fact_dpr_logs."),
+            Map.entry("daily_progress_reports",
+                    "warehouse table name is bipros_analytics.fact_dpr_logs; for live questions "
+                            + "prefer query_dpr / get_dpr_details (JPA)."),
+            Map.entry("activity.activities",
+                    "OLTP table — call list_activities, get_activity_full_context, or "
+                            + "traverse_entity(entity_type=activity). Warehouse: bipros_analytics.dim_activity."),
+            Map.entry("activities",
+                    "warehouse dim name is bipros_analytics.dim_activity; for live questions "
+                            + "prefer list_activities / get_activity_full_context."),
+            Map.entry("project.projects",
+                    "OLTP table — call list_projects. Warehouse: bipros_analytics.dim_project."),
+            Map.entry("projects",
+                    "warehouse dim name is bipros_analytics.dim_project; for live questions call list_projects."),
+            Map.entry("project.wbs_nodes",
+                    "OLTP table — call query_wbs or traverse_entity(entity_type=wbs_node). "
+                            + "Warehouse: bipros_analytics.dim_wbs."),
+            Map.entry("wbs_nodes",
+                    "warehouse dim name is bipros_analytics.dim_wbs; for live questions call query_wbs."),
+            Map.entry("resource.resources",
+                    "OLTP table — call get_resource_profile, find_resource_deployment, or "
+                            + "list_supervisors. Warehouse: bipros_analytics.dim_resource."),
+            Map.entry("resources",
+                    "warehouse dim name is bipros_analytics.dim_resource; for live questions prefer "
+                            + "get_resource_profile / find_resource_deployment."),
+            Map.entry("activity.activity_relationships",
+                    "OLTP table — call query_relationships or traverse_entity(entity_type=activity)."),
+            Map.entry("resource.resource_assignments",
+                    "OLTP table — call list_activity_resources or summarize_activity_resources.")
+    );
+
+    private static final Set<String> OLTP_SCHEMA_PREFIXES = Set.of(
+            "project.", "activity.", "resource.", "cost.", "evm.", "baseline.",
+            "scheduling.", "risk.", "contract.", "permit.", "udf.", "document.",
+            "gis.", "calendar.", "portfolio.", "admin.", "public.");
+
     public void validate(String sql, List<String> scopedProjectIds) {
         if (sql == null || sql.isBlank()) {
             throw new BusinessRuleException("SQL_EMPTY", "SQL is empty");
@@ -78,7 +133,7 @@ public class SqlGuard {
             String bare = t.replace("bipros_analytics.", "");
             if (!ALLOWED_TABLES.contains(bare)) {
                 throw new BusinessRuleException("SQL_TABLE_NOT_ALLOWED",
-                        "Table not allowed: " + bare);
+                        buildTableNotAllowedMessage(t, bare));
             }
         }
 
@@ -117,6 +172,36 @@ public class SqlGuard {
             } catch (NumberFormatException ignored) {
             }
         }
+    }
+
+    /**
+     * Build the error message returned to the AI orchestrator when a table is rejected.
+     * Carries a JPA-tool hint so the next ReAct round can recover without another guess.
+     */
+    private static String buildTableNotAllowedMessage(String original, String bare) {
+        String lower = original == null ? "" : original.toLowerCase();
+        String bareLower = bare == null ? "" : bare.toLowerCase();
+        String hint = TABLE_HINTS.get(lower);
+        if (hint == null) hint = TABLE_HINTS.get(bareLower);
+        if (hint == null) {
+            for (String prefix : OLTP_SCHEMA_PREFIXES) {
+                if (lower.startsWith(prefix)) {
+                    hint = "OLTP schema (" + prefix.substring(0, prefix.length() - 1)
+                            + ") is not in the warehouse. Use the JPA tool for this domain: "
+                            + "list_activities / query_dpr / list_issues / activity_health_snapshot "
+                            + "/ traverse_entity / get_resource_profile / cost_breakdown / "
+                            + "analyze_schedule / analyze_risk — pick the one that matches the question.";
+                    break;
+                }
+            }
+        }
+        if (hint == null) {
+            return "Table not allowed: " + bare + ". Allowed warehouse tables start with "
+                    + "bipros_analytics.* (dim_*, fact_*, mv_*). Call describe_schema for the catalog, "
+                    + "or switch to a JPA tool (list_*, query_dpr, list_issues, "
+                    + "activity_health_snapshot, traverse_entity) for live single-project answers.";
+        }
+        return "Table not allowed: " + bare + " — " + hint;
     }
 
     /**

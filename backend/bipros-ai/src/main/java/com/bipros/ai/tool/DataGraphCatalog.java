@@ -179,6 +179,28 @@ public class DataGraphCatalog {
               by data_date) for EV-based cost variance (CV).
             • Baseline vs current: pull baseline_activities for is_active baseline,
               compare planned dates and planned_cost to current Activity / ActivityExpense.
+
+            ───── TRAVERSAL RECIPES (one-shot answers — prefer over chained calls) ─────
+            • "Issues per activity" / "DPRs per activity" / "what's going on with each
+              activity" / "which activity has the most problems"
+              ⇒ activity_health_snapshot (single call, all activities in project).
+              Returns per activity: dpr_count, latest_dpr_date, issue counts (total /
+              open / by_severity / by_category / top_category). Use this INSTEAD OF
+              list_activities + per-activity list_issues — never deflect with
+              "I have activities but not issue counts".
+            • "Everything connected to activity X" / "walk from activity ACT-…"
+              ⇒ traverse_entity(entity_type=activity, entity_code=…). Returns parents
+              (project, wbs_node), child counts (dpr, issue, predecessor, successor,
+              supervisor) and recent samples in one hop.
+            • "Walk from a DPR" / "what's around DPR X"
+              ⇒ traverse_entity(entity_type=dpr, entity_id=…). Returns parent project +
+              activity, plus all issues filed under that DPR.
+            • "Walk from an issue" / "what is issue X linked to"
+              ⇒ traverse_entity(entity_type=issue, entity_id=…). Returns parent DPR,
+              parent activity (snapshot at time of filing), supervisor who logged.
+            • "Walk from a supervisor" / "what does supervisor X cover"
+              ⇒ traverse_entity(entity_type=supervisor, entity_code=…). Returns
+              activities supervised, DPRs filed, issues logged, direct reports.
             """;
 
     public String compact() {

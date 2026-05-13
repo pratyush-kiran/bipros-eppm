@@ -144,6 +144,41 @@ class SqlGuardTest {
     guard.validate(rightSql, List.of(scopedA));
   }
 
+  @Test
+  void rejectingOltpDprIssuesNamesTheJpaTool() {
+    String sql =
+        "SELECT activity_name, count() FROM project.dpr_issues "
+            + "WHERE project_id = '" + scopedA + "' GROUP BY activity_name";
+    assertThatThrownBy(() -> guard.validate(sql, List.of(scopedA)))
+        .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+          assertThat(ex.getRuleCode()).isEqualTo("SQL_TABLE_NOT_ALLOWED");
+          assertThat(ex.getMessage()).contains("list_issues");
+          assertThat(ex.getMessage()).contains("activity_health_snapshot");
+        });
+  }
+
+  @Test
+  void rejectingOltpDprNamesTheJpaTool() {
+    String sql =
+        "SELECT count() FROM project.daily_progress_reports WHERE project_id = '" + scopedA + "'";
+    assertThatThrownBy(() -> guard.validate(sql, List.of(scopedA)))
+        .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+          assertThat(ex.getRuleCode()).isEqualTo("SQL_TABLE_NOT_ALLOWED");
+          assertThat(ex.getMessage()).contains("query_dpr");
+        });
+  }
+
+  @Test
+  void rejectingGenericOltpSchemaSuggestsJpaTools() {
+    String sql =
+        "SELECT * FROM cost.cost_accounts WHERE project_id = '" + scopedA + "'";
+    assertThatThrownBy(() -> guard.validate(sql, List.of(scopedA)))
+        .isInstanceOfSatisfying(BusinessRuleException.class, ex -> {
+          assertThat(ex.getRuleCode()).isEqualTo("SQL_TABLE_NOT_ALLOWED");
+          assertThat(ex.getMessage()).contains("OLTP");
+        });
+  }
+
   /**
    * Portfolio-mode hygiene: a non-admin with N≥10 scoped projects must be able to run
    * an IN(...) filter listing all of them. This protects against any future regression
