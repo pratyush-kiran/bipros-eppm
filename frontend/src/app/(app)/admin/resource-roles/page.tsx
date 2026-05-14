@@ -4,7 +4,8 @@ import { VirtualDataTable, type ColumnDef } from "@/components/common/VirtualDat
 
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Settings2 } from "lucide-react";
+import Link from "next/link";
 import {
   resourceRoleApi,
   type ResourceRole,
@@ -14,6 +15,7 @@ import { resourceTypeApi } from "@/lib/api/resourceTypeApi";
 import { TabTip } from "@/components/common/TabTip";
 import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/utils/error";
+import { RoleWithVariantsEditor } from "@/components/role/RoleWithVariantsEditor";
 
 type TypeFilter = "ALL" | "MANPOWER" | "EQUIPMENT" | "MATERIAL";
 
@@ -216,7 +218,13 @@ export default function ResourceRolesPage() {
       header: "Name",
       cell: ({ row }) => (
         <div>
-          <span className="font-semibold text-charcoal">{row.original.name}</span>
+          <Link
+            href={`/admin/resource-roles/${row.original.id}`}
+            className="font-semibold text-charcoal hover:text-gold-deep hover:underline"
+            title="Open role and configure rates"
+          >
+            {row.original.name}
+          </Link>
           {row.original.description && (
             <div className="text-xs text-slate mt-0.5">{row.original.description}</div>
           )}
@@ -238,6 +246,14 @@ export default function ResourceRolesPage() {
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
+          <Link
+            href={`/admin/resource-roles/${row.original.id}`}
+            className="rounded-md p-1.5 text-slate transition-colors hover:bg-parchment hover:text-gold-deep"
+            aria-label="Configure rates"
+            title="Configure rates"
+          >
+            <Settings2 size={14} strokeWidth={1.5} />
+          </Link>
           <button
             onClick={() => openEdit(row.original)}
             className="rounded-md p-1.5 text-slate transition-colors hover:bg-parchment hover:text-gold-deep"
@@ -326,105 +342,45 @@ export default function ResourceRolesPage() {
       )}
 
       {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="mb-6 rounded-xl border border-hairline bg-paper p-5 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]"
-        >
-          <h2 className="text-lg font-semibold text-charcoal mb-4">
-            {editingId ? "Edit Role" : "New Role"}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1 text-text-secondary">
-                Code *
-              </label>
-              <input
-                type="text"
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value })}
-                className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-text-secondary">
-                Name *
-              </label>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
-                required
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1 text-text-secondary">
-                Description
-              </label>
-              <input
-                type="text"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-text-secondary">
-                Resource Type *
-              </label>
-              <select
-                value={form.resourceTypeId}
-                onChange={(e) => setForm({ ...form, resourceTypeId: e.target.value })}
-                className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-charcoal focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
-                required
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-30 bg-black/50"
+            onClick={closeForm}
+            aria-hidden="true"
+          />
+          {/* Right-side drawer — matches ActivityDetailDrawer width */}
+          <aside
+            className="fixed right-0 top-0 z-40 flex h-screen w-full flex-col border-l border-border bg-paper shadow-xl md:w-[720px] lg:w-[880px]"
+            role="dialog"
+            aria-modal="true"
+            aria-label={editingId ? "Edit role" : "New role"}
+          >
+            <header className="flex items-center justify-between border-b border-hairline px-5 py-3">
+              <h2 className="text-base font-semibold">
+                {editingId ? "Edit Role" : "New Role"}
+              </h2>
+              <button
+                type="button"
+                onClick={closeForm}
+                aria-label="Close"
+                className="rounded-md p-1 text-slate hover:bg-ivory hover:text-charcoal"
               >
-                <option value="">— select —</option>
-                {types.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-text-secondary">
-                Sort Order
-              </label>
-              <input
-                type="number"
-                value={form.sortOrder}
-                onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-                className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+                ✕
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <RoleWithVariantsEditor
+                editingRoleId={editingId}
+                onSaved={() => {
+                  closeForm();
+                  queryClient.invalidateQueries({ queryKey: ["resource-roles"] });
+                }}
+                onCancel={closeForm}
               />
             </div>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 text-sm text-text-secondary">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                />
-                Active
-              </label>
-            </div>
-          </div>
-          <div className="flex gap-2 mt-4">
-            <button
-              type="submit"
-              className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-gold px-4 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.3)]"
-            >
-              {editingId ? "Save Changes" : "Create"}
-            </button>
-            <button
-              type="button"
-              onClick={closeForm}
-              className="inline-flex h-9 items-center gap-1.5 rounded-[10px] border border-hairline bg-paper px-4 text-sm font-semibold text-slate hover:border-gold hover:text-gold-deep"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
+          </aside>
+        </>
       )}
 
       {rolesError && (() => {

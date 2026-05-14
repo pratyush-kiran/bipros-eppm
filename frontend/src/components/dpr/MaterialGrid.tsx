@@ -3,25 +3,16 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { resourceApi } from "@/lib/api/resourceApi";
+import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
-import type { AssignedResourceOption, DprMaterialRow } from "@/lib/types/dpr";
-import { fmtMoney, fmtRate, materialLineCost } from "./dprFormulas";
+import type { DprMaterialRow } from "@/lib/types/dpr";
 
 const blank = (): DprMaterialRow => ({
-  resourceAssignmentId: "",
-  resourceId: null,
-  materialId: null,
   materialName: "",
   quantity: null,
-  unit: null,
-  source: null,
-  batchNo: null,
-  vendorName: null,
-  unitRate: null,
-  lineCost: null,
-  remarks: null,
+  materialRoleVariantId: null,
+  roleId: null,
 });
 
 interface Props {
@@ -32,19 +23,20 @@ interface Props {
   onChange: (rows: DprMaterialRow[]) => void;
 }
 
-export function MaterialGrid({ projectId, activityId, reportDate, rows, onChange }: Props) {
+/**
+ * Role-only Material DPR grid. Two columns — Material (dropdown of activity's
+ * planned material) and Quantity.
+ */
+export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
   const { data, isLoading } = useQuery({
-    queryKey: ["assigned-resources", projectId, activityId, "MATERIAL", reportDate],
-    queryFn: () =>
-      resourceApi.getAssignedResourcesByKind(projectId, activityId!, "MATERIAL", reportDate),
+    queryKey: ["role-assignments", projectId, activityId],
+    queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId!),
     enabled: !!projectId && !!activityId,
   });
-  const options = useMemo(() => data?.data ?? [], [data]);
-  const optionMap = useMemo(() => {
-    const m = new Map<string, AssignedResourceOption>();
-    for (const o of options) m.set(o.assignmentId, o);
-    return m;
-  }, [options]);
+  const options = useMemo(() => {
+    const list = Array.isArray(data?.data) ? data.data : [];
+    return list.filter((a) => a.roleType === "MATERIAL");
+  }, [data]);
 
   const update = (idx: number, patch: Partial<DprMaterialRow>) => {
     const next = rows.slice();
@@ -55,137 +47,109 @@ export function MaterialGrid({ projectId, activityId, reportDate, rows, onChange
   const add = () => onChange([...rows, blank()]);
 
   const handlePick = (idx: number, assignmentId: string) => {
-    const opt = optionMap.get(assignmentId);
-    if (!opt) {
-      update(idx, { resourceAssignmentId: assignmentId });
-      return;
-    }
+    const opt = options.find((o) => o.id === assignmentId);
+    if (!opt) return;
     update(idx, {
-      resourceAssignmentId: opt.assignmentId,
-      resourceId: opt.resourceId,
-      materialName: opt.resourceName,
+      materialRoleVariantId: opt.variantId ?? null,
+      roleId: opt.roleId ?? null,
+      materialName: opt.roleName ?? "",
       unit: opt.unit ?? null,
-      unitRate: opt.unitRate ?? null,
     });
   };
 
+  const selectedAssignmentId = (r: DprMaterialRow): string =>
+    options.find(
+      (o) =>
+        (r.materialRoleVariantId && r.materialRoleVariantId === o.variantId) ||
+        (r.roleId && r.roleId === o.roleId),
+    )?.id ?? "";
+
+  const remainingFor = (r: DprMaterialRow): number | null => {
+    const opt = options.find(
+      (o) =>
+        (r.materialRoleVariantId && r.materialRoleVariantId === o.variantId) ||
+        (r.roleId && r.roleId === o.roleId),
+    );
+    return opt?.remainingUnits ?? null;
+  };
+
+  // SHOW_REMAINING flag — temporarily hidden per user request.
+  const SHOW_REMAINING = false;
+
   const columns: RowGridColumn<DprMaterialRow>[] = [
     {
-      key: "materialName",
-      label: "Material",
-      minWidth: 240,
+      key: "material",
+      label: "Material · Spec / Grade",
+      minWidth: 320,
+      grow: 1,
       render: (r, i) => (
         <SearchableSelect
           options={options.map((o) => ({
-            value: o.assignmentId,
-            label: o.resourceCode ? `${o.resourceName} (${o.resourceCode})` : o.resourceName,
+            value: o.id,
+            label: o.variantLabel ? `${o.roleName} — ${o.variantLabel}` : (o.roleName ?? "—"),
           }))}
-          value={r.resourceAssignmentId}
+          value={selectedAssignmentId(r)}
           onChange={(v) => handlePick(i, v)}
           placeholder={isLoading ? "Loading…" : "Pick assigned material…"}
-          selectedLabel={r.materialName || undefined}
           loading={isLoading}
           disabled={!activityId || options.length === 0}
         />
       ),
     },
+    ...(SHOW_REMAINING
+      ? ([
+          {
+            key: "remaining",
+            label: "Remaining",
+            minWidth: 100,
+            align: "right" as const,
+            render: (r: DprMaterialRow) => {
+              const rem = remainingFor(r);
+              return (
+                <span
+                  className={`tabular-nums text-xs ${rem === null ? "text-slate" : rem <= 0 ? "text-burgundy" : "text-slate"}`}
+                >
+                  {rem == null ? "—" : rem}
+                </span>
+              );
+            },
+          },
+        ] as RowGridColumn<DprMaterialRow>[])
+      : []),
     {
       key: "quantity",
       label: "Qty",
-      minWidth: 110,
+      minWidth: 100,
       align: "right",
       render: (r, _i, u) => (
         <CellInput
           type="number"
-          step="0.001"
+          step="0.01"
           min="0"
           value={r.quantity}
           onChange={(v) => u({ quantity: v === "" ? null : Number(v) })}
         />
       ),
     },
-    /* {
-      key: "unit",
-      label: "Unit",
-      minWidth: 80,
-      render: (r) => <span className="text-slate">{r.unit ?? "—"}</span>,
-    }, */
-    {
-      key: "rate",
-      label: "Rate",
-      minWidth: 110,
-      align: "right",
-      render: (r) => <span className="tabular-nums text-slate">{fmtRate(r.unitRate)}</span>,
-    },
-    /* {
-      key: "cost",
-      label: "Cost",
-      minWidth: 110,
-      align: "right",
-      render: (r) => <span className="tabular-nums">{fmtMoney(materialLineCost(r))}</span>,
-    },
-    {
-      key: "source",
-      label: "Source",
-      minWidth: 150,
-      render: (r, _i, u) => (
-        <CellInput
-          value={r.source ?? ""}
-          onChange={(v) => u({ source: v || null })}
-          placeholder="Quarry / Yard"
-        />
-      ),
-    },
-    {
-      key: "vendorName",
-      label: "Vendor",
-      minWidth: 150,
-      render: (r, _i, u) => (
-        <CellInput
-          value={r.vendorName ?? ""}
-          onChange={(v) => u({ vendorName: v || null })}
-        />
-      ),
-    },
-    {
-      key: "batchNo",
-      label: "Batch #",
-      minWidth: 120,
-      render: (r, _i, u) => (
-        <CellInput
-          value={r.batchNo ?? ""}
-          onChange={(v) => u({ batchNo: v || null })}
-        />
-      ),
-    },
-    {
-      key: "remarks",
-      label: "Remarks",
-      minWidth: 200,
-      grow: 1,
-      render: (r, _i, u) => (
-        <CellInput
-          value={r.remarks ?? ""}
-          onChange={(v) => u({ remarks: v || null })}
-        />
-      ),
-    }, */
   ];
 
   return (
     <>
       {!activityId && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          Pick an activity above to choose its assigned material.
+          Pick an activity above to choose its planned material.
         </div>
       )}
       {activityId && !isLoading && options.length === 0 && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          No material is assigned to this activity yet.{" "}
-          <Link href={`/projects/${projectId}/activities/${activityId}`} className="font-semibold text-gold-deep underline">
-            Assign resources
+          No material planned for this activity yet.{" "}
+          <Link
+            href={`/projects/${projectId}/activities/${activityId}`}
+            className="font-semibold text-gold-deep underline"
+          >
+            Open activity
           </Link>{" "}
-          first.
+          and add material demand first.
         </div>
       )}
       <RowGrid
@@ -198,8 +162,8 @@ export function MaterialGrid({ projectId, activityId, reportDate, rows, onChange
         emptyHint={
           activityId
             ? options.length === 0
-              ? "No material assigned to this activity."
-              : "Click Add material to log consumption."
+              ? "No material planned for this activity."
+              : "Click Add material to record consumption."
             : "Pick an activity first."
         }
         addLabel="Add material"

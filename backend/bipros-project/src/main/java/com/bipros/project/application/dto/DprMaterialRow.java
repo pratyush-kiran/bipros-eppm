@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public record DprMaterialRow(
     UUID id,
-    @NotNull UUID resourceAssignmentId,
+    UUID resourceAssignmentId,
     UUID materialId,
     UUID resourceId,
     @NotBlank String materialName,
@@ -21,7 +21,9 @@ public record DprMaterialRow(
     String vendorName,
     BigDecimal unitRate,
     BigDecimal lineCost,
-    String remarks
+    String remarks,
+    UUID materialRoleVariantId,
+    UUID roleId
 ) {
     public static DprMaterialRow from(DprMaterial e) {
         return new DprMaterialRow(
@@ -37,7 +39,9 @@ public record DprMaterialRow(
             e.getVendorName(),
             e.getUnitRate(),
             e.getLineCost(),
-            e.getRemarks());
+            e.getRemarks(),
+            e.getMaterialRoleVariantId(),
+            e.getRoleId());
     }
 
     public DprMaterial toEntity(UUID dprId) {
@@ -55,6 +59,8 @@ public record DprMaterialRow(
             .unitRate(unitRate)
             .lineCost(lineCost)
             .remarks(remarks)
+            .materialRoleVariantId(materialRoleVariantId)
+            .roleId(roleId)
             .build();
     }
 }

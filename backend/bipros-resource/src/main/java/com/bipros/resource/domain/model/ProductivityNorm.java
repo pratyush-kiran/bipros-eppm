@@ -104,4 +104,29 @@ public class ProductivityNorm extends BaseEntity {
 
   @Column(name = "remarks", length = 500)
   private String remarks;
+
+  /**
+   * Role-based scope (new model). When set, this norm applies to a specific role (Mason,
+   * Excavator, Cement). Optional skill/grade (manpower) or make/model (equipment) refine
+   * the match further. Resolution chain: (role + variant fields) → (role-only) → unscoped.
+   * Mutually exclusive with the legacy {@link #resourceType} / {@link #resource} fields.
+   */
+  @Column(name = "role_id")
+  private java.util.UUID roleId;
+
+  /** Manpower fine-grain: category FK (Skilled / Semi-Skilled / Unskilled / Staff). */
+  @Column(name = "category_id")
+  private java.util.UUID categoryId;
+
+  /** Manpower fine-grain: grade FK (A/B/C). */
+  @Column(name = "grade_id")
+  private java.util.UUID gradeId;
+
+  /** Equipment fine-grain: free-text make. */
+  @Column(name = "make", length = 100)
+  private String make;
+
+  /** Equipment fine-grain: free-text model. */
+  @Column(name = "model", length = 100)
+  private String model;
 }

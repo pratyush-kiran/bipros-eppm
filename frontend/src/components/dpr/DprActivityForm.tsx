@@ -328,18 +328,28 @@ export function DprActivityForm({
     return sup.name || "another supervisor";
   }, [state.activityId, state.supervisorResourceId, supervisorIsOther, supervisorByActivityId]);
 
-  /** Tab counters reflect rows that will actually be saved (FK picker filled). */
+  /** Tab counters reflect rows that will actually be saved (FK picker filled).
+   *  Role-only rows have variantId set instead of resourceAssignmentId. */
   const manpowerFilledCount = useMemo(
-    () => (state.manpower ?? []).filter((r) => !!r.resourceAssignmentId).length,
-    [state.manpower]
+    () =>
+      (state.manpower ?? []).filter(
+        (r) => !!r.manpowerRoleRateId || !!r.resourceAssignmentId,
+      ).length,
+    [state.manpower],
   );
   const equipmentFilledCount = useMemo(
-    () => (state.equipment ?? []).filter((r) => !!r.resourceAssignmentId).length,
-    [state.equipment]
+    () =>
+      (state.equipment ?? []).filter(
+        (r) => !!r.equipmentRoleVariantId || !!r.resourceAssignmentId,
+      ).length,
+    [state.equipment],
   );
   const materialsFilledCount = useMemo(
-    () => (state.materials ?? []).filter((r) => !!r.resourceAssignmentId).length,
-    [state.materials]
+    () =>
+      (state.materials ?? []).filter(
+        (r) => !!r.materialRoleVariantId || !!r.resourceAssignmentId,
+      ).length,
+    [state.materials],
   );
   const issuesFilledCount = useMemo(
     () => (state.issues ?? []).filter((r) => !!r.title?.trim()).length,
@@ -441,12 +451,19 @@ export function DprActivityForm({
         ? state.supervisorResourceId
         : null;
 
-    // Drop skeleton rows where the user opened the tab but never picked a resource. The backend
-    // rejects them with `@NotNull resourceAssignmentId`. Partially-filled rows (FK picked, some
-    // numeric fields blank) are kept so backend validation can give a clear error.
-    const manpower = (state.manpower ?? []).filter((r) => !!r.resourceAssignmentId);
-    const equipment = (state.equipment ?? []).filter((r) => !!r.resourceAssignmentId);
-    const materials = (state.materials ?? []).filter((r) => !!r.resourceAssignmentId);
+    // Drop skeleton rows where the user opened the tab but never picked a role.
+    // Role-only model: a row is "real" if it has the variant FK set (manpowerRoleRateId for
+    // manpower, equipmentRoleVariantId for equipment, materialRoleVariantId for material).
+    // Legacy resourceAssignmentId is still accepted for older / migrated DPRs.
+    const manpower = (state.manpower ?? []).filter(
+      (r) => !!r.manpowerRoleRateId || !!r.resourceAssignmentId,
+    );
+    const equipment = (state.equipment ?? []).filter(
+      (r) => !!r.equipmentRoleVariantId || !!r.resourceAssignmentId,
+    );
+    const materials = (state.materials ?? []).filter(
+      (r) => !!r.materialRoleVariantId || !!r.resourceAssignmentId,
+    );
     // Issues use merge-by-id server-side: rows present in the DB but absent from this
     // payload are deleted, so we must include EVERY issue the user can still see —
     // including ones with no title yet aren't sent (treated as cancelled add).
@@ -522,8 +539,17 @@ export function DprActivityForm({
         onCancel();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to save DPR.";
-      setError(msg);
+      // Surface DPR_OVERRUN (hard-block) with the full server-side detail string.
+      const axiosErr = err as {
+        response?: { data?: { error?: { code?: string; message?: string } } };
+      };
+      const apiErr = axiosErr?.response?.data?.error;
+      if (apiErr?.code === "DPR_OVERRUN") {
+        setError(apiErr.message ?? "DPR would exceed planned units for one or more roles.");
+      } else {
+        const msg = err instanceof Error ? err.message : "Failed to save DPR.";
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }

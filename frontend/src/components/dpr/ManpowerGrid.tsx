@@ -3,37 +3,16 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { resourceApi } from "@/lib/api/resourceApi";
+import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
-import { CellInput, CellSelect, RowGrid, type RowGridColumn } from "./RowGrid";
-import type {
-  AssignedResourceOption,
-  DprManpowerRow,
-  ManpowerCategory,
-  RateBasis,
-} from "@/lib/types/dpr";
-import { fmtMoney, fmtRate, manpowerLineCost, rateBasisSuffix } from "./dprFormulas";
-
-const CATEGORIES: Array<{ value: ManpowerCategory; label: string }> = [
-  { value: "SKILLED", label: "Skilled" },
-  { value: "SEMI_SKILLED", label: "Semi-skilled" },
-  { value: "UNSKILLED", label: "Unskilled" },
-];
+import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
+import type { DprManpowerRow } from "@/lib/types/dpr";
 
 const blank = (): DprManpowerRow => ({
-  resourceAssignmentId: "",
-  resourceId: null,
   trade: "",
-  category: null,
   nos: null,
-  workingHours: null,
-  otHours: null,
-  idleHours: null,
-  unitRate: null,
-  unitRateBasis: null,
-  lineCost: null,
-  contractorName: null,
-  remarks: null,
+  manpowerRoleRateId: null,
+  roleId: null,
 });
 
 interface Props {
@@ -44,19 +23,22 @@ interface Props {
   onChange: (rows: DprManpowerRow[]) => void;
 }
 
-export function ManpowerGrid({ projectId, activityId, reportDate, rows, onChange }: Props) {
+/**
+ * Role-only Manpower DPR grid. Two columns only — Role (dropdown of the
+ * activity's planned manpower assignments) and Nos. Rate and cost are resolved
+ * server-side from the variant on save.
+ */
+export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
   const { data, isLoading } = useQuery({
-    queryKey: ["assigned-resources", projectId, activityId, "MANPOWER", reportDate],
-    queryFn: () =>
-      resourceApi.getAssignedResourcesByKind(projectId, activityId!, "MANPOWER", reportDate),
+    queryKey: ["role-assignments", projectId, activityId],
+    queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId!),
     enabled: !!projectId && !!activityId,
   });
-  const options = useMemo(() => data?.data ?? [], [data]);
-  const optionMap = useMemo(() => {
-    const m = new Map<string, AssignedResourceOption>();
-    for (const o of options) m.set(o.assignmentId, o);
-    return m;
-  }, [options]);
+
+  const options = useMemo(() => {
+    const list = Array.isArray(data?.data) ? data.data : [];
+    return list.filter((a) => a.roleType === "MANPOWER" || a.roleType === "LABOR");
+  }, [data]);
 
   const update = (idx: number, patch: Partial<DprManpowerRow>) => {
     const next = rows.slice();
@@ -66,53 +48,80 @@ export function ManpowerGrid({ projectId, activityId, reportDate, rows, onChange
   const remove = (idx: number) => onChange(rows.filter((_, i) => i !== idx));
   const add = () => onChange([...rows, blank()]);
 
-  const handleResourcePick = (idx: number, assignmentId: string) => {
-    const opt = optionMap.get(assignmentId);
-    if (!opt) {
-      update(idx, { resourceAssignmentId: assignmentId });
-      return;
-    }
+  // We use roleId as the dropdown value (one assignment per role is the common case;
+  // if a role has multiple variant rows we use the first match — the variant FK is
+  // captured automatically). For a finer-grained pick we'd switch to assignmentId.
+  const handlePick = (idx: number, assignmentId: string) => {
+    const opt = options.find((o) => o.id === assignmentId);
+    if (!opt) return;
     update(idx, {
-      resourceAssignmentId: opt.assignmentId,
-      resourceId: opt.resourceId,
-      trade: opt.resourceName,
-      unitRate: opt.unitRate ?? null,
-      unitRateBasis: (opt.unitRateBasis as RateBasis | null) ?? null,
+      manpowerRoleRateId: opt.variantId ?? null,
+      roleId: opt.roleId ?? null,
+      trade: opt.roleName ?? "",
     });
   };
 
+  const selectedAssignmentId = (r: DprManpowerRow): string => {
+    return options.find(
+      (o) =>
+        (r.manpowerRoleRateId && r.manpowerRoleRateId === o.variantId) ||
+        (r.roleId && r.roleId === o.roleId),
+    )?.id ?? "";
+  };
+
+  const remainingFor = (r: DprManpowerRow): number | null => {
+    const opt = options.find(
+      (o) =>
+        (r.manpowerRoleRateId && r.manpowerRoleRateId === o.variantId) ||
+        (r.roleId && r.roleId === o.roleId),
+    );
+    return opt?.remainingUnits ?? null;
+  };
+
+  // SHOW_REMAINING flag — temporarily hidden per user request. Keep the column
+  // definition intact below so it can be flipped back on by setting this to true.
+  const SHOW_REMAINING = false;
+
   const columns: RowGridColumn<DprManpowerRow>[] = [
     {
-      key: "trade",
-      label: "Trade",
-      minWidth: 240,
+      key: "role",
+      label: "Role · Category / Grade",
+      minWidth: 320,
+      grow: 1,
       render: (r, i) => (
         <SearchableSelect
           options={options.map((o) => ({
-            value: o.assignmentId,
-            label: o.resourceCode ? `${o.resourceName} (${o.resourceCode})` : o.resourceName,
+            value: o.id,
+            label: o.variantLabel ? `${o.roleName} — ${o.variantLabel}` : (o.roleName ?? "—"),
           }))}
-          value={r.resourceAssignmentId}
-          onChange={(v) => handleResourcePick(i, v)}
-          placeholder={isLoading ? "Loading…" : "Pick assigned trade…"}
-          selectedLabel={r.trade || undefined}
+          value={selectedAssignmentId(r)}
+          onChange={(v) => handlePick(i, v)}
+          placeholder={isLoading ? "Loading…" : "Pick assigned role…"}
           loading={isLoading}
           disabled={!activityId || options.length === 0}
         />
       ),
     },
-    /* {
-      key: "category",
-      label: "Category",
-      minWidth: 140,
-      render: (r, _i, u) => (
-        <CellSelect
-          value={r.category}
-          onChange={(v) => u({ category: (v || null) as ManpowerCategory | null })}
-          options={CATEGORIES}
-        />
-      ),
-    }, */
+    ...(SHOW_REMAINING
+      ? ([
+          {
+            key: "remaining",
+            label: "Remaining",
+            minWidth: 100,
+            align: "right" as const,
+            render: (r: DprManpowerRow) => {
+              const rem = remainingFor(r);
+              return (
+                <span
+                  className={`tabular-nums text-xs ${rem === null ? "text-slate" : rem <= 0 ? "text-burgundy" : "text-slate"}`}
+                >
+                  {rem == null ? "—" : rem}
+                </span>
+              );
+            },
+          },
+        ] as RowGridColumn<DprManpowerRow>[])
+      : []),
     {
       key: "nos",
       label: "Nos",
@@ -127,101 +136,25 @@ export function ManpowerGrid({ projectId, activityId, reportDate, rows, onChange
         />
       ),
     },
-    {
-      key: "workingHours",
-      label: "Hours",
-      minWidth: 100,
-      align: "right",
-      render: (r, _i, u) => (
-        <CellInput
-          type="number"
-          step="0.25"
-          min="0"
-          value={r.workingHours}
-          onChange={(v) => u({ workingHours: v === "" ? null : Number(v) })}
-        />
-      ),
-    },
-    /* {
-      key: "otHours",
-      label: "OT",
-      minWidth: 90,
-      align: "right",
-      render: (r, _i, u) => (
-        <CellInput
-          type="number"
-          step="0.25"
-          min="0"
-          value={r.otHours}
-          onChange={(v) => u({ otHours: v === "" ? null : Number(v) })}
-        />
-      ),
-    }, */
-    /* {
-      key: "idleHours",
-      label: "Idle",
-      minWidth: 90,
-      align: "right",
-      render: (r, _i, u) => (
-        <CellInput
-          type="number"
-          step="0.25"
-          min="0"
-          value={r.idleHours}
-          onChange={(v) => u({ idleHours: v === "" ? null : Number(v) })}
-        />
-      ),
-    }, */
-    {
-      key: "rate",
-      label: "Rate",
-      minWidth: 110,
-      align: "right",
-      render: (r) => {
-        const suffix = rateBasisSuffix(r.unitRateBasis);
-        return (
-          <span className="tabular-nums text-slate" title={r.unitRateBasis ? `per ${r.unitRateBasis.toLowerCase()}` : undefined}>
-            {fmtRate(r.unitRate)}
-            {suffix && <span className="ml-1 text-xs">{suffix}</span>}
-          </span>
-        );
-      },
-    },
-    /* {
-      key: "cost",
-      label: "Cost",
-      minWidth: 110,
-      align: "right",
-      render: (r) => <span className="tabular-nums">{fmtMoney(manpowerLineCost(r, r.unitRateBasis))}</span>,
-    }, */
-    /* {
-      key: "remarks",
-      label: "Remarks",
-      minWidth: 220,
-      grow: 1,
-      render: (r, _i, u) => (
-        <CellInput
-          value={r.remarks ?? ""}
-          onChange={(v) => u({ remarks: v || null })}
-        />
-      ),
-    }, */
   ];
 
   return (
     <>
       {!activityId && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          Pick an activity above to choose its assigned manpower.
+          Pick an activity above to choose its planned manpower.
         </div>
       )}
       {activityId && !isLoading && options.length === 0 && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          No manpower is assigned to this activity yet.{" "}
-          <Link href={`/projects/${projectId}/activities/${activityId}`} className="font-semibold text-gold-deep underline">
-            Assign resources
+          No manpower planned for this activity yet.{" "}
+          <Link
+            href={`/projects/${projectId}/activities/${activityId}`}
+            className="font-semibold text-gold-deep underline"
+          >
+            Open activity
           </Link>{" "}
-          to enable manpower entry.
+          and add manpower demand first.
         </div>
       )}
       <RowGrid
@@ -234,8 +167,8 @@ export function ManpowerGrid({ projectId, activityId, reportDate, rows, onChange
         emptyHint={
           activityId
             ? options.length === 0
-              ? "No manpower assigned to this activity."
-              : "Click Add manpower to record a deployed trade."
+              ? "No manpower planned for this activity."
+              : "Click Add manpower to record a deployed role."
             : "Pick an activity first."
         }
         addLabel="Add manpower"

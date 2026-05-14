@@ -131,3 +131,19 @@ databaseChangeLog:
       file: db/changelog/076-dpr-manpower-idle-hours.yaml
   - include:
       file: db/changelog/077-dpr-issues.yaml
+  - include:
+      file: db/changelog/080-role-rate-tables.yaml
+  - include:
+      file: db/changelog/081-manpower-rate-master-backfill.yaml
+  - include:
+      file: db/changelog/082-equipment-rate-master-backfill.yaml
+  - include:
+      file: db/changelog/083-material-rate-master-backfill.yaml
+  - include:
+      file: db/changelog/084-project-override-backfill.yaml
+  - include:
+      file: db/changelog/085-assignment-and-dpr-variant-columns.yaml
+  - include:
+      file: db/changelog/087-supervisor-user-columns.yaml
+  - include:
+      file: db/changelog/088-productivity-norm-role-columns.yaml

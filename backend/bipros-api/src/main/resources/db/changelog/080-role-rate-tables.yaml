@@ -1,0 +1,553 @@
+databaseChangeLog:
+  - changeSet:
+      id: 080-create-manpower-role-rates
+      author: bipros
+      changes:
+        - createTable:
+            tableName: manpower_role_rates
+            schemaName: resource
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: role_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: category_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: grade_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: unit
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rate
+                  type: numeric(19, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: varchar(255)
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+
+  - changeSet:
+      id: 080-unique-manpower-role-rate
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: manpower_role_rates
+            schemaName: resource
+            columnNames: role_id, category_id, grade_id
+            constraintName: uk_manpower_role_rate
+
+  - changeSet:
+      id: 080-index-mrr-role
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: manpower_role_rates
+            schemaName: resource
+            indexName: idx_manpower_role_rate_role
+            columns:
+              - column:
+                  name: role_id
+
+  - changeSet:
+      id: 080-index-mrr-category
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: manpower_role_rates
+            schemaName: resource
+            indexName: idx_manpower_role_rate_category
+            columns:
+              - column:
+                  name: category_id
+
+  - changeSet:
+      id: 080-index-mrr-grade
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: manpower_role_rates
+            schemaName: resource
+            indexName: idx_manpower_role_rate_grade
+            columns:
+              - column:
+                  name: grade_id
+
+  - changeSet:
+      id: 080-create-equipment-role-variants
+      author: bipros
+      changes:
+        - createTable:
+            tableName: equipment_role_variants
+            schemaName: resource
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: role_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: make
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: model
+                  type: varchar(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: unit
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rate
+                  type: numeric(19, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: varchar(255)
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+
+  - changeSet:
+      id: 080-unique-equipment-role-variant
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: equipment_role_variants
+            schemaName: resource
+            columnNames: role_id, make, model
+            constraintName: uk_equipment_role_variant
+
+  - changeSet:
+      id: 080-index-erv-role
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: equipment_role_variants
+            schemaName: resource
+            indexName: idx_equipment_role_variant_role
+            columns:
+              - column:
+                  name: role_id
+
+  - changeSet:
+      id: 080-create-material-role-variants
+      author: bipros
+      changes:
+        - createTable:
+            tableName: material_role_variants
+            schemaName: resource
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: role_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: spec_grade
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: unit
+                  type: varchar(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rate
+                  type: numeric(19, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: varchar(255)
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+
+  - changeSet:
+      id: 080-unique-material-role-variant
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: material_role_variants
+            schemaName: resource
+            columnNames: role_id, spec_grade
+            constraintName: uk_material_role_variant
+
+  - changeSet:
+      id: 080-index-mrv-role
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: material_role_variants
+            schemaName: resource
+            indexName: idx_material_role_variant_role
+            columns:
+              - column:
+                  name: role_id
+
+  - changeSet:
+      id: 080-create-proj-manpower-override
+      author: bipros
+      changes:
+        - createTable:
+            tableName: project_manpower_role_rate_override
+            schemaName: resource
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: manpower_role_rate_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: override_rate
+                  type: numeric(19, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: varchar(255)
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+
+  - changeSet:
+      id: 080-unique-pmrro
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: project_manpower_role_rate_override
+            schemaName: resource
+            columnNames: project_id, manpower_role_rate_id
+            constraintName: uk_proj_manpower_role_rate_ovr
+
+  - changeSet:
+      id: 080-index-pmrro-project
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: project_manpower_role_rate_override
+            schemaName: resource
+            indexName: idx_pmrro_project
+            columns:
+              - column:
+                  name: project_id
+
+  - changeSet:
+      id: 080-index-pmrro-variant
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: project_manpower_role_rate_override
+            schemaName: resource
+            indexName: idx_pmrro_variant
+            columns:
+              - column:
+                  name: manpower_role_rate_id
+
+  - changeSet:
+      id: 080-create-proj-equip-override
+      author: bipros
+      changes:
+        - createTable:
+            tableName: project_equipment_role_variant_override
+            schemaName: resource
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: equipment_role_variant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: override_rate
+                  type: numeric(19, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: varchar(255)
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+
+  - changeSet:
+      id: 080-unique-perv
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: project_equipment_role_variant_override
+            schemaName: resource
+            columnNames: project_id, equipment_role_variant_id
+            constraintName: uk_proj_equip_role_variant_ovr
+
+  - changeSet:
+      id: 080-index-perv-project
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: project_equipment_role_variant_override
+            schemaName: resource
+            indexName: idx_perv_project
+            columns:
+              - column:
+                  name: project_id
+
+  - changeSet:
+      id: 080-index-perv-variant
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: project_equipment_role_variant_override
+            schemaName: resource
+            indexName: idx_perv_variant
+            columns:
+              - column:
+                  name: equipment_role_variant_id
+
+  - changeSet:
+      id: 080-create-proj-material-override
+      author: bipros
+      changes:
+        - createTable:
+            tableName: project_material_role_variant_override
+            schemaName: resource
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: material_role_variant_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: override_rate
+                  type: numeric(19, 4)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: boolean
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: varchar(255)
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+
+  - changeSet:
+      id: 080-unique-pmrv
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: project_material_role_variant_override
+            schemaName: resource
+            columnNames: project_id, material_role_variant_id
+            constraintName: uk_proj_mat_role_variant_ovr
+
+  - changeSet:
+      id: 080-index-pmrv-project
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: project_material_role_variant_override
+            schemaName: resource
+            indexName: idx_pmrv_project
+            columns:
+              - column:
+                  name: project_id
+
+  - changeSet:
+      id: 080-index-pmrv-variant
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: project_material_role_variant_override
+            schemaName: resource
+            indexName: idx_pmrv_variant
+            columns:
+              - column:
+                  name: material_role_variant_id

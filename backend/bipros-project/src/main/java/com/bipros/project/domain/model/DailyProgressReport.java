@@ -65,6 +65,14 @@ public class DailyProgressReport extends BaseEntity {
   @Column(name = "supervisor_name", nullable = false, length = 150)
   private String supervisorName;
 
+  /**
+   * Soft FK to {@code public.users.id}. Role-only model: the supervisor is an application user,
+   * not a Resource. Replaces {@link #supervisorResourceId}. The service overwrites
+   * {@link #supervisorName} from the user's display name on save when this is set.
+   */
+  @Column(name = "supervisor_user_id")
+  private UUID supervisorUserId;
+
   @Column(name = "chainage_from_m")
   private Long chainageFromM;
 

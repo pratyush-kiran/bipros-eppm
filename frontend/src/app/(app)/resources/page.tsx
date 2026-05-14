@@ -27,8 +27,9 @@ const TYPE_TABS: { key: TypeTab; label: string }[] = [
   { key: "MATERIAL", label: "Material" },
 ];
 
-// The "Manpower" tab is a UX label; the backend's seeded ResourceType code is "LABOR".
-const tabKeyToTypeCode = (key: TypeTab): string => (key === "MANPOWER" ? "LABOR" : key);
+// Tab key already matches the backend resource_types.code now that LABOR was
+// renamed to MANPOWER. Kept as a function for symmetry / future remapping.
+const tabKeyToTypeCode = (key: TypeTab): string => key;
 
 export default function ResourcesPage() {
   const queryClient = useQueryClient();

@@ -12,7 +12,7 @@ import java.util.UUID;
 
 public record DprEquipmentRow(
     UUID id,
-    @NotNull UUID resourceAssignmentId,
+    UUID resourceAssignmentId,
     UUID resourceId,
     @NotBlank String equipmentType,
     String fleetNo,
@@ -27,7 +27,9 @@ public record DprEquipmentRow(
     BigDecimal lineCost,
     String operatorName,
     EquipmentAvailability availabilityStatus,
-    String remarks
+    String remarks,
+    UUID equipmentRoleVariantId,
+    UUID roleId
 ) {
     public static DprEquipmentRow from(DprEquipment e) {
         return new DprEquipmentRow(
@@ -47,7 +49,9 @@ public record DprEquipmentRow(
             e.getLineCost(),
             e.getOperatorName(),
             e.getAvailabilityStatus(),
-            e.getRemarks());
+            e.getRemarks(),
+            e.getEquipmentRoleVariantId(),
+            e.getRoleId());
     }
 
     public DprEquipment toEntity(UUID dprId) {
@@ -69,6 +73,8 @@ public record DprEquipmentRow(
             .operatorName(operatorName)
             .availabilityStatus(availabilityStatus)
             .remarks(remarks)
+            .equipmentRoleVariantId(equipmentRoleVariantId)
+            .roleId(roleId)
             .build();
     }
 }

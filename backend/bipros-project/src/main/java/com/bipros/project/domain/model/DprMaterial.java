@@ -74,4 +74,11 @@ public class DprMaterial extends BaseEntity {
 
     @Column(name = "remarks", length = 500)
     private String remarks;
+
+    /** Role-only model: which {@code MaterialRoleVariant} was consumed. Nullable for legacy rows. */
+    @Column(name = "material_role_variant_id")
+    private UUID materialRoleVariantId;
+
+    @Column(name = "role_id")
+    private UUID roleId;
 }

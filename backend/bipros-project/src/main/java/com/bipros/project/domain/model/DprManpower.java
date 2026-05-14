@@ -80,4 +80,15 @@ public class DprManpower extends BaseEntity {
 
     @Column(name = "remarks", length = 500)
     private String remarks;
+
+    /**
+     * Role-only model: which {@code ManpowerRoleRate} variant was consumed for this row.
+     * Soft FK to {@code resource.manpower_role_rates.id}. Nullable for legacy rows.
+     */
+    @Column(name = "manpower_role_rate_id")
+    private UUID manpowerRoleRateId;
+
+    /** Denormalised role id for fast filtering and rollup. */
+    @Column(name = "role_id")
+    private UUID roleId;
 }

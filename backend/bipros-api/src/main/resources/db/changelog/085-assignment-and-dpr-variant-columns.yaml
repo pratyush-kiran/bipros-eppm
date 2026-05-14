@@ -1,0 +1,114 @@
+databaseChangeLog:
+  - changeSet:
+      id: 085-1-assignment-variant-columns
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: resource_assignments
+            schemaName: resource
+            columns:
+              - column:
+                  name: manpower_role_rate_id
+                  type: uuid
+              - column:
+                  name: equipment_role_variant_id
+                  type: uuid
+              - column:
+                  name: material_role_variant_id
+                  type: uuid
+              - column:
+                  name: headcount
+                  type: integer
+              - column:
+                  name: duration
+                  type: numeric(19, 4)
+              - column:
+                  name: quantity
+                  type: numeric(19, 4)
+              - column:
+                  name: effective_rate
+                  type: numeric(19, 4)
+              - column:
+                  name: unit
+                  type: varchar(30)
+
+  - changeSet:
+      id: 085-2-index-assignment-manpower-variant
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: resource_assignments
+            schemaName: resource
+            indexName: idx_assignment_manpower_variant
+            columns:
+              - column:
+                  name: manpower_role_rate_id
+
+  - changeSet:
+      id: 085-3-index-assignment-equipment-variant
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: resource_assignments
+            schemaName: resource
+            indexName: idx_assignment_equipment_variant
+            columns:
+              - column:
+                  name: equipment_role_variant_id
+
+  - changeSet:
+      id: 085-4-index-assignment-material-variant
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: resource_assignments
+            schemaName: resource
+            indexName: idx_assignment_material_variant
+            columns:
+              - column:
+                  name: material_role_variant_id
+
+  - changeSet:
+      id: 085-5-dpr-manpower-variant
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: dpr_manpower
+            schemaName: project
+            columns:
+              - column:
+                  name: manpower_role_rate_id
+                  type: uuid
+              - column:
+                  name: role_id
+                  type: uuid
+
+  - changeSet:
+      id: 085-6-dpr-equipment-variant
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: dpr_equipment
+            schemaName: project
+            columns:
+              - column:
+                  name: equipment_role_variant_id
+                  type: uuid
+              - column:
+                  name: role_id
+                  type: uuid
+
+  - changeSet:
+      id: 085-7-dpr-material-variant
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: dpr_material
+            schemaName: project
+            columns:
+              - column:
+                  name: material_role_variant_id
+                  type: uuid
+              - column:
+                  name: role_id
+                  type: uuid

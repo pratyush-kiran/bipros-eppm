@@ -1,0 +1,89 @@
+databaseChangeLog:
+  - changeSet:
+      id: 084-1-backfill-manpower-overrides
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Walk: project_resources(rate_override) → resources(rate_master_id) →
+              --       manpower_rate_masters → manpower_role_rates (1:1 on role+category+grade).
+              INSERT INTO resource.project_manpower_role_rate_override
+                  (id, project_id, manpower_role_rate_id, override_rate, active,
+                   created_at, updated_at, created_by, updated_by, version)
+              SELECT
+                  gen_random_uuid(),
+                  pr.project_id,
+                  mrr.id,
+                  pr.rate_override,
+                  true,
+                  now(), now(), 'migration', 'migration', 0
+              FROM resource.project_resources pr
+              JOIN resource.resources res ON res.id = pr.resource_id
+              JOIN resource.manpower_rate_masters m ON m.id = res.rate_master_id
+              JOIN resource.manpower_role_rates mrr
+                  ON mrr.role_id = m.role_id
+                  AND mrr.category_id = m.category_id
+                  AND mrr.grade_id = m.grade_id
+              WHERE pr.rate_override IS NOT NULL
+              ON CONFLICT (project_id, manpower_role_rate_id) DO NOTHING;
+
+  - changeSet:
+      id: 084-2-backfill-equipment-overrides
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO resource.project_equipment_role_variant_override
+                  (id, project_id, equipment_role_variant_id, override_rate, active,
+                   created_at, updated_at, created_by, updated_by, version)
+              SELECT
+                  gen_random_uuid(),
+                  pr.project_id,
+                  erv.id,
+                  pr.rate_override,
+                  true,
+                  now(), now(), 'migration', 'migration', 0
+              FROM resource.project_resources pr
+              JOIN resource.resources res ON res.id = pr.resource_id
+              JOIN resource.equipment_rate_masters em ON em.id = res.rate_master_id
+              JOIN resource.resource_roles r ON LOWER(r.name) = LOWER(em.equipment_name)
+              JOIN resource.resource_types rt
+                  ON rt.id = r.resource_type_id AND rt.code = 'EQUIPMENT'
+              JOIN resource.equipment_role_variants erv
+                  ON erv.role_id = r.id
+                  AND erv.make = COALESCE(em.make, 'Unknown')
+                  AND erv.model = COALESCE(em.model, 'Default')
+              WHERE pr.rate_override IS NOT NULL
+              ON CONFLICT (project_id, equipment_role_variant_id) DO NOTHING;
+
+  - changeSet:
+      id: 084-3-backfill-material-overrides
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO resource.project_material_role_variant_override
+                  (id, project_id, material_role_variant_id, override_rate, active,
+                   created_at, updated_at, created_by, updated_by, version)
+              SELECT
+                  gen_random_uuid(),
+                  pr.project_id,
+                  mrv.id,
+                  pr.rate_override,
+                  true,
+                  now(), now(), 'migration', 'migration', 0
+              FROM resource.project_resources pr
+              JOIN resource.resources res ON res.id = pr.resource_id
+              JOIN resource.material_rate_masters mrm ON mrm.id = res.rate_master_id
+              JOIN resource.material_category_master mc ON mc.id = mrm.category_id
+              JOIN resource.resource_roles r
+                  ON LOWER(r.name) = LOWER(mc.name)
+                  AND r.resource_type_id =
+                      (SELECT id FROM resource.resource_types WHERE code = 'MATERIAL' LIMIT 1)
+              JOIN resource.material_role_variants mrv
+                  ON mrv.role_id = r.id AND mrv.spec_grade = mrm.spec_grade
+              WHERE pr.rate_override IS NOT NULL
+              ON CONFLICT (project_id, material_role_variant_id) DO NOTHING;

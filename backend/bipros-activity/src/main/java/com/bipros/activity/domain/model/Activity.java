@@ -181,6 +181,16 @@ public class Activity extends BaseEntity {
   private String responsibleResourceName;
 
   /**
+   * Soft FK to {@code public.users.id}. The supervisor — an application user (not a Resource)
+   * who oversees execution of this activity. Replaces {@link #responsibleResourceId} in the
+   * role-only model. Set/cleared via {@code PUT /v1/activities/{id}/supervisor}; backfilled
+   * by Liquibase 087 for activities whose old responsibleResourceId pointed at a user-linked
+   * Resource.
+   */
+  @Column(name = "supervisor_user_id")
+  private UUID supervisorUserId;
+
+  /**
    * Soft FK to {@code resource.work_activities.id} — the master / library activity this
    * project-specific activity is an instance of. Used by the productivity-norm lookup chain to
    * answer "for this project activity + this resource, what's the daily output norm?".

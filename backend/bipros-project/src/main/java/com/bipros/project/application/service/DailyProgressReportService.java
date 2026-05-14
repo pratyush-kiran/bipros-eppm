@@ -148,11 +148,16 @@ public class DailyProgressReportService {
     SnapshottedChildren snap = snapshotChildren(saved, request.manpower(), request.equipment(), request.materials(), warnings);
     addUnitMismatchWarning(saved, warnings);
 
+    // Hard-block on planned-unit overrun: cumulative actual + this DPR's contribution
+    // must not exceed planned for any (role, variant) on this activity.
+    assertNoOverrun(saved.getActivityId(), snap.manpower, snap.equipment, snap.material, /*excludeDprId*/ null);
+
     List<DprManpower> savedManpower = snap.manpower.isEmpty() ? List.of() : manpowerRepository.saveAll(snap.manpower);
     List<DprEquipment> savedEquipment = snap.equipment.isEmpty() ? List.of() : equipmentRepository.saveAll(snap.equipment);
     List<DprMaterial> savedMaterial = snap.material.isEmpty() ? List.of() : materialRepository.saveAll(snap.material);
 
     reconcileLedger(saved, savedManpower, savedEquipment, savedMaterial);
+    rollupRoleAssignmentActuals(saved.getActivityId());
 
     // Issues on create are all inserts — stamp parent context. Empty / null list means none.
     List<DprIssue> savedIssues = upsertIssues(saved, request.issues(), List.of());
@@ -225,11 +230,17 @@ public class DailyProgressReportService {
     SnapshottedChildren snap = snapshotChildren(saved, request.manpower(), request.equipment(), request.materials(), warnings);
     addUnitMismatchWarning(saved, warnings);
 
+    // Hard-block overrun (mirrors the create path). For an update, the old children have just been
+    // deleted but the assignment.actualUnits has NOT yet been rolled back; we therefore exclude
+    // this DPR's old contributions from the existing-actual baseline.
+    assertNoOverrun(saved.getActivityId(), snap.manpower, snap.equipment, snap.material, saved.getId());
+
     List<DprManpower> savedManpower = snap.manpower.isEmpty() ? List.of() : manpowerRepository.saveAll(snap.manpower);
     List<DprEquipment> savedEquipment = snap.equipment.isEmpty() ? List.of() : equipmentRepository.saveAll(snap.equipment);
     List<DprMaterial> savedMaterial = snap.material.isEmpty() ? List.of() : materialRepository.saveAll(snap.material);
 
     reconcileLedger(saved, savedManpower, savedEquipment, savedMaterial);
+    rollupRoleAssignmentActuals(saved.getActivityId());
 
     // Issues use merge-by-id (diverges from full-replace) so lifecycle (status, resolvedAt,
     // opened_at, version) survives a DPR re-save. See DprIssue javadoc.
@@ -889,4 +900,196 @@ public class DailyProgressReportService {
 
     ledgerService.reconcileDprLedger(saved.getProjectId(), saved.getId(), saved.getReportDate(), aggregates);
   }
+
+  // ===========================================================================================
+  // Overrun guard — blocks save if cumulative actual + this DPR's contribution would push past
+  // planned units for any (role, variant) on this activity. Cross-module by native SQL since
+  // bipros-project does not depend on bipros-resource.
+  // ===========================================================================================
+
+  /** Aggregated contribution from this DPR's children, keyed by (roleId, variantId). */
+  private record OverrunKey(UUID roleId, UUID variantId) {}
+
+  private static class OverrunAgg {
+    BigDecimal added = BigDecimal.ZERO;
+    String typeCode;
+  }
+
+  private void assertNoOverrun(
+      UUID activityId,
+      List<DprManpower> manpower,
+      List<DprEquipment> equipment,
+      List<DprMaterial> material,
+      UUID excludeDprId) {
+    if (activityId == null) return;
+
+    Map<OverrunKey, OverrunAgg> agg = new HashMap<>();
+    for (DprManpower r : manpower) {
+      if (r.getRoleId() == null || r.getManpowerRoleRateId() == null || r.getNos() == null) continue;
+      OverrunKey k = new OverrunKey(r.getRoleId(), r.getManpowerRoleRateId());
+      OverrunAgg a = agg.computeIfAbsent(k, x -> new OverrunAgg());
+      a.added = a.added.add(BigDecimal.valueOf(r.getNos()));
+      a.typeCode = "MANPOWER";
+    }
+    for (DprEquipment r : equipment) {
+      if (r.getRoleId() == null || r.getEquipmentRoleVariantId() == null || r.getNos() == null) continue;
+      OverrunKey k = new OverrunKey(r.getRoleId(), r.getEquipmentRoleVariantId());
+      OverrunAgg a = agg.computeIfAbsent(k, x -> new OverrunAgg());
+      // Role-only model: equipment plan is "how many units" (nos). Working hours is
+      // informational for the DPR row but does NOT factor into the unit overrun check.
+      a.added = a.added.add(BigDecimal.valueOf(r.getNos()));
+      a.typeCode = "EQUIPMENT";
+    }
+    for (DprMaterial r : material) {
+      if (r.getRoleId() == null || r.getMaterialRoleVariantId() == null || r.getQuantity() == null) continue;
+      OverrunKey k = new OverrunKey(r.getRoleId(), r.getMaterialRoleVariantId());
+      OverrunAgg a = agg.computeIfAbsent(k, x -> new OverrunAgg());
+      a.added = a.added.add(r.getQuantity());
+      a.typeCode = "MATERIAL";
+    }
+    if (agg.isEmpty()) return;
+
+    @SuppressWarnings("unchecked")
+    List<Object[]> assignments = em.createNativeQuery(
+        "SELECT ra.role_id, ra.manpower_role_rate_id, ra.equipment_role_variant_id, "
+            + "       ra.material_role_variant_id, ra.planned_units, ra.actual_units, "
+            + "       r.name AS role_name "
+            + "FROM resource.resource_assignments ra "
+            + "LEFT JOIN resource.resource_roles r ON r.id = ra.role_id "
+            + "WHERE ra.activity_id = :activityId")
+        .setParameter("activityId", activityId)
+        .getResultList();
+
+    List<String> overrunMessages = new ArrayList<>();
+    for (Map.Entry<OverrunKey, OverrunAgg> e : agg.entrySet()) {
+      OverrunKey key = e.getKey();
+      OverrunAgg val = e.getValue();
+      Object[] match = findAssignmentRow(assignments, key.roleId, key.variantId);
+      if (match == null) {
+        overrunMessages.add(String.format(
+            "Role/variant not planned for this activity (added %s units)",
+            val.added.stripTrailingZeros().toPlainString()));
+        continue;
+      }
+      BigDecimal planned = match[4] == null ? BigDecimal.ZERO : new BigDecimal(match[4].toString());
+      BigDecimal currentActual = match[5] == null ? BigDecimal.ZERO : new BigDecimal(match[5].toString());
+      String roleName = match[6] == null ? "(role)" : match[6].toString();
+      BigDecimal candidate = currentActual.add(val.added);
+      if (candidate.compareTo(planned) > 0) {
+        BigDecimal excess = candidate.subtract(planned);
+        overrunMessages.add(String.format(
+            "%s (%s): planned %s, current actual %s, attempting +%s, excess %s",
+            roleName,
+            val.typeCode == null ? "?" : val.typeCode,
+            planned.stripTrailingZeros().toPlainString(),
+            currentActual.stripTrailingZeros().toPlainString(),
+            val.added.stripTrailingZeros().toPlainString(),
+            excess.stripTrailingZeros().toPlainString()));
+      }
+    }
+    if (!overrunMessages.isEmpty()) {
+      String detail = String.join("; ", overrunMessages);
+      throw new BusinessRuleException(
+          "DPR_OVERRUN",
+          "DPR would exceed planned units for: " + detail);
+    }
+  }
+
+  /**
+   * Roll DPR child rows up onto the matching {@code resource_assignments.actual_units} +
+   * {@code actual_cost} keyed by {@code (activity_id, role_id, variant_id)}. This replaces the
+   * legacy ledger-driven {@code ResourceAssignmentCostRollupListener} path for role-only
+   * assignments (where {@code resource_id} is null and the legacy listener can't find a match).
+   *
+   * <p>Idempotent: every call recomputes the totals from scratch — safe to invoke after every
+   * DPR create / update / delete.
+   */
+  private void rollupRoleAssignmentActuals(UUID activityId) {
+    if (activityId == null || em == null) return;
+
+    // Manpower: sum of nos per (role_id, manpower_role_rate_id)
+    em.createNativeQuery(
+            "UPDATE resource.resource_assignments ra SET "
+                + "  actual_units = COALESCE(s.total_nos, 0), "
+                + "  actual_cost  = COALESCE(s.total_nos, 0) * COALESCE(ra.effective_rate, 0), "
+                + "  remaining_units = GREATEST(COALESCE(ra.planned_units, 0) - COALESCE(s.total_nos, 0), 0), "
+                + "  remaining_cost  = GREATEST(COALESCE(ra.planned_cost, 0) - "
+                + "                              COALESCE(s.total_nos, 0) * COALESCE(ra.effective_rate, 0), 0), "
+                + "  updated_at = now() "
+                + "FROM ( "
+                + "  SELECT role_id, manpower_role_rate_id, SUM(nos)::numeric AS total_nos "
+                + "  FROM project.dpr_manpower m "
+                + "  JOIN project.daily_progress_reports d ON d.id = m.dpr_id "
+                + "  WHERE d.activity_id = :activityId "
+                + "    AND m.role_id IS NOT NULL "
+                + "    AND m.manpower_role_rate_id IS NOT NULL "
+                + "  GROUP BY role_id, manpower_role_rate_id "
+                + ") s "
+                + "WHERE ra.activity_id = :activityId "
+                + "  AND ra.role_id = s.role_id "
+                + "  AND ra.manpower_role_rate_id = s.manpower_role_rate_id")
+        .setParameter("activityId", activityId)
+        .executeUpdate();
+
+    // Equipment: sum of nos per (role_id, equipment_role_variant_id) — hours intentionally NOT used
+    em.createNativeQuery(
+            "UPDATE resource.resource_assignments ra SET "
+                + "  actual_units = COALESCE(s.total_nos, 0), "
+                + "  actual_cost  = COALESCE(s.total_nos, 0) * COALESCE(ra.effective_rate, 0), "
+                + "  remaining_units = GREATEST(COALESCE(ra.planned_units, 0) - COALESCE(s.total_nos, 0), 0), "
+                + "  remaining_cost  = GREATEST(COALESCE(ra.planned_cost, 0) - "
+                + "                              COALESCE(s.total_nos, 0) * COALESCE(ra.effective_rate, 0), 0), "
+                + "  updated_at = now() "
+                + "FROM ( "
+                + "  SELECT role_id, equipment_role_variant_id, SUM(nos)::numeric AS total_nos "
+                + "  FROM project.dpr_equipment e "
+                + "  JOIN project.daily_progress_reports d ON d.id = e.dpr_id "
+                + "  WHERE d.activity_id = :activityId "
+                + "    AND e.role_id IS NOT NULL "
+                + "    AND e.equipment_role_variant_id IS NOT NULL "
+                + "  GROUP BY role_id, equipment_role_variant_id "
+                + ") s "
+                + "WHERE ra.activity_id = :activityId "
+                + "  AND ra.role_id = s.role_id "
+                + "  AND ra.equipment_role_variant_id = s.equipment_role_variant_id")
+        .setParameter("activityId", activityId)
+        .executeUpdate();
+
+    // Material: sum of quantity per (role_id, material_role_variant_id)
+    em.createNativeQuery(
+            "UPDATE resource.resource_assignments ra SET "
+                + "  actual_units = COALESCE(s.total_qty, 0), "
+                + "  actual_cost  = COALESCE(s.total_qty, 0) * COALESCE(ra.effective_rate, 0), "
+                + "  remaining_units = GREATEST(COALESCE(ra.planned_units, 0) - COALESCE(s.total_qty, 0), 0), "
+                + "  remaining_cost  = GREATEST(COALESCE(ra.planned_cost, 0) - "
+                + "                              COALESCE(s.total_qty, 0) * COALESCE(ra.effective_rate, 0), 0), "
+                + "  updated_at = now() "
+                + "FROM ( "
+                + "  SELECT role_id, material_role_variant_id, SUM(quantity)::numeric AS total_qty "
+                + "  FROM project.dpr_material mat "
+                + "  JOIN project.daily_progress_reports d ON d.id = mat.dpr_id "
+                + "  WHERE d.activity_id = :activityId "
+                + "    AND mat.role_id IS NOT NULL "
+                + "    AND mat.material_role_variant_id IS NOT NULL "
+                + "  GROUP BY role_id, material_role_variant_id "
+                + ") s "
+                + "WHERE ra.activity_id = :activityId "
+                + "  AND ra.role_id = s.role_id "
+                + "  AND ra.material_role_variant_id = s.material_role_variant_id")
+        .setParameter("activityId", activityId)
+        .executeUpdate();
+  }
+
+  private static Object[] findAssignmentRow(List<Object[]> rows, UUID roleId, UUID variantId) {
+    for (Object[] row : rows) {
+      UUID rid = (UUID) row[0];
+      if (rid == null || !rid.equals(roleId)) continue;
+      UUID mrr = (UUID) row[1];
+      UUID erv = (UUID) row[2];
+      UUID mrv = (UUID) row[3];
+      if (variantId.equals(mrr) || variantId.equals(erv) || variantId.equals(mrv)) return row;
+    }
+    return null;
+  }
+
 }

@@ -103,4 +103,37 @@ public class ResourceAssignment extends BaseEntity {
 
   @Column(name = "actual_finish_date")
   private LocalDate actualFinishDate;
+
+  /**
+   * Variant FK — exactly one of these three is populated based on role's resource type.
+   * Replaces the legacy {@code resourceId} pointer in the role-only model.
+   */
+  @Column(name = "manpower_role_rate_id")
+  private UUID manpowerRoleRateId;
+
+  @Column(name = "equipment_role_variant_id")
+  private UUID equipmentRoleVariantId;
+
+  @Column(name = "material_role_variant_id")
+  private UUID materialRoleVariantId;
+
+  /** Headcount for manpower/equipment demand; null for material. */
+  @Column(name = "headcount")
+  private Integer headcount;
+
+  /** Duration in the variant's rate-unit (Day/Hour). Null for material. */
+  @Column(name = "duration", precision = 19, scale = 4)
+  private BigDecimal duration;
+
+  /** Quantity for material demand; null for manpower/equipment. */
+  @Column(name = "quantity", precision = 19, scale = 4)
+  private BigDecimal quantity;
+
+  /** Effective rate snapshot — captured at assignment time for audit / cost stability. */
+  @Column(name = "effective_rate", precision = 19, scale = 4)
+  private BigDecimal effectiveRate;
+
+  /** Unit copied from the variant at assignment time (e.g. Day, Hour, MT, Bag). */
+  @Column(name = "unit", length = 30)
+  private String unit;
 }

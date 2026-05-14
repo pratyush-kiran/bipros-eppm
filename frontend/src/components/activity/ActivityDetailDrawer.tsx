@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, ExternalLink, Plus, RefreshCw } from "lucide-react";
+import { X, ExternalLink, RefreshCw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { activityApi } from "@/lib/api/activityApi";
-import { resourceApi, type ResourceAssignmentResponse } from "@/lib/api/resourceApi";
+import { resourceApi } from "@/lib/api/resourceApi";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { ActivityAssignmentsByRole } from "@/components/activity/ActivityAssignmentsByRole";
-import { ResourceAssignmentForm } from "@/components/resource/ResourceAssignmentForm";
+import { RoleDemandSections } from "@/components/activity/RoleDemandSections";
+import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -47,17 +47,7 @@ export function ActivityDetailDrawer({ open, onClose, projectId, activityId }: P
     enabled: open && !!activityId,
   });
 
-  const { data: assignmentsData } = useQuery({
-    queryKey: ["activity-assignments", projectId, activityId],
-    queryFn: () => resourceApi.getAssignmentsByActivity(projectId, activityId!),
-    enabled: open && !!activityId,
-  });
-
   const activity = activityData?.data ?? null;
-  const assignments = useMemo<ResourceAssignmentResponse[]>(() => {
-    const raw = assignmentsData?.data;
-    return Array.isArray(raw) ? raw : [];
-  }, [assignmentsData]);
 
   if (!open || !activityId) return null;
 
@@ -74,7 +64,6 @@ export function ActivityDetailDrawer({ open, onClose, projectId, activityId }: P
         key={activityId}
         activity={activity}
         isLoadingActivity={isLoadingActivity}
-        assignments={assignments}
         projectId={projectId}
         activityId={activityId}
         onClose={onClose}
@@ -86,19 +75,16 @@ export function ActivityDetailDrawer({ open, onClose, projectId, activityId }: P
 function DrawerInner({
   activity,
   isLoadingActivity,
-  assignments,
   projectId,
   activityId,
   onClose,
 }: {
   activity: Awaited<ReturnType<typeof activityApi.getActivity>>["data"] | null;
   isLoadingActivity: boolean;
-  assignments: ResourceAssignmentResponse[];
   projectId: string;
   activityId: string;
   onClose: () => void;
 }) {
-  const [showForm, setShowForm] = useState(false);
   const [supervisorOpen, setSupervisorOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -211,58 +197,33 @@ function DrawerInner({
             <section>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Resource Assignments
+                  Resource Demand
                 </h3>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => recomputeMutation.mutate()}
-                    disabled={recomputeMutation.isPending}
-                    title="Recompute planned/actual/remaining costs from current resource rates and project pool overrides. Use this when a rate has changed and the existing assignment costs are stale."
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-hover px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-active disabled:opacity-60"
-                  >
-                    <RefreshCw size={14} className={recomputeMutation.isPending ? "animate-spin" : ""} />
-                    {recomputeMutation.isPending ? "Recomputing…" : "Recompute"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm((v) => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
-                  >
-                    <Plus size={14} />
-                    Assign resource
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => recomputeMutation.mutate()}
+                  disabled={recomputeMutation.isPending}
+                  title="Recompute planned costs from current role rates and project overrides."
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-hover px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-active disabled:opacity-60"
+                >
+                  <RefreshCw size={14} className={recomputeMutation.isPending ? "animate-spin" : ""} />
+                  {recomputeMutation.isPending ? "Recomputing…" : "Recompute"}
+                </button>
               </div>
 
-              {showForm && (
-                <div className="mb-3">
-                  <ResourceAssignmentForm
-                    projectId={projectId}
-                    activityId={activityId}
-                    onSuccess={() => setShowForm(false)}
-                    onCancel={() => setShowForm(false)}
-                  />
-                </div>
-              )}
+              <RoleDemandSections projectId={projectId} activityId={activityId} />
 
-              {assignments.length === 0 ? (
-                <p className="text-sm text-text-muted">
-                  No resources assigned yet. Click <span className="font-medium">Assign resource</span> above to add one.
-                </p>
-              ) : (
-                <ActivityAssignmentsByRole
-                  assignments={assignments}
-                  // The drawer is read-only-ish for staff/swap — those flows live on the full
-                  // detail page where StaffSwapDialog is wired up. Send the user there.
-                  onStaff={() => {
-                    window.location.href = `/projects/${projectId}/activities/${activityId}`;
-                  }}
-                  onSwap={() => {
-                    window.location.href = `/projects/${projectId}/activities/${activityId}`;
-                  }}
+              {/* Read-only plan summary sits at the bottom of the demand section,
+                  after Material Requirements, so the user adds first and reviews
+                  the rollup last (planned/actual/remaining units + cost). */}
+              <div className="mt-4">
+                <RoleDemandOverview
+                  projectId={projectId}
+                  activityId={activityId}
+                  compact
+                  title="Resource Plan"
                 />
-              )}
+              </div>
             </section>
           </div>
         )}

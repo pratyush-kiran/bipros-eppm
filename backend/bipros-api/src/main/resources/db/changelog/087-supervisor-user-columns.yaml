@@ -1,0 +1,78 @@
+databaseChangeLog:
+  - changeSet:
+      id: 087-1-activity-supervisor-user
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: activities
+            schemaName: activity
+            columns:
+              - column:
+                  name: supervisor_user_id
+                  type: uuid
+
+  - changeSet:
+      id: 087-2-dpr-supervisor-user
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: daily_progress_reports
+            schemaName: project
+            columns:
+              - column:
+                  name: supervisor_user_id
+                  type: uuid
+
+  - changeSet:
+      id: 087-3-activity-supervisor-backfill
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Backfill activities.supervisor_user_id from the existing
+              -- responsible_resource_id chain: Resource.user_id is the soft FK we follow.
+              UPDATE activity.activities a
+              SET supervisor_user_id = r.user_id
+              FROM resource.resources r
+              WHERE a.responsible_resource_id IS NOT NULL
+                AND a.responsible_resource_id = r.id
+                AND r.user_id IS NOT NULL;
+
+  - changeSet:
+      id: 087-4-dpr-supervisor-backfill
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              UPDATE project.daily_progress_reports d
+              SET supervisor_user_id = r.user_id
+              FROM resource.resources r
+              WHERE d.supervisor_resource_id IS NOT NULL
+                AND d.supervisor_resource_id = r.id
+                AND r.user_id IS NOT NULL;
+
+  - changeSet:
+      id: 087-5-index-activity-supervisor-user
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: activities
+            schemaName: activity
+            indexName: idx_activities_supervisor_user
+            columns:
+              - column:
+                  name: supervisor_user_id
+
+  - changeSet:
+      id: 087-6-index-dpr-supervisor-user
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: daily_progress_reports
+            schemaName: project
+            indexName: idx_dpr_supervisor_user
+            columns:
+              - column:
+                  name: supervisor_user_id

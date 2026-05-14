@@ -1,0 +1,79 @@
+databaseChangeLog:
+  - changeSet:
+      id: 083-1-synthesize-material-roles
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Create one ResourceRole per material category (Cement, Aggregate, Steel, etc.)
+              -- that doesn't already have a matching MATERIAL-type role.
+              INSERT INTO resource.resource_roles
+                  (id, code, name, description, resource_type_id, productivity_unit,
+                   sort_order, active, created_at, updated_at, version)
+              SELECT
+                  gen_random_uuid(),
+                  'BNK-ROLE-MAT-' || UPPER(REGEXP_REPLACE(mc.name, '[^A-Za-z0-9]+', '_', 'g')),
+                  mc.name,
+                  'Auto-generated from material category',
+                  (SELECT id FROM resource.resource_types WHERE code = 'MATERIAL' LIMIT 1),
+                  NULL,
+                  999,
+                  true,
+                  now(), now(), 0
+              FROM resource.material_category_master mc
+              WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM resource.resource_roles r
+                  JOIN resource.resource_types rt ON rt.id = r.resource_type_id
+                  WHERE LOWER(r.name) = LOWER(mc.name)
+                    AND rt.code = 'MATERIAL'
+              );
+
+  - changeSet:
+      id: 083-2-backfill-material-role-variants
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Backfill from material_rate_masters → material_role_variants.
+              -- category_id → role (by category name match → MATERIAL role name match)
+              -- For uncategorised rows (category_id matches "Uncategorized" category), we
+              -- still need a role: fall back to a synthesized "Uncategorized Materials" role.
+              INSERT INTO resource.resource_roles
+                  (id, code, name, description, resource_type_id, sort_order, active,
+                   created_at, updated_at, version)
+              SELECT gen_random_uuid(),
+                     'BNK-ROLE-MAT-UNCAT',
+                     'Uncategorised Materials',
+                     'Fallback role for material rate-master rows whose category has no role',
+                     (SELECT id FROM resource.resource_types WHERE code = 'MATERIAL' LIMIT 1),
+                     998, true, now(), now(), 0
+              WHERE NOT EXISTS (
+                  SELECT 1 FROM resource.resource_roles WHERE code = 'BNK-ROLE-MAT-UNCAT'
+              );
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO resource.material_role_variants
+                  (id, role_id, spec_grade, unit, rate, active,
+                   created_at, updated_at, created_by, updated_by, version)
+              SELECT
+                  gen_random_uuid(),
+                  COALESCE(r.id, fallback.id),
+                  mrm.spec_grade,
+                  COALESCE(mrm.unit, 'MT'),
+                  mrm.rate,
+                  COALESCE(mrm.active, true),
+                  now(), now(), 'migration', 'migration', 0
+              FROM resource.material_rate_masters mrm
+              LEFT JOIN resource.material_category_master mc ON mc.id = mrm.category_id
+              LEFT JOIN resource.resource_roles r
+                  ON LOWER(r.name) = LOWER(mc.name)
+                  AND r.resource_type_id =
+                      (SELECT id FROM resource.resource_types WHERE code = 'MATERIAL' LIMIT 1)
+              CROSS JOIN LATERAL (
+                  SELECT id FROM resource.resource_roles WHERE code = 'BNK-ROLE-MAT-UNCAT' LIMIT 1
+              ) fallback
+              ON CONFLICT (role_id, spec_grade) DO NOTHING;

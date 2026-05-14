@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Award, Banknote, BarChart3, Briefcase, Building2, Calculator, Calendar,
-  ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, Contact, FileText, FolderTree, Gauge,
+  ChevronDown, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardCheck, Contact, FileText, FolderTree, Gauge,
   Grid, HardHat, Home, LayoutGrid, Layers, Library, ListChecks, LogOut,
   Network, Plug, Settings, ShieldCheck, SlidersHorizontal, Sparkles, Tag,
   UserCog, Users, UsersRound, Workflow,
@@ -56,6 +56,7 @@ const groups: NavGroup[] = [
       { name: "Projects", href: "/projects", icon: FolderTree, module: "M1_WBS_GIS" },
       { name: "EPS", href: "/eps", icon: Layers, module: "M1_WBS_GIS" },
       { name: "OBS", href: "/obs", icon: Network, module: "M1_WBS_GIS" },
+      { name: "QC", href: "/qc", icon: ClipboardCheck, module: "M1_WBS_GIS" },
       { name: "Dashboards", href: "/dashboards", icon: LayoutGrid, module: "M9_REPORTS" },
     ],
   },
@@ -88,7 +89,6 @@ const groups: NavGroup[] = [
       { name: "Resource Types", href: "/admin/resource-types", icon: ListChecks, adminOnly: true },
       { name: "Resource Roles", href: "/admin/resource-roles", icon: Contact, adminOnly: true },
       { name: "Resources", href: "/resources", icon: Users, adminOnly: true },
-      /* { name: "Manpower Dashboard", href: "/labour-master", icon: HardHat, adminOnly: true }, */
     ],
   },
   // Nationalities admin page exists at /admin/nationalities (still routable, still seeded

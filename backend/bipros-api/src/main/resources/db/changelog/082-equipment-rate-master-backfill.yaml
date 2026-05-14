@@ -1,0 +1,57 @@
+databaseChangeLog:
+  - changeSet:
+      id: 082-1-synthesize-equipment-roles
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Create one ResourceRole per distinct equipment_name that doesn't already
+              -- have a matching EQUIPMENT-type role. We use case-insensitive name match.
+              INSERT INTO resource.resource_roles
+                  (id, code, name, description, resource_type_id, productivity_unit,
+                   sort_order, active, created_at, updated_at, version)
+              SELECT
+                  gen_random_uuid(),
+                  'BNK-ROLE-EQ-' || UPPER(REGEXP_REPLACE(em.equipment_name, '[^A-Za-z0-9]+', '_', 'g')),
+                  em.equipment_name,
+                  'Auto-generated from equipment rate master backfill',
+                  (SELECT id FROM resource.resource_types WHERE code = 'EQUIPMENT' LIMIT 1),
+                  NULL,
+                  999,
+                  true,
+                  now(), now(), 0
+              FROM (SELECT DISTINCT equipment_name FROM resource.equipment_rate_masters) em
+              WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM resource.resource_roles r
+                  JOIN resource.resource_types rt ON rt.id = r.resource_type_id
+                  WHERE LOWER(r.name) = LOWER(em.equipment_name)
+                    AND rt.code = 'EQUIPMENT'
+              );
+
+  - changeSet:
+      id: 082-2-backfill-equipment-role-variants
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO resource.equipment_role_variants
+                  (id, role_id, make, model, unit, rate, active,
+                   created_at, updated_at, created_by, updated_by, version)
+              SELECT
+                  gen_random_uuid(),
+                  r.id,
+                  COALESCE(em.make, 'Unknown'),
+                  COALESCE(em.model, 'Default'),
+                  COALESCE(em.unit, 'Day'),
+                  em.rate,
+                  COALESCE(em.active, true),
+                  now(), now(), 'migration', 'migration', 0
+              FROM resource.equipment_rate_masters em
+              JOIN resource.resource_roles r
+                  ON LOWER(r.name) = LOWER(em.equipment_name)
+              JOIN resource.resource_types rt
+                  ON rt.id = r.resource_type_id AND rt.code = 'EQUIPMENT'
+              ON CONFLICT (role_id, make, model) DO NOTHING;

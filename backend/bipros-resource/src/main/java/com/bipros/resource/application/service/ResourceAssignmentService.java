@@ -633,18 +633,27 @@ public class ResourceAssignmentService {
     List<ResourceAssignment> assignments = assignmentRepository.findByProjectId(projectId);
     int updated = 0;
     for (ResourceAssignment a : assignments) {
-      // Unstaffed role-only slots: planned cost is null (no rate to apply until staffed).
-      BigDecimal newPlanned = a.getResourceId() != null
-          ? computePlannedCost(projectId, a.getResourceId(), a.getPlannedUnits())
+      // Two paths:
+      //   (1) Legacy resource-based assignment (resource_id != null): rate from
+      //       ProjectResource.rateOverride → Resource.costPerUnit.
+      //   (2) Role-based assignment (resource_id null, role_id + variant FK + effective_rate set):
+      //       use the snapshotted effective_rate. Without this fallback, role-only rows would have
+      //       their planned_cost / actual_cost wiped to null on every Recompute click.
+      BigDecimal rate;
+      if (a.getResourceId() != null) {
+        rate = resolveActualRate(projectId, a.getResourceId());
+      } else {
+        rate = a.getEffectiveRate();
+      }
+
+      BigDecimal newPlanned = (rate != null && a.getPlannedUnits() != null)
+          ? rate.multiply(BigDecimal.valueOf(a.getPlannedUnits()))
+          : a.getPlannedCost();
+      BigDecimal newActual = (rate != null && a.getActualUnits() != null)
+          ? rate.multiply(BigDecimal.valueOf(a.getActualUnits()))
           : null;
-      BigDecimal actualRate = a.getResourceId() != null
-          ? resolveActualRate(projectId, a.getResourceId())
-          : null;
-      BigDecimal newActual = (actualRate != null && a.getActualUnits() != null)
-          ? actualRate.multiply(BigDecimal.valueOf(a.getActualUnits()))
-          : null;
-      BigDecimal newRemaining = (actualRate != null && a.getRemainingUnits() != null)
-          ? actualRate.multiply(BigDecimal.valueOf(a.getRemainingUnits()))
+      BigDecimal newRemaining = (rate != null && a.getRemainingUnits() != null)
+          ? rate.multiply(BigDecimal.valueOf(a.getRemainingUnits()))
           : null;
       BigDecimal newEac = (newActual != null && newRemaining != null)
           ? newActual.add(newRemaining)

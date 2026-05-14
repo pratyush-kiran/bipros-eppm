@@ -3,46 +3,18 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { resourceApi } from "@/lib/api/resourceApi";
+import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
-import { CellInput, CellSelect, RowGrid, type RowGridColumn } from "./RowGrid";
-import type {
-  AssignedResourceOption,
-  DprEquipmentRow,
-  EquipmentAvailability,
-  EquipmentOwnership,
-} from "@/lib/types/dpr";
-import { equipmentLineCost, fmtMoney, fmtRate } from "./dprFormulas";
-
-const OWNERSHIP: Array<{ value: EquipmentOwnership; label: string }> = [
-  { value: "OWNED", label: "Owned" },
-  { value: "HIRED", label: "Hired" },
-  { value: "SUBCONTRACTOR", label: "Subcontractor" },
-];
-
-const AVAILABILITY: Array<{ value: EquipmentAvailability; label: string }> = [
-  { value: "AVAILABLE", label: "Available" },
-  { value: "UTILIZED", label: "Utilized" },
-  { value: "IDLE", label: "Idle" },
-  { value: "BREAKDOWN", label: "Breakdown" },
-];
+import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
+import type { DprEquipmentRow } from "@/lib/types/dpr";
 
 const blank = (): DprEquipmentRow => ({
-  resourceAssignmentId: "",
-  resourceId: null,
   equipmentType: "",
   fleetNo: null,
-  ownership: null,
   nos: null,
   workingHours: null,
-  idleHours: null,
-  breakdownHours: null,
-  fuelLitres: null,
-  unitRate: null,
-  lineCost: null,
-  operatorName: null,
-  availabilityStatus: null,
-  remarks: null,
+  equipmentRoleVariantId: null,
+  roleId: null,
 });
 
 interface Props {
@@ -53,19 +25,20 @@ interface Props {
   onChange: (rows: DprEquipmentRow[]) => void;
 }
 
-export function EquipmentGrid({ projectId, activityId, reportDate, rows, onChange }: Props) {
+/**
+ * Role-only Equipment DPR grid. Three columns — Equipment (dropdown of activity's
+ * planned equipment), Nos, Working Hours. Rate auto-resolves server-side.
+ */
+export function EquipmentGrid({ projectId, activityId, rows, onChange }: Props) {
   const { data, isLoading } = useQuery({
-    queryKey: ["assigned-resources", projectId, activityId, "EQUIPMENT", reportDate],
-    queryFn: () =>
-      resourceApi.getAssignedResourcesByKind(projectId, activityId!, "EQUIPMENT", reportDate),
+    queryKey: ["role-assignments", projectId, activityId],
+    queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId!),
     enabled: !!projectId && !!activityId,
   });
-  const options = useMemo(() => data?.data ?? [], [data]);
-  const optionMap = useMemo(() => {
-    const m = new Map<string, AssignedResourceOption>();
-    for (const o of options) m.set(o.assignmentId, o);
-    return m;
-  }, [options]);
+  const options = useMemo(() => {
+    const list = Array.isArray(data?.data) ? data.data : [];
+    return list.filter((a) => a.roleType === "EQUIPMENT");
+  }, [data]);
 
   const update = (idx: number, patch: Partial<DprEquipmentRow>) => {
     const next = rows.slice();
@@ -76,35 +49,49 @@ export function EquipmentGrid({ projectId, activityId, reportDate, rows, onChang
   const add = () => onChange([...rows, blank()]);
 
   const handlePick = (idx: number, assignmentId: string) => {
-    const opt = optionMap.get(assignmentId);
-    if (!opt) {
-      update(idx, { resourceAssignmentId: assignmentId });
-      return;
-    }
+    const opt = options.find((o) => o.id === assignmentId);
+    if (!opt) return;
     update(idx, {
-      resourceAssignmentId: opt.assignmentId,
-      resourceId: opt.resourceId,
-      equipmentType: opt.resourceName,
-      unitRate: opt.unitRate ?? null,
-      unitRateBasis: opt.unitRateBasis ?? null,
+      equipmentRoleVariantId: opt.variantId ?? null,
+      roleId: opt.roleId ?? null,
+      equipmentType: opt.roleName ?? "",
     });
   };
 
+  const selectedAssignmentId = (r: DprEquipmentRow): string =>
+    options.find(
+      (o) =>
+        (r.equipmentRoleVariantId && r.equipmentRoleVariantId === o.variantId) ||
+        (r.roleId && r.roleId === o.roleId),
+    )?.id ?? "";
+
+  const remainingFor = (r: DprEquipmentRow): number | null => {
+    const opt = options.find(
+      (o) =>
+        (r.equipmentRoleVariantId && r.equipmentRoleVariantId === o.variantId) ||
+        (r.roleId && r.roleId === o.roleId),
+    );
+    return opt?.remainingUnits ?? null;
+  };
+
+  // SHOW_REMAINING flag — temporarily hidden per user request.
+  const SHOW_REMAINING = false;
+
   const columns: RowGridColumn<DprEquipmentRow>[] = [
     {
-      key: "equipmentType",
-      label: "Equipment",
-      minWidth: 220,
+      key: "equipment",
+      label: "Equipment · Make / Model",
+      minWidth: 280,
+      grow: 1,
       render: (r, i) => (
         <SearchableSelect
           options={options.map((o) => ({
-            value: o.assignmentId,
-            label: o.resourceCode ? `${o.resourceName} (${o.resourceCode})` : o.resourceName,
+            value: o.id,
+            label: o.variantLabel ? `${o.roleName} — ${o.variantLabel}` : (o.roleName ?? "—"),
           }))}
-          value={r.resourceAssignmentId}
+          value={selectedAssignmentId(r)}
           onChange={(v) => handlePick(i, v)}
           placeholder={isLoading ? "Loading…" : "Pick assigned equipment…"}
-          selectedLabel={r.equipmentType || undefined}
           loading={isLoading}
           disabled={!activityId || options.length === 0}
         />
@@ -117,27 +104,34 @@ export function EquipmentGrid({ projectId, activityId, reportDate, rows, onChang
       render: (r, _i, u) => (
         <CellInput
           value={r.fleetNo ?? ""}
-          onChange={(v) => u({ fleetNo: v || null })}
-          placeholder="Exc-38"
+          onChange={(v) => u({ fleetNo: v.trim() === "" ? null : v })}
         />
       ),
     },
-    /* {
-      key: "ownership",
-      label: "Type",
-      minWidth: 140,
-      render: (r, _i, u) => (
-        <CellSelect
-          value={r.ownership}
-          onChange={(v) => u({ ownership: (v || null) as EquipmentOwnership | null })}
-          options={OWNERSHIP}
-        />
-      ),
-    }, */
+    ...(SHOW_REMAINING
+      ? ([
+          {
+            key: "remaining",
+            label: "Remaining",
+            minWidth: 100,
+            align: "right" as const,
+            render: (r: DprEquipmentRow) => {
+              const rem = remainingFor(r);
+              return (
+                <span
+                  className={`tabular-nums text-xs ${rem === null ? "text-slate" : rem <= 0 ? "text-burgundy" : "text-slate"}`}
+                >
+                  {rem == null ? "—" : rem}
+                </span>
+              );
+            },
+          },
+        ] as RowGridColumn<DprEquipmentRow>[])
+      : []),
     {
       key: "nos",
       label: "Nos",
-      minWidth: 90,
+      minWidth: 80,
       align: "right",
       render: (r, _i, u) => (
         <CellInput
@@ -151,7 +145,7 @@ export function EquipmentGrid({ projectId, activityId, reportDate, rows, onChang
     {
       key: "workingHours",
       label: "Hrs",
-      minWidth: 95,
+      minWidth: 100,
       align: "right",
       render: (r, _i, u) => (
         <CellInput
@@ -163,119 +157,25 @@ export function EquipmentGrid({ projectId, activityId, reportDate, rows, onChang
         />
       ),
     },
-    /* {
-      key: "idleHours",
-      label: "Idle",
-      minWidth: 95,
-      align: "right",
-      render: (r, _i, u) => (
-        <CellInput
-          type="number"
-          step="0.25"
-          min="0"
-          value={r.idleHours}
-          onChange={(v) => u({ idleHours: v === "" ? null : Number(v) })}
-        />
-      ),
-    },
-    {
-      key: "breakdownHours",
-      label: "B/D",
-      minWidth: 95,
-      align: "right",
-      render: (r, _i, u) => (
-        <CellInput
-          type="number"
-          step="0.25"
-          min="0"
-          value={r.breakdownHours}
-          onChange={(v) => u({ breakdownHours: v === "" ? null : Number(v) })}
-        />
-      ),
-    },
-    {
-      key: "fuelLitres",
-      label: "Fuel (L)",
-      minWidth: 105,
-      align: "right",
-      render: (r, _i, u) => (
-        <CellInput
-          type="number"
-          step="0.1"
-          min="0"
-          value={r.fuelLitres}
-          onChange={(v) => u({ fuelLitres: v === "" ? null : Number(v) })}
-        />
-      ),
-    }, */
-    {
-      key: "rate",
-      label: "Rate",
-      minWidth: 100,
-      align: "right",
-      render: (r) => (
-        <span className="tabular-nums text-slate">
-          {fmtRate(r.unitRate)}
-          {r.unitRateBasis === "HOUR" && <span className="ml-1 text-xs text-text-muted">/Hr</span>}
-          {r.unitRateBasis === "DAY" && <span className="ml-1 text-xs text-text-muted">/Day</span>}
-          {r.unitRateBasis === "EACH" && <span className="ml-1 text-xs text-text-muted">/Each</span>}
-        </span>
-      ),
-    },
-    /* {
-      key: "cost",
-      label: "Cost",
-      minWidth: 110,
-      align: "right",
-      render: (r) => (
-        <span className="tabular-nums">
-          {fmtMoney(equipmentLineCost(r, r.unitRateBasis ?? "HOUR"))}
-        </span>
-      ),
-    }, */
-    /* {
-      key: "availabilityStatus",
-      label: "Status",
-      minWidth: 140,
-      render: (r, _i, u) => (
-        <CellSelect
-          value={r.availabilityStatus}
-          onChange={(v) =>
-            u({ availabilityStatus: (v || null) as EquipmentAvailability | null })
-          }
-          options={AVAILABILITY}
-        />
-      ),
-    }, */
-    /* {
-      key: "operatorName",
-      label: "Operator",
-      minWidth: 160,
-      grow: 1,
-      render: (r, _i, u) => (
-        <CellInput
-          value={r.operatorName ?? ""}
-          onChange={(v) => u({ operatorName: v || null })}
-          placeholder="Optional"
-        />
-      ),
-    }, */
   ];
 
   return (
     <>
       {!activityId && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          Pick an activity above to choose its assigned equipment.
+          Pick an activity above to choose its planned equipment.
         </div>
       )}
       {activityId && !isLoading && options.length === 0 && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          No equipment is assigned to this activity yet.{" "}
-          <Link href={`/projects/${projectId}/activities/${activityId}`} className="font-semibold text-gold-deep underline">
-            Assign resources
+          No equipment planned for this activity yet.{" "}
+          <Link
+            href={`/projects/${projectId}/activities/${activityId}`}
+            className="font-semibold text-gold-deep underline"
+          >
+            Open activity
           </Link>{" "}
-          first.
+          and add equipment demand first.
         </div>
       )}
       <RowGrid
@@ -288,8 +188,8 @@ export function EquipmentGrid({ projectId, activityId, reportDate, rows, onChang
         emptyHint={
           activityId
             ? options.length === 0
-              ? "No equipment assigned to this activity."
-              : "Click Add equipment to log a fleet number."
+              ? "No equipment planned for this activity."
+              : "Click Add equipment to record a deployed unit."
             : "Pick an activity first."
         }
         addLabel="Add equipment"

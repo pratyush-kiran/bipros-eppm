@@ -89,4 +89,11 @@ public class DprEquipment extends BaseEntity {
 
     @Column(name = "remarks", length = 500)
     private String remarks;
+
+    /** Role-only model: which {@code EquipmentRoleVariant} was used. Nullable for legacy rows. */
+    @Column(name = "equipment_role_variant_id")
+    private UUID equipmentRoleVariantId;
+
+    @Column(name = "role_id")
+    private UUID roleId;
 }

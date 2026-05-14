@@ -182,41 +182,30 @@ export function DprActivityCard({ row, onEdit, onDelete }: Props) {
           <DetailTable
             title="Manpower"
             empty="No manpower"
-            headers={["Trade", "Cat", "Nos", "Hours", "OT", "Contractor"]}
+            headers={["Role · Category / Grade", "Nos"]}
             rows={(row.manpower ?? []).map((m) => [
               m.trade,
-              m.category ?? "—",
               fmt(m.nos, 0),
-              fmt(m.workingHours),
-              fmt(m.otHours),
-              m.contractorName ?? "—",
             ])}
           />
           <DetailTable
             title="Equipment / PMV"
             empty="No equipment"
-            headers={["Type", "Fleet #", "Nos", "Hrs", "Idle", "B/D", "Fuel L", "Status"]}
+            headers={["Equipment · Make / Model", "Fleet #", "Nos", "Hours"]}
             rows={(row.equipment ?? []).map((e) => [
               e.equipmentType,
               e.fleetNo ?? "—",
               fmt(e.nos, 0),
               fmt(e.workingHours),
-              fmt(e.idleHours),
-              fmt(e.breakdownHours),
-              fmt(e.fuelLitres),
-              e.availabilityStatus ?? "—",
             ])}
           />
           <DetailTable
             title="Material"
             empty="No material"
-            headers={["Material", "Qty", "Unit", "Source", "Vendor"]}
+            headers={["Material · Spec / Grade", "Qty"]}
             rows={(row.materials ?? []).map((m) => [
               m.materialName,
               fmt(m.quantity, 3),
-              m.unit ?? "—",
-              m.source ?? "—",
-              m.vendorName ?? "—",
             ])}
           />
 

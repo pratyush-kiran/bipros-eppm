@@ -1,0 +1,55 @@
+databaseChangeLog:
+  - changeSet:
+      id: 088-1-norm-role-columns
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: productivity_norms
+            schemaName: resource
+            columns:
+              - column:
+                  name: role_id
+                  type: uuid
+              - column:
+                  name: category_id
+                  type: uuid
+              - column:
+                  name: grade_id
+                  type: uuid
+              - column:
+                  name: make
+                  type: varchar(100)
+              - column:
+                  name: model
+                  type: varchar(100)
+
+  - changeSet:
+      id: 088-2-index-norm-role
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: productivity_norms
+            schemaName: resource
+            indexName: idx_prod_norm_role
+            columns:
+              - column:
+                  name: role_id
+
+  - changeSet:
+      id: 088-3-norm-role-backfill
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Best-effort backfill of role_id on existing norms where the legacy resource_id
+              -- pointed at a resource that itself has a role. Type-level norms (resource_id IS
+              -- NULL) are left with role_id NULL so they fall through to the unscoped tier in
+              -- the new resolver.
+              UPDATE resource.productivity_norms n
+              SET role_id = r.role_id
+              FROM resource.resources r
+              WHERE n.resource_id IS NOT NULL
+                AND n.resource_id = r.id
+                AND r.role_id IS NOT NULL
+                AND n.role_id IS NULL;

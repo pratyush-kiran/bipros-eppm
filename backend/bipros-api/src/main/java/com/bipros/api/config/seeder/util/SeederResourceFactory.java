@@ -88,14 +88,14 @@ public class SeederResourceFactory {
 
     private static String normaliseTypeCode(String code) {
         if (code == null) {
-            return "LABOR";
+            return "MANPOWER";
         }
         String upper = code.toUpperCase(Locale.ROOT).trim();
         return switch (upper) {
-            case "LABOR", "LABOUR", "L", "MANPOWER" -> "LABOR";
+            case "LABOR", "LABOUR", "L", "MANPOWER" -> "MANPOWER";
             case "MATERIAL", "M" -> "MATERIAL";
             case "EQUIPMENT", "E", "NONLABOR", "MACHINE" -> "EQUIPMENT";
-            default -> "LABOR";
+            default -> "MANPOWER";
         };
     }
 

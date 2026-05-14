@@ -16,8 +16,8 @@ export type RateBasis = "HOUR" | "DAY" | "EACH";
 
 export interface DprManpowerRow {
   id?: string | null;
-  /** Required: ResourceAssignment that backs this row. Picked via the searchable dropdown. */
-  resourceAssignmentId: string;
+  /** Optional in the role-only flow; legacy callers may still send it. */
+  resourceAssignmentId?: string | null;
   resourceId?: string | null;
   trade: string;
   category?: ManpowerCategory | null;
@@ -31,11 +31,14 @@ export interface DprManpowerRow {
   lineCost?: number | null;
   contractorName?: string | null;
   remarks?: string | null;
+  /** Role-only model: the manpower-rate variant consumed. */
+  manpowerRoleRateId?: string | null;
+  roleId?: string | null;
 }
 
 export interface DprEquipmentRow {
   id?: string | null;
-  resourceAssignmentId: string;
+  resourceAssignmentId?: string | null;
   resourceId?: string | null;
   equipmentType: string;
   fleetNo?: string | null;
@@ -46,22 +49,19 @@ export interface DprEquipmentRow {
   breakdownHours?: number | null;
   fuelLitres?: number | null;
   unitRate?: number | null;
-  /**
-   * "HOUR" / "DAY" / "EACH" — derived from the resource's unit at pick time. Drives the cost
-   * preview and is sent on save so the persisted lineCost matches what the user saw. Without
-   * this the backend defaults equipment basis to HOUR, which is wrong for per-day equipment
-   * like a Bull Dozer (cost would be rate × hours instead of rate × NOS).
-   */
   unitRateBasis?: RateBasis | null;
   lineCost?: number | null;
   operatorName?: string | null;
   availabilityStatus?: EquipmentAvailability | null;
   remarks?: string | null;
+  /** Role-only model: which equipment variant. */
+  equipmentRoleVariantId?: string | null;
+  roleId?: string | null;
 }
 
 export interface DprMaterialRow {
   id?: string | null;
-  resourceAssignmentId: string;
+  resourceAssignmentId?: string | null;
   materialId?: string | null;
   resourceId?: string | null;
   materialName: string;
@@ -73,6 +73,9 @@ export interface DprMaterialRow {
   unitRate?: number | null;
   lineCost?: number | null;
   remarks?: string | null;
+  /** Role-only model: which material variant. */
+  materialRoleVariantId?: string | null;
+  roleId?: string | null;
 }
 
 export type IssueCategory =

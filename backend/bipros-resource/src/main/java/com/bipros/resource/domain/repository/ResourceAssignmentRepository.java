@@ -16,6 +16,12 @@ public interface ResourceAssignmentRepository extends JpaRepository<ResourceAssi
 
   List<ResourceAssignment> findByActivityId(UUID activityId);
 
+  long countByManpowerRoleRateId(UUID manpowerRoleRateId);
+
+  long countByEquipmentRoleVariantId(UUID equipmentRoleVariantId);
+
+  long countByMaterialRoleVariantId(UUID materialRoleVariantId);
+
   List<ResourceAssignment> findByActivityIdIn(List<UUID> activityIds);
 
   List<ResourceAssignment> findByResourceId(UUID resourceId);

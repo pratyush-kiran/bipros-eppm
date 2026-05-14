@@ -15,6 +15,7 @@ import type { WorkActivityResponse } from "@/lib/api/workActivityApi";
 import { calendarApi, type CalendarResponse } from "@/lib/api/calendarApi";
 import { projectApi } from "@/lib/api/projectApi";
 import { resourceApi } from "@/lib/api/resourceApi";
+import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
 import type { ResourceAssignmentResponse } from "@/lib/api/resourceApi";
 import { projectResourceApi } from "@/lib/api/projectResourceApi";
 import type { ProjectResourceResponse } from "@/lib/api/projectResourceApi";
@@ -574,6 +575,9 @@ function ViewMode({
         </div>
       </div>
 
+      {/* Resource plan overview sits directly under Dates per user feedback. */}
+      <RoleDemandOverview projectId={projectId} activityId={activity.id} title="Resource Plan" />
+
       {/* Constraints */}
       {(activity.primaryConstraintType || activity.secondaryConstraintType) && (
         <div className="rounded-lg border border-border bg-surface/50 p-4">
@@ -622,48 +626,8 @@ function ViewMode({
       <div className="rounded-lg border border-border bg-surface/50 p-4">
         <h3 className="text-sm font-semibold text-text-primary mb-3">Cost &amp; Earned Value</h3>
 
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-text-secondary uppercase tracking-wide">Resource Assignments</p>
-            <button
-              type="button"
-              onClick={() => setShowAssignForm((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
-            >
-              + Assign resource
-            </button>
-          </div>
-
-          {showAssignForm && (
-            <div className="mb-3">
-              <ResourceAssignmentForm
-                projectId={projectId}
-                activityId={activity.id}
-                onSuccess={() => setShowAssignForm(false)}
-                onCancel={() => setShowAssignForm(false)}
-              />
-            </div>
-          )}
-
-          {assignments.length > 0 ? (
-            <ActivityAssignmentsByRole
-              assignments={assignments}
-              onStaff={openStaffDialog}
-              onSwap={openSwapDialog}
-            />
-          ) : (
-            <p className="text-sm text-text-muted">No resource assignments yet. Click <span className="font-medium">Assign resource</span> above to add one.</p>
-          )}
-        </div>
-
-        <StaffSwapDialog
-          projectId={projectId}
-          activityId={activity.id}
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          assignment={dialogAssignment}
-          mode={dialogMode}
-        />
+        {/* Resource demand summary is shown at the top of the page via RoleDemandOverview;
+            this card now focuses on Expenses + EVM cost rollup tiles only. */}
 
         {activityExpenses.length > 0 && (
           <div className="mb-4">

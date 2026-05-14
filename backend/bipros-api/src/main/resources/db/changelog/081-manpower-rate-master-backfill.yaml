@@ -1,0 +1,28 @@
+databaseChangeLog:
+  - changeSet:
+      id: 081-backfill-manpower-role-rates
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Direct copy from legacy manpower_rate_masters into the new role-owned table.
+              -- (role_id, category_id, grade_id) maps 1:1; only the rate-book ownership has moved
+              -- (rates live on the role now instead of on individual Resource rows).
+              INSERT INTO resource.manpower_role_rates
+                  (id, role_id, category_id, grade_id, unit, rate, active,
+                   created_at, updated_at, created_by, updated_by, version)
+              SELECT
+                  gen_random_uuid(),
+                  m.role_id,
+                  m.category_id,
+                  m.grade_id,
+                  COALESCE(m.unit, 'Day'),
+                  m.rate,
+                  COALESCE(m.active, true),
+                  now(), now(), 'migration', 'migration', 0
+              FROM resource.manpower_rate_masters m
+              WHERE m.role_id IS NOT NULL
+                AND m.category_id IS NOT NULL
+                AND m.grade_id IS NOT NULL
+              ON CONFLICT (role_id, category_id, grade_id) DO NOTHING;

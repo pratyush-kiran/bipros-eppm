@@ -16,7 +16,7 @@ import java.util.UUID;
  */
 public record DprManpowerRow(
     UUID id,
-    @NotNull UUID resourceAssignmentId,
+    UUID resourceAssignmentId,
     UUID resourceId,
     @NotBlank String trade,
     ManpowerCategory category,
@@ -28,7 +28,10 @@ public record DprManpowerRow(
     String unitRateBasis,
     BigDecimal lineCost,
     String contractorName,
-    String remarks
+    String remarks,
+    /** Role-only model: which {@code ManpowerRoleRate} variant was consumed. */
+    UUID manpowerRoleRateId,
+    UUID roleId
 ) {
     public static DprManpowerRow from(DprManpower e) {
         return new DprManpowerRow(
@@ -45,7 +48,9 @@ public record DprManpowerRow(
             e.getUnitRateBasis(),
             e.getLineCost(),
             e.getContractorName(),
-            e.getRemarks());
+            e.getRemarks(),
+            e.getManpowerRoleRateId(),
+            e.getRoleId());
     }
 
     public DprManpower toEntity(UUID dprId) {
@@ -64,6 +69,8 @@ public record DprManpowerRow(
             .lineCost(lineCost)
             .contractorName(contractorName)
             .remarks(remarks)
+            .manpowerRoleRateId(manpowerRoleRateId)
+            .roleId(roleId)
             .build();
     }
 }
