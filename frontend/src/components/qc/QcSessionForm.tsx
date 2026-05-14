@@ -49,7 +49,7 @@ const inputCls =
 
 const numInputCls = cn(inputCls, "text-right tabular-nums");
 
-function passStatus(result: number | null, required: number | null): "over" | "under" | null {
+function passStatus(result: number | null | undefined, required: number | null | undefined): "over" | "under" | null {
   if (result == null || required == null) return null;
   return result >= required ? "over" : "under";
 }
