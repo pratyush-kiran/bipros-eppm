@@ -16,13 +16,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/gis/layers")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class GisLayerController {
 
     private final GisLayerService layerService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<GisLayerResponse>> create(
         @PathVariable UUID projectId,
         @Valid @RequestBody GisLayerRequest request
@@ -33,6 +33,7 @@ public class GisLayerController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<List<GisLayerResponse>>> getAll(
         @PathVariable UUID projectId
     ) {
@@ -41,6 +42,7 @@ public class GisLayerController {
     }
 
     @GetMapping("/{layerId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<GisLayerResponse>> getById(
         @PathVariable UUID projectId,
         @PathVariable UUID layerId
@@ -50,6 +52,7 @@ public class GisLayerController {
     }
 
     @PutMapping("/{layerId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<GisLayerResponse>> update(
         @PathVariable UUID projectId,
         @PathVariable UUID layerId,
@@ -60,6 +63,7 @@ public class GisLayerController {
     }
 
     @DeleteMapping("/{layerId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID layerId

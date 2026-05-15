@@ -1,0 +1,131 @@
+databaseChangeLog:
+  # RBAC Phase 4.2 — add User-id columns to project.dpr_issues (mirrors 087's DPR/Activity rewire).
+  # supervisor_user_id and assigned_to_user_id are the new canonical identities; the existing
+  # supervisor_resource_id / assigned_to_resource_id columns are backfilled here and dropped by
+  # changelog 093. Every changeset is idempotent so re-running on a partial dev DB is safe.
+  - changeSet:
+      id: 092-1-add-supervisor-user-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                schemaName: project
+                tableName: dpr_issues
+                columnName: supervisor_user_id
+      changes:
+        - addColumn:
+            schemaName: project
+            tableName: dpr_issues
+            columns:
+              - column:
+                  name: supervisor_user_id
+                  type: uuid
+
+  - changeSet:
+      id: 092-2-add-assigned-to-user-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                schemaName: project
+                tableName: dpr_issues
+                columnName: assigned_to_user_id
+      changes:
+        - addColumn:
+            schemaName: project
+            tableName: dpr_issues
+            columns:
+              - column:
+                  name: assigned_to_user_id
+                  type: uuid
+
+  - changeSet:
+      id: 092-3-backfill-supervisor-user-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: "true"
+            sql: |
+              SELECT EXISTS (
+                SELECT 1 FROM project.dpr_issues
+                WHERE supervisor_user_id IS NULL
+                  AND supervisor_resource_id IS NOT NULL
+              )
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- Follow the Resource.user_id soft FK chain (same bridge 087 used for the parent DPR).
+              UPDATE project.dpr_issues i
+              SET supervisor_user_id = r.user_id
+              FROM resource.resources r
+              WHERE i.supervisor_resource_id IS NOT NULL
+                AND i.supervisor_resource_id = r.id
+                AND i.supervisor_user_id IS NULL
+                AND r.user_id IS NOT NULL;
+
+  - changeSet:
+      id: 092-4-backfill-assigned-to-user-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: "true"
+            sql: |
+              SELECT EXISTS (
+                SELECT 1 FROM project.dpr_issues
+                WHERE assigned_to_user_id IS NULL
+                  AND assigned_to_resource_id IS NOT NULL
+              )
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              UPDATE project.dpr_issues i
+              SET assigned_to_user_id = r.user_id
+              FROM resource.resources r
+              WHERE i.assigned_to_resource_id IS NOT NULL
+                AND i.assigned_to_resource_id = r.id
+                AND i.assigned_to_user_id IS NULL
+                AND r.user_id IS NOT NULL;
+
+  - changeSet:
+      id: 092-5-index-supervisor-user-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - indexExists:
+                schemaName: project
+                tableName: dpr_issues
+                indexName: idx_dpr_issues_supervisor_user_id
+      changes:
+        - createIndex:
+            schemaName: project
+            tableName: dpr_issues
+            indexName: idx_dpr_issues_supervisor_user_id
+            columns:
+              - column:
+                  name: supervisor_user_id
+
+  - changeSet:
+      id: 092-6-index-assigned-to-user-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - indexExists:
+                schemaName: project
+                tableName: dpr_issues
+                indexName: idx_dpr_issues_assigned_to_user_id
+      changes:
+        - createIndex:
+            schemaName: project
+            tableName: dpr_issues
+            indexName: idx_dpr_issues_assigned_to_user_id
+            columns:
+              - column:
+                  name: assigned_to_user_id

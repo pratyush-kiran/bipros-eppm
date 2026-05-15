@@ -36,18 +36,25 @@ public record UserResponse(
         LocalDate joiningDate,
         LocalDate contractEndDate,
         PresenceStatus presenceStatus,
-        List<UUID> assignedStretchIds
+        List<UUID> assignedStretchIds,
+        /** Effective fine-grained permission codes (role-matrix ∪ profile); sorted ascending. */
+        List<String> permissions
 ) {
     public static UserResponse from(User user, List<String> roles) {
-        return from(user, roles, null, null, List.of());
+        return from(user, roles, null, null, List.of(), List.of());
     }
 
     public static UserResponse from(User user, List<String> roles, List<UUID> stretchIds) {
-        return from(user, roles, null, null, stretchIds);
+        return from(user, roles, null, null, stretchIds, List.of());
     }
 
     public static UserResponse from(User user, List<String> roles, UUID profileId, String profileName,
                                     List<UUID> stretchIds) {
+        return from(user, roles, profileId, profileName, stretchIds, List.of());
+    }
+
+    public static UserResponse from(User user, List<String> roles, UUID profileId, String profileName,
+                                    List<UUID> stretchIds, List<String> permissions) {
         return new UserResponse(
                 user.getId(),
                 user.getUsername(),
@@ -68,7 +75,8 @@ public record UserResponse(
                 user.getJoiningDate(),
                 user.getContractEndDate(),
                 user.getPresenceStatus(),
-                stretchIds != null ? stretchIds : List.of()
+                stretchIds != null ? stretchIds : List.of(),
+                permissions != null ? permissions : List.of()
         );
     }
 }

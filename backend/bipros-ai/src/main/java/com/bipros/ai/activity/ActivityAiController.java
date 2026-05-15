@@ -40,7 +40,7 @@ public class ActivityAiController {
     private final MimeTypeDetector mimeTypeDetector;
 
     @PostMapping("/generate")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'AI.READ')")
     public ResponseEntity<ApiResponse<ActivityAiGenerationResponse>> generate(
             @PathVariable UUID projectId,
             @RequestBody ActivityAiGenerateRequest req) {
@@ -49,7 +49,7 @@ public class ActivityAiController {
     }
 
     @PostMapping(value = "/generate-from-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'AI.READ')")
     public ResponseEntity<ApiResponse<ActivityAiGenerationResponse>> generateFromDocument(
             @PathVariable UUID projectId,
             @RequestPart("metadata") String metadataJson,
@@ -84,7 +84,7 @@ public class ActivityAiController {
     }
 
     @PostMapping("/apply")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
     public ResponseEntity<ApiResponse<ActivityAiApplyResponse>> apply(
             @PathVariable UUID projectId,
             @RequestBody ActivityAiApplyRequest req) {

@@ -27,13 +27,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/baselines")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class BaselineController {
 
   private final BaselineService baselineService;
 
   @PostMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.CREATE')")
   public ResponseEntity<ApiResponse<BaselineResponse>> createBaseline(
       @PathVariable UUID projectId, @Valid @RequestBody CreateBaselineRequest request) {
     BaselineResponse response = baselineService.createBaseline(projectId, request);
@@ -41,6 +41,7 @@ public class BaselineController {
   }
 
   @GetMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.READ')")
   public ResponseEntity<ApiResponse<List<BaselineResponse>>> listBaselines(
       @PathVariable UUID projectId) {
     List<BaselineResponse> response = baselineService.listBaselines(projectId);
@@ -48,6 +49,7 @@ public class BaselineController {
   }
 
   @GetMapping("/{baselineId}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.READ')")
   public ResponseEntity<ApiResponse<BaselineDetailResponse>> getBaseline(
       @PathVariable UUID projectId, @PathVariable UUID baselineId) {
     BaselineDetailResponse response = baselineService.getBaseline(baselineId);
@@ -55,6 +57,7 @@ public class BaselineController {
   }
 
   @DeleteMapping("/{baselineId}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.DELETE')")
   public ResponseEntity<Void> deleteBaseline(
       @PathVariable UUID projectId, @PathVariable UUID baselineId) {
     baselineService.deleteBaseline(baselineId);
@@ -62,6 +65,7 @@ public class BaselineController {
   }
 
   @GetMapping("/{baselineId}/variance")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.READ')")
   public ResponseEntity<ApiResponse<List<BaselineVarianceResponse>>> getVariance(
       @PathVariable UUID projectId, @PathVariable UUID baselineId) {
     List<BaselineVarianceResponse> response =
@@ -70,6 +74,7 @@ public class BaselineController {
   }
 
   @GetMapping("/{baselineId}/schedule-comparison")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.READ')")
   public ResponseEntity<ApiResponse<List<ScheduleComparisonResponse>>> getScheduleComparison(
       @PathVariable UUID projectId, @PathVariable UUID baselineId) {
     List<ScheduleComparisonResponse> response =
@@ -82,6 +87,7 @@ public class BaselineController {
    * release while UI clients migrate to the explicit slot endpoints below.
    */
   @PostMapping("/{baselineId}/activate")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.UPDATE')")
   public ResponseEntity<ApiResponse<BaselineResponse>> activateBaseline(
       @PathVariable UUID projectId, @PathVariable UUID baselineId) {
     BaselineResponse response = baselineService.setActiveBaseline(projectId, baselineId);
@@ -94,6 +100,7 @@ public class BaselineController {
    * SECONDARY does not unset whatever is in PRIMARY.
    */
   @PostMapping("/{baselineId}/assign/{slot}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.UPDATE')")
   public ResponseEntity<ApiResponse<BaselineResponse>> assignBaselineToSlot(
       @PathVariable UUID projectId,
       @PathVariable UUID baselineId,
@@ -107,6 +114,7 @@ public class BaselineController {
    * unaffected. Idempotent — clearing an already-empty slot is a no-op.
    */
   @DeleteMapping("/slots/{slot}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> clearBaselineSlot(
       @PathVariable UUID projectId,
       @PathVariable BaselineService.BaselineSlot slot) {
@@ -120,6 +128,7 @@ public class BaselineController {
    * must confirm before invoking.
    */
   @PostMapping("/{baselineId}/restore")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.UPDATE')")
   public ResponseEntity<ApiResponse<BaselineResponse>> restoreBaseline(
       @PathVariable UUID projectId, @PathVariable UUID baselineId) {
     BaselineResponse response = baselineService.restoreBaseline(projectId, baselineId);
@@ -131,6 +140,7 @@ public class BaselineController {
    * picks via the filter spec.
    */
   @PutMapping("/{baselineId}/update")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'BASELINE.UPDATE')")
   public ResponseEntity<ApiResponse<BaselineResponse>> updateBaseline(
       @PathVariable UUID projectId,
       @PathVariable UUID baselineId,

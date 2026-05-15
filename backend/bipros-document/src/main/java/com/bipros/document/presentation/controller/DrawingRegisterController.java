@@ -23,13 +23,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/drawings")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class DrawingRegisterController {
 
     private final DrawingRegisterService drawingService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.CREATE')")
     public ResponseEntity<ApiResponse<DrawingRegisterResponse>> createDrawing(
         @PathVariable UUID projectId,
         @Valid @RequestBody DrawingRegisterRequest request) {
@@ -39,6 +39,7 @@ public class DrawingRegisterController {
     }
 
     @GetMapping("/{drawingId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<DrawingRegisterResponse>> getDrawing(
         @PathVariable UUID projectId,
         @PathVariable UUID drawingId) {
@@ -47,6 +48,7 @@ public class DrawingRegisterController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<DrawingRegisterResponse>>> listDrawings(
         @PathVariable UUID projectId) {
         List<DrawingRegisterResponse> response = drawingService.listDrawings(projectId);
@@ -54,6 +56,7 @@ public class DrawingRegisterController {
     }
 
     @PutMapping("/{drawingId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<DrawingRegisterResponse>> updateDrawing(
         @PathVariable UUID projectId,
         @PathVariable UUID drawingId,
@@ -63,6 +66,7 @@ public class DrawingRegisterController {
     }
 
     @DeleteMapping("/{drawingId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteDrawing(
         @PathVariable UUID projectId,
         @PathVariable UUID drawingId) {

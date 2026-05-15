@@ -18,7 +18,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/wbs")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class WbsController {
 
@@ -26,18 +25,21 @@ public class WbsController {
     private final WbsBudgetService wbsBudgetService;
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<List<WbsNodeResponse>>> getTree(@PathVariable UUID projectId) {
         List<WbsNodeResponse> tree = wbsService.getTree(projectId);
         return ResponseEntity.ok(ApiResponse.ok(tree));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<WbsNodeResponse>> getNode(@PathVariable UUID projectId, @PathVariable UUID id) {
         WbsNodeResponse response = wbsService.getNode(id);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<WbsNodeResponse>> createNode(
         @PathVariable UUID projectId,
         @Valid @RequestBody CreateWbsNodeRequest request) {
@@ -51,6 +53,7 @@ public class WbsController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<WbsNodeResponse>> updateNode(
         @PathVariable UUID projectId,
         @PathVariable UUID id,
@@ -60,12 +63,14 @@ public class WbsController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<Void> deleteNode(@PathVariable UUID projectId, @PathVariable UUID id) {
         wbsService.deleteNode(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/budget-summary")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<WbsBudgetService.WbsBudgetSummary>> getBudgetSummary(
             @PathVariable UUID projectId) {
         WbsBudgetService.WbsBudgetSummary response = wbsBudgetService.getBudgetSummary(projectId);

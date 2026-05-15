@@ -20,14 +20,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/budget")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'COST_ENGINEER', 'FINANCE')")
 @RequiredArgsConstructor
 public class ProjectBudgetController {
 
     private final ProjectBudgetService projectBudgetService;
     private final ProjectAccessGuard projectAccess;
 
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.CREATE')")
     @PostMapping
     public ResponseEntity<ApiResponse<ProjectBudgetResponse>> setInitialBudget(
             @PathVariable UUID projectId,
@@ -37,7 +36,7 @@ public class ProjectBudgetController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
     @GetMapping
     public ResponseEntity<ApiResponse<ProjectBudgetResponse>> getBudgetSummary(
             @PathVariable UUID projectId) {
@@ -45,7 +44,7 @@ public class ProjectBudgetController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.UPDATE')")
     @PostMapping("/changes")
     public ResponseEntity<ApiResponse<BudgetChangeLogResponse>> requestChange(
             @PathVariable UUID projectId,
@@ -54,7 +53,7 @@ public class ProjectBudgetController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
     @GetMapping("/changes")
     public ResponseEntity<ApiResponse<List<BudgetChangeLogResponse>>> getChangeLog(
             @PathVariable UUID projectId) {
@@ -62,7 +61,7 @@ public class ProjectBudgetController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("hasRole('ADMIN') and @projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.UPDATE')")
     @PatchMapping("/changes/{changeId}/approve")
     public ResponseEntity<ApiResponse<BudgetChangeLogResponse>> approveChange(
             @PathVariable UUID projectId,
@@ -72,7 +71,7 @@ public class ProjectBudgetController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("hasRole('ADMIN') and @projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.UPDATE')")
     @PatchMapping("/changes/{changeId}/reject")
     public ResponseEntity<ApiResponse<BudgetChangeLogResponse>> rejectChange(
             @PathVariable UUID projectId,

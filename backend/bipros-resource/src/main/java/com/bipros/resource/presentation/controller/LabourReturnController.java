@@ -28,14 +28,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/labour-returns")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class LabourReturnController {
 
   private final LabourReturnService labourReturnService;
 
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
   @PostMapping
   public ResponseEntity<ApiResponse<LabourReturnResponse>> createLabourReturn(
       @PathVariable UUID projectId,
@@ -45,7 +45,7 @@ public class LabourReturnController {
     return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
   }
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping
   public ResponseEntity<ApiResponse<Page<LabourReturnResponse>>> getLabourReturns(
       @PathVariable UUID projectId,
@@ -67,7 +67,7 @@ public class LabourReturnController {
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping("/summary")
   public ResponseEntity<ApiResponse<List<DeploymentSummary>>> getDeploymentSummary(
       @PathVariable UUID projectId) {

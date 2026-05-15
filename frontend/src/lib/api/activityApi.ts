@@ -1,6 +1,13 @@
 import { apiClient } from "./client";
 import type { ApiResponse, PagedResponse } from "../types";
 
+export interface MissingWorkActivityRow {
+  activityId: string;
+  code: string;
+  name: string;
+  dprCount: number;
+}
+
 export type ConstraintType =
   | "START_ON"
   | "START_ON_OR_AFTER"
@@ -52,6 +59,10 @@ export interface ActivityResponse {
   responsibleResourceId?: string | null;
   /** Snapshot of the supervisor Resource name at the time the flag was set. */
   responsibleResourceName?: string | null;
+  /** Phase 4.5 supervisor — User FK to public.users.id. Null when unassigned. */
+  supervisorUserId?: string | null;
+  /** Display-snapshot of the supervisor's name persisted at assignment time. */
+  supervisorUserName?: string | null;
   /** Default unit from the linked WorkActivity. Lets the DPR form auto-fill the unit field
    *  when the user picks an activity. Null when no work-activity link exists. */
   workActivityDefaultUnit?: string | null;
@@ -81,10 +92,15 @@ export interface CreateActivityRequest {
   primaryConstraintDate?: string;
   secondaryConstraintType?: ConstraintType;
   secondaryConstraintDate?: string;
-  /** Supervisor: a LABOR Resource accountable for this activity. Optional. */
-  supervisorResourceId?: string | null;
+  /**
+   * Supervisor: a User UUID (carrying SUPERVISOR / FOREMAN / SITE_ENGINEER /
+   * SITE_MANAGER role) accountable for this activity. Phase 4.4 rename — the
+   * legacy {@code supervisorResourceId} (Resource UUID) is gone on the backend.
+   * Source the value from {@code userApi.listByRoles([...])}.
+   */
+  supervisorUserId?: string | null;
   /** Supervisor display-snapshot — frontend passes the picker option name. */
-  supervisorResourceName?: string | null;
+  supervisorUserName?: string | null;
 }
 
 export interface UpdateActivityRequest {
@@ -109,9 +125,27 @@ export interface UpdateActivityRequest {
   primaryConstraintDate?: string | null;
   secondaryConstraintType?: ConstraintType | null;
   secondaryConstraintDate?: string | null;
-  /** Pass to set/change supervisor; omit (null) to leave unchanged. */
-  supervisorResourceId?: string | null;
-  supervisorResourceName?: string | null;
+  /**
+   * Pass to set/change supervisor; omit (null) to leave unchanged. User UUID
+   * sourced from {@code userApi.listByRoles([...])}. Phase 4.4 rename of the
+   * legacy {@code supervisorResourceId} Resource UUID.
+   */
+  supervisorUserId?: string | null;
+  supervisorUserName?: string | null;
+}
+
+/**
+ * Phase 4.4 RBAC: per-activity supervisor write. Mirrors the new User-based contract
+ * ({@code supervisorUserId} replaces the deprecated {@code supervisorResourceId}). Pass
+ * a UUID from {@code /v1/users?roles=SUPERVISOR,FOREMAN,SITE_ENGINEER,SITE_MANAGER}, or
+ * {@code null} to clear the supervisor on this activity.
+ */
+export interface SetSupervisorRequest {
+  /** User UUID (NOT a Resource UUID). Null clears the supervisor. */
+  supervisorUserId: string | null;
+  /** Display snapshot of the supervisor's name; persisted alongside the FK so list views
+   * don't need a second hop. Null is acceptable when clearing. */
+  supervisorName: string | null;
 }
 
 export const activityApi = {
@@ -142,6 +176,15 @@ export const activityApi = {
 
   deleteActivity: (projectId: string, activityId: string) =>
     apiClient.delete(`/v1/projects/${projectId}/activities/${activityId}`),
+
+  /** Activities under this project with no Work Activity linked, optionally filtered by window. */
+  listMissingWorkActivity: (projectId: string, from?: string, to?: string) =>
+    apiClient
+      .get<ApiResponse<MissingWorkActivityRow[]>>(
+        `/v1/projects/${projectId}/activities/missing-work-activity`,
+        { params: { from, to } }
+      )
+      .then((r) => r.data),
 
   triggerSchedule: (projectId: string, option: string) =>
     apiClient
@@ -213,14 +256,42 @@ export const activityApi = {
       .then((r) => r.data),
 
   /**
-   * Bulk-assign one supervisor (a LABOR Resource) across many activities. Powers the
-   * Resources → Supervisor sub-tab. Returns count updated.
+   * Set (or clear) the supervisor for a single activity. Writes
+   * {@code Activity.supervisorUserId} on the backend; the picker source is now
+   * {@code /v1/users?roles=SUPERVISOR,...} (Phase 4.4 RBAC) instead of the legacy
+   * project resource pool.
+   *
+   * Pass {@code supervisorUserId: null} to clear. The {@code supervisorName} snapshot
+   * is denormalised onto the row so the UI doesn't need a second hop to render the
+   * supervisor's name on activity / DPR lists.
+   */
+  setSupervisor: (
+    projectId: string,
+    activityId: string,
+    body: SetSupervisorRequest
+  ) =>
+    apiClient
+      .put<ApiResponse<ActivityResponse>>(
+        `/v1/projects/${projectId}/activities/${activityId}/supervisor`,
+        body
+      )
+      .then((r) => r.data),
+
+  /**
+   * Bulk-assign one supervisor (a User with SUPERVISOR / FOREMAN / SITE_ENGINEER /
+   * SITE_MANAGER role) across many activities. Powers the Resources → Supervisor sub-tab.
+   * Returns count updated.
+   *
+   * Phase 4.4 rename: the request body field is now {@code supervisorUserId} (User UUID),
+   * not {@code supervisorResourceId} (Resource UUID). Backend's legacy
+   * {@code BulkSupervisorRequest} is {@code @Deprecated}; the new contract carries a
+   * User id.
    */
   bulkSetSupervisor: (
     projectId: string,
     body: {
-      supervisorResourceId: string;
-      supervisorResourceName: string | null;
+      supervisorUserId: string;
+      supervisorName: string | null;
       activityIds: string[];
     }
   ) =>

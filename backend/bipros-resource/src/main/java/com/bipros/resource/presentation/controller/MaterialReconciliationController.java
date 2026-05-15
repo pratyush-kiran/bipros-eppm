@@ -23,14 +23,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/material-reconciliation")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class MaterialReconciliationController {
 
   private final MaterialReconciliationService materialReconciliationService;
 
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
   @PostMapping
   public ResponseEntity<ApiResponse<MaterialReconciliationResponse>> createMaterialReconciliation(
       @PathVariable UUID projectId,
@@ -40,7 +40,7 @@ public class MaterialReconciliationController {
     return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
   }
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping
   public ResponseEntity<ApiResponse<List<MaterialReconciliationResponse>>> getMaterialReconciliations(
       @PathVariable UUID projectId,
@@ -62,7 +62,7 @@ public class MaterialReconciliationController {
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping("/resource/{resourceId}")
   public ResponseEntity<ApiResponse<List<MaterialReconciliationResponse>>> getByResource(
       @PathVariable UUID projectId,
@@ -72,7 +72,7 @@ public class MaterialReconciliationController {
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping("/{id}")
   public ResponseEntity<ApiResponse<MaterialReconciliationResponse>> getById(
       @PathVariable UUID projectId,

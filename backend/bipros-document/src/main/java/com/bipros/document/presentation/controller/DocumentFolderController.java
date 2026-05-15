@@ -23,13 +23,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/document-folders")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class DocumentFolderController {
 
     private final DocumentFolderService folderService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.CREATE')")
     public ResponseEntity<ApiResponse<DocumentFolderResponse>> createFolder(
         @PathVariable UUID projectId,
         @Valid @RequestBody DocumentFolderRequest request) {
@@ -39,6 +39,7 @@ public class DocumentFolderController {
     }
 
     @GetMapping("/{folderId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<DocumentFolderResponse>> getFolder(
         @PathVariable UUID projectId,
         @PathVariable UUID folderId) {
@@ -47,6 +48,7 @@ public class DocumentFolderController {
     }
 
     @GetMapping("/root")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<DocumentFolderResponse>>> listRootFolders(
         @PathVariable UUID projectId) {
         List<DocumentFolderResponse> response = folderService.listRootFolders(projectId);
@@ -54,6 +56,7 @@ public class DocumentFolderController {
     }
 
     @GetMapping("/{folderId}/children")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<DocumentFolderResponse>>> listChildFolders(
         @PathVariable UUID projectId,
         @PathVariable UUID folderId) {
@@ -62,6 +65,7 @@ public class DocumentFolderController {
     }
 
     @PutMapping("/{folderId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<DocumentFolderResponse>> updateFolder(
         @PathVariable UUID projectId,
         @PathVariable UUID folderId,
@@ -71,6 +75,7 @@ public class DocumentFolderController {
     }
 
     @DeleteMapping("/{folderId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteFolder(
         @PathVariable UUID projectId,
         @PathVariable UUID folderId) {

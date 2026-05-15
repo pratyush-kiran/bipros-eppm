@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/v1/formulas")
 @RequiredArgsConstructor
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
 public class FormulaController {
 
     private final FormulaEngine formulaEngine;

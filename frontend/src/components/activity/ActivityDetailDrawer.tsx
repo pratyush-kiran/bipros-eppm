@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, ExternalLink, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, ExternalLink, FilePlus2, RefreshCw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { activityApi } from "@/lib/api/activityApi";
@@ -87,6 +88,7 @@ function DrawerInner({
 }) {
   const [supervisorOpen, setSupervisorOpen] = useState(false);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const recomputeMutation = useMutation({
     mutationFn: () => resourceApi.recomputeProjectAssignmentCosts(projectId),
@@ -185,7 +187,7 @@ function DrawerInner({
                       className="rounded-md border border-border px-2 py-0.5 text-sm text-text-primary hover:bg-surface-hover"
                       title="Click to set or change supervisor"
                     >
-                      {activity.responsibleResourceName ?? (
+                      {activity.supervisorUserName ?? activity.responsibleResourceName ?? (
                         <span className="text-text-muted">— Set —</span>
                       )}
                     </button>
@@ -229,7 +231,7 @@ function DrawerInner({
         )}
       </div>
 
-      <footer className="border-t border-border bg-surface/80 px-5 py-3">
+      <footer className="flex items-center justify-between gap-3 border-t border-border bg-surface/80 px-5 py-3">
         <Link
           href={`/projects/${projectId}/activities/${activityId}`}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
@@ -237,6 +239,22 @@ function DrawerInner({
           Open full detail page
           <ExternalLink size={14} />
         </Link>
+        {activity && (
+          <button
+            type="button"
+            onClick={() => {
+              router.push(
+                `/projects/${projectId}/dpr?new=1&activityId=${activityId}`,
+              );
+              onClose();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+            title="Create a Daily Progress Report pre-filled with this activity"
+          >
+            <FilePlus2 size={14} />
+            Create DPR
+          </button>
+        )}
       </footer>
 
       <SetSupervisorDialog

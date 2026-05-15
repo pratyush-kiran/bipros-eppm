@@ -16,13 +16,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/activities/{activityId}/steps")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ActivityStepController {
 
   private final ActivityStepService stepService;
 
   @PostMapping
+  @PreAuthorize("hasPermission(null, 'ACTIVITY.CREATE')")
   public ResponseEntity<ApiResponse<ActivityStepResponse>> createStep(
       @PathVariable UUID activityId,
       @Valid @RequestBody CreateActivityStepRequest request) {
@@ -31,6 +31,7 @@ public class ActivityStepController {
   }
 
   @GetMapping
+  @PreAuthorize("hasPermission(null, 'ACTIVITY.READ')")
   public ResponseEntity<ApiResponse<List<ActivityStepResponse>>> getSteps(
       @PathVariable UUID activityId) {
     List<ActivityStepResponse> response = stepService.getSteps(activityId);
@@ -38,6 +39,7 @@ public class ActivityStepController {
   }
 
   @PutMapping("/{stepId}")
+  @PreAuthorize("hasPermission(null, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<ActivityStepResponse>> updateStep(
       @PathVariable UUID activityId,
       @PathVariable UUID stepId,
@@ -49,6 +51,7 @@ public class ActivityStepController {
   }
 
   @PutMapping("/{stepId}/complete")
+  @PreAuthorize("hasPermission(null, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<ActivityStepResponse>> completeStep(
       @PathVariable UUID activityId,
       @PathVariable UUID stepId) {
@@ -57,6 +60,7 @@ public class ActivityStepController {
   }
 
   @PutMapping("/{stepId}/uncomplete")
+  @PreAuthorize("hasPermission(null, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<ActivityStepResponse>> uncompleteStep(
       @PathVariable UUID activityId,
       @PathVariable UUID stepId) {
@@ -65,6 +69,7 @@ public class ActivityStepController {
   }
 
   @DeleteMapping("/{stepId}")
+  @PreAuthorize("hasPermission(null, 'ACTIVITY.DELETE')")
   public ResponseEntity<Void> deleteStep(
       @PathVariable UUID activityId,
       @PathVariable UUID stepId) {

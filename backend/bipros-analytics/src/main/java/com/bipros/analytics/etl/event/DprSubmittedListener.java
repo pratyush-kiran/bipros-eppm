@@ -79,9 +79,16 @@ public class DprSubmittedListener {
                     event.projectId(), dpr.getActivityName(), dpr.getReportDate());
             Double cumulativeDouble = cumulative != null ? cumulative.doubleValue() : null;
 
+            // Phase 4.3: feed ETL with supervisor USER id (FK to public.users.id) instead of the
+            // legacy supervisor RESOURCE id. Liquibase 091 drops daily_progress_reports.supervisor_resource_id;
+            // the canonical identity is now supervisor_user_id (added by 087). Prefer the event's payload
+            // when present (CREATED/UPDATED), fall back to the freshly-loaded DPR for older callers.
+            UUID supervisorUserId = event.supervisorUserId() != null
+                    ? event.supervisorUserId()
+                    : dpr.getSupervisorUserId();
             etl.insertDprLog(
                     event.projectId(), activityId, dpr.getId(), dpr.getReportDate(),
-                    dpr.getSupervisorResourceId(),
+                    supervisorUserId,
                     dpr.getSupervisorName(),
                     dpr.getChainageFromM() != null ? dpr.getChainageFromM().doubleValue() : null,
                     dpr.getChainageToM() != null ? dpr.getChainageToM().doubleValue() : null,

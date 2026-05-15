@@ -35,7 +35,7 @@ interface ComparisonProps {
 
 export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
   const supervisors = comparison.reports.map((r) => ({
-    id: r.supervisorResourceId ?? "_project_",
+    id: r.supervisorUserId ?? "_project_",
     label: r.supervisorName ?? "—",
   }));
 

@@ -23,13 +23,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/admin/units-of-measure")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class UnitOfMeasureController {
 
     private final UnitOfMeasureService unitOfMeasureService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<UnitOfMeasureDto>> createUnitOfMeasure(
         @Valid @RequestBody CreateUnitOfMeasureRequest request) {
         UnitOfMeasureDto unit = unitOfMeasureService.createUnitOfMeasure(request);
@@ -38,18 +38,21 @@ public class UnitOfMeasureController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<UnitOfMeasureDto>> getUnitOfMeasure(@PathVariable UUID id) {
         UnitOfMeasureDto unit = unitOfMeasureService.getUnitOfMeasure(id);
         return ResponseEntity.ok(ApiResponse.ok(unit));
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<UnitOfMeasureDto>>> listUnitsOfMeasure() {
         List<UnitOfMeasureDto> units = unitOfMeasureService.listUnitsOfMeasure();
         return ResponseEntity.ok(ApiResponse.ok(units));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<UnitOfMeasureDto>> updateUnitOfMeasure(
         @PathVariable UUID id,
         @Valid @RequestBody CreateUnitOfMeasureRequest request) {
@@ -58,6 +61,7 @@ public class UnitOfMeasureController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> deleteUnitOfMeasure(@PathVariable UUID id) {
         unitOfMeasureService.deleteUnitOfMeasure(id);
         return ResponseEntity.ok(ApiResponse.ok(null));

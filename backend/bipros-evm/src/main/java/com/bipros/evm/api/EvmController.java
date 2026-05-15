@@ -24,13 +24,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/evm")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'COST_ENGINEER')")
 @RequiredArgsConstructor
 public class EvmController {
 
     private final EvmService evmService;
     private final EvmRollupService evmRollupService;
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.UPDATE')")
     @PostMapping("/calculate")
     public ResponseEntity<ApiResponse<EvmCalculationResponse>> calculateEvm(
             @PathVariable UUID projectId,
@@ -39,6 +39,7 @@ public class EvmController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
     @GetMapping
     public ResponseEntity<ApiResponse<EvmCalculationResponse>> getLatestEvm(
             @PathVariable UUID projectId) {
@@ -46,6 +47,7 @@ public class EvmController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
     @GetMapping("/history")
     public ResponseEntity<ApiResponse<List<EvmCalculationResponse>>> getEvmHistory(
             @PathVariable UUID projectId) {
@@ -53,6 +55,7 @@ public class EvmController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
     @GetMapping("/wbs/{wbsNodeId}")
     public ResponseEntity<ApiResponse<EvmCalculationResponse>> getEvmByWbs(
             @PathVariable UUID projectId,
@@ -61,6 +64,7 @@ public class EvmController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
     @GetMapping("/activity/{activityId}")
     public ResponseEntity<ApiResponse<ActivityEvmResponse>> getActivityEvm(
             @PathVariable UUID projectId,
@@ -69,6 +73,7 @@ public class EvmController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
     @GetMapping("/summary")
     public ResponseEntity<ApiResponse<EvmSummaryResponse>> getSummary(
             @PathVariable UUID projectId) {
@@ -76,6 +81,7 @@ public class EvmController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
     @GetMapping("/cost-account-rollup")
     public ResponseEntity<ApiResponse<List<CostAccountRollupResponse>>> getCostAccountRollup(
             @PathVariable UUID projectId) {
@@ -83,6 +89,7 @@ public class EvmController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.UPDATE')")
     @PostMapping("/calculate-wbs")
     public ResponseEntity<ApiResponse<List<WbsEvmNode>>> calculateWbsEvm(
             @PathVariable UUID projectId,
@@ -92,6 +99,7 @@ public class EvmController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
     @GetMapping("/wbs-tree")
     public ResponseEntity<ApiResponse<List<WbsEvmNode>>> getWbsTree(
             @PathVariable UUID projectId,

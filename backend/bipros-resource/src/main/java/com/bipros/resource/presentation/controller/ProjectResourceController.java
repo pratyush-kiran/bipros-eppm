@@ -27,14 +27,14 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/resource-pool")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectResourceController {
 
     private final ProjectResourceService projectResourceService;
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProjectResourceResponse>>> listPool(
             @PathVariable UUID projectId) {
@@ -43,7 +43,7 @@ public class ProjectResourceController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     @GetMapping("/available")
     public ResponseEntity<ApiResponse<List<ResourceResponse>>> listAvailable(
             @PathVariable UUID projectId,
@@ -55,7 +55,7 @@ public class ProjectResourceController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     @GetMapping("/by-role/{roleId}")
     public ResponseEntity<ApiResponse<List<ProjectResourceResponse>>> listPoolByRole(
             @PathVariable UUID projectId,
@@ -65,7 +65,7 @@ public class ProjectResourceController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     @PostMapping
     public ResponseEntity<ApiResponse<List<ProjectResourceResponse>>> addToPool(
             @PathVariable UUID projectId,
@@ -75,7 +75,7 @@ public class ProjectResourceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProjectResourceResponse>> updatePoolEntry(
             @PathVariable UUID projectId,
@@ -86,7 +86,7 @@ public class ProjectResourceController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> removeFromPool(
             @PathVariable UUID projectId,

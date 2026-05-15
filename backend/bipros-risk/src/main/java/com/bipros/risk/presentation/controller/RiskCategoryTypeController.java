@@ -24,30 +24,31 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/risk-category-types")
-@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 public class RiskCategoryTypeController {
 
     private final RiskCategoryTypeService service;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<RiskCategoryTypeResponse>>> listActive() {
         return ResponseEntity.ok(ApiResponse.ok(service.listActive()));
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<RiskCategoryTypeResponse>>> listAll() {
         return ResponseEntity.ok(ApiResponse.ok(service.listAll()));
     }
 
     @GetMapping("/{id:[0-9a-fA-F-]{36}}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<RiskCategoryTypeResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getById(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<RiskCategoryTypeResponse>> create(
         @Valid @RequestBody CreateRiskCategoryTypeRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -55,7 +56,7 @@ public class RiskCategoryTypeController {
     }
 
     @PutMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<RiskCategoryTypeResponse>> update(
         @PathVariable UUID id,
         @Valid @RequestBody UpdateRiskCategoryTypeRequest request) {
@@ -63,7 +64,7 @@ public class RiskCategoryTypeController {
     }
 
     @DeleteMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

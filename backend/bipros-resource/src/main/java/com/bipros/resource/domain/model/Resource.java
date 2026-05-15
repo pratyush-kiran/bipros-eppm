@@ -39,7 +39,6 @@ import java.util.UUID;
         @Index(name = "idx_resource_status", columnList = "status"),
         @Index(name = "idx_resource_parent", columnList = "parent_id"),
         @Index(name = "idx_resource_calendar", columnList = "calendar_id"),
-        @Index(name = "idx_resource_user", columnList = "user_id"),
         @Index(name = "idx_resource_rate_master", columnList = "rate_master_id")
     })
 @Getter
@@ -98,9 +97,6 @@ public class Resource extends BaseEntity {
 
   @Column(name = "parent_id")
   private UUID parentId;
-
-  @Column(name = "user_id")
-  private UUID userId;
 
   @Column(name = "sort_order", nullable = false)
   @Default

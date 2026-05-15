@@ -25,7 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/resource-curves")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ResourceCurveController {
@@ -33,6 +33,7 @@ public class ResourceCurveController {
   private final ResourceCurveService curveService;
 
   @PostMapping
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceCurveResponse>> createCurve(
       @Valid @RequestBody CreateResourceCurveRequest request) {
     log.info("POST /v1/resource-curves - Creating curve: {}", request.name());
@@ -65,6 +66,7 @@ public class ResourceCurveController {
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceCurveResponse>> updateCurve(
       @PathVariable UUID id,
       @Valid @RequestBody CreateResourceCurveRequest request)
@@ -75,6 +77,7 @@ public class ResourceCurveController {
   }
 
   @DeleteMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> deleteCurve(@PathVariable UUID id) {
     log.info("DELETE /v1/resource-curves/{} - Deleting curve", id);
     curveService.deleteCurve(id);
@@ -82,6 +85,7 @@ public class ResourceCurveController {
   }
 
   @PostMapping("/seed-defaults")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> seedDefaultCurves() {
     log.info("POST /v1/resource-curves/seed-defaults - Seeding default curves");
     curveService.seedDefaultCurves();

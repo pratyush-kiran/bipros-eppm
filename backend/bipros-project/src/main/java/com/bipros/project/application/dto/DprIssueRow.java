@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -27,8 +28,20 @@ import java.util.UUID;
  * means "clear all issues for this DPR". There is no "leave alone" sentinel — clients round-
  * trip the latest server payload.
  */
+/**
+ * Field-issue row record.
+ *
+ * <p><b>RBAC Phase 4.2 transition:</b> {@code supervisorUserId} / {@code assignedToUserId} are the
+ * new canonical identities (User-based). {@code supervisorResourceId} / {@code assignedToResourceId}
+ * remain on the wire as nullable transitional fields for backward compatibility with clients still
+ * sending Resource ids; they will be removed once the frontend is migrated.
+ */
 public record DprIssueRow(
     UUID id,
+    UUID dprId,
+    UUID activityId,
+    String activityName,
+    LocalDate reportDate,
     @NotBlank @Size(max = 150) String title,
     @Size(max = 2000) String description,
     @NotNull IssueCategory category,
@@ -40,11 +53,18 @@ public record DprIssueRow(
     String assignedToName,
     Instant openedAt,
     Instant resolvedAt,
-    @Size(max = 1000) String resolutionNotes
+    @Size(max = 1000) String resolutionNotes,
+    UUID supervisorUserId,
+    UUID assignedToUserId
 ) {
+    @SuppressWarnings("deprecation")
     public static DprIssueRow from(DprIssue e) {
         return new DprIssueRow(
             e.getId(),
+            e.getDprId(),
+            e.getActivityId(),
+            e.getActivityName(),
+            e.getReportDate(),
             e.getTitle(),
             e.getDescription(),
             e.getCategory(),
@@ -56,6 +76,8 @@ public record DprIssueRow(
             e.getAssignedToName(),
             e.getOpenedAt(),
             e.getResolvedAt(),
-            e.getResolutionNotes());
+            e.getResolutionNotes(),
+            e.getSupervisorUserId(),
+            e.getAssignedToUserId());
     }
 }

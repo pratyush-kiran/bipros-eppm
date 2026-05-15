@@ -331,8 +331,8 @@ public class TraverseEntityTool implements Tool {
         entity.put("project_id", d.getProjectId().toString());
         if (d.getReportDate() != null) entity.put("report_date", d.getReportDate().toString());
         entity.put("supervisor_name", d.getSupervisorName());
-        if (d.getSupervisorResourceId() != null) {
-            entity.put("supervisor_resource_id", d.getSupervisorResourceId().toString());
+        if (d.getSupervisorUserId() != null) {
+            entity.put("supervisor_user_id", d.getSupervisorUserId().toString());
         }
 
         ArrayNode parents = mapper.createArrayNode();
@@ -363,8 +363,8 @@ public class TraverseEntityTool implements Tool {
         if (!issues.isEmpty()) {
             links.put("issue", issues.stream().limit(SAMPLE_LIMIT).map(DprIssue::getId).toList());
         }
-        if (d.getSupervisorResourceId() != null) {
-            links.put("supervisor", List.of(d.getSupervisorResourceId()));
+        if (d.getSupervisorUserId() != null) {
+            links.put("supervisor", List.of(d.getSupervisorUserId()));
         }
         ToolResult.attachLinks(wrapper, links);
 
@@ -443,7 +443,7 @@ public class TraverseEntityTool implements Tool {
                 activityRepository.findByProjectIdAndResponsibleResourceId(projectId, r.getId());
 
         List<DailyProgressReport> dprs = dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId).stream()
-                .filter(d -> r.getId().equals(d.getSupervisorResourceId()))
+                .filter(d -> r.getId().equals(d.getSupervisorUserId()))
                 .toList();
         List<DprIssue> issuesLogged = issueRepository.findByProjectIdOrderByOpenedAtDesc(projectId).stream()
                 .filter(i -> r.getId().equals(i.getSupervisorResourceId()))
@@ -670,7 +670,7 @@ public class TraverseEntityTool implements Tool {
     public Set<String> allowedRoles() {
         return Set.of(
                 "PROJECT_MANAGER", "PORTFOLIO_MANAGER",
-                "SITE_MANAGER", "PROJECT_ENGINEER", "QC_MANAGER",
+                "SITE_MANAGER", "PROJECT_ENGINEER", "QC_MANAGER", "QA_QC_ENGINEER",
                 "BIM_DATA_COORDINATOR",
                 "SITE_ENGINEER", "RESOURCE_MANAGER", "SCHEDULER",
                 "EXECUTIVE_VIEWER");

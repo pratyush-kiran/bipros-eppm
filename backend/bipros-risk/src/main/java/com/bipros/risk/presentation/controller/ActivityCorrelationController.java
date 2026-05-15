@@ -20,13 +20,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/activity-correlations")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ActivityCorrelationController {
 
     private final ActivityCorrelationService service;
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<ActivityCorrelationDto>>> list(@PathVariable UUID projectId) {
         return ResponseEntity.ok(ApiResponse.ok(service.listForProject(projectId)));
     }
@@ -36,6 +36,7 @@ public class ActivityCorrelationController {
      * Send coefficient in (-0.99, 0.99). Pass 0 to effectively disable (or DELETE to remove).
      */
     @PutMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.UPDATE')")
     public ResponseEntity<ApiResponse<ActivityCorrelationDto>> upsert(
         @PathVariable UUID projectId,
         @Valid @RequestBody ActivityCorrelationDto body) {
@@ -43,6 +44,7 @@ public class ActivityCorrelationController {
     }
 
     @DeleteMapping("/{activityAId}/{activityBId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.DELETE')")
     public ResponseEntity<ApiResponse<Void>> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID activityAId,

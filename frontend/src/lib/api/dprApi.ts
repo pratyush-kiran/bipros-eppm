@@ -23,6 +23,40 @@ export interface DprListFilters {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+export interface ProductivityPreviewRequest {
+  manpower: Array<{
+    roleId: string | null;
+    nos: number | null;
+    workingHours?: number | null;
+  }>;
+  equipment: Array<{
+    roleId: string | null;
+    nos: number | null;
+    workingHours?: number | null;
+  }>;
+}
+
+export type ProductivityCoverage =
+  | "MANPOWER_ONLY"
+  | "EQUIPMENT_ONLY"
+  | "BOTH"
+  | "NONE"
+  | "NO_WORK_ACTIVITY";
+
+export interface ProductivityPreviewResponse {
+  expectedFromManpower: number | null;
+  expectedFromEquipment: number | null;
+  expectedBottleneck: number | null;
+  source: "BOTH" | "MANPOWER_ONLY" | "EQUIPMENT_ONLY" | "NONE";
+  /**
+   * What the Work Activity tracks at all (independent of what rows the user has logged).
+   * The form uses this to decide whether to render the Manpower / Equipment sides at all
+   * and to surface the "this activity is informational" banners.
+   */
+  coverage: ProductivityCoverage;
+  warnings: string[];
+}
+
 export const dprApi = {
   list: (projectId: string, filters: DprListFilters = {}) => {
     const params = new URLSearchParams();
@@ -139,6 +173,19 @@ export const dprApi = {
     if (!data.data) throw new Error("voice-fill returned empty body");
     return data.data;
   },
+
+  /** Live productivity preview for the DPR form. Read-only, never writes. */
+  productivityPreview: (
+    projectId: string,
+    activityId: string,
+    payload: ProductivityPreviewRequest,
+  ) =>
+    apiClient
+      .post<ApiResponse<ProductivityPreviewResponse>>(
+        `/v1/projects/${projectId}/dpr/activities/${activityId}/productivity-preview`,
+        payload,
+      )
+      .then((r) => r.data),
 };
 
 // ─── Voice form-fill types ──────────────────────────────────────────────────────
@@ -160,7 +207,7 @@ export interface DprVoicePhotoCaption {
  */
 export interface DprVoicePatch {
   reportDate?: string | null;
-  supervisorResourceId?: string | null;
+  supervisorUserId?: string | null;
   supervisorName?: string | null;
   activityId?: string | null;
   activityName?: string | null;

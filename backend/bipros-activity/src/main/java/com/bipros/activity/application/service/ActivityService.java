@@ -119,8 +119,10 @@ public class ActivityService {
     activity.setChainageToM(request.chainageToM());
     activity.setWorkActivityId(request.workActivityId());
     activity.setCostAccountId(request.costAccountId());
-    activity.setResponsibleResourceId(request.supervisorResourceId());
-    activity.setResponsibleResourceName(request.supervisorResourceName());
+    // Phase 4.5: responsibleResourceId / responsibleResourceName are gone from the DB
+    // (Liquibase 094 dropped the columns). Supervisor identity is now carried by
+    // supervisor_user_id and set via PUT /v1/activities/{id}/supervisor — the create path
+    // no longer wires through a Resource-based supervisor. Intentional no-op.
     activity.setPercentComplete(0.0);
 
     Double duration;
@@ -282,12 +284,10 @@ public class ActivityService {
     if (request.costAccountId() != null) {
       activity.setCostAccountId(request.costAccountId());
     }
-    // Supervisor: id+name come together from the frontend picker. Null means "no change" (same
-    // pattern as other update fields). To clear, future work — add an explicit Clear action.
-    if (request.supervisorResourceId() != null) {
-      activity.setResponsibleResourceId(request.supervisorResourceId());
-      activity.setResponsibleResourceName(request.supervisorResourceName());
-    }
+    // Phase 4.5: supervisor Resource fields are deprecated (the DB columns are dropped by
+    // Liquibase 094). The request still carries them for back-compat with older frontends
+    // but the assignment is now made via PUT /v1/activities/{id}/supervisor (supervisor_user_id).
+    // Intentional no-op here.
 
     // Enforce date-order across the planned window after any updates
     LocalDate ps = activity.getPlannedStartDate();
@@ -487,79 +487,40 @@ public class ActivityService {
   }
 
   /**
-   * Sync the set of activities supervised by {@code supervisorResourceId} in {@code projectId}
-   * to exactly the activities in {@code activityIds}. Each activity in the list must belong
-   * to {@code projectId}; mismatches throw 400.
-   *
-   * <p>Behaviour:
-   * <ul>
-   *   <li>Activities in the list that don't already have this supervisor → set supervisor
-   *       (replacing any prior supervisor).</li>
-   *   <li>Activities currently supervised by this supervisor in this project but NOT in the
-   *       list → supervisor cleared. This is what makes "uncheck and save" persist.</li>
-   * </ul>
-   *
-   * <p>Re-uses the same columns as the per-activity supervisor field
-   * ({@code Activity.responsibleResourceId} / {@code responsibleResourceName}) so the
-   * Activities-grid Supervisor column, the By-Supervisor view, and the DPR pre-fill all
-   * reflect the change without any extra wiring.
-   *
-   * <p>Frontend filters the picker to LABOR/Manpower resources from the project pool;
-   * no LABOR validation is performed here (mirrors the single-activity update path).
-   *
-   * @return number of activities whose supervisor changed (sets + clears)
+   * @deprecated Phase 4.5: this endpoint synced the legacy
+   * {@code Activity.responsibleResourceId} cache, which is dropped by Liquibase 094. The
+   * canonical supervisor wiring is now the per-activity
+   * {@code PUT /v1/activities/{id}/supervisor} endpoint that writes
+   * {@code Activity.supervisorUserId}. The method is preserved (no signature change) and
+   * short-circuits to {@code 0} so older frontends do not 500. New callers must use the
+   * user-based supervisor endpoint.
    */
+  /**
+   * Phase 4.5: per-activity supervisor assignment. Writes {@code Activity.supervisor_user_id}
+   * (User FK to {@code public.users.id}). Pass {@code supervisorUserId = null} to clear.
+   */
+  public ActivityResponse setSupervisor(UUID activityId,
+      com.bipros.activity.application.dto.SetSupervisorRequest request) {
+    Activity activity = activityRepository.findById(activityId)
+        .orElseThrow(() -> new ResourceNotFoundException("Activity", activityId));
+    projectAccess.requireEdit(activity.getProjectId());
+    UUID userId = request == null ? null : request.supervisorUserId();
+    String snapshot = request == null ? null : request.supervisorName();
+    activity.setSupervisorUserId(userId);
+    activity.setSupervisorUserName(userId == null ? null : snapshot);
+    Activity saved = activityRepository.save(activity);
+    log.info("Set supervisor: activityId={}, supervisorUserId={}",
+        activityId, saved.getSupervisorUserId());
+    return ActivityResponse.from(saved);
+  }
+
+  @Deprecated(forRemoval = true)
   public int bulkSetSupervisor(UUID projectId, com.bipros.activity.application.dto.BulkSupervisorRequest request) {
-    log.info("Bulk supervisor sync: projectId={}, supervisorResourceId={}, activityCount={}",
-        projectId, request.supervisorResourceId(), request.activityIds().size());
-
+    log.warn("Phase 4.5: bulkSetSupervisor is a no-op (responsibleResourceId column dropped). "
+        + "Use the supervisor_user_id endpoint instead. projectId={}, requested={}",
+        projectId, request != null && request.activityIds() != null ? request.activityIds().size() : 0);
     projectAccess.requireEdit(projectId);
-
-    UUID supervisorId = request.supervisorResourceId();
-    java.util.Set<UUID> requested = new java.util.HashSet<>(request.activityIds());
-
-    int changed = 0;
-
-    // 1. Clear supervisor on activities currently assigned to this supervisor that are
-    //    no longer in the requested set (i.e. unchecked by the user).
-    java.util.List<Activity> currentlyAssigned =
-        activityRepository.findByProjectIdAndResponsibleResourceId(projectId, supervisorId);
-    for (Activity activity : currentlyAssigned) {
-      if (!requested.contains(activity.getId())) {
-        UUID oldResourceId = activity.getResponsibleResourceId();
-        activity.setResponsibleResourceId(null);
-        activity.setResponsibleResourceName(null);
-        activityRepository.save(activity);
-        auditService.logUpdate("Activity", activity.getId(),
-            "responsibleResourceId", oldResourceId, null);
-        changed++;
-      }
-    }
-
-    // 2. Set supervisor on every requested activity (no-op when already matches).
-    for (UUID activityId : request.activityIds()) {
-      Activity activity = activityRepository.findById(activityId)
-          .orElseThrow(() -> new ResourceNotFoundException("Activity", activityId));
-
-      if (!projectId.equals(activity.getProjectId())) {
-        throw new BusinessRuleException("ACTIVITY_PROJECT_MISMATCH",
-            "Activity " + activityId + " does not belong to project " + projectId);
-      }
-
-      UUID oldResourceId = activity.getResponsibleResourceId();
-      if (java.util.Objects.equals(oldResourceId, supervisorId)) {
-        continue;
-      }
-      activity.setResponsibleResourceId(supervisorId);
-      activity.setResponsibleResourceName(request.supervisorResourceName());
-      activityRepository.save(activity);
-      auditService.logUpdate("Activity", activityId,
-          "responsibleResourceId", oldResourceId, supervisorId);
-      changed++;
-    }
-
-    log.info("Bulk supervisor sync complete: changed={}", changed);
-    return changed;
+    return 0;
   }
 
   public void applyActuals(UUID projectId, LocalDate dataDate) {
@@ -722,5 +683,49 @@ public class ActivityService {
     }
     Project project = projectRepository.findById(projectId).orElse(null);
     return project != null ? project.getCalendarId() : null;
+  }
+
+  /**
+   * List activities under {@code projectId} that have no {@code work_activity_id} linked AND
+   * either have at least one DPR submitted in the [from, to] window or have planned dates that
+   * intersect the window. Powers the "N activities have no Work Activity linked" banner on the
+   * Capacity Utilization page.
+   *
+   * <p>The query crosses the project schema (for the DPR existence check) so a native SQL is
+   * used; the same precedent applies as elsewhere in this service.
+   */
+  @Transactional(readOnly = true)
+  public List<com.bipros.activity.application.dto.MissingWorkActivityRow> listMissingWorkActivity(
+      UUID projectId, LocalDate from, LocalDate to) {
+    projectAccess.requireRead(projectId);
+    LocalDate fromDate = from != null ? from : LocalDate.now().minusYears(5);
+    LocalDate toDate = to != null ? to : LocalDate.now().plusYears(5);
+
+    @SuppressWarnings("unchecked")
+    List<Object[]> rows = em.createNativeQuery(
+            "SELECT a.id, a.code, a.name, "
+                + "  (SELECT COUNT(*) FROM project.daily_progress_reports d "
+                + "     WHERE d.activity_id = a.id AND d.report_date BETWEEN :fromDate AND :toDate) "
+                + "FROM activity.activities a "
+                + "WHERE a.project_id = :projectId "
+                + "  AND a.work_activity_id IS NULL "
+                + "  AND ( "
+                + "    EXISTS (SELECT 1 FROM project.daily_progress_reports d "
+                + "             WHERE d.activity_id = a.id AND d.report_date BETWEEN :fromDate AND :toDate) "
+                + "    OR (a.planned_start_date <= :toDate AND a.planned_finish_date >= :fromDate) "
+                + "  ) "
+                + "ORDER BY a.code")
+        .setParameter("projectId", projectId)
+        .setParameter("fromDate", fromDate)
+        .setParameter("toDate", toDate)
+        .getResultList();
+
+    return rows.stream()
+        .map(r -> new com.bipros.activity.application.dto.MissingWorkActivityRow(
+            (UUID) r[0],
+            (String) r[1],
+            (String) r[2],
+            r[3] == null ? 0 : ((Number) r[3]).intValue()))
+        .toList();
   }
 }

@@ -37,7 +37,15 @@ public record DprSubmittedEvent(
     int issueCount,
     BigDecimal totalManpowerHours,
     BigDecimal totalEquipmentHours,
-    BigDecimal totalFuelLitres
+    BigDecimal totalFuelLitres,
+
+    /**
+     * Soft FK to {@code public.users.id}. The supervisor (an application user, not a Resource)
+     * who oversees this DPR. Replaces the legacy {@code supervisorResourceId} on the analytics
+     * feed; the OLTP DPR column it mirrors was renamed in Liquibase 087 (added supervisor_user_id)
+     * and Liquibase 091 (drops supervisor_resource_id). Null when the DPR has free-text "Other".
+     */
+    UUID supervisorUserId
 ) {
     /** Back-compat helper for callers that don't have child counts on hand (e.g. DELETE). */
     public static DprSubmittedEvent withoutChildren(
@@ -47,6 +55,7 @@ public record DprSubmittedEvent(
         return new DprSubmittedEvent(
                 projectId, dprId, reportDate, activityName, boqItemNo, qtyExecuted,
                 oldBoqItemNo, oldQty, eventType,
-                0, 0, 0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+                0, 0, 0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                null);
     }
 }

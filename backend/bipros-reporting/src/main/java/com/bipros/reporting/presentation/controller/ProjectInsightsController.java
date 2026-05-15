@@ -54,7 +54,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectInsightsController {

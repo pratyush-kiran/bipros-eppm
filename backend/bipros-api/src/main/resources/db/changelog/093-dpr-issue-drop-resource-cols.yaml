@@ -1,0 +1,64 @@
+databaseChangeLog:
+  # RBAC Phase 4.2 — drop the legacy Resource-id columns on project.dpr_issues after 092 has
+  # backfilled supervisor_user_id / assigned_to_user_id. The pre-flight check halts the upgrade if
+  # any row still carries a Resource id without a matching User id so we never silently lose linkage.
+  - changeSet:
+      id: 093-1-precondition
+      author: bipros
+      preConditions:
+        - onFail: HALT
+        - sqlCheck:
+            expectedResult: "0"
+            sql: |
+              SELECT COUNT(*) FROM project.dpr_issues
+              WHERE (supervisor_resource_id IS NOT NULL AND supervisor_user_id IS NULL)
+                 OR (assigned_to_resource_id  IS NOT NULL AND assigned_to_user_id  IS NULL);
+      changes:
+        - sql:
+            sql: "SELECT 1;"
+
+  - changeSet:
+      id: 093-2-drop-supervisor-resource-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            schemaName: project
+            tableName: dpr_issues
+            columnName: supervisor_resource_id
+      changes:
+        - dropColumn:
+            schemaName: project
+            tableName: dpr_issues
+            columnName: supervisor_resource_id
+      rollback:
+        - addColumn:
+            schemaName: project
+            tableName: dpr_issues
+            columns:
+              - column:
+                  name: supervisor_resource_id
+                  type: uuid
+
+  - changeSet:
+      id: 093-3-drop-assigned-to-resource-id
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            schemaName: project
+            tableName: dpr_issues
+            columnName: assigned_to_resource_id
+      changes:
+        - dropColumn:
+            schemaName: project
+            tableName: dpr_issues
+            columnName: assigned_to_resource_id
+      rollback:
+        - addColumn:
+            schemaName: project
+            tableName: dpr_issues
+            columns:
+              - column:
+                  name: assigned_to_resource_id
+                  type: uuid

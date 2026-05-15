@@ -15,19 +15,20 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/corridor-code")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class CorridorCodeController {
 
     private final CorridorCodeService corridorCodeService;
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<CorridorCodeResponse>> getCorridorCode(@PathVariable UUID projectId) {
         CorridorCodeResponse response = corridorCodeService.getByProject(projectId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<CorridorCodeResponse>> generateCorridorCode(
         @PathVariable UUID projectId,
         @Valid @RequestBody CreateCorridorCodeRequest request) {

@@ -34,7 +34,7 @@ public class DailyResourceDeploymentController {
   private final DailyResourceDeploymentService service;
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<DailyResourceDeploymentResponse>> create(
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateDailyResourceDeploymentRequest request) {
@@ -44,7 +44,7 @@ public class DailyResourceDeploymentController {
   }
 
   @PostMapping("/bulk")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<List<DailyResourceDeploymentResponse>>> createBulk(
       @PathVariable UUID projectId,
       @Valid @RequestBody List<CreateDailyResourceDeploymentRequest> requests) {
@@ -69,7 +69,7 @@ public class DailyResourceDeploymentController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(
       @PathVariable UUID projectId,
       @PathVariable UUID id) {

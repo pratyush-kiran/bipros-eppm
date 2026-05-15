@@ -52,5 +52,17 @@ public record CreateProductivityNormRequest(
 
     String equipmentSpec,
 
-    String remarks
+    String remarks,
+
+    /**
+     * Role-keyed scope (new model). When set, the norm applies to a role (and optionally a
+     * variant). Mutually exclusive with {@link #resourceTypeId()} / {@link #resourceId()}.
+     * Resolution: variant ({@link #roleId} + {@link #categoryId}/{@link #gradeId} or
+     * {@link #make}/{@link #model}) → role-only → unscoped.
+     */
+    UUID roleId,
+    UUID categoryId,
+    UUID gradeId,
+    String make,
+    String model
 ) {}

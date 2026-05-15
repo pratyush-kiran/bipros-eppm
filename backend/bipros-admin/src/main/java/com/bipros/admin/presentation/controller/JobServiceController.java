@@ -18,31 +18,34 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/admin/jobs")
-@PreAuthorize("hasAnyRole('ADMIN')")
 @RequiredArgsConstructor
 public class JobServiceController {
 
     private final JobServiceService jobServiceService;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<JobServiceDto>>> listJobs() {
         List<JobServiceDto> jobs = jobServiceService.listJobServices();
         return ResponseEntity.ok(ApiResponse.ok(jobs));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<JobServiceDto>> getJob(@PathVariable UUID id) {
         JobServiceDto job = jobServiceService.getJobService(id);
         return ResponseEntity.ok(ApiResponse.ok(job));
     }
 
     @GetMapping("/{id}/status")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<JobServiceDto>> getJobStatus(@PathVariable UUID id) {
         JobServiceDto job = jobServiceService.getJobStatus(id);
         return ResponseEntity.ok(ApiResponse.ok(job));
     }
 
     @PostMapping("/trigger")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<JobServiceDto>> triggerJob(
         @RequestParam String name,
         @RequestParam(required = false) UUID projectId) {

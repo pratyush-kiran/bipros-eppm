@@ -182,14 +182,17 @@ public class AnalyticsEtlService {
     }
 
     /**
-     * The {@code supervisor_user_id} ClickHouse column name predates the resource/user
-     * split — the value written here is the supervisor's RESOURCE id (FK to OLTP
-     * resource.resources.id). Renaming the column would break replication; we keep
-     * the legacy name and populate it correctly. See clickhouse-init.sql.
+     * Phase 4.3: the value written into {@code supervisor_user_id} is now the supervisor's
+     * USER id (FK to {@code public.users.id}) — the canonical identity after the role-only
+     * assignment refactor. The ClickHouse column was added with the {@code supervisor_user_id}
+     * name from the start; only the OLTP rename (Liquibase 087 / 091) and the Java contract
+     * are catching up. Older fact rows written before this phase carry resource ids in the
+     * same column — query callers must be aware until a backfill rewrites them. See
+     * clickhouse-init.sql.
      */
     public void insertDprLog(
             UUID projectId, UUID activityId, UUID dprId, LocalDate reportDate,
-            UUID supervisorResourceId, String supervisorName,
+            UUID supervisorUserId, String supervisorName,
             Double chainageFromM, Double chainageToM,
             Double qtyExecuted, Double cumulativeQty,
             String weather, Float temperatureC, String remarksText) {
@@ -199,7 +202,7 @@ public class AnalyticsEtlService {
             (project_id, activity_id, dpr_id, report_date, supervisor_user_id, supervisor_name,
              chainage_from_m, chainage_to_m, qty_executed, cumulative_qty,
              weather, temperature_c, remarks_text, remarks_embedding, event_ts, _version)
-            VALUES (:projectId, :activityId, :dprId, :reportDate, :supervisorResourceId, :supervisorName,
+            VALUES (:projectId, :activityId, :dprId, :reportDate, :supervisorUserId, :supervisorName,
                     :chainageFrom, :chainageTo, :qtyExecuted, :cumulativeQty,
                     :weather, :temperatureC, :remarksText, [], now64(3), :version)
             """;
@@ -209,7 +212,7 @@ public class AnalyticsEtlService {
         params.put("activityId", activityId != null ? activityId : new UUID(0L, 0L));
         params.put("dprId", dprId);
         params.put("reportDate", reportDate);
-        params.put("supervisorResourceId", supervisorResourceId != null ? supervisorResourceId : new UUID(0L, 0L));
+        params.put("supervisorUserId", supervisorUserId != null ? supervisorUserId : new UUID(0L, 0L));
         params.put("supervisorName", supervisorName != null ? supervisorName : "");
         params.put("chainageFrom", chainageFromM);
         params.put("chainageTo", chainageToM);

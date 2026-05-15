@@ -16,13 +16,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/contracts/{contractId}/milestones")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ContractMilestoneController {
 
     private final ContractMilestoneService milestoneService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.CREATE')")
     public ResponseEntity<ApiResponse<ContractMilestoneResponse>> create(
         @PathVariable UUID contractId,
         @Valid @RequestBody ContractMilestoneRequest request) {
@@ -31,6 +31,7 @@ public class ContractMilestoneController {
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<ContractMilestoneResponse>>> listByContract(
         @PathVariable UUID contractId) {
         List<ContractMilestoneResponse> response = milestoneService.listByContract(contractId);
@@ -38,6 +39,7 @@ public class ContractMilestoneController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<ContractMilestoneResponse>> getById(
         @PathVariable UUID contractId,
         @PathVariable UUID id) {
@@ -46,6 +48,7 @@ public class ContractMilestoneController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ContractMilestoneResponse>> update(
         @PathVariable UUID contractId,
         @PathVariable UUID id,
@@ -55,6 +58,7 @@ public class ContractMilestoneController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.DELETE')")
     public ResponseEntity<Void> delete(
         @PathVariable UUID contractId,
         @PathVariable UUID id) {

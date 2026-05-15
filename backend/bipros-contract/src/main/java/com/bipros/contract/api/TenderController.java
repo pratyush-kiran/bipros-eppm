@@ -20,13 +20,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/tenders")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class TenderController {
 
     private final TenderService tenderService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.CREATE')")
     public ResponseEntity<ApiResponse<TenderResponse>> create(
         @PathVariable UUID projectId,
         @Valid @RequestBody TenderRequest request) {
@@ -35,6 +35,7 @@ public class TenderController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<PagedResponse<TenderResponse>>> listByProject(
         @PathVariable UUID projectId,
         @RequestParam(defaultValue = "0") int page,
@@ -47,6 +48,7 @@ public class TenderController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<TenderResponse>> getById(
         @PathVariable UUID projectId,
         @PathVariable UUID id) {
@@ -55,6 +57,7 @@ public class TenderController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<TenderResponse>> update(
         @PathVariable UUID projectId,
         @PathVariable UUID id,
@@ -64,6 +67,7 @@ public class TenderController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.DELETE')")
     public ResponseEntity<Void> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID id) {
@@ -72,6 +76,7 @@ public class TenderController {
     }
 
     @GetMapping("/plan/{procurementPlanId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<TenderResponse>>> listByProcurementPlan(
         @PathVariable UUID projectId,
         @PathVariable UUID procurementPlanId) {

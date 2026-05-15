@@ -1,0 +1,43 @@
+databaseChangeLog:
+  # Phase 4.1 cutover: drop the legacy supervisor_resource_id column from
+  # project.daily_progress_reports. Migration 087 backfilled supervisor_user_id from the
+  # resource → user chain, and the service layer no longer writes the legacy column.
+  #
+  # Hard-stops the migration if any row would lose its supervisor identity (i.e. has a non-null
+  # supervisor_resource_id but no supervisor_user_id backfilled). In that case fix the data
+  # (run the 087 backfill against the affected rows, or null out the resource id deliberately)
+  # before retrying.
+  - changeSet:
+      id: 091-1-precondition-check-backfill
+      author: bipros
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              -- No-op marker changeSet; the real gate is the preCondition below.
+              SELECT 1;
+      preConditions:
+        - onFail: HALT
+        - sqlCheck:
+            expectedResult: 0
+            sql: >-
+              SELECT count(*) FROM project.daily_progress_reports
+              WHERE supervisor_resource_id IS NOT NULL
+                AND supervisor_user_id IS NULL
+
+  - changeSet:
+      id: 091-2-drop-supervisor-resource-id-column
+      author: bipros
+      changes:
+        - dropColumn:
+            tableName: daily_progress_reports
+            schemaName: project
+            columnName: supervisor_resource_id
+      rollback:
+        - addColumn:
+            tableName: daily_progress_reports
+            schemaName: project
+            columns:
+              - column:
+                  name: supervisor_resource_id
+                  type: uuid

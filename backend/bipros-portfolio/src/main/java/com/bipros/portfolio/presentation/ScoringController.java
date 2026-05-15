@@ -26,13 +26,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/scoring-models")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ScoringController {
 
   private final ScoringService scoringService;
 
   @PostMapping
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.UPDATE')")
   public ResponseEntity<ApiResponse<ScoringModelResponse>> createScoringModel(
       @Valid @RequestBody CreateScoringModelRequest request) {
     ScoringModelResponse response = scoringService.createScoringModel(request);
@@ -40,24 +40,28 @@ public class ScoringController {
   }
 
   @GetMapping
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.READ')")
   public ResponseEntity<ApiResponse<List<ScoringModelResponse>>> listScoringModels() {
     List<ScoringModelResponse> response = scoringService.listScoringModels();
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.READ')")
   public ResponseEntity<ApiResponse<ScoringModelResponse>> getScoringModel(@PathVariable UUID id) {
     ScoringModelResponse response = scoringService.getScoringModel(id);
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 
   @DeleteMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.UPDATE')")
   public ResponseEntity<Void> deleteScoringModel(@PathVariable UUID id) {
     scoringService.deleteScoringModel(id);
     return ResponseEntity.noContent().build();
   }
 
   @PostMapping("/{id}/criteria")
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.UPDATE')")
   public ResponseEntity<ApiResponse<ScoringCriterionResponse>> addCriterion(
       @PathVariable UUID id, @Valid @RequestBody AddScoringCriterionRequest request) {
     ScoringCriterionResponse response = scoringService.addCriterion(id, request);
@@ -65,6 +69,7 @@ public class ScoringController {
   }
 
   @GetMapping("/{id}/criteria")
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.READ')")
   public ResponseEntity<ApiResponse<List<ScoringCriterionResponse>>> getModelCriteria(
       @PathVariable UUID id) {
     List<ScoringCriterionResponse> response = scoringService.getModelCriteria(id);
@@ -72,6 +77,7 @@ public class ScoringController {
   }
 
   @PostMapping("/{modelId}/projects/{projectId}/score")
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.UPDATE')")
   public ResponseEntity<Void> scoreProject(
       @PathVariable UUID modelId,
       @PathVariable UUID projectId,
@@ -82,6 +88,7 @@ public class ScoringController {
   }
 
   @GetMapping("/{modelId}/ranking")
+  @PreAuthorize("hasPermission(null, 'PORTFOLIO.READ')")
   public ResponseEntity<ApiResponse<List<ProjectRankingResponse>>> getProjectRanking(
       @PathVariable UUID modelId) {
     List<ProjectRankingResponse> response = scoringService.prioritizeProjects(modelId);

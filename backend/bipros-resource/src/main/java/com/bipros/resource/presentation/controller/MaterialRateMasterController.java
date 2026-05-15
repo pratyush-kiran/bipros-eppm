@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/material-rate-master")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class MaterialRateMasterController {
@@ -42,7 +42,7 @@ public class MaterialRateMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<MaterialRateMasterResponse>> create(
       @Valid @RequestBody MaterialRateMasterRequest request) {
     log.info("POST /v1/material-rate-master");
@@ -51,7 +51,7 @@ public class MaterialRateMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<MaterialRateMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody MaterialRateMasterRequest request) {
     log.info("PUT /v1/material-rate-master/{}", id);
@@ -59,7 +59,7 @@ public class MaterialRateMasterController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     log.info("DELETE /v1/material-rate-master/{}", id);
     service.delete(id);

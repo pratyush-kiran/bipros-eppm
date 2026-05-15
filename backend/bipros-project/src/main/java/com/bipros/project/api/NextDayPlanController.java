@@ -33,7 +33,7 @@ public class NextDayPlanController {
   private final NextDayPlanService service;
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<NextDayPlanResponse>> create(
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateNextDayPlanRequest request) {
@@ -44,7 +44,7 @@ public class NextDayPlanController {
   }
 
   @PostMapping("/bulk")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<List<NextDayPlanResponse>>> createBulk(
       @PathVariable UUID projectId,
       @Valid @RequestBody List<CreateNextDayPlanRequest> requests) {
@@ -68,7 +68,7 @@ public class NextDayPlanController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(
       @PathVariable UUID projectId,
       @PathVariable UUID id) {

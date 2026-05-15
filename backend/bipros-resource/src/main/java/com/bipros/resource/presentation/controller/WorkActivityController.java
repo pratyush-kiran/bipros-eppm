@@ -31,8 +31,10 @@ import java.util.UUID;
 public class WorkActivityController {
 
   private final WorkActivityService service;
+  private final com.bipros.resource.application.service.ProductivityCoverageService coverageService;
 
   @GetMapping
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
   public ResponseEntity<ApiResponse<List<WorkActivityResponse>>> list(
       @RequestParam(required = false) Boolean active) {
     log.info("GET /v1/work-activities - active={}", active);
@@ -40,12 +42,24 @@ public class WorkActivityController {
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
   public ResponseEntity<ApiResponse<WorkActivityResponse>> get(@PathVariable UUID id) {
     return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
   }
 
+  /**
+   * Productivity coverage summary for a Work Activity: does it have manpower norms, equipment
+   * norms, both, or none? Used by the Activity edit page to render the coverage chip under the
+   * Work Activity picker, and by the DPR form to show the supervisor what will be measured.
+   */
+  @GetMapping("/{id}/productivity-coverage")
+  public ResponseEntity<ApiResponse<com.bipros.resource.application.dto.ProductivityCoverageResponse>>
+      productivityCoverage(@PathVariable UUID id) {
+    return ResponseEntity.ok(ApiResponse.ok(coverageService.coverage(id)));
+  }
+
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<WorkActivityResponse>> create(
       @Valid @RequestBody CreateWorkActivityRequest request) {
     log.info("POST /v1/work-activities - name={}", request.name());
@@ -53,7 +67,7 @@ public class WorkActivityController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<WorkActivityResponse>> update(
       @PathVariable UUID id,
       @Valid @RequestBody CreateWorkActivityRequest request) {
@@ -61,14 +75,14 @@ public class WorkActivityController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     service.delete(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
   }
 
   @DeleteMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> deleteAll() {
     service.deleteAll();
     return ResponseEntity.ok(ApiResponse.ok(null));

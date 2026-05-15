@@ -22,7 +22,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/v1/portfolio")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'PORTFOLIO.READ')")
 @RequiredArgsConstructor
 public class PortfolioReportController {
 

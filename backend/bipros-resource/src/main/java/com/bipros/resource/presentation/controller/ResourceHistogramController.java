@@ -19,14 +19,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/resource-histogram")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ResourceHistogramController {
 
   private final ResourceHistogramService resourceHistogramService;
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping
   public ResponseEntity<ApiResponse<List<ResourceHistogramEntry>>> getHistogram(
       @PathVariable UUID projectId,

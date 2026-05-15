@@ -85,13 +85,13 @@ export function ManpowerRoleRateTable({ roleId }: Props) {
       </div>
 
       {showForm && (
-        <div className="rounded-md border border-neutral-700 p-4">
+        <div className="rounded-md border border-border p-4">
           {error && <div className="mb-2 text-sm text-red-400">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm">
-              <span className="text-neutral-400">Category *</span>
+              <span className="text-text-secondary">Category *</span>
               <select
-                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-border bg-paper px-2 py-1.5 text-text-primary"
                 value={form.categoryId}
                 onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
               >
@@ -104,9 +104,9 @@ export function ManpowerRoleRateTable({ roleId }: Props) {
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-neutral-400">Grade *</span>
+              <span className="text-text-secondary">Grade *</span>
               <select
-                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-border bg-paper px-2 py-1.5 text-text-primary"
                 value={form.gradeId}
                 onChange={(e) => setForm({ ...form, gradeId: e.target.value })}
               >
@@ -119,9 +119,9 @@ export function ManpowerRoleRateTable({ roleId }: Props) {
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-neutral-400">Unit *</span>
+              <span className="text-text-secondary">Unit *</span>
               <select
-                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-border bg-paper px-2 py-1.5 text-text-primary"
                 value={form.unit}
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
               >
@@ -133,11 +133,11 @@ export function ManpowerRoleRateTable({ roleId }: Props) {
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-neutral-400">Rate *</span>
+              <span className="text-text-secondary">Rate *</span>
               <input
                 type="number"
                 step="0.01"
-                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-border bg-paper px-2 py-1.5 text-text-primary"
                 value={form.rate}
                 onChange={(e) =>
                   setForm({ ...form, rate: parseFloat(e.target.value) || 0 })
@@ -155,7 +155,7 @@ export function ManpowerRoleRateTable({ roleId }: Props) {
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm"
+              className="rounded-md border border-border px-3 py-1.5 text-sm text-text-secondary"
             >
               Cancel
             </button>
@@ -164,7 +164,7 @@ export function ManpowerRoleRateTable({ roleId }: Props) {
       )}
 
       <table className="w-full text-sm">
-        <thead className="border-b border-neutral-700 text-neutral-400">
+        <thead className="border-b border-border text-text-secondary">
           <tr>
             <th className="py-2 text-left">Category</th>
             <th className="py-2 text-left">Grade</th>
@@ -177,13 +177,13 @@ export function ManpowerRoleRateTable({ roleId }: Props) {
         <tbody>
           {rates.length === 0 && (
             <tr>
-              <td colSpan={6} className="py-6 text-center text-neutral-500">
+              <td colSpan={6} className="py-6 text-center text-text-muted">
                 No rates defined yet
               </td>
             </tr>
           )}
           {rates.map((r: ManpowerRoleRate) => (
-            <tr key={r.id} className="border-b border-neutral-800">
+            <tr key={r.id} className="border-b border-border">
               <td className="py-2">{r.categoryName}</td>
               <td className="py-2">{r.gradeName}</td>
               <td className="py-2">{r.unit}</td>

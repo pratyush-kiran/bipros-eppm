@@ -42,6 +42,7 @@
         <module>bipros-permit</module>
         <module>bipros-analytics</module>
         <module>bipros-ai</module>
+        <module>bipros-site-ops</module>
         <module>bipros-api</module>
     </modules>
 
@@ -172,6 +173,11 @@
             <dependency>
                 <groupId>com.bipros</groupId>
                 <artifactId>bipros-ai</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.bipros</groupId>
+                <artifactId>bipros-site-ops</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

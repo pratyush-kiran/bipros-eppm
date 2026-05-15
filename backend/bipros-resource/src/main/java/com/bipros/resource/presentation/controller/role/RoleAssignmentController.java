@@ -31,7 +31,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class RoleAssignmentController {
@@ -39,7 +39,7 @@ public class RoleAssignmentController {
   private final RoleAssignmentService service;
 
   @PostMapping("/projects/{projectId}/role-assignments")
-  @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<RoleAssignmentResponse>> create(
       @PathVariable UUID projectId, @Valid @RequestBody RoleAssignmentRequest req) {
     log.info("POST /v1/projects/{}/role-assignments role={} activity={}", projectId, req.roleId(), req.activityId());
@@ -48,20 +48,21 @@ public class RoleAssignmentController {
   }
 
   @PutMapping("/role-assignments/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<RoleAssignmentResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody RoleAssignmentRequest req) {
     return ResponseEntity.ok(ApiResponse.ok(service.updateRoleAssignment(id, req)));
   }
 
   @DeleteMapping("/role-assignments/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     service.deleteRoleAssignment(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
   }
 
   @GetMapping("/projects/{projectId}/activities/{activityId}/role-assignments")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   public ResponseEntity<ApiResponse<List<RoleAssignmentResponse>>> listForActivity(
       @PathVariable UUID projectId, @PathVariable UUID activityId) {
     return ResponseEntity.ok(ApiResponse.ok(service.listForActivity(activityId)));

@@ -34,9 +34,10 @@ import java.util.UUID;
  * Supervisor-aware capacity utilization. Builds the SC180 Resource Productivity Report shape
  * (per-trade Manpower Utilization, per-equipment-type Equipment Utilization, per-activity
  * drill-down) by reading {@code project.dpr_manpower} / {@code project.dpr_equipment} directly
- * — keyed by supervisor via the parent {@code daily_progress_reports.supervisor_resource_id}.
+ * — keyed by supervisor via the parent {@code daily_progress_reports.supervisor_user_id}
+ * (Phase 4.4: the legacy {@code supervisor_resource_id} column was dropped by migration 091).
  *
- * <p>{@code supervisorResourceId == null} collapses the filter to project-wide. The page can use
+ * <p>{@code supervisorUserId == null} collapses the filter to project-wide. The page can use
  * the same endpoint for both views.
  */
 @Service
@@ -56,7 +57,7 @@ public class SupervisorPerformanceReportService {
 
   @Transactional(readOnly = true)
   public SupervisorPerformanceReport build(
-      UUID projectId, UUID supervisorResourceId,
+      UUID projectId, UUID supervisorUserId,
       LocalDate fromDate, LocalDate toDate, int workDays) {
 
     LocalDate today = LocalDate.now();
@@ -64,15 +65,15 @@ public class SupervisorPerformanceReportService {
     LocalDate effectiveFrom = fromDate == null ? effectiveTo.withDayOfMonth(1) : fromDate;
     int effectiveWorkDays = workDays > 0 ? workDays : 26;
 
-    String supervisorName = supervisorResourceId == null ? null
-        : resolveSupervisorName(projectId, supervisorResourceId);
+    String supervisorName = supervisorUserId == null ? null
+        : resolveSupervisorName(projectId, supervisorUserId);
 
     List<ManpowerCellRow> manpowerCells =
-        fetchManpowerCells(projectId, supervisorResourceId, effectiveFrom, effectiveTo);
+        fetchManpowerCells(projectId, supervisorUserId, effectiveFrom, effectiveTo);
     List<EquipmentCellRow> equipmentCells =
-        fetchEquipmentCells(projectId, supervisorResourceId, effectiveFrom, effectiveTo);
+        fetchEquipmentCells(projectId, supervisorUserId, effectiveFrom, effectiveTo);
     Map<UUID, ActivityMeta> activityMeta =
-        fetchActivityMeta(projectId, supervisorResourceId, effectiveFrom, effectiveTo);
+        fetchActivityMeta(projectId, supervisorUserId, effectiveFrom, effectiveTo);
 
     // Resolve norms once per (workActivityId, resourceTypeId) to avoid hammering the DB inside
     // the inner loops. Both the trade rollup and the activity drill-down consume the same map.
@@ -90,12 +91,20 @@ public class SupervisorPerformanceReportService {
           k -> normResolver.resolveByResourceType(k.workActivityId(), k.resourceTypeId(), k.normType()));
     }
 
+    // Real per-(activity, role) planned headcount from RoleAssignment, used by the drill-down's
+    // PLAN column. The Summary section above already uses this on the top-level rollups; the
+    // drill-down used to fake "plan = budget" before this fix.
+    Map<ActivityRoleKey, BigDecimal> plannedByActivityRole = loadPlannedUnitsByActivityRole(
+        projectId, manpowerCells, equipmentCells);
+
     List<TradeRollup> tradeRollups = rollUpManpower(manpowerCells, normCache, effectiveWorkDays);
     List<EquipmentRollup> equipmentRollups = rollUpEquipment(equipmentCells, normCache, effectiveWorkDays);
-    List<ActivityDrillDown> drillDown = buildDrillDown(manpowerCells, equipmentCells, normCache, activityMeta);
+    List<ActivityDrillDown> drillDown = buildDrillDown(
+        manpowerCells, equipmentCells, normCache, activityMeta,
+        plannedByActivityRole, effectiveWorkDays);
 
     return new SupervisorPerformanceReport(
-        projectId, supervisorResourceId, supervisorName,
+        projectId, supervisorUserId, supervisorName,
         effectiveFrom, effectiveTo, effectiveWorkDays,
         new Summary(tradeRollups, equipmentRollups),
         drillDown);
@@ -103,14 +112,14 @@ public class SupervisorPerformanceReportService {
 
   @Transactional(readOnly = true)
   public SupervisorPerformanceComparison compare(
-      UUID projectId, List<UUID> supervisorResourceIds,
+      UUID projectId, List<UUID> supervisorUserIds,
       LocalDate fromDate, LocalDate toDate, int workDays) {
-    if (supervisorResourceIds == null || supervisorResourceIds.size() < 2) {
+    if (supervisorUserIds == null || supervisorUserIds.size() < 2) {
       throw new IllegalArgumentException("compare requires at least 2 supervisor ids");
     }
 
-    List<SupervisorPerformanceReport> reports = new ArrayList<>(supervisorResourceIds.size());
-    for (UUID supId : supervisorResourceIds) {
+    List<SupervisorPerformanceReport> reports = new ArrayList<>(supervisorUserIds.size());
+    for (UUID supId : supervisorUserIds) {
       reports.add(build(projectId, supId, fromDate, toDate, workDays));
     }
 
@@ -123,7 +132,7 @@ public class SupervisorPerformanceReportService {
       for (TradeRollup tr : rep.summary().manpower()) {
         TradeDelta delta = tradeAcc.computeIfAbsent(tr.tradeKey(),
             k -> new TradeDelta(k, tr.tradeLabel(), new LinkedHashMap<>(), null, null));
-        delta.bySupervisor().put(rep.supervisorResourceId(), tr);
+        delta.bySupervisor().put(rep.supervisorUserId(), tr);
       }
     }
     List<TradeDelta> tradeDeltas = new ArrayList<>(tradeAcc.size());
@@ -143,7 +152,7 @@ public class SupervisorPerformanceReportService {
       for (EquipmentRollup er : rep.summary().equipment()) {
         EquipmentDelta delta = eqAcc.computeIfAbsent(er.equipmentKey(),
             k -> new EquipmentDelta(k, er.equipmentLabel(), new LinkedHashMap<>(), null, null));
-        delta.bySupervisor().put(rep.supervisorResourceId(), er);
+        delta.bySupervisor().put(rep.supervisorUserId(), er);
       }
     }
     List<EquipmentDelta> equipmentDeltas = new ArrayList<>(eqAcc.size());
@@ -166,45 +175,48 @@ public class SupervisorPerformanceReportService {
 
   @SuppressWarnings("unchecked")
   private List<ManpowerCellRow> fetchManpowerCells(
-      UUID projectId, UUID supervisorResourceId, LocalDate fromDate, LocalDate toDate) {
+      UUID projectId, UUID supervisorUserId, LocalDate fromDate, LocalDate toDate) {
 
+    // Role-only model: groups by m.role_id (the trade) and joins resource_roles directly.
+    // Legacy resource-keyed rows (m.resource_id set, m.role_id NULL) are skipped — they don't
+    // exist in the post-migration data path. working_hours falls back to 8 hrs/day so DPRs
+    // that capture only headcount (nos) still produce correct man-days (= nos × 8 / 8 = nos).
+    // line_cost is computed from the manpower_role_rate variant the DPR pinned, so MM Rate
+    // resolves correctly even when m.unit_rate / m.line_cost weren't stamped at save time.
     List<Object[]> raw = em.createNativeQuery(
             "SELECT "
-                + "  COALESCE(rr.code, UPPER(TRIM(m.trade)))                       AS trade_key, "
-                + "  COALESCE(rr.name, m.trade)                                    AS trade_label, "
-                + "  r.resource_type_id                                            AS resource_type_id, "
+                + "  rr.code                                                       AS trade_key, "
+                + "  rr.name                                                       AS trade_label, "
+                + "  rr.resource_type_id                                           AS resource_type_id, "
                 + "  d.activity_id                                                 AS activity_id, "
                 + "  a.work_activity_id                                            AS work_activity_id, "
                 + "  a.code                                                        AS activity_code, "
                 + "  a.name                                                        AS activity_name, "
                 + "  d.unit                                                        AS activity_unit, "
                 + "  SUM(d.qty_executed)                                           AS qty, "
-                + "  SUM(COALESCE(m.nos, 1) * COALESCE(m.working_hours, 0))        AS person_hours, "
+                + "  SUM(COALESCE(m.nos, 0) * COALESCE(m.working_hours, " + DEFAULT_HOURS_PER_DAY + ")) AS person_hours, "
                 + "  SUM( "
-                + "    COALESCE(m.line_cost, "
-                + "      COALESCE(m.unit_rate, 0) * "
-                + "      CASE "
-                + "        WHEN m.unit_rate_basis = 'HOUR' "
-                + "          THEN COALESCE(m.nos, 1) * COALESCE(m.working_hours, 0) "
-                + "        ELSE COALESCE(m.nos, 1) "
-                + "      END) "
-                + "  )                                                              AS line_cost_total "
+                + "    COALESCE(m.nos, 0) * COALESCE(m.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / " + DEFAULT_HOURS_PER_DAY + " "
+                + "    * COALESCE(m.unit_rate, mrr.rate, 0) "
+                + "  )                                                             AS line_cost_total, "
+                + "  m.role_id                                                     AS role_id "
                 + "FROM project.daily_progress_reports d "
                 + "JOIN project.dpr_manpower m       ON m.dpr_id = d.id "
-                + "LEFT JOIN resource.resources r    ON r.id = m.resource_id "
-                + "LEFT JOIN resource.resource_roles rr ON rr.id = r.role_id "
+                + "JOIN resource.resource_roles rr  ON rr.id = m.role_id "
+                + "LEFT JOIN resource.manpower_role_rates mrr ON mrr.id = m.manpower_role_rate_id "
                 + "LEFT JOIN activity.activities a   ON a.id = d.activity_id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
-                + "  AND (CAST(:supervisorResourceId AS uuid) IS NULL "
-                + "       OR d.supervisor_resource_id = CAST(:supervisorResourceId AS uuid)) "
-                + "GROUP BY trade_key, trade_label, r.resource_type_id, d.activity_id, "
-                + "         a.work_activity_id, a.code, a.name, d.unit")
+                + "  AND m.role_id IS NOT NULL "
+                + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
+                + "         a.work_activity_id, a.code, a.name, d.unit, m.role_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
-        .setParameter("supervisorResourceId",
-            supervisorResourceId != null ? supervisorResourceId.toString() : null)
+        .setParameter("supervisorUserId",
+            supervisorUserId != null ? supervisorUserId.toString() : null)
         .getResultList();
 
     List<ManpowerCellRow> out = new ArrayList<>(raw.size());
@@ -213,52 +225,53 @@ public class SupervisorPerformanceReportService {
           (String) r[0], (String) r[1], (UUID) r[2],
           (UUID) r[3], (UUID) r[4],
           (String) r[5], (String) r[6], (String) r[7],
-          toBigDecimal(r[8]), toBigDecimal(r[9]), toBigDecimal(r[10])));
+          toBigDecimal(r[8]), toBigDecimal(r[9]), toBigDecimal(r[10]),
+          (UUID) r[11]));
     }
     return out;
   }
 
   @SuppressWarnings("unchecked")
   private List<EquipmentCellRow> fetchEquipmentCells(
-      UUID projectId, UUID supervisorResourceId, LocalDate fromDate, LocalDate toDate) {
+      UUID projectId, UUID supervisorUserId, LocalDate fromDate, LocalDate toDate) {
 
+    // Same role-only rewrite as the manpower query: group by e.role_id, fall back hours to 8,
+    // and join equipment_role_variants for the line-cost rate so MM/Eq Rate appears even when
+    // the DPR row didn't snapshot unit_rate at save time.
     List<Object[]> raw = em.createNativeQuery(
             "SELECT "
-                + "  COALESCE(rt.code, UPPER(TRIM(e.equipment_type)))             AS equipment_key, "
-                + "  COALESCE(rt.name, e.equipment_type)                          AS equipment_label, "
-                + "  r.resource_type_id                                           AS resource_type_id, "
+                + "  rr.code                                                      AS equipment_key, "
+                + "  rr.name                                                      AS equipment_label, "
+                + "  rr.resource_type_id                                          AS resource_type_id, "
                 + "  d.activity_id                                                AS activity_id, "
                 + "  a.work_activity_id                                           AS work_activity_id, "
                 + "  a.code                                                       AS activity_code, "
                 + "  a.name                                                       AS activity_name, "
                 + "  d.unit                                                       AS activity_unit, "
                 + "  SUM(d.qty_executed)                                          AS qty, "
-                + "  SUM(COALESCE(e.nos, 1) * COALESCE(e.working_hours, 0))       AS machine_hours, "
+                + "  SUM(COALESCE(e.nos, 0) * COALESCE(e.working_hours, " + DEFAULT_HOURS_PER_DAY + ")) AS machine_hours, "
                 + "  SUM( "
-                + "    COALESCE(e.line_cost, "
-                + "      COALESCE(e.unit_rate, 0) * "
-                + "      CASE "
-                + "        WHEN e.unit_rate_basis = 'HOUR' "
-                + "          THEN COALESCE(e.nos, 1) * COALESCE(e.working_hours, 0) "
-                + "        ELSE COALESCE(e.nos, 1) "
-                + "      END) "
-                + "  )                                                             AS line_cost_total "
+                + "    COALESCE(e.nos, 0) * COALESCE(e.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / " + DEFAULT_HOURS_PER_DAY + " "
+                + "    * COALESCE(e.unit_rate, erv.rate, 0) "
+                + "  )                                                            AS line_cost_total, "
+                + "  e.role_id                                                    AS role_id "
                 + "FROM project.daily_progress_reports d "
-                + "JOIN project.dpr_equipment e        ON e.dpr_id = d.id "
-                + "LEFT JOIN resource.resources r      ON r.id = e.resource_id "
-                + "LEFT JOIN resource.resource_types rt ON rt.id = r.resource_type_id "
+                + "JOIN project.dpr_equipment e         ON e.dpr_id = d.id "
+                + "JOIN resource.resource_roles rr     ON rr.id = e.role_id "
+                + "LEFT JOIN resource.equipment_role_variants erv ON erv.id = e.equipment_role_variant_id "
                 + "LEFT JOIN activity.activities a     ON a.id = d.activity_id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
-                + "  AND (CAST(:supervisorResourceId AS uuid) IS NULL "
-                + "       OR d.supervisor_resource_id = CAST(:supervisorResourceId AS uuid)) "
-                + "GROUP BY equipment_key, equipment_label, r.resource_type_id, d.activity_id, "
-                + "         a.work_activity_id, a.code, a.name, d.unit")
+                + "  AND e.role_id IS NOT NULL "
+                + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
+                + "         a.work_activity_id, a.code, a.name, d.unit, e.role_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
-        .setParameter("supervisorResourceId",
-            supervisorResourceId != null ? supervisorResourceId.toString() : null)
+        .setParameter("supervisorUserId",
+            supervisorUserId != null ? supervisorUserId.toString() : null)
         .getResultList();
 
     List<EquipmentCellRow> out = new ArrayList<>(raw.size());
@@ -267,14 +280,15 @@ public class SupervisorPerformanceReportService {
           (String) r[0], (String) r[1], (UUID) r[2],
           (UUID) r[3], (UUID) r[4],
           (String) r[5], (String) r[6], (String) r[7],
-          toBigDecimal(r[8]), toBigDecimal(r[9]), toBigDecimal(r[10])));
+          toBigDecimal(r[8]), toBigDecimal(r[9]), toBigDecimal(r[10]),
+          (UUID) r[11]));
     }
     return out;
   }
 
   @SuppressWarnings("unchecked")
   private Map<UUID, ActivityMeta> fetchActivityMeta(
-      UUID projectId, UUID supervisorResourceId, LocalDate fromDate, LocalDate toDate) {
+      UUID projectId, UUID supervisorUserId, LocalDate fromDate, LocalDate toDate) {
 
     List<Object[]> raw = em.createNativeQuery(
             "SELECT d.activity_id, "
@@ -283,17 +297,18 @@ public class SupervisorPerformanceReportService {
                 + "       SUM(d.qty_executed)                                     AS qty_total, "
                 + "       STRING_AGG(DISTINCT NULLIF(d.remarks, ''), ' | ')       AS remarks "
                 + "FROM project.daily_progress_reports d "
+                + "LEFT JOIN activity.activities a ON a.id = d.activity_id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND d.activity_id IS NOT NULL "
-                + "  AND (CAST(:supervisorResourceId AS uuid) IS NULL "
-                + "       OR d.supervisor_resource_id = CAST(:supervisorResourceId AS uuid)) "
+                + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY d.activity_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
-        .setParameter("supervisorResourceId",
-            supervisorResourceId != null ? supervisorResourceId.toString() : null)
+        .setParameter("supervisorUserId",
+            supervisorUserId != null ? supervisorUserId.toString() : null)
         .getResultList();
 
     Map<UUID, ActivityMeta> out = new LinkedHashMap<>(raw.size());
@@ -305,11 +320,18 @@ public class SupervisorPerformanceReportService {
     return out;
   }
 
-  private String resolveSupervisorName(UUID projectId, UUID supervisorResourceId) {
+  /**
+   * Resolve the display name for a supervisor User UUID. Phase 4.4 — the id is a User FK now,
+   * so we look up {@code public.users} first and fall back to the latest DPR's snapshot name
+   * for off-roster (legacy / free-text) supervisors.
+   */
+  private String resolveSupervisorName(UUID projectId, UUID supervisorUserId) {
     @SuppressWarnings("unchecked")
     List<Object[]> rows = em.createNativeQuery(
-            "SELECT r.name, r.code FROM resource.resources r WHERE r.id = :id")
-        .setParameter("id", supervisorResourceId)
+            "SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.username), "
+                + "       u.username "
+                + "FROM public.users u WHERE u.id = :id")
+        .setParameter("id", supervisorUserId)
         .setMaxResults(1)
         .getResultList();
     if (rows.isEmpty()) {
@@ -317,10 +339,10 @@ public class SupervisorPerformanceReportService {
       @SuppressWarnings("unchecked")
       List<Object> snap = em.createNativeQuery(
               "SELECT supervisor_name FROM project.daily_progress_reports "
-                  + "WHERE project_id = :p AND supervisor_resource_id = :id "
+                  + "WHERE project_id = :p AND supervisor_user_id = :id "
                   + "ORDER BY report_date DESC LIMIT 1")
           .setParameter("p", projectId)
-          .setParameter("id", supervisorResourceId)
+          .setParameter("id", supervisorUserId)
           .getResultList();
       return snap.isEmpty() ? null : (String) snap.get(0);
     }
@@ -460,7 +482,8 @@ public class SupervisorPerformanceReportService {
 
   private List<ActivityDrillDown> buildDrillDown(
       List<ManpowerCellRow> manpowerCells, List<EquipmentCellRow> equipmentCells,
-      Map<NormCacheKey, Budgeted> normCache, Map<UUID, ActivityMeta> activityMeta) {
+      Map<NormCacheKey, Budgeted> normCache, Map<UUID, ActivityMeta> activityMeta,
+      Map<ActivityRoleKey, BigDecimal> plannedByActivityRole, int workDays) {
 
     // Aggregate at (activity, kind, resourceKey) so two cells with the same trade key but
     // different resource_type_ids (e.g. role "ROLE-HELPER" attached to two different LABOR types)
@@ -471,13 +494,13 @@ public class SupervisorPerformanceReportService {
       if (c.activityId() == null) continue;
       Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "MANPOWER"));
       mergeIntoActivity(byActivity, c.activityId(), "MANPOWER",
-          c.tradeKey(), c.tradeLabel(), c.qty(), c.personHours(), norm);
+          c.tradeKey(), c.tradeLabel(), c.qty(), c.personHours(), norm, c.roleId());
     }
     for (EquipmentCellRow c : equipmentCells) {
       if (c.activityId() == null) continue;
       Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "EQUIPMENT"));
       mergeIntoActivity(byActivity, c.activityId(), "EQUIPMENT",
-          c.equipmentKey(), c.equipmentLabel(), c.qty(), c.machineHours(), norm);
+          c.equipmentKey(), c.equipmentLabel(), c.qty(), c.machineHours(), norm, c.roleId());
     }
 
     Map<UUID, ActivityHeader> headers = new HashMap<>();
@@ -497,8 +520,10 @@ public class SupervisorPerformanceReportService {
       ActivityHeader header = headers.get(actId);
       List<ResourceLine> lines = new ArrayList<>(e.getValue().size());
       for (ResourceLineAccumulator acc : e.getValue().values()) {
+        BigDecimal plannedHeadcount = acc.roleId == null ? null
+            : plannedByActivityRole.get(new ActivityRoleKey(actId, acc.roleId));
         lines.add(buildResourceLine(acc.kind, acc.resourceKey, acc.resourceLabel,
-            acc.qty, acc.hoursTotal, acc.norm));
+            acc.qty, acc.hoursTotal, acc.norm, plannedHeadcount, workDays));
       }
       out.add(new ActivityDrillDown(
           actId,
@@ -518,7 +543,7 @@ public class SupervisorPerformanceReportService {
   private static void mergeIntoActivity(
       Map<UUID, Map<String, ResourceLineAccumulator>> byActivity,
       UUID activityId, String kind, String resourceKey, String resourceLabel,
-      BigDecimal qty, BigDecimal hoursTotal, Budgeted norm) {
+      BigDecimal qty, BigDecimal hoursTotal, Budgeted norm, UUID roleId) {
     Map<String, ResourceLineAccumulator> linesByKey =
         byActivity.computeIfAbsent(activityId, k -> new LinkedHashMap<>());
     String dedupeKey = kind + "::" + resourceKey;
@@ -527,7 +552,7 @@ public class SupervisorPerformanceReportService {
       linesByKey.put(dedupeKey, new ResourceLineAccumulator(kind, resourceKey, resourceLabel,
           qty == null ? BigDecimal.ZERO : qty,
           hoursTotal == null ? BigDecimal.ZERO : hoursTotal,
-          norm));
+          norm, roleId));
     } else {
       if (qty != null) acc.qty = acc.qty.add(qty);
       if (hoursTotal != null) acc.hoursTotal = acc.hoursTotal.add(hoursTotal);
@@ -545,23 +570,26 @@ public class SupervisorPerformanceReportService {
     final String kind;
     final String resourceKey;
     final String resourceLabel;
+    final UUID roleId;
     BigDecimal qty;
     BigDecimal hoursTotal;
     Budgeted norm;
     ResourceLineAccumulator(String kind, String resourceKey, String resourceLabel,
-                            BigDecimal qty, BigDecimal hoursTotal, Budgeted norm) {
+                            BigDecimal qty, BigDecimal hoursTotal, Budgeted norm, UUID roleId) {
       this.kind = kind;
       this.resourceKey = resourceKey;
       this.resourceLabel = resourceLabel;
       this.qty = qty;
       this.hoursTotal = hoursTotal;
       this.norm = norm;
+      this.roleId = roleId;
     }
   }
 
   private ResourceLine buildResourceLine(
       String kind, String key, String label,
-      BigDecimal qty, BigDecimal hoursTotal, Budgeted norm) {
+      BigDecimal qty, BigDecimal hoursTotal, Budgeted norm,
+      BigDecimal plannedHeadcount, int workDays) {
 
     BigDecimal actualDays = (hoursTotal != null)
         ? hoursTotal.divide(BigDecimal.valueOf(DEFAULT_HOURS_PER_DAY), 6, RoundingMode.HALF_UP)
@@ -581,12 +609,20 @@ public class SupervisorPerformanceReportService {
         actualDays.setScale(2, RoundingMode.HALF_UP),
         utilizationPct);
 
-    // MVP: planMonth == actualMonth (we don't have a separate planning store yet).
+    // Plan column carries the RAW planned headcount (= nos) from RoleAssignment.plannedUnits.
+    // We intentionally don't multiply by workDays — comparing "planned nos" against "actual
+    // days" mixes units and produces meaningless utilization figures (the 6,500% we saw
+    // earlier). The frontend labels this field as "X nos" so the user reads it directly.
+    // The plan-side %Util is suppressed for the same reason; budget-vs-actual %Util is the
+    // only comparable utilization metric and lives in the Actuals column.
+    BigDecimal plannedNos = (plannedHeadcount != null && plannedHeadcount.signum() > 0)
+        ? plannedHeadcount
+        : null;
     PlannedActuals plan = new PlannedActuals(
         qty != null ? qty.setScale(2, RoundingMode.HALF_UP) : null,
         budgetDays != null ? budgetDays.setScale(2, RoundingMode.HALF_UP) : null,
-        budgetDays != null ? budgetDays.setScale(2, RoundingMode.HALF_UP) : null,
-        budgetDays != null ? BigDecimal.valueOf(100) : null);
+        plannedNos != null ? plannedNos.setScale(2, RoundingMode.HALF_UP) : null,
+        null);
 
     ProductivityNorms norms = new ProductivityNorms(
         norm != null ? norm.outputPerDay() : null,
@@ -595,6 +631,47 @@ public class SupervisorPerformanceReportService {
         norm != null ? norm.source() : "NONE");
 
     return new ResourceLine(kind, key, label, norms, plan, actuals);
+  }
+
+  /**
+   * Pre-fetch {@code RoleAssignment.plannedUnits} for every (activity, role) pair that appears
+   * in the manpower or equipment cells. Used by the drill-down's PLAN column.
+   */
+  @SuppressWarnings("unchecked")
+  private Map<ActivityRoleKey, BigDecimal> loadPlannedUnitsByActivityRole(
+      UUID projectId, List<ManpowerCellRow> manpowerCells, List<EquipmentCellRow> equipmentCells) {
+    java.util.Set<UUID> roleIds = new java.util.HashSet<>();
+    java.util.Set<UUID> activityIds = new java.util.HashSet<>();
+    for (ManpowerCellRow c : manpowerCells) {
+      if (c.roleId() != null) roleIds.add(c.roleId());
+      if (c.activityId() != null) activityIds.add(c.activityId());
+    }
+    for (EquipmentCellRow c : equipmentCells) {
+      if (c.roleId() != null) roleIds.add(c.roleId());
+      if (c.activityId() != null) activityIds.add(c.activityId());
+    }
+    if (roleIds.isEmpty() || activityIds.isEmpty()) return Map.of();
+    List<Object[]> rows = em.createNativeQuery(
+            "SELECT ra.activity_id, ra.role_id, ra.planned_units "
+                + "FROM resource.resource_assignments ra "
+                + "JOIN activity.activities a ON a.id = ra.activity_id "
+                + "WHERE a.project_id = :projectId "
+                + "  AND ra.activity_id IN :activityIds "
+                + "  AND ra.role_id IN :roleIds")
+        .setParameter("projectId", projectId)
+        .setParameter("activityIds", activityIds)
+        .setParameter("roleIds", roleIds)
+        .getResultList();
+    Map<ActivityRoleKey, BigDecimal> out = new HashMap<>();
+    for (Object[] r : rows) {
+      UUID actId = (UUID) r[0];
+      UUID roleId = (UUID) r[1];
+      BigDecimal units = toBigDecimal(r[2]);
+      if (actId == null || roleId == null || units == null || units.signum() <= 0) continue;
+      // Sum in case multiple role-assignments target the same (activity, role) pair.
+      out.merge(new ActivityRoleKey(actId, roleId), units, BigDecimal::add);
+    }
+    return out;
   }
 
   // ─── Math helpers (package-private for tests) ──────────────────────────────────────────────
@@ -636,13 +713,19 @@ public class SupervisorPerformanceReportService {
       String tradeKey, String tradeLabel, UUID resourceTypeId,
       UUID activityId, UUID workActivityId,
       String activityCode, String activityName, String activityUnit,
-      BigDecimal qty, BigDecimal personHours, BigDecimal lineCostTotal) {}
+      BigDecimal qty, BigDecimal personHours, BigDecimal lineCostTotal,
+      /** Role FK used by the drill-down to look up RoleAssignment.plannedUnits. */
+      UUID roleId) {}
 
   private record EquipmentCellRow(
       String equipmentKey, String equipmentLabel, UUID resourceTypeId,
       UUID activityId, UUID workActivityId,
       String activityCode, String activityName, String activityUnit,
-      BigDecimal qty, BigDecimal machineHours, BigDecimal lineCostTotal) {}
+      BigDecimal qty, BigDecimal machineHours, BigDecimal lineCostTotal,
+      UUID roleId) {}
+
+  /** (activityId, roleId) → plannedUnits — drill-down uses this for the real Plan column. */
+  private record ActivityRoleKey(UUID activityId, UUID roleId) {}
 
   private record ActivityMeta(
       UUID activityId, String activityName, String unit, BigDecimal qtyTotal, String remarks) {}

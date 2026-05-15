@@ -64,6 +64,13 @@ export interface UserResponse {
   lastName: string;
   enabled: boolean;
   roles: string[];
+  /**
+   * Fine-grained permission codes (e.g. {@code "PROJECT.READ"}, {@code "ADMIN_USER.UPDATE"})
+   * resolved server-side from the user's profile/legacy role. Populated by
+   * {@code /v1/auth/me} (Phase 2 — backend commit {@code e6385bf}). Empty array for users
+   * with no profile mapping; ADMIN role short-circuits all gates regardless.
+   */
+  permissions?: string[];
   profileId?: string | null;
   profileName?: string | null;
   // IC-PMS fields (nullable for legacy users)

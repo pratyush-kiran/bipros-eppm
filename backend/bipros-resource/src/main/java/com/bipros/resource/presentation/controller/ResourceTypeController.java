@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/resource-types")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ResourceTypeController {
@@ -43,7 +43,7 @@ public class ResourceTypeController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceTypeResponse>> create(
       @Valid @RequestBody ResourceTypeRequest request) {
     log.info("POST /v1/resource-types - code={}", request.code());
@@ -52,7 +52,7 @@ public class ResourceTypeController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceTypeResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody ResourceTypeRequest request) {
     log.info("PUT /v1/resource-types/{}", id);
@@ -60,7 +60,7 @@ public class ResourceTypeController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     log.info("DELETE /v1/resource-types/{}", id);
     service.delete(id);

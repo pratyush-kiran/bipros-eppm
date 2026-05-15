@@ -1,13 +1,31 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/useAuth";
+import { useAuthStore } from "@/lib/state/store";
 import { TOOL_COLUMNS, type ToolColumn, type ToolLink } from "./hubConfig";
 
 export function HubToolsGrid() {
   const { isAdmin } = useAuth();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+
+  // Auth store is client-only — wait for hydration before filtering on perms,
+  // otherwise the server emits an unfiltered column list and the client emits
+  // the filtered one, triggering a hydration text/structure mismatch.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  if (!hydrated) return null;
+
   const columns = TOOL_COLUMNS.filter((c) => !c.adminOnly || isAdmin)
-    .map((c) => ({ ...c, links: c.links.filter((l) => !l.adminOnly || isAdmin) }))
+    .map((c) => ({
+      ...c,
+      links: c.links.filter((l) => {
+        if (l.adminOnly && !isAdmin) return false;
+        if (l.permission && !hasPermission(l.permission)) return false;
+        return true;
+      }),
+    }))
     .filter((c) => c.links.length > 0);
 
   return (

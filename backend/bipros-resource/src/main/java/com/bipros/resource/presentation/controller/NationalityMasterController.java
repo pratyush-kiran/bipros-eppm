@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/admin/nationalities")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class NationalityMasterController {
@@ -42,7 +42,7 @@ public class NationalityMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<NationalityMasterResponse>> create(
       @Valid @RequestBody NationalityMasterRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -50,14 +50,14 @@ public class NationalityMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<NationalityMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody NationalityMasterRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(service.update(id, request)));
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     service.delete(id);
     return ResponseEntity.ok(ApiResponse.ok(null));

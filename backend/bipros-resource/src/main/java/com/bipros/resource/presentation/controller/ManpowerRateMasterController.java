@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/manpower-rate-master")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ManpowerRateMasterController {
@@ -42,7 +42,7 @@ public class ManpowerRateMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ManpowerRateMasterResponse>> create(
       @Valid @RequestBody ManpowerRateMasterRequest request) {
     log.info("POST /v1/manpower-rate-master");
@@ -51,7 +51,7 @@ public class ManpowerRateMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ManpowerRateMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody ManpowerRateMasterRequest request) {
     log.info("PUT /v1/manpower-rate-master/{}", id);
@@ -59,7 +59,7 @@ public class ManpowerRateMasterController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     log.info("DELETE /v1/manpower-rate-master/{}", id);
     service.delete(id);

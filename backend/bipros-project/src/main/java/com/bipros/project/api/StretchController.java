@@ -43,7 +43,7 @@ public class StretchController {
     }
 
     @PostMapping("/projects/{projectId}/stretches")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<StretchResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody CreateStretchRequest request) {
@@ -63,7 +63,7 @@ public class StretchController {
     }
 
     @PutMapping("/stretches/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<StretchResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateStretchRequest request) {
@@ -71,7 +71,7 @@ public class StretchController {
     }
 
     @DeleteMapping("/stretches/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.DELETE')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         stretchService.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
@@ -79,7 +79,7 @@ public class StretchController {
 
     /** Replace the set of BOQ items linked to a stretch. Body: {@code {"boqItemIds": [uuid,...]}}. */
     @PostMapping("/stretches/{id}/activities")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<StretchResponse>> assignActivities(
             @PathVariable UUID id,
             @RequestBody Map<String, List<UUID>> body) {

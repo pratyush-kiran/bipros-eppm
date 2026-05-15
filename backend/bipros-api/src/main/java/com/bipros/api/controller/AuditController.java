@@ -19,7 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/audit")
-@PreAuthorize("hasAnyRole('ADMIN')")
+@PreAuthorize("hasPermission(null, 'ADMIN_USER.READ')")
 @RequiredArgsConstructor
 public class AuditController {
 

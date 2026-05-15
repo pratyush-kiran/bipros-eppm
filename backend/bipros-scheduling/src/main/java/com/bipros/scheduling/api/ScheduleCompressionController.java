@@ -18,7 +18,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/schedule-compression")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SCHEDULER')")
 @RequiredArgsConstructor
 @Slf4j
 public class ScheduleCompressionController {
@@ -26,6 +25,7 @@ public class ScheduleCompressionController {
   private final ScheduleCompressionService compressionService;
 
   @PostMapping("/fast-track")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ResponseEntity<ApiResponse<CompressionAnalysisResponse>> analyzeFastTrack(
       @PathVariable UUID projectId) {
     log.info("Fast-track analysis requested for project: {}", projectId);
@@ -35,6 +35,7 @@ public class ScheduleCompressionController {
   }
 
   @PostMapping("/crash")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ResponseEntity<ApiResponse<CompressionAnalysisResponse>> analyzeCrashing(
       @PathVariable UUID projectId) {
     log.info("Crashing analysis requested for project: {}", projectId);

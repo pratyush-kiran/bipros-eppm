@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,6 +52,7 @@ public class UserService {
     private final ProfileRepository profileRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
+    private final CurrentUserService currentUserService;
 
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser() {
@@ -65,13 +67,40 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public Page<UserResponse> listUsers(Pageable pageable) {
-        Page<User> users = userRepository.findAll(pageable);
+        return listUsers(pageable, null);
+    }
+
+    /**
+     * List users, optionally filtered to those holding ANY of the given role names. Used by
+     * the supervisor / staff picker on the frontend (e.g. {@code ?roles=SUPERVISOR,FOREMAN})
+     * to narrow the list to operationally-relevant candidates. {@code null} or blank
+     * {@code rolesCsv} falls back to the unfiltered listing.
+     */
+    @Transactional(readOnly = true)
+    public Page<UserResponse> listUsers(Pageable pageable, String rolesCsv) {
+        List<String> roleNames = parseRoleNames(rolesCsv);
+        Page<User> users = roleNames.isEmpty()
+                ? userRepository.findAll(pageable)
+                : userRepository.findByRoleNamesAndEnabled(roleNames, pageable);
         Map<UUID, Profile> profilesById = loadProfilesFor(users.getContent());
         List<UserResponse> responses = users.getContent().stream()
-                .map(u -> toResponse(u, profilesById.get(u.getProfileId())))
+                .map(u -> toResponse(u, u.getProfileId() == null ? null : profilesById.get(u.getProfileId())))
                 .collect(Collectors.toList());
 
         return new PageImpl<>(responses, pageable, users.getTotalElements());
+    }
+
+    /** Split a {@code roles=A,B,C} query string into a clean uppercase role-name list. */
+    private static List<String> parseRoleNames(String rolesCsv) {
+        if (rolesCsv == null || rolesCsv.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(rolesCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(String::toUpperCase)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
@@ -237,8 +266,14 @@ public class UserService {
                 extractRoles(user),
                 profile != null ? profile.getId() : null,
                 profile != null ? profile.getName() : null,
-                List.of()
+                List.of(),
+                effectivePermissions(user)
         );
+    }
+
+    /** Effective permission union for {@code user}, sorted ascending for stable client diffs. */
+    private List<String> effectivePermissions(User user) {
+        return new ArrayList<>(new TreeSet<>(currentUserService.permissionsFor(user)));
     }
 
     private Map<UUID, Profile> loadProfilesFor(List<User> users) {

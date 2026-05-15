@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { activityApi, type ActivityResponse } from "@/lib/api/activityApi";
-import { projectResourceApi } from "@/lib/api/projectResourceApi";
+import { userApi } from "@/lib/api/userApi";
 import { getErrorMessage } from "@/lib/utils/error";
 import {
   Dialog,
@@ -45,9 +45,14 @@ export function SupervisorAssignmentTab({ projectId, onCancel }: Props) {
   const [activitySearch, setActivitySearch] = useState("");
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 
-  const { data: poolData, isLoading: isLoadingPool } = useQuery({
-    queryKey: ["resource-pool", projectId],
-    queryFn: () => projectResourceApi.listPool(projectId),
+  // Phase 4.4 RBAC: supervisor candidates now come from the User pool, scoped by role
+  // (SUPERVISOR / FOREMAN / SITE_ENGINEER / SITE_MANAGER). The legacy project-resource
+  // pool was unable to express "this person can supervise" cleanly and didn't survive the
+  // user/resource split.
+  const { data: supervisorUsers, isLoading: isLoadingPool } = useQuery({
+    queryKey: ["users-by-role", "supervisor-pool"],
+    queryFn: () =>
+      userApi.listByRoles(["SUPERVISOR", "FOREMAN", "SITE_ENGINEER", "SITE_MANAGER"]),
     enabled: !!projectId,
   });
 
@@ -70,19 +75,19 @@ export function SupervisorAssignmentTab({ projectId, onCancel }: Props) {
   );
 
   const supervisorOptions: SupervisorOption[] = useMemo(() => {
-    return (poolData?.data ?? [])
-      .filter((p) => {
-        const t = (p.resourceTypeName ?? "").toLowerCase();
-        return t.includes("labor") || t.includes("labour") || t.includes("manpower");
-      })
-      .map((p) => ({
-        value: p.resourceId,
-        code: p.resourceCode ?? "",
-        name: p.resourceName ?? p.resourceId,
-        role: p.roleName ?? null,
+    return (supervisorUsers ?? [])
+      .map((u) => ({
+        value: u.id,
+        // The User pool exposes an employee code (Personnel Master) rather than a
+        // resource code; the picker UI renders whichever is present.
+        code: u.employeeCode ?? u.username,
+        name: u.name,
+        // Role chip is now redundant (everyone in this list already carries one of
+        // the supervisor roles); leave null so the row stays compact.
+        role: null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [poolData]);
+  }, [supervisorUsers]);
 
   const filteredSupervisorOptions = useMemo(() => {
     const q = supervisorSearch.trim().toLowerCase();
@@ -227,8 +232,11 @@ export function SupervisorAssignmentTab({ projectId, onCancel }: Props) {
   const saveMutation = useMutation({
     mutationFn: () =>
       activityApi.bulkSetSupervisor(projectId, {
-        supervisorResourceId: supervisorId,
-        supervisorResourceName: selectedSupervisor?.name ?? null,
+        // Phase 4.4 RBAC: the picker is sourced from `userApi.listByRoles([...])`
+        // so `supervisorId` is a User UUID (not a Resource UUID). The body field
+        // names mirror the per-activity setSupervisor contract.
+        supervisorUserId: supervisorId,
+        supervisorName: selectedSupervisor?.name ?? null,
         activityIds: Array.from(checkedActivityIds),
       }),
     onSuccess: (resp) => {

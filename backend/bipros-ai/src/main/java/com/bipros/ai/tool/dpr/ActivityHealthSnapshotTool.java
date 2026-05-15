@@ -271,7 +271,7 @@ public class ActivityHealthSnapshotTool implements Tool {
     public Set<String> allowedRoles() {
         return Set.of(
                 "PROJECT_MANAGER", "PORTFOLIO_MANAGER",
-                "SITE_MANAGER", "PROJECT_ENGINEER", "QC_MANAGER",
+                "SITE_MANAGER", "PROJECT_ENGINEER", "QC_MANAGER", "QA_QC_ENGINEER",
                 "BIM_DATA_COORDINATOR",
                 "SITE_ENGINEER", "RESOURCE_MANAGER", "SCHEDULER",
                 "EXECUTIVE_VIEWER");
@@ -301,13 +301,13 @@ public class ActivityHealthSnapshotTool implements Tool {
                 if (firstDprDate == null || date.isBefore(firstDprDate)) firstDprDate = date;
                 if (latestDprDate == null || date.isAfter(latestDprDate)) {
                     latestDprDate = date;
-                    latestSupervisorResourceId = d.getSupervisorResourceId();
+                    latestSupervisorResourceId = d.getSupervisorUserId();
                     latestSupervisorName = d.getSupervisorName();
                 }
             }
             if (latestSupervisorName == null && d.getSupervisorName() != null) {
                 latestSupervisorName = d.getSupervisorName();
-                latestSupervisorResourceId = d.getSupervisorResourceId();
+                latestSupervisorResourceId = d.getSupervisorUserId();
             }
         }
 

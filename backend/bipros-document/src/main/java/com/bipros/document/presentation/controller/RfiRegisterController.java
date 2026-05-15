@@ -23,13 +23,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/rfis")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class RfiRegisterController {
 
     private final RfiRegisterService rfiService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.CREATE')")
     public ResponseEntity<ApiResponse<RfiRegisterResponse>> createRfi(
         @PathVariable UUID projectId,
         @Valid @RequestBody RfiRegisterRequest request) {
@@ -39,6 +39,7 @@ public class RfiRegisterController {
     }
 
     @GetMapping("/{rfiId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<RfiRegisterResponse>> getRfi(
         @PathVariable UUID projectId,
         @PathVariable UUID rfiId) {
@@ -47,6 +48,7 @@ public class RfiRegisterController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<RfiRegisterResponse>>> listRfis(
         @PathVariable UUID projectId) {
         List<RfiRegisterResponse> response = rfiService.listRfis(projectId);
@@ -54,6 +56,7 @@ public class RfiRegisterController {
     }
 
     @PutMapping("/{rfiId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<RfiRegisterResponse>> updateRfi(
         @PathVariable UUID projectId,
         @PathVariable UUID rfiId,
@@ -63,6 +66,7 @@ public class RfiRegisterController {
     }
 
     @DeleteMapping("/{rfiId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteRfi(
         @PathVariable UUID projectId,
         @PathVariable UUID rfiId) {

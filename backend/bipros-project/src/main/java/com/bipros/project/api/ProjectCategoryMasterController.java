@@ -30,7 +30,7 @@ public class ProjectCategoryMasterController {
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<List<ProjectCategoryMasterResponse>>> listAllCategories() {
         List<ProjectCategoryMasterResponse> response = service.listAll();
         return ResponseEntity.ok(ApiResponse.ok(response));
@@ -43,7 +43,7 @@ public class ProjectCategoryMasterController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.CREATE')")
     public ResponseEntity<ApiResponse<ProjectCategoryMasterResponse>> createCategory(
         @Valid @RequestBody CreateProjectCategoryMasterRequest request) {
         ProjectCategoryMasterResponse response = service.create(request);
@@ -51,7 +51,7 @@ public class ProjectCategoryMasterController {
     }
 
     @PutMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<ProjectCategoryMasterResponse>> updateCategory(
         @PathVariable UUID id,
         @Valid @RequestBody UpdateProjectCategoryMasterRequest request) {
@@ -60,7 +60,7 @@ public class ProjectCategoryMasterController {
     }
 
     @DeleteMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.DELETE')")
     public ResponseEntity<Void> deleteCategory(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

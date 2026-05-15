@@ -25,13 +25,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/transmittals")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class TransmittalController {
 
     private final TransmittalService transmittalService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.CREATE')")
     public ResponseEntity<ApiResponse<TransmittalResponse>> createTransmittal(
         @PathVariable UUID projectId,
         @Valid @RequestBody TransmittalRequest request) {
@@ -41,6 +41,7 @@ public class TransmittalController {
     }
 
     @GetMapping("/{transmittalId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<TransmittalResponse>> getTransmittal(
         @PathVariable UUID projectId,
         @PathVariable UUID transmittalId) {
@@ -49,6 +50,7 @@ public class TransmittalController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<TransmittalResponse>>> listTransmittals(
         @PathVariable UUID projectId) {
         List<TransmittalResponse> response = transmittalService.listTransmittals(projectId);
@@ -56,6 +58,7 @@ public class TransmittalController {
     }
 
     @PutMapping("/{transmittalId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<TransmittalResponse>> updateTransmittal(
         @PathVariable UUID projectId,
         @PathVariable UUID transmittalId,
@@ -65,6 +68,7 @@ public class TransmittalController {
     }
 
     @DeleteMapping("/{transmittalId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteTransmittal(
         @PathVariable UUID projectId,
         @PathVariable UUID transmittalId) {
@@ -73,6 +77,7 @@ public class TransmittalController {
     }
 
     @GetMapping("/{transmittalId}/items")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<TransmittalItemResponse>>> getItems(
         @PathVariable UUID projectId,
         @PathVariable UUID transmittalId) {
@@ -81,6 +86,7 @@ public class TransmittalController {
     }
 
     @PostMapping("/{transmittalId}/items")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<TransmittalItemResponse>> addItem(
         @PathVariable UUID projectId,
         @PathVariable UUID transmittalId,
@@ -91,6 +97,7 @@ public class TransmittalController {
     }
 
     @DeleteMapping("/{transmittalId}/items/{itemId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> removeItem(
         @PathVariable UUID projectId,
         @PathVariable UUID transmittalId,

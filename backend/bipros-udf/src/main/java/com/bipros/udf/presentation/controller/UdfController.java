@@ -28,7 +28,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/udf")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class UdfController {
 
@@ -39,6 +38,7 @@ public class UdfController {
      * drop-downs that drive {@link #listFields} without having to hard-code enum values.
      */
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> catalog() {
         java.util.Map<String, Object> body = java.util.Map.of(
             "subjects", java.util.Arrays.stream(UdfSubject.values()).map(Enum::name).toList(),
@@ -55,6 +55,7 @@ public class UdfController {
 
     /** Legacy alias (pluralised path). Same payload as {@link #catalog()}. */
     @GetMapping("-definitions")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<UserDefinedFieldDto>>> listAllDefinitions(
         @RequestParam(required = false) UdfSubject subject) {
         List<UserDefinedFieldDto> fields = subject != null
@@ -64,6 +65,7 @@ public class UdfController {
     }
 
     @PostMapping("/fields")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<UserDefinedFieldDto>> createField(
         @Valid @RequestBody CreateUserDefinedFieldRequest request) {
         UserDefinedFieldDto field = udfService.createField(request);
@@ -72,6 +74,7 @@ public class UdfController {
     }
 
     @GetMapping("/fields")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<UserDefinedFieldDto>>> listFields(
         @RequestParam(required = false) UdfSubject subject,
         @RequestParam(required = false) UdfScope scope,
@@ -84,6 +87,7 @@ public class UdfController {
     }
 
     @PutMapping("/fields/{fieldId}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<UserDefinedFieldDto>> updateField(
         @PathVariable UUID fieldId,
         @Valid @RequestBody CreateUserDefinedFieldRequest request) {
@@ -92,12 +96,14 @@ public class UdfController {
     }
 
     @DeleteMapping("/fields/{fieldId}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> deleteField(@PathVariable UUID fieldId) {
         udfService.deleteField(fieldId);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PutMapping("/values/{fieldId}/{entityId}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<UdfValueResponse>> setValue(
         @PathVariable UUID fieldId,
         @PathVariable UUID entityId,
@@ -107,6 +113,7 @@ public class UdfController {
     }
 
     @GetMapping("/values/{fieldId}/{entityId}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<UdfValueResponse>> getValue(
         @PathVariable UUID fieldId,
         @PathVariable UUID entityId) {
@@ -115,6 +122,7 @@ public class UdfController {
     }
 
     @GetMapping("/values/{entityId}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<UdfValueResponse>>> getValuesForEntity(
         @PathVariable UUID entityId) {
         List<UdfValueResponse> values = udfService.getValuesForEntity(entityId);
@@ -122,6 +130,7 @@ public class UdfController {
     }
 
     @GetMapping("/fields/{fieldId}/evaluate/{entityId}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<String>> evaluateFormula(
         @PathVariable UUID fieldId,
         @PathVariable UUID entityId) {

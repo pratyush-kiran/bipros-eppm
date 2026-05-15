@@ -25,7 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/resources/{resourceId}/rates")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ResourceRateController {
@@ -33,6 +33,7 @@ public class ResourceRateController {
   private final ResourceRateService rateService;
 
   @PostMapping
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceRateResponse>> createRate(
       @PathVariable UUID resourceId,
       @Valid @RequestBody CreateResourceRateRequest request) {
@@ -65,6 +66,7 @@ public class ResourceRateController {
   }
 
   @PutMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceRateResponse>> updateRate(
       @PathVariable UUID resourceId,
       @PathVariable UUID id,
@@ -75,6 +77,7 @@ public class ResourceRateController {
   }
 
   @DeleteMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> deleteRate(
       @PathVariable UUID resourceId,
       @PathVariable UUID id) {

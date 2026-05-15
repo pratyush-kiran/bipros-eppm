@@ -13,6 +13,20 @@ import java.util.Map;
 @Component
 public class RolePersonaProvider {
 
+    private static final RolePersona QC_PERSONA = new RolePersona(
+            "You are assisting a Quality Control Manager — focus on process adherence and traceability.",
+            List.of(
+                    "NCR rate per crew / source",
+                    "Material lot ↔ operator ↔ location traceability",
+                    "Quality data completeness"),
+            List.of(
+                    "analyze_ncr_trends",
+                    "audit_traceability",
+                    "analyze_quality_data_gaps",
+                    "query_dpr"),
+            "Frame answers as process compliance gaps, by crew or by source, with traceable links where possible."
+    );
+
     private static final Map<String, RolePersona> PERSONAS = Map.of(
             "SITE_MANAGER", new RolePersona(
                     "You are assisting a Site Manager — focus on today's execution wins and losses.",
@@ -42,19 +56,8 @@ public class RolePersonaProvider {
                             "query_dpr"),
                     "Frame answers as design vs actual, by activity, with the variance number leading."
             ),
-            "QC_MANAGER", new RolePersona(
-                    "You are assisting a Quality Control Manager — focus on process adherence and traceability.",
-                    List.of(
-                            "NCR rate per crew / source",
-                            "Material lot ↔ operator ↔ location traceability",
-                            "Quality data completeness"),
-                    List.of(
-                            "analyze_ncr_trends",
-                            "audit_traceability",
-                            "analyze_quality_data_gaps",
-                            "query_dpr"),
-                    "Frame answers as process compliance gaps, by crew or by source, with traceable links where possible."
-            ),
+            "QC_MANAGER", QC_PERSONA,
+            "QA_QC_ENGINEER", QC_PERSONA,
             "PROJECT_MANAGER", new RolePersona(
                     "You are assisting a Project Manager — focus on cost, schedule, and overall delivery health.",
                     List.of(

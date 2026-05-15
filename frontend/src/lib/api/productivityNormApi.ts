@@ -4,6 +4,9 @@ import type { ApiResponse } from "../types";
 export type ProductivityNormType = "MANPOWER" | "EQUIPMENT";
 
 export type ProductivityNormSource =
+  | "VARIANT"
+  | "ROLE"
+  | "UNSCOPED"
   | "SPECIFIC_RESOURCE"
   | "RESOURCE_TYPE"
   | "RESOURCE_LEGACY"
@@ -36,6 +39,16 @@ export interface ProductivityNormResponse {
   fuelLitresPerHour: number | null;
   equipmentSpec: string | null;
   remarks: string | null;
+
+  /**
+   * Role-keyed scope fields (new model). Null on legacy Type/Resource/Unscoped rows.
+   * Resolution chain: (role + variant) → role → unscoped.
+   */
+  roleId: string | null;
+  categoryId: string | null;
+  gradeId: string | null;
+  make: string | null;
+  model: string | null;
 }
 
 export interface CreateProductivityNormRequest {
@@ -54,6 +67,13 @@ export interface CreateProductivityNormRequest {
   fuelLitresPerHour?: number | null;
   equipmentSpec?: string | null;
   remarks?: string | null;
+
+  /** Role-keyed scope (new). Pick exactly one scope (legacy Type/Resource, role-keyed, or unscoped). */
+  roleId?: string | null;
+  categoryId?: string | null;
+  gradeId?: string | null;
+  make?: string | null;
+  model?: string | null;
 }
 
 export interface ResolvedNormResponse {

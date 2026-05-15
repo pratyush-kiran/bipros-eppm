@@ -12,7 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { MultiSelect } from "@/components/common/MultiSelect";
 import { profileApi } from "@/lib/api/profileApi";
+import { roleApi } from "@/lib/api/roleApi";
 import { userApi, type CreateUserRequest } from "@/lib/api/userApi";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -33,6 +35,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     profileId: null,
     enabled: true,
   });
+  const [roles, setRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const set = <K extends keyof CreateUserRequest>(key: K, value: CreateUserRequest[K]) =>
@@ -45,6 +48,16 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
   });
   const profiles = profilesResponse?.data ?? [];
 
+  const { data: rolesResp } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => roleApi.list(),
+    enabled: open,
+  });
+  const roleOptions = (rolesResp?.data ?? []).map((r) => ({
+    value: r.name,
+    label: r.name.replace(/_/g, " "),
+  }));
+
   const reset = () => {
     setForm({
       username: "",
@@ -55,6 +68,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
       profileId: null,
       enabled: true,
     });
+    setRoles([]);
     setError(null);
   };
 
@@ -63,8 +77,21 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     onOpenChange(false);
   };
 
+  /**
+   * Phase 5.1 — `POST /v1/users` doesn't take roles in its body. After the
+   * user is created we PUT `/v1/users/{id}/roles` if the caller picked any.
+   * Failure of the role-assign step still surfaces in the dialog so the admin
+   * can fix it without re-creating the user (the user record already exists).
+   */
   const mutation = useMutation({
-    mutationFn: () => userApi.createUser(form),
+    mutationFn: async () => {
+      const created = await userApi.createUser(form);
+      const newId = created.data?.id;
+      if (newId && roles.length > 0) {
+        await userApi.assignRoles(newId, roles);
+      }
+      return created;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("User created");
@@ -142,6 +169,22 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   onChange={(e) => set("lastName", e.target.value)}
                   className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-text-primary focus:border-accent focus:outline-none"
                 />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-text-secondary">
+                  Roles
+                </label>
+                <MultiSelect
+                  options={roleOptions}
+                  value={roles}
+                  onChange={setRoles}
+                  placeholder="Pick one or more roles…"
+                  className="mt-1"
+                />
+                <p className="mt-1 text-xs text-text-muted">
+                  Roles drive sidebar navigation. Leave empty if the chosen profile
+                  is enough.
+                </p>
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-text-secondary">Profile</label>

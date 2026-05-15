@@ -1,14 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMostSeniorRole } from "@/hooks/useMostSeniorRole";
 import { useHubSummary } from "@/hooks/useHubSummary";
+import { useAuthStore } from "@/lib/state/store";
 import { heroForRole, type HeroTile } from "./hubConfig";
 
 export function HubHero() {
   const { role } = useMostSeniorRole();
   const { data: summary } = useHubSummary();
-  const tiles = heroForRole(role);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+
+  // Auth store is empty on the server (zustand rehydrates from localStorage on
+  // the client), so any permission-derived rendering must wait for hydration —
+  // otherwise the server emits "no tiles" while the client emits a tile list,
+  // and the resulting structural diff breaks Hub's sibling section ordering.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  if (!hydrated) return null;
+
+  const tiles = heroForRole(role).filter((t) => !t.permission || hasPermission(t.permission));
+  if (tiles.length === 0) return null;
 
   return (
     <section data-testid="hub-hero" className="mb-8">

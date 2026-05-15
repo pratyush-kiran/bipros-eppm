@@ -33,7 +33,7 @@ public class DailyWeatherController {
   private final DailyWeatherService service;
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<DailyWeatherResponse>> create(
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateDailyWeatherRequest request) {
@@ -43,7 +43,7 @@ public class DailyWeatherController {
   }
 
   @PostMapping("/bulk")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<List<DailyWeatherResponse>>> createBulk(
       @PathVariable UUID projectId,
       @Valid @RequestBody List<CreateDailyWeatherRequest> requests) {
@@ -67,7 +67,7 @@ public class DailyWeatherController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(
       @PathVariable UUID projectId,
       @PathVariable UUID id) {

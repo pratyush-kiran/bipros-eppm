@@ -27,7 +27,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/profiles")
-@PreAuthorize("hasRole('ADMIN')")
 @Tag(name = "Profiles", description = "Permission profile management (Admin only)")
 @Slf4j
 @RequiredArgsConstructor
@@ -36,30 +35,35 @@ public class ProfileController {
     private final ProfileService profileService;
 
     @GetMapping("/permissions")
+    @PreAuthorize("hasPermission(null, 'ADMIN_PROFILE.READ')")
     @Operation(summary = "List the static catalog of permission codes")
     public ResponseEntity<ApiResponse<List<PermissionCatalog.Permission>>> listPermissions() {
         return ResponseEntity.ok(ApiResponse.ok(PermissionCatalog.ALL));
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_PROFILE.READ')")
     @Operation(summary = "List all profiles")
     public ResponseEntity<ApiResponse<List<ProfileResponse>>> list() {
         return ResponseEntity.ok(ApiResponse.ok(profileService.listProfiles()));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_PROFILE.READ')")
     @Operation(summary = "Get a profile by id")
     public ResponseEntity<ApiResponse<ProfileResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(profileService.getProfile(id)));
     }
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_PROFILE.CREATE')")
     @Operation(summary = "Create a new profile")
     public ResponseEntity<ApiResponse<ProfileResponse>> create(@Valid @RequestBody CreateProfileRequest req) {
         return ResponseEntity.ok(ApiResponse.ok(profileService.createProfile(req)));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_PROFILE.UPDATE')")
     @Operation(summary = "Update a profile (system defaults are editable but never deletable)")
     public ResponseEntity<ApiResponse<ProfileResponse>> update(
             @PathVariable UUID id,
@@ -68,6 +72,7 @@ public class ProfileController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_PROFILE.DELETE')")
     @Operation(summary = "Delete a custom profile (system defaults reject with 409)")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         profileService.deleteProfile(id);

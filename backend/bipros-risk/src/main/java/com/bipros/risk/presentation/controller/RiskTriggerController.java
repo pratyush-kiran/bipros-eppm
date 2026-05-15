@@ -23,13 +23,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/risk-triggers")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class RiskTriggerController {
 
     private final RiskTriggerService triggerService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.CREATE')")
     public ResponseEntity<ApiResponse<RiskTriggerDto>> createTrigger(
         @PathVariable UUID projectId,
         @Valid @RequestBody CreateRiskTriggerRequest request) {
@@ -39,6 +39,7 @@ public class RiskTriggerController {
     }
 
     @GetMapping("/{triggerId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<RiskTriggerDto>> getTrigger(
         @PathVariable UUID projectId,
         @PathVariable UUID triggerId) {
@@ -47,6 +48,7 @@ public class RiskTriggerController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<RiskTriggerDto>>> listTriggers(
         @PathVariable UUID projectId) {
         List<RiskTriggerDto> results = triggerService.listProjectTriggers(projectId);
@@ -54,6 +56,7 @@ public class RiskTriggerController {
     }
 
     @GetMapping("/triggered")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<RiskTriggerDto>>> listTriggeredRisks(
         @PathVariable UUID projectId) {
         List<RiskTriggerDto> results = triggerService.listTriggeredRisks(projectId);
@@ -61,6 +64,7 @@ public class RiskTriggerController {
     }
 
     @PostMapping("/evaluate")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.UPDATE')")
     public ResponseEntity<ApiResponse<List<RiskTriggerDto>>> evaluateTriggers(
         @PathVariable UUID projectId) {
         List<RiskTriggerDto> results = triggerService.evaluateTriggers(projectId);
@@ -68,6 +72,7 @@ public class RiskTriggerController {
     }
 
     @PutMapping("/{triggerId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.UPDATE')")
     public ResponseEntity<ApiResponse<RiskTriggerDto>> updateTrigger(
         @PathVariable UUID projectId,
         @PathVariable UUID triggerId,
@@ -77,6 +82,7 @@ public class RiskTriggerController {
     }
 
     @DeleteMapping("/{triggerId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteTrigger(
         @PathVariable UUID projectId,
         @PathVariable UUID triggerId) {

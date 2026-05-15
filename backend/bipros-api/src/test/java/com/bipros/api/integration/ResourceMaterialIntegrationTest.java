@@ -221,7 +221,8 @@ class ResourceMaterialIntegrationTest {
                     com.bipros.resource.domain.model.ProductivityNormType.MANPOWER,
                     null, null, null,
                     "Earthwork", "M3",
-                    null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null,
+                    null, null, null, null, null);
             HttpEntity<CreateProductivityNormRequest> e = new HttpEntity<>(req, authJsonHeaders());
             ResponseEntity<ApiResponse> resp = restTemplate.exchange(
                     "/v1/productivity-norms", HttpMethod.POST, e, ApiResponse.class);

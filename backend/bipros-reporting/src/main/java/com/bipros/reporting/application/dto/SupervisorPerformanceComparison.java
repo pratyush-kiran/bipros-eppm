@@ -25,7 +25,7 @@ public record SupervisorPerformanceComparison(
     List<TradeDelta> tradeDeltas,
     List<EquipmentDelta> equipmentDeltas) {
 
-  /** One row per canonical trade key, with each supervisor's rollup keyed by supervisorResourceId. */
+  /** One row per canonical trade key, with each supervisor's rollup keyed by supervisorUserId. */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record TradeDelta(
       String tradeKey,

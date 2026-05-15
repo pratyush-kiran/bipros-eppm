@@ -162,22 +162,26 @@ public class Activity extends BaseEntity {
   private UUID responsibleUserId;
 
   /**
-   * Soft FK to {@code resource.resources.id}. Cached mirror of the single
-   * {@code ResourceAssignment} on this activity that has {@code isSupervisor = true}. Updated
-   * by {@code ResourceAssignmentService} whenever the flag flips on any assignment for this
-   * activity. NEVER set directly via the activity create/update DTO path — the assignment is
-   * the source of truth, this column is a denormalised cache to keep the activity grid + DPR
-   * pre-fill fast.
+   * @deprecated Phase 4.5: dropped from the DB by Liquibase 094. The canonical supervisor
+   * identity is now {@link #supervisorUserId} (a soft FK to {@code public.users.id}). This
+   * field is preserved as a {@code @Transient} no-op so that callers reading it via Lombok
+   * getters keep compiling and always observe {@code null}; new code MUST use
+   * {@code supervisorUserId}. Removing the column required dropping the corresponding
+   * {@code @Column} mapping; the field is kept (rather than deleted) only to limit blast
+   * radius until parallel cleanup phases retire all read sites.
    */
-  @Column(name = "responsible_resource_id")
+  @Deprecated(forRemoval = true)
+  @Transient
   private UUID responsibleResourceId;
 
   /**
-   * Display-snapshot of the supervisor Resource's name at the time the assignment flag was last
-   * flipped. Avoids a cross-module fetch every time the activity grid loads. Goes stale if the
-   * Resource is renamed — accepted limitation; mirrors {@code DailyProgressReport.supervisorName}.
+   * @deprecated Phase 4.5: dropped from the DB by Liquibase 094 (the column carried the cached
+   * display name of the supervisor Resource and is no longer maintained). Read-back is always
+   * {@code null}; downstream UIs should derive the supervisor's display name from the user
+   * profile keyed by {@link #supervisorUserId}.
    */
-  @Column(name = "responsible_resource_name", length = 150)
+  @Deprecated(forRemoval = true)
+  @Transient
   private String responsibleResourceName;
 
   /**
@@ -189,6 +193,11 @@ public class Activity extends BaseEntity {
    */
   @Column(name = "supervisor_user_id")
   private UUID supervisorUserId;
+
+  // Display-snapshot of the supervisor's name at assignment time. Avoids a cross-schema
+  // join to public.users on every activity read. Updated whenever supervisor_user_id changes.
+  @Column(name = "supervisor_user_name")
+  private String supervisorUserName;
 
   /**
    * Soft FK to {@code resource.work_activities.id} — the master / library activity this

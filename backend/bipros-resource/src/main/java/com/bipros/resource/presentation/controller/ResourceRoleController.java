@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/resource-roles")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ResourceRoleController {
@@ -49,7 +49,7 @@ public class ResourceRoleController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.CREATE')")
   public ResponseEntity<ApiResponse<ResourceRoleResponse>> create(
       @Valid @RequestBody ResourceRoleRequest request) {
     log.info("POST /v1/resource-roles - code={}", request.code());
@@ -58,7 +58,7 @@ public class ResourceRoleController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceRoleResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody ResourceRoleRequest request) {
     log.info("PUT /v1/resource-roles/{}", id);
@@ -66,7 +66,7 @@ public class ResourceRoleController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     log.info("DELETE /v1/resource-roles/{}", id);
     service.delete(id);

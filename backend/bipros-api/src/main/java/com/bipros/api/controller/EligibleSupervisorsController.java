@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/eligible-supervisors")
-@PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','PROGRAMME_MANAGER','SITE_SUPERVISOR','TEAM_MEMBER','VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_USER.READ')")
 @RequiredArgsConstructor
 public class EligibleSupervisorsController {
 

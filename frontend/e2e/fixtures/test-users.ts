@@ -35,7 +35,7 @@ export const E2E_TEST_USERS: ReadonlyArray<E2eTestUser> = [
   {
     username: 'e2e_qcmanager',
     password: 'e2e-Qc!123',
-    profileCode: 'QC_MANAGER',
+    profileCode: 'QA_QC_ENGINEER',
     email: 'e2e_qcmanager@bipros.local',
     firstName: 'E2E',
     lastName: 'QcManager',

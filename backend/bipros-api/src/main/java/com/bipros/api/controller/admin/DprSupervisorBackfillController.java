@@ -30,7 +30,7 @@ import java.util.TreeSet;
  */
 @RestController
 @RequestMapping("/v1/admin/dpr-supervisor-backfill")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasPermission(null, 'ADMIN_USER.UPDATE')")
 @RequiredArgsConstructor
 public class DprSupervisorBackfillController {
 
@@ -74,7 +74,7 @@ public class DprSupervisorBackfillController {
     Map<String, Long> nameCounts = new java.util.TreeMap<>();
     for (DailyProgressReport dpr : dprRepository.findAll()) {
       // Only consider rows that have NOT been backfilled yet.
-      if (dpr.getSupervisorResourceId() != null) continue;
+      if (dpr.getSupervisorUserId() != null) continue;
       String name = dpr.getSupervisorName();
       if (name == null || name.isBlank()) continue;
       nameCounts.merge(name.trim(), 1L, Long::sum);

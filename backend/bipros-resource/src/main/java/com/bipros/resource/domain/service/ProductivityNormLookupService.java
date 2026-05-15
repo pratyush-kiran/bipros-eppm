@@ -1,7 +1,10 @@
 package com.bipros.resource.domain.service;
 
+import com.bipros.resource.application.service.role.RoleProductivityNormResolver;
 import com.bipros.resource.domain.model.ProductivityNorm;
+import com.bipros.resource.domain.model.ProductivityNormType;
 import com.bipros.resource.domain.model.Resource;
+import com.bipros.resource.domain.model.ResourceRole;
 import com.bipros.resource.domain.model.ResourceType;
 import com.bipros.resource.domain.model.WorkActivity;
 import com.bipros.resource.domain.repository.ProductivityNormRepository;
@@ -18,10 +21,12 @@ import java.util.UUID;
 /**
  * Resolves the effective productivity norm for a {@code (workActivity, resource)} pair.
  *
- * <p>Fallback order:
+ * <p>Fallback order (post role-only migration):
  * <ol>
- *   <li>norm scoped to the specific resource ({@code resource_id})</li>
- *   <li>norm scoped to the resource's type ({@code resource_type_id})</li>
+ *   <li>role-keyed norm (variant tier inside {@link RoleProductivityNormResolver})</li>
+ *   <li>norm scoped to the specific resource ({@code resource_id}) — legacy</li>
+ *   <li>norm scoped to the resource's type ({@code resource_type_id}) — legacy</li>
+ *   <li>unscoped (work-activity-only) — the 102 seeded rows</li>
  *   <li>empty</li>
  * </ol>
  */
@@ -34,12 +39,31 @@ public class ProductivityNormLookupService {
   private final ProductivityNormRepository normRepository;
   private final WorkActivityRepository workActivityRepository;
   private final ResourceRepository resourceRepository;
+  private final RoleProductivityNormResolver roleResolver;
 
   public ResolvedNorm resolve(UUID workActivityId, UUID resourceId) {
     if (workActivityId == null) {
       return ResolvedNorm.none(null, resourceId);
     }
     Resource resource = resourceId == null ? null : resourceRepository.findById(resourceId).orElse(null);
+    ProductivityNormType normType = inferNormType(resource);
+
+    // 1) Role-keyed (variant → role → unscoped via the role resolver). If the resource has a
+    //    role, this catches both the role-only and unscoped tiers in one call. We still fall
+    //    through to the legacy specific/type tiers below for older rows.
+    ResourceRole role = resource == null ? null : resource.getRole();
+    if (role != null && normType != null) {
+      Optional<ProductivityNorm> roleMatch =
+          roleResolver.resolveByRole(workActivityId, role.getId(), null, null, null, null, normType);
+      if (roleMatch.isPresent()) {
+        // VARIANT tier needs category/grade/make/model on input; we don't have them here, so
+        // anything that matches via roleResolver lands on ROLE or UNSCOPED.
+        boolean isUnscoped = roleMatch.get().getRoleId() == null;
+        ResolvedNorm.Source source =
+            isUnscoped ? ResolvedNorm.Source.UNSCOPED : ResolvedNorm.Source.ROLE;
+        return materialise(roleMatch.get(), source, resourceId);
+      }
+    }
 
     if (resource != null) {
       Optional<ProductivityNorm> specific =
@@ -56,7 +80,28 @@ public class ProductivityNormLookupService {
         }
       }
     }
+
+    // 4) Unscoped fallback even when we couldn't infer a role (no resource passed, or
+    //    legacy data). Loop both norm types so callers without a normType still find a match.
+    for (ProductivityNormType nt : ProductivityNormType.values()) {
+      Optional<ProductivityNorm> unscoped = normRepository
+          .findFirstByWorkActivityIdAndRoleIdIsNullAndCategoryIdIsNullAndGradeIdIsNullAndMakeIsNullAndModelIsNullAndNormType(
+              workActivityId, nt);
+      if (unscoped.isPresent()) {
+        return materialise(unscoped.get(), ResolvedNorm.Source.UNSCOPED, resourceId);
+      }
+    }
     return ResolvedNorm.none(workActivityId, resourceId);
+  }
+
+  private static ProductivityNormType inferNormType(Resource resource) {
+    if (resource == null || resource.getResourceType() == null) return null;
+    String code = resource.getResourceType().getCode();
+    if (code == null) return null;
+    String upper = code.toUpperCase();
+    if (upper.equals("EQUIPMENT") || upper.equals("MACHINE")) return ProductivityNormType.EQUIPMENT;
+    if (upper.equals("MANPOWER") || upper.equals("LABOR")) return ProductivityNormType.MANPOWER;
+    return null;
   }
 
   /** Convenience for callers that only have an activity name (e.g. seeders ingesting BOQ rows). */

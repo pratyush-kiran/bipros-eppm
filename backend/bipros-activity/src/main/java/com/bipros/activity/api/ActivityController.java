@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/activities")
-// Class-level guard is just authentication. Per-method @projectAccess.canRead/canEdit
+// Class-level guard is just authentication. Per-method @projectAccess.hasProjectPermission
 // enforces the project-scope ABAC. ActivityService also re-checks before any mutation
 // (defense in depth — controller boundary fails fast, service is the source of truth).
 @PreAuthorize("isAuthenticated()")
@@ -35,7 +35,7 @@ public class ActivityController {
   private final GlobalChangeService globalChangeService;
 
   @PostMapping
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.CREATE')")
   public ResponseEntity<ApiResponse<ActivityResponse>> createActivity(
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateActivityRequest request) {
@@ -44,7 +44,7 @@ public class ActivityController {
   }
 
   @GetMapping
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.READ')")
   public ResponseEntity<ApiResponse<PagedResponse<ActivityResponse>>> listActivities(
       @PathVariable UUID projectId,
       @RequestParam(defaultValue = "0") int page,
@@ -57,7 +57,7 @@ public class ActivityController {
   }
 
   @GetMapping("/{activityId}")
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.READ')")
   public ResponseEntity<ApiResponse<ActivityResponse>> getActivity(
       @PathVariable UUID projectId,
       @PathVariable UUID activityId) {
@@ -66,10 +66,10 @@ public class ActivityController {
   }
 
   @PutMapping("/{activityId}")
-  // Reach-the-endpoint gate is project-read; ActivityService.updateActivity is the
+  // Reach-the-endpoint gate is ACTIVITY.UPDATE; ActivityService.updateActivity is the
   // source of truth: it allows the assignee to update their own activity even without
   // project-edit rights, and otherwise calls projectAccess.requireEdit.
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<ActivityResponse>> updateActivity(
       @PathVariable UUID projectId,
       @PathVariable UUID activityId,
@@ -79,7 +79,7 @@ public class ActivityController {
   }
 
   @DeleteMapping("/{activityId}")
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.DELETE')")
   public ResponseEntity<Void> deleteActivity(
       @PathVariable UUID projectId,
       @PathVariable UUID activityId) {
@@ -90,7 +90,7 @@ public class ActivityController {
   @PutMapping("/{activityId}/progress")
   // Progress updates are allowed for assignees even without full project-edit rights;
   // service performs the precise check.
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<ActivityResponse>> updateProgress(
       @PathVariable UUID projectId,
       @PathVariable UUID activityId,
@@ -103,7 +103,7 @@ public class ActivityController {
   }
 
   @PutMapping("/apply-actuals")
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> applyActuals(
       @PathVariable UUID projectId,
       @Valid @RequestBody ApplyActualsRequest request) {
@@ -112,7 +112,7 @@ public class ActivityController {
   }
 
   @PostMapping("/global-change")
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> applyGlobalChange(
       @PathVariable UUID projectId,
       @Valid @RequestBody GlobalChangeRequest request) {
@@ -122,11 +122,41 @@ public class ActivityController {
   }
 
   /**
+   * Activities under this project that have no {@code work_activity_id} linked but either have
+   * DPRs in the window or have planned dates intersecting the window. Powers the
+   * "N activities need a Work Activity" banner on the Capacity Utilization page.
+   */
+  @GetMapping("/missing-work-activity")
+  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  public ResponseEntity<ApiResponse<java.util.List<
+      com.bipros.activity.application.dto.MissingWorkActivityRow>>> listMissingWorkActivity(
+      @PathVariable UUID projectId,
+      @RequestParam(required = false) LocalDate from,
+      @RequestParam(required = false) LocalDate to) {
+    var rows = activityService.listMissingWorkActivity(projectId, from, to);
+    return ResponseEntity.ok(ApiResponse.ok(rows));
+  }
+
+  /**
+   * Per-activity supervisor assignment — Phase 4.5. Writes
+   * {@code Activity.supervisor_user_id}. {@code supervisorUserId = null} clears.
+   */
+  @PutMapping("/{activityId}/supervisor")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
+  public ResponseEntity<ApiResponse<ActivityResponse>> setSupervisor(
+      @PathVariable UUID projectId,
+      @PathVariable UUID activityId,
+      @Valid @RequestBody com.bipros.activity.application.dto.SetSupervisorRequest request) {
+    ActivityResponse response = activityService.setSupervisor(activityId, request);
+    return ResponseEntity.ok(ApiResponse.ok(response));
+  }
+
+  /**
    * Bulk-assign one supervisor (a Resource) across many activities. Powers the
    * Resources → Supervisor sub-tab.
    */
   @PostMapping("/supervisor-bulk")
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
   public ResponseEntity<ApiResponse<java.util.Map<String, Integer>>> bulkSetSupervisor(
       @PathVariable UUID projectId,
       @Valid @RequestBody com.bipros.activity.application.dto.BulkSupervisorRequest request) {

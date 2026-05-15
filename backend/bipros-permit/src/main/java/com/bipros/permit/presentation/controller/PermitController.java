@@ -43,6 +43,7 @@ public class PermitController {
     // ── Cross-project list & detail (server filters by access) ──────────────
 
     @GetMapping("/v1/permits")
+    @PreAuthorize("hasPermission(null, 'PERMIT.READ')")
     public ResponseEntity<ApiResponse<Page<PermitSummary>>> listAcrossProjects(
             @RequestParam(required = false) UUID projectId,
             @RequestParam(required = false) PermitStatus status,
@@ -56,11 +57,13 @@ public class PermitController {
     }
 
     @GetMapping("/v1/permits/{id}")
+    @PreAuthorize("hasPermission(null, 'PERMIT.READ')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> getDetail(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(permitService.getPermit(id)));
     }
 
     @GetMapping(value = "/v1/permits/{id}/qr.png", produces = MediaType.IMAGE_PNG_VALUE)
+    @PreAuthorize("hasPermission(null, 'PERMIT.READ')")
     public ResponseEntity<byte[]> qrPng(@PathVariable UUID id, @RequestParam(defaultValue = "240") int size) {
         // Authenticated callers only — server-side filter ensures permit-access via getPermit's read gate.
         permitService.getPermit(id);
@@ -72,7 +75,7 @@ public class PermitController {
     // ── Project-scoped mutations ────────────────────────────────────────────
 
     @PostMapping("/v1/projects/{projectId}/permits")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PERMIT.CREATE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody CreatePermitRequest request) {
@@ -81,7 +84,7 @@ public class PermitController {
     }
 
     @PutMapping("/v1/projects/{projectId}/permits/{permitId}")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PERMIT.CREATE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> update(
             @PathVariable UUID projectId,
             @PathVariable UUID permitId,
@@ -90,7 +93,7 @@ public class PermitController {
     }
 
     @PostMapping("/v1/projects/{projectId}/permits/{permitId}/submit")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PERMIT.CREATE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> submit(
             @PathVariable UUID projectId,
             @PathVariable UUID permitId) {
@@ -98,7 +101,7 @@ public class PermitController {
     }
 
     @DeleteMapping("/v1/projects/{projectId}/permits/{permitId}")
-    @PreAuthorize("@projectAccess.canDelete(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PERMIT.CREATE')")
     public ResponseEntity<Void> delete(
             @PathVariable UUID projectId,
             @PathVariable UUID permitId) {

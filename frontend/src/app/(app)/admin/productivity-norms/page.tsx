@@ -12,19 +12,26 @@ import {
 import { workActivityApi } from "@/lib/api/workActivityApi";
 import { resourceTypeApi } from "@/lib/api/resourceTypeApi";
 import { resourceApi } from "@/lib/api/resourceApi";
+import { resourceRoleApi } from "@/lib/api/resourceRoleApi";
+import { manpowerCategoryMasterApi } from "@/lib/api/manpowerCategoryMasterApi";
+import { gradeMasterApi } from "@/lib/api/gradeMasterApi";
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
 import { unitOptionsWithFallback, STANDARD_UNITS } from "@/lib/constants/units";
 
-type Scope = "TYPE" | "RESOURCE" | "UNSCOPED";
+type Scope = "VARIANT" | "ROLE" | "UNSCOPED";
 
 interface NormForm {
   workActivityId: string;
   scope: Scope;
-  resourceTypeId: string;
-  resourceId: string;
+  /** Role-keyed scope inputs (new model). */
+  roleId: string;
+  categoryId: string;
+  gradeId: string;
+  make: string;
+  model: string;
   equipmentSpec: string;
   unit: string;
   outputPerManPerDay: string;
@@ -38,9 +45,12 @@ interface NormForm {
 
 const initialFormState: NormForm = {
   workActivityId: "",
-  scope: "TYPE",
-  resourceTypeId: "",
-  resourceId: "",
+  scope: "VARIANT",
+  roleId: "",
+  categoryId: "",
+  gradeId: "",
+  make: "",
+  model: "",
   equipmentSpec: "",
   unit: "",
   outputPerManPerDay: "",
@@ -70,19 +80,40 @@ function formatNumber(value: number | null): string {
 }
 
 /**
- * Bucket norms by their scope label (Resource Type name when scoped to a type, or Resource code
- * when overriding a specific resource). Lowest-priority bucket "(unscoped)" sweeps up any norm
- * that's neither — e.g. legacy rows seeded before Phase 1.
+ * Bucket norms by scope. Priority order: role-keyed (variant or role) → legacy specific resource
+ * → legacy resource type → unscoped. Legacy rows are tagged "(legacy)" so the admin can tell the
+ * old type/resource-keyed rows from the new role-keyed ones at a glance.
  */
 function groupNormsByScope(
   norms: ProductivityNormResponse[],
 ): Array<{ key: string; label: string; rows: ProductivityNormResponse[] }> {
   const map = new Map<string, { label: string; rows: ProductivityNormResponse[] }>();
   for (const n of norms) {
-    const label =
-      n.resourceTypeName ??
-      (n.resourceCode ? `${n.resourceCode}${n.resourceName ? " — " + n.resourceName : ""}` : "(unscoped)");
-    const key = n.resourceTypeId ?? n.resourceId ?? "_unscoped";
+    let key: string;
+    let label: string;
+    if (n.roleId) {
+      // Variant: role + (category/grade for manpower, make/model for equipment).
+      const variantSig = [n.categoryId, n.gradeId, n.make, n.model].filter(Boolean).join("|");
+      key = variantSig ? `role:${n.roleId}|var:${variantSig}` : `role:${n.roleId}`;
+      const variantLabel = [
+        n.make,
+        n.model,
+        // Category/grade ids are opaque — we don't have the names denormalised in the norm
+        // response, so the UI falls back to a generic "variant" suffix.
+      ]
+        .filter((s): s is string => !!s && s.length > 0)
+        .join(" ");
+      label = `Role · ${n.roleId.slice(0, 8)}${variantLabel ? " — " + variantLabel : variantSig ? " — variant" : ""}`;
+    } else if (n.resourceId) {
+      key = `legacy:res:${n.resourceId}`;
+      label = `${n.resourceCode ?? n.resourceName ?? "(resource)"} (legacy)`;
+    } else if (n.resourceTypeId) {
+      key = `legacy:type:${n.resourceTypeId}`;
+      label = `${n.resourceTypeName ?? "(type)"} (legacy)`;
+    } else {
+      key = "_unscoped";
+      label = "(unscoped)";
+    }
     const bucket = map.get(key) ?? { label, rows: [] };
     bucket.rows.push(n);
     map.set(key, bucket);
@@ -93,21 +124,29 @@ function groupNormsByScope(
 }
 
 function ScopeBadge({ norm }: { norm: ProductivityNormResponse }) {
+  if (norm.roleId) {
+    const isVariant = !!(norm.categoryId || norm.gradeId || norm.make || norm.model);
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-success/10 text-success ring-1 ring-success/20">
+        {isVariant ? "Variant" : "Role"}
+      </span>
+    );
+  }
   if (norm.resourceId) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-accent/10 text-accent ring-1 ring-accent/20">
-        {norm.resourceCode ?? norm.resourceName}
+        {norm.resourceCode ?? norm.resourceName} <em className="text-text-muted">(legacy)</em>
       </span>
     );
   }
   if (norm.resourceTypeId) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-info/10 text-info ring-1 ring-info/20">
-        {norm.resourceTypeName}
+        {norm.resourceTypeName} <em className="text-text-muted">(legacy)</em>
       </span>
     );
   }
-  return <span className="text-text-muted text-xs">—</span>;
+  return <span className="text-text-muted text-xs">Unscoped</span>;
 }
 
 export default function ProductivityNormsPage() {
@@ -166,6 +205,35 @@ export default function ProductivityNormsPage() {
   const allResources = (Array.isArray(resourcesData?.data) ? resourcesData?.data : []) ?? [];
   const filteredResources = allResources.filter((r) => matchesTargetCode(r.resourceTypeCode));
 
+  // Role-keyed pickers. Roles are filtered to the current norm-type bucket by their parent
+  // ResourceType.code (MANPOWER/LABOR for the Manpower tab, EQUIPMENT/MACHINE for the Equipment
+  // tab). Categories/grades are manpower-only — they sit empty on the Equipment scope branch.
+  const { data: rolesData } = useQuery({
+    queryKey: ["resource-roles", "all"],
+    queryFn: () => resourceRoleApi.list(),
+  });
+  const allRoles = rolesData?.data ?? [];
+  const filteredRoles = allRoles.filter(
+    (r) => r.active && matchesTargetCode(r.resourceTypeCode),
+  );
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["manpower-categories", "active"],
+    queryFn: () => manpowerCategoryMasterApi.list(),
+    enabled: tab === "MANPOWER",
+  });
+  const allCategories = categoriesData?.data ?? [];
+  // Top-level categories only (Skilled / Semi-Skilled / Unskilled / Staff) — sub-categories are
+  // not represented as a separate scope axis on the productivity norm.
+  const topCategories = allCategories.filter((c) => c.active && !c.parentId);
+
+  const { data: gradesData } = useQuery({
+    queryKey: ["grades", "active"],
+    queryFn: () => gradeMasterApi.list(),
+    enabled: tab === "MANPOWER",
+  });
+  const grades = (gradesData?.data ?? []).filter((g) => g.active);
+
   const handleTabChange = (nextTab: ProductivityNormType) => {
     setTab(nextTab);
     setShowForm(false);
@@ -180,16 +248,24 @@ export default function ProductivityNormsPage() {
     setShowForm(true);
     setError(null);
     setFieldErrors({});
-    const editScope: Scope = norm.resourceId
-      ? "RESOURCE"
-      : norm.resourceTypeId
-      ? "TYPE"
-      : "UNSCOPED";
+    // Detect scope: role-keyed wins over legacy. Legacy rows render as UNSCOPED so the user
+    // can convert them to role-keyed without losing the row — the role-keyed fields stay null
+    // until they pick a role explicitly.
+    let editScope: Scope;
+    if (norm.roleId) {
+      const hasVariant = !!(norm.categoryId || norm.gradeId || norm.make || norm.model);
+      editScope = hasVariant ? "VARIANT" : "ROLE";
+    } else {
+      editScope = "UNSCOPED";
+    }
     setFormData({
       workActivityId: norm.workActivityId ?? "",
       scope: editScope,
-      resourceTypeId: norm.resourceTypeId ?? "",
-      resourceId: norm.resourceId ?? "",
+      roleId: norm.roleId ?? "",
+      categoryId: norm.categoryId ?? "",
+      gradeId: norm.gradeId ?? "",
+      make: norm.make ?? "",
+      model: norm.model ?? "",
       equipmentSpec: norm.equipmentSpec ?? "",
       unit: norm.unit ?? "",
       outputPerManPerDay: norm.outputPerManPerDay?.toString() ?? "",
@@ -224,13 +300,10 @@ export default function ProductivityNormsPage() {
     if (!formData.unit.trim()) {
       errors.unit = "Unit is required (e.g. Sqm, Cum, MT)";
     }
-    if (formData.scope === "TYPE" && !formData.resourceTypeId) {
-      errors.resourceTypeId = "Pick a Resource Type for the default scope";
+    if ((formData.scope === "VARIANT" || formData.scope === "ROLE") && !formData.roleId) {
+      errors.roleId = "Pick a Role for the scope";
     }
-    if (formData.scope === "RESOURCE" && !formData.resourceId) {
-      errors.resourceId = "Pick a specific Resource for the override scope";
-    }
-    // UNSCOPED: no scope-required validation — applies to any resource of any type for this work activity.
+    // UNSCOPED: applies to any resource on this work activity. No further validation needed.
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setError("Fix the highlighted fields and try again");
@@ -239,17 +312,25 @@ export default function ProductivityNormsPage() {
     setFieldErrors({});
 
     try {
+      // Variant carries role + variant fields; Role carries role only; Unscoped clears them all.
+      const roleScopeActive = formData.scope === "VARIANT" || formData.scope === "ROLE";
+      const variantActive = formData.scope === "VARIANT";
       const base: CreateProductivityNormRequest = {
         normType: tab,
         workActivityId: formData.workActivityId,
-        resourceTypeId: formData.scope === "TYPE" ? formData.resourceTypeId || null : null,
-        resourceId: formData.scope === "RESOURCE" ? formData.resourceId || null : null,
+        // Legacy fields stay null on new rows from this form. Existing legacy rows keep their
+        // values via the update endpoint (we only overwrite the role-keyed columns).
+        resourceTypeId: null,
+        resourceId: null,
+        roleId: roleScopeActive ? formData.roleId || null : null,
+        categoryId: variantActive && tab === "MANPOWER" ? formData.categoryId || null : null,
+        gradeId: variantActive && tab === "MANPOWER" ? formData.gradeId || null : null,
+        make: variantActive && tab === "EQUIPMENT" ? (formData.make.trim() || null) : null,
+        model: variantActive && tab === "EQUIPMENT" ? (formData.model.trim() || null) : null,
         unit: formData.unit,
         remarks: formData.remarks || undefined,
         outputPerDay: toNumberOrUndefined(formData.outputPerDay),
       };
-      // For scope=UNSCOPED both resourceTypeId and resourceId stay null (already the default
-      // since the ternaries above land on the "else" branch).
 
       const request: CreateProductivityNormRequest =
         tab === "MANPOWER"
@@ -614,21 +695,28 @@ export default function ProductivityNormsPage() {
                     <input
                       type="radio"
                       name="scope"
-                      checked={formData.scope === "TYPE"}
-                      onChange={() => setFormData({ ...formData, scope: "TYPE", resourceId: "" })}
+                      checked={formData.scope === "VARIANT"}
+                      onChange={() => setFormData({ ...formData, scope: "VARIANT" })}
                     />
-                    All resources of type
+                    Variant (role + skill/grade or make/model)
                   </label>
                   <label className="inline-flex items-center gap-2 text-text-secondary">
                     <input
                       type="radio"
                       name="scope"
-                      checked={formData.scope === "RESOURCE"}
+                      checked={formData.scope === "ROLE"}
                       onChange={() =>
-                        setFormData({ ...formData, scope: "RESOURCE", resourceTypeId: "" })
+                        setFormData({
+                          ...formData,
+                          scope: "ROLE",
+                          categoryId: "",
+                          gradeId: "",
+                          make: "",
+                          model: "",
+                        })
                       }
                     />
-                    Specific resource (override)
+                    Role only
                   </label>
                   <label className="inline-flex items-center gap-2 text-text-secondary">
                     <input
@@ -636,74 +724,122 @@ export default function ProductivityNormsPage() {
                       name="scope"
                       checked={formData.scope === "UNSCOPED"}
                       onChange={() =>
-                        setFormData({ ...formData, scope: "UNSCOPED", resourceTypeId: "", resourceId: "" })
+                        setFormData({
+                          ...formData,
+                          scope: "UNSCOPED",
+                          roleId: "",
+                          categoryId: "",
+                          gradeId: "",
+                          make: "",
+                          model: "",
+                        })
                       }
                     />
-                    Unscoped (any resource on this activity)
+                    Unscoped (any role on this activity)
                   </label>
                 </div>
                 <p className="text-xs text-text-muted mb-2">
-                  <strong>Type-level</strong> norms become the default for every resource of that
-                  type (e.g. every Helper). <strong>Specific-resource</strong> norms override the
-                  default for one resource only — use this when a particular crew consistently
-                  outperforms or underperforms the standard. At runtime the lookup tries Specific
-                  first, then falls back to Type-level.
+                  <strong>Variant</strong> targets a specific role + (skill/grade for manpower
+                  · make/model for equipment). <strong>Role</strong> applies to any variant of
+                  that role. <strong>Unscoped</strong> falls through to any resource on the
+                  activity. At runtime the lookup chain is{" "}
+                  <code className="px-1 bg-surface/50 rounded">variant → role → unscoped</code>.
                 </p>
-                {formData.scope === "TYPE" && (
+                {(formData.scope === "VARIANT" || formData.scope === "ROLE") && (
                   <>
                     <select
-                      value={formData.resourceTypeId}
+                      value={formData.roleId}
                       onChange={(e) => {
-                        setFormData({ ...formData, resourceTypeId: e.target.value });
-                        clearFieldError("resourceTypeId");
+                        setFormData({ ...formData, roleId: e.target.value });
+                        clearFieldError("roleId");
                       }}
                       className={`w-full px-3 py-2 border bg-surface-hover text-text-primary rounded-lg ${
-                        fieldErrors.resourceTypeId ? "border-danger" : "border-border"
+                        fieldErrors.roleId ? "border-danger" : "border-border"
                       }`}
-                      aria-invalid={!!fieldErrors.resourceTypeId}
+                      aria-invalid={!!fieldErrors.roleId}
                     >
-                      <option value="">— select a resource type —</option>
-                      {typeDefs.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
-                    {fieldErrors.resourceTypeId && (
-                      <p className="mt-1 text-xs text-danger">{fieldErrors.resourceTypeId}</p>
-                    )}
-                  </>
-                )}
-                {formData.scope === "RESOURCE" && (
-                  <>
-                    <select
-                      value={formData.resourceId}
-                      onChange={(e) => {
-                        setFormData({ ...formData, resourceId: e.target.value });
-                        clearFieldError("resourceId");
-                      }}
-                      className={`w-full px-3 py-2 border bg-surface-hover text-text-primary rounded-lg ${
-                        fieldErrors.resourceId ? "border-danger" : "border-border"
-                      }`}
-                      aria-invalid={!!fieldErrors.resourceId}
-                    >
-                      <option value="">— select a specific resource —</option>
-                      {filteredResources.map((r) => (
+                      <option value="">— select a role —</option>
+                      {filteredRoles.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.code} — {r.name}
                         </option>
                       ))}
                     </select>
-                    {fieldErrors.resourceId && (
-                      <p className="mt-1 text-xs text-danger">{fieldErrors.resourceId}</p>
+                    {fieldErrors.roleId && (
+                      <p className="mt-1 text-xs text-danger">{fieldErrors.roleId}</p>
                     )}
                   </>
                 )}
+                {formData.scope === "VARIANT" && tab === "MANPOWER" && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-text-secondary">
+                        Category (optional)
+                      </label>
+                      <select
+                        value={formData.categoryId}
+                        onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                        className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
+                      >
+                        <option value="">— any category —</option>
+                        {topCategories.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-text-secondary">
+                        Grade (optional)
+                      </label>
+                      <select
+                        value={formData.gradeId}
+                        onChange={(e) => setFormData({ ...formData, gradeId: e.target.value })}
+                        className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
+                      >
+                        <option value="">— any grade —</option>
+                        {grades.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.code} — {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                {formData.scope === "VARIANT" && tab === "EQUIPMENT" && (
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-text-secondary">
+                        Make (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.make}
+                        onChange={(e) => setFormData({ ...formData, make: e.target.value })}
+                        className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
+                        placeholder="e.g. CAT"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium mb-1 text-text-secondary">
+                        Model (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.model}
+                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                        className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
+                        placeholder="e.g. 320D"
+                      />
+                    </div>
+                  </div>
+                )}
                 {formData.scope === "UNSCOPED" && (
                   <p className="text-xs text-text-muted italic">
-                    No specific scope — this norm applies to any {tab.toLowerCase()} resource on this work activity.
-                    Useful for legacy entries; switch to <strong>All resources of type</strong> when you have data
-                    bound to a specific Labor / Equipment type.
+                    No role binding — falls through as the final tier of the resolver chain. The
+                    102 legacy norms imported from the seed workbook live in this bucket.
                   </p>
                 )}
               </div>

@@ -6,6 +6,7 @@ import { useParams, useSearchParams, useRouter, usePathname } from "next/navigat
 import { BarChart3, ChevronDown, Database } from "lucide-react";
 import { projectApi } from "@/lib/api/projectApi";
 import { cn } from "@/lib/utils/cn";
+import { useAuthStore } from "@/lib/state/store";
 
 function ProjectDetailLayoutInner({
   children,
@@ -17,6 +18,7 @@ function ProjectDetailLayoutInner({
   const router = useRouter();
   const pathname = usePathname();
   const projectId = params.projectId as string;
+  const hasPermission = useAuthStore((s) => s.hasPermission);
   // Check if we're on a sub-route (not the base project page with ?tab= params)
   const isOnSubRoute = pathname !== `/projects/${projectId}` && !pathname.endsWith(`/projects/${projectId}`);
   const activeTab = isOnSubRoute ? null : (searchParams.get("tab") || "overview");
@@ -24,23 +26,47 @@ function ProjectDetailLayoutInner({
   const [masterDataOpen, setMasterDataOpen] = useState(false);
   const [insightsHeaderOpen, setInsightsHeaderOpen] = useState(false);
 
-  const { data: projectData, isLoading } = useQuery({
+  const { data: projectData, isLoading, error } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => projectApi.getProject(projectId),
+    // 403/404 is a final state — retrying just delays the explanatory message.
+    retry: (failureCount, err) => {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 403 || status === 404) return false;
+      return failureCount < 2;
+    },
   });
 
   const project = projectData?.data;
+  const status = (error as { response?: { status?: number } } | null)?.response?.status;
 
   if (isLoading) {
-    return <div className="p-6 text-center text-text-muted">Loading...</div>;
+    return <div className="p-6 text-center text-text-muted">Loading project…</div>;
+  }
+
+  if (status === 403) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">No access</p>
+        <p className="mt-2 text-text-primary">
+          You&apos;re not a member of this project.
+        </p>
+        <p className="mt-1 text-sm text-text-muted">
+          Ask the project manager to add you under <em>Project &rsaquo; Members</em>.
+        </p>
+      </div>
+    );
   }
 
   if (!project) {
     return <div className="p-6 text-center text-danger">Project not found</div>;
   }
 
-  // Tab-based navigation (query parameter)
-  const tabs = [
+  // Tab-based navigation (query parameter). Each tab can declare a `permission`
+  // gate — tabs whose perm the current user lacks are filtered out before render
+  // so SUPERVISOR-tier users don't see finance/contract surfaces.
+  type ProjectTab = { id: string; label: string; href: string | null; permission?: string };
+  const allTabs: ProjectTab[] = [
     { id: "overview", label: "Overview", href: null },
     { id: "wbs", label: "WBS", href: null },
     { id: "activities", label: "Activities", href: `/projects/${projectId}/activities` },
@@ -48,20 +74,25 @@ function ProjectDetailLayoutInner({
     { id: "gantt", label: "Gantt", href: null },
     { id: "network", label: "Network", href: null },
     { id: "dpr", label: "DPR", href: `/projects/${projectId}/dpr` },
-    // { id: "daily-outputs", label: "Daily Outputs", href: `/projects/${projectId}/daily-outputs` },
     { id: "capacity", label: "Capacity Util.", href: `/projects/${projectId}/capacity-utilization` },
-    { id: "costs", label: "Costs", href: null },
-    { id: "evm", label: "EVM", href: null },
-    // { id: "period-performance", label: "Period Performance", href: null },
-    { id: "baselines", label: "Baselines", href: null },
-    // { id: "cost-accounts", label: "Cost Accounts", href: null },
+    { id: "costs", label: "Costs", href: null, permission: "COST.READ" },
+    { id: "evm", label: "EVM", href: null, permission: "EVM.READ" },
+    { id: "baselines", label: "Baselines", href: null, permission: "BASELINE.READ" },
     { id: "insights", label: "Insights", href: `/projects/${projectId}/insights` },
-    { id: "risks", label: "Risks", href: `/projects/${projectId}/risks` },
-    // These navigate to separate route pages:
-    { id: "contracts", label: "Contracts", href: `/projects/${projectId}/contracts` },
-    // { id: "documents", label: "Documents", href: `/projects/${projectId}/documents` },
+    { id: "risks", label: "Risks", href: `/projects/${projectId}/risks`, permission: "RISK.READ" },
+    { id: "contracts", label: "Contracts", href: `/projects/${projectId}/contracts`, permission: "CONTRACT.READ" },
     { id: "gis", label: "GIS", href: `/projects/${projectId}/gis-viewer` },
+    // Site Ops — Phase C modules
+    { id: "workfronts", label: "Workfronts", href: `/projects/${projectId}/workfronts`, permission: "WORKFRONT.READ" },
+    { id: "snags", label: "Snags", href: `/projects/${projectId}/snags`, permission: "SNAG.READ" },
+    { id: "handovers", label: "Handovers", href: `/projects/${projectId}/handovers`, permission: "SHIFT_HANDOVER.READ" },
+    { id: "attendance", label: "Attendance", href: `/projects/${projectId}/attendance`, permission: "ATTENDANCE.READ" },
+    { id: "checklists", label: "Checklists", href: `/projects/${projectId}/checklists`, permission: "CHECKLIST.READ" },
+    { id: "indents", label: "Indents", href: `/projects/${projectId}/indents`, permission: "PROCUREMENT_REQUEST.READ" },
+    { id: "ncrs", label: "NCRs", href: `/projects/${projectId}/ncrs`, permission: "NCR.READ" },
   ];
+
+  const tabs = allTabs.filter((t) => !t.permission || hasPermission(t.permission));
 
   // PMS Master Data — the 5 project-scoped reference entities from TESTING_GUIDE.md §2
   const masterDataLinks = [

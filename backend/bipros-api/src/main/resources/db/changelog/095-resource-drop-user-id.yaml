@@ -1,0 +1,69 @@
+databaseChangeLog:
+  # Phase 4.6 of the RBAC overhaul — drop the soft FK from {@code resource.resources.user_id}.
+  #
+  # History: 050-resource-assignment-role-staffing added {@code resources.user_id} as a way
+  # to soft-link a Labor resource to a {@code public.users} row. Migrations 087-3 / 087-4
+  # have since used that column to backfill the new explicit
+  # {@code activity.supervisor_user_id} and {@code project.daily_progress_reports
+  # .supervisor_user_id} columns introduced by Phase 4.1 (DPR) and Phase 4.2 (DprIssue).
+  # With those direct user FKs in place, the bridge column is no longer read by application
+  # code (the entity field was removed at the same time as this changeset shipped).
+  #
+  # Dev users on ddl-auto: update keep the orphan column harmlessly until they manually
+  # run:
+  #   DROP INDEX IF EXISTS resource.idx_resource_user;
+  #   DROP INDEX IF EXISTS resource.idx_resource_user_id;
+  #   ALTER TABLE resource.resources DROP COLUMN IF EXISTS user_id;
+  # This changeset is authoritative under the prod profile.
+
+  - changeSet:
+      id: 095-1-precondition-drop-index
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            schemaName: resource
+            tableName: resources
+            columnName: user_id
+      # In prod Liquibase history the index was created by 050 (idx_resource_user_id)
+      # and then re-created by the 056 rewrite under the JPA-aligned name
+      # idx_resource_user. We drop both via IF EXISTS so either lineage cleans up.
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              DROP INDEX IF EXISTS resource.idx_resource_user_id;
+              DROP INDEX IF EXISTS resource.idx_resource_user;
+      rollback:
+        - createIndex:
+            tableName: resources
+            schemaName: resource
+            indexName: idx_resource_user_id
+            columns:
+              - column:
+                  name: user_id
+
+  - changeSet:
+      id: 095-2-drop-user-id-column
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - columnExists:
+            schemaName: resource
+            tableName: resources
+            columnName: user_id
+      changes:
+        - dropColumn:
+            schemaName: resource
+            tableName: resources
+            columnName: user_id
+      rollback:
+        - addColumn:
+            tableName: resources
+            schemaName: resource
+            columns:
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: true

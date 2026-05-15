@@ -91,7 +91,7 @@ public class AuditTraceabilityTool extends ProjectScopedTool {
 
     @Override
     public Set<String> allowedRoles() {
-        return Set.of("QC_MANAGER", "PROJECT_MANAGER", "BIM_DATA_COORDINATOR");
+        return Set.of("QC_MANAGER", "QA_QC_ENGINEER", "PROJECT_MANAGER", "BIM_DATA_COORDINATOR");
     }
 
     @Override

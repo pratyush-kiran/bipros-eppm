@@ -27,7 +27,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/risk-categories")
-@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 public class RiskCategoryMasterController {
 
@@ -39,6 +38,7 @@ public class RiskCategoryMasterController {
      * — categories tagged GENERIC are always included so cross-cutting risks are visible.
      */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<RiskCategoryMasterResponse>>> list(
         @RequestParam(required = false) UUID typeId,
         @RequestParam(required = false) Industry industry) {
@@ -49,17 +49,19 @@ public class RiskCategoryMasterController {
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<RiskCategoryMasterResponse>>> listAll() {
         return ResponseEntity.ok(ApiResponse.ok(service.listAll()));
     }
 
     @GetMapping("/{id:[0-9a-fA-F-]{36}}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<RiskCategoryMasterResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.getById(id)));
     }
 
     @GetMapping("/by-code/{code}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<RiskCategoryMasterResponse>> getByCode(@PathVariable String code) {
         return service.findByCode(code)
             .map(r -> ResponseEntity.ok(ApiResponse.ok(r)))
@@ -67,7 +69,7 @@ public class RiskCategoryMasterController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<RiskCategoryMasterResponse>> create(
         @Valid @RequestBody CreateRiskCategoryMasterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -75,7 +77,7 @@ public class RiskCategoryMasterController {
     }
 
     @PutMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<RiskCategoryMasterResponse>> update(
         @PathVariable UUID id,
         @Valid @RequestBody UpdateRiskCategoryMasterRequest request) {
@@ -83,7 +85,7 @@ public class RiskCategoryMasterController {
     }
 
     @DeleteMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

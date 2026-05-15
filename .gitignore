@@ -82,6 +82,16 @@ backend/storage/
 /login-boutique-*.png
 /login-redesign-*.png
 
+# RBAC / Phase C QA screenshots (per-session, not source)
+/[0-9][0-9]-*.png
+/[0-9][0-9]b-*.png
+/hemendra-*.png
+/little-*.png
+/pm-*.png
+/subrat-*.png
+/sup-*.png
+/supervisor-*.png
+
 # Demo deliverables (generated)
 Bipros_EPPM_Demo*.pptx
 Bipros_EPPM_Demo_Detailed.pdf

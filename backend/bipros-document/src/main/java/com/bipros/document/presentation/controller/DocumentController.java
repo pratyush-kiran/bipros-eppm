@@ -34,13 +34,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/documents")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class DocumentController {
 
     private final DocumentService documentService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.CREATE')")
     public ResponseEntity<ApiResponse<DocumentResponse>> createDocument(
         @PathVariable UUID projectId,
         @Valid @RequestBody DocumentRequest request) {
@@ -54,6 +54,7 @@ public class DocumentController {
      * form part and the binary as a {@code file} form part.
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.CREATE')")
     public ResponseEntity<ApiResponse<DocumentResponse>> uploadDocument(
             @PathVariable UUID projectId,
             @Valid @RequestPart("metadata") UploadDocumentRequest metadata,
@@ -66,6 +67,7 @@ public class DocumentController {
 
     /** Streams the current-version binary. */
     @GetMapping("/{documentId}/download")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<org.springframework.core.io.Resource> downloadDocument(
             @PathVariable UUID projectId,
             @PathVariable UUID documentId,
@@ -82,6 +84,7 @@ public class DocumentController {
     }
 
     @GetMapping("/{documentId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<DocumentResponse>> getDocument(
         @PathVariable UUID projectId,
         @PathVariable UUID documentId) {
@@ -90,6 +93,7 @@ public class DocumentController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<DocumentResponse>>> listDocuments(
         @PathVariable UUID projectId) {
         List<DocumentResponse> response = documentService.listDocuments(projectId);
@@ -97,6 +101,7 @@ public class DocumentController {
     }
 
     @PutMapping("/{documentId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<DocumentResponse>> updateDocument(
         @PathVariable UUID projectId,
         @PathVariable UUID documentId,
@@ -106,6 +111,7 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{documentId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.DELETE')")
     public ResponseEntity<ApiResponse<Void>> deleteDocument(
         @PathVariable UUID projectId,
         @PathVariable UUID documentId) {
@@ -114,6 +120,7 @@ public class DocumentController {
     }
 
     @GetMapping("/{documentId}/versions")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<ApiResponse<List<DocumentVersionResponse>>> getVersions(
         @PathVariable UUID projectId,
         @PathVariable UUID documentId) {
@@ -122,6 +129,7 @@ public class DocumentController {
     }
 
     @PostMapping("/{documentId}/versions")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<DocumentVersionResponse>> addVersion(
         @PathVariable UUID projectId,
         @PathVariable UUID documentId,
@@ -137,6 +145,7 @@ public class DocumentController {
      * counter and stores the binary under {@code v{n}/}.
      */
     @PostMapping(value = "/{documentId}/versions/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.UPDATE')")
     public ResponseEntity<ApiResponse<DocumentVersionResponse>> uploadVersion(
             @PathVariable UUID projectId,
             @PathVariable UUID documentId,
@@ -151,6 +160,7 @@ public class DocumentController {
 
     /** Streams a specific historical version binary. */
     @GetMapping("/{documentId}/versions/{versionNumber}/download")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DOCUMENT.READ')")
     public ResponseEntity<org.springframework.core.io.Resource> downloadVersion(
             @PathVariable UUID projectId,
             @PathVariable UUID documentId,

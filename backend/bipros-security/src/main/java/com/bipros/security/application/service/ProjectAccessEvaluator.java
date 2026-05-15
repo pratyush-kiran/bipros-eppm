@@ -1,6 +1,7 @@
 package com.bipros.security.application.service;
 
 import com.bipros.security.domain.model.ProjectMemberRole;
+import com.bipros.security.domain.repository.ProjectMemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,9 @@ import java.util.UUID;
  *
  *   &#64;PreAuthorize("@projectAccess.hasProjectRole(#projectId, 'PROJECT_MANAGER')")
  *   public ResponseEntity&lt;...&gt; assignTeamMember(@PathVariable UUID projectId, ...) { ... }
+ *
+ *   &#64;PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.APPROVE')")
+ *   public ResponseEntity&lt;...&gt; approveDpr(@PathVariable UUID projectId, ...) { ... }
  * </pre>
  *
  * <p>Service-layer enforcement (via {@link ProjectAccessService#requireEdit}) remains the
@@ -32,6 +36,7 @@ public class ProjectAccessEvaluator {
 
     private final ProjectAccessService projectAccessService;
     private final CurrentUserService currentUserService;
+    private final ProjectMemberRepository projectMemberRepository;
 
     public boolean canRead(UUID projectId) {
         return projectAccessService.canRead(currentUserService.getCurrentUserId(), projectId);
@@ -54,5 +59,58 @@ public class ProjectAccessEvaluator {
             return false;
         }
         return projectAccessService.hasProjectRole(currentUserService.getCurrentUserId(), projectId, r);
+    }
+
+    /**
+     * True iff the current user has the named permission globally AND is a member of the project
+     * (or is ADMIN). Used by {@code @PreAuthorize} SpEL: e.g.
+     * {@code @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.APPROVE')")}.
+     *
+     * <p>Introduced in <b>Phase 2 of the RBAC overhaul</b> as the project-scoped counterpart to
+     * {@link CurrentUserService#hasPermission(String)} (which is global / unscoped). Phase 3 will
+     * migrate controllers from role-name checks to this fine-grained gate.
+     *
+     * <p>Semantics:
+     * <ul>
+     *   <li>System context (no Authentication, e.g. seeder threads) → always true.</li>
+     *   <li>ADMIN authority → always true (admin escape hatch).</li>
+     *   <li>{@code permissionCode} or {@code projectId} null → false.</li>
+     *   <li>Permission missing globally → false.</li>
+     *   <li>Permission granted but not a {@code ProjectMember} of {@code projectId} → false.</li>
+     *   <li>Otherwise → true.</li>
+     * </ul>
+     *
+     * <p>Membership is checked against the same {@code project_members} table that
+     * {@link ProjectAccessService#canRead(UUID, UUID)} and {@link ProjectAccessService#canEdit(UUID, UUID)}
+     * consult — OBS-tree-only access does NOT satisfy this check.
+     */
+    public boolean hasProjectPermission(UUID projectId, String permissionCode) {
+        if (currentUserService.isSystemContext()) {
+            return true;
+        }
+        if (currentUserService.isAdmin()) {
+            return true;
+        }
+        if (permissionCode == null || projectId == null) {
+            return false;
+        }
+        if (!currentUserService.hasPermission(permissionCode)) {
+            return false;
+        }
+        return isProjectMember(projectId);
+    }
+
+    /**
+     * True iff the current user has at least one {@code ProjectMember} row for {@code projectId}.
+     * Uses the same membership query as {@link ProjectAccessService#canRead(UUID, UUID)} /
+     * {@link ProjectAccessService#canEdit(UUID, UUID)} so that all evaluator paths agree on the
+     * definition of "project member".
+     */
+    private boolean isProjectMember(UUID projectId) {
+        UUID userId = currentUserService.getCurrentUserId();
+        if (userId == null) {
+            return false;
+        }
+        return !projectMemberRepository.findByUserIdAndProjectId(userId, projectId).isEmpty();
     }
 }

@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 089-dpr-issue-dpr-id-nullable
+      author: rahul.anand435@gmail.com
+      comment: |
+        Allow DprIssue rows without a parent DPR so issues can be raised directly at the
+        project level (not only during DPR submission). dpr_id was NOT NULL; drop the
+        constraint to support standalone project issues. Existing rows are unaffected.
+      changes:
+        - dropNotNullConstraint:
+            schemaName: project
+            tableName: dpr_issues
+            columnName: dpr_id
+            columnDataType: UUID
+      rollback:
+        - sql:
+            sql: |
+              UPDATE project.dpr_issues
+              SET dpr_id = '00000000-0000-0000-0000-000000000000'
+              WHERE dpr_id IS NULL;
+        - addNotNullConstraint:
+            schemaName: project
+            tableName: dpr_issues
+            columnName: dpr_id
+            columnDataType: UUID

@@ -8,19 +8,78 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Capacity Utilization report — mirrors the Excel "Plant utilization" / "Manpower utilization"
- * sheets. Each row represents one (work-activity × resource-group) pair, with budget vs actual
- * metrics for the day, the month, and cumulative.
+ * Capacity Utilization report — SC180-style. Two sections (Manpower + Equipment), each with one
+ * row per Role rolled up across the entire project for the selected period. Three time buckets
+ * per row: For the Day · For the Month · Cumulative.
+ *
+ * <p>Carries a legacy flat {@link #rows} list synthesised from the same data so existing
+ * consumers (Excel writer, Insights collector) keep working until they're migrated to the
+ * new section/role shape.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CapacityUtilizationReport(
     UUID projectId,
     LocalDate fromDate,
     LocalDate toDate,
-    String groupBy,   // RESOURCE_TYPE | RESOURCE
-    String normType,  // MANPOWER | EQUIPMENT | null
+    int workDays,
+    Section manpower,
+    Section equipment,
+    /** Synthesised for legacy consumers (Excel writer / Insights). Prefer {@link #manpower()} / {@link #equipment()}. */
+    String groupBy,
+    /** Synthesised for legacy consumers. Prefer {@link #manpower()} / {@link #equipment()}. */
+    String normType,
+    /** Synthesised for legacy consumers. Prefer {@link #manpower()} / {@link #equipment()}. */
     List<Row> rows
 ) {
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record Section(
+      List<RoleRow> rows,
+      RolePeriod totalForTheDay,
+      RolePeriod totalForTheMonth,
+      RolePeriod totalCumulative) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record RoleRow(
+      UUID roleId,
+      String roleCode,
+      String roleName,
+      BigDecimal ratePerDay,
+      RolePeriod forTheDay,
+      RolePeriod forTheMonth,
+      RolePeriod cumulative,
+      /** {@code VARIANT|ROLE|UNSCOPED|MIXED|NONE}. */
+      String normSource
+  ) {}
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record RolePeriod(
+      BigDecimal qty,
+      BigDecimal budgetDays,
+      BigDecimal budgetNos,
+      BigDecimal plannedDays,
+      BigDecimal plannedNos,
+      BigDecimal actualDays,
+      BigDecimal actualNos,
+      /**
+       * Of the {@link #actualDays}, how many were on activities whose linked Work Activity has
+       * <em>no</em> productivity norm for this role's type. Surfaced as a footer line on the row
+       * so the user understands why the util% may be lower than expected when only part of the
+       * role's deployment is being measured. Null when all actuals are tracked OR none are.
+       */
+      BigDecimal actualDaysUntracked,
+      BigDecimal utilizationPct,
+      BigDecimal costImplication
+  ) {
+    public static RolePeriod empty() {
+      return new RolePeriod(null, null, null, null, null, null, null, null, null, null);
+    }
+  }
+
+  // ─── Legacy shapes (kept so SupervisorPerformance + Excel writer + Insights compile).
+
+  /** @deprecated kept for legacy callers; new CapacityUtilizationReport uses {@link Section}. */
+  @Deprecated
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Row(
       GroupKey groupKey,
@@ -31,6 +90,8 @@ public record CapacityUtilizationReport(
       Period cumulative
   ) {}
 
+  /** @deprecated kept for legacy callers. */
+  @Deprecated
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record GroupKey(
       UUID resourceTypeId,
@@ -38,6 +99,8 @@ public record CapacityUtilizationReport(
       String displayLabel
   ) {}
 
+  /** @deprecated kept for legacy callers. */
+  @Deprecated
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record WorkActivityRef(
       UUID id,
@@ -46,12 +109,16 @@ public record CapacityUtilizationReport(
       String defaultUnit
   ) {}
 
+  /** @deprecated SupervisorPerformanceReportService still uses this for its trade/equipment rollups. */
+  @Deprecated
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Budgeted(
       BigDecimal outputPerDay,
-      String source  // SPECIFIC_RESOURCE | RESOURCE_TYPE | RESOURCE_LEGACY | NONE
+      String source
   ) {}
 
+  /** @deprecated legacy 5-field period; new Period type is {@link RolePeriod}. */
+  @Deprecated
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Period(
       BigDecimal qty,

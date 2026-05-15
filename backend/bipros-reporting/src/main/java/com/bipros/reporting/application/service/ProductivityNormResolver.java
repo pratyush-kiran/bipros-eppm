@@ -17,26 +17,64 @@ import java.util.UUID;
  * exposed as native SQL through the shared {@link EntityManager} so this module stays free of
  * Maven deps on {@code bipros-resource}.
  *
+ * @deprecated The role-keyed tier has been folded into both {@link #resolveByResource} and
+ *   {@link #resolveByResourceType}, so all reads now flow through this resolver and pick up
+ *   role-keyed norms automatically. Future work: extract a shared facade in {@code bipros-common}
+ *   and delete this class. Tagged {@code @Deprecated} as a marker — there are no breakage
+ *   concerns for callers since the API is unchanged.
+ *
  * <p>For Manpower norms we prefer {@code output_per_man_per_day} so the rate is per-person-per-day
  * (matches DPR rows where each manpower line carries {@code nos × hours}). Equipment norms only
  * populate {@code output_per_day}; COALESCE falls through to that, which is the equipment's
  * per-machine-per-day rate.
  */
 @Component
+@Deprecated
 @RequiredArgsConstructor
 public class ProductivityNormResolver {
 
   @PersistenceContext private EntityManager em;
 
   /**
-   * Specific-resource → type-level → legacy {@code resource_equipment_details.standard_output_per_day}.
-   * Used by the capacity-utilization report where each row already carries a representative
-   * resource id.
+   * Resolution chain (post role-only migration):
+   * <ol>
+   *   <li><b>VARIANT</b> — {@code (work_activity, role, category, grade)} for manpower or
+   *       {@code (work_activity, role, make, model)} for equipment. Variant data isn't carried
+   *       on the DPR rollup row, so the report only resolves this tier when a single resource
+   *       happens to have those columns set on the norm via {@code role_id}.</li>
+   *   <li><b>ROLE</b> — {@code (work_activity, role)}.</li>
+   *   <li><b>SPECIFIC_RESOURCE</b> — legacy override.</li>
+   *   <li><b>RESOURCE_TYPE</b> — legacy default.</li>
+   *   <li><b>WORK_ACTIVITY</b> — unscoped tier; the 102 seeded rows live here.</li>
+   *   <li><b>RESOURCE_LEGACY</b> — last-resort {@code resource_equipment_details.standard_output_per_day}.</li>
+   * </ol>
+   * The resolver stays inside the reporting module (no Maven dep on bipros-resource) by using
+   * the same native-SQL pattern across schemas.
    */
   public Budgeted resolveByResource(UUID workActivityId, UUID resourceId) {
     if (workActivityId == null || resourceId == null) {
       return new Budgeted(null, "NONE");
     }
+    // Load the resource's role_id (if any) so we can try the role-keyed tiers first.
+    UUID roleId = singleUuid(
+        "SELECT r.role_id FROM resource.resources r WHERE r.id = :res",
+        Map.of("res", resourceId));
+
+    if (roleId != null) {
+      BigDecimal roleLevel = singleBigDecimal(
+          "SELECT COALESCE(n.output_per_man_per_day, n.output_per_day) "
+              + "FROM resource.productivity_norms n "
+              + "WHERE n.work_activity_id = :wa "
+              + "  AND n.role_id = :role "
+              + "  AND n.category_id IS NULL AND n.grade_id IS NULL "
+              + "  AND n.make IS NULL AND n.model IS NULL "
+              + "ORDER BY n.created_at NULLS LAST",
+          Map.of("wa", workActivityId, "role", roleId));
+      if (roleLevel != null) {
+        return new Budgeted(roleLevel, "ROLE");
+      }
+    }
+
     BigDecimal specific = singleBigDecimal(
         "SELECT COALESCE(n.output_per_man_per_day, n.output_per_day) "
             + "FROM resource.productivity_norms n "
@@ -55,15 +93,15 @@ public class ProductivityNormResolver {
     if (typeLevel != null) {
       return new Budgeted(typeLevel, "RESOURCE_TYPE");
     }
-    // 3) Work-activity-only norm (no resource_type_id) — applies to any resource on that
-    //    activity. Common in seeded data where the norm describes the activity output rather
-    //    than a specific trade. Picks the highest-priority value: output_per_man_per_day first
-    //    (manpower-friendly), output_per_day next, ordered by created_at for determinism.
+    // Unscoped: work-activity-only norm (no resource/type/role binding). Picks the highest-
+    // priority value: output_per_man_per_day first (manpower-friendly), output_per_day next,
+    // ordered by created_at for determinism. The 102 seeded rows match here.
     BigDecimal workActivityOnly = singleBigDecimal(
         "SELECT COALESCE(n.output_per_man_per_day, n.output_per_day) "
             + "FROM resource.productivity_norms n "
             + "WHERE n.work_activity_id = :wa AND n.resource_id IS NULL "
             + "  AND n.resource_type_id IS NULL "
+            + "  AND n.role_id IS NULL "
             + "ORDER BY (n.output_per_man_per_day IS NULL), n.created_at NULLS LAST",
         Map.of("wa", workActivityId));
     if (workActivityOnly != null) {
@@ -120,6 +158,7 @@ public class ProductivityNormResolver {
             + "  AND n.norm_type = :nt "
             + "  AND n.resource_id IS NULL "
             + "  AND n.resource_type_id IS NULL "
+            + "  AND n.role_id IS NULL "
             + "ORDER BY (" + preferredColumn + " IS NULL), n.created_at NULLS LAST",
         Map.of("wa", workActivityId, "nt", normType));
     if (workActivityOnly != null) {
@@ -142,6 +181,18 @@ public class ProductivityNormResolver {
     Object o = rows.get(0);
     if (o instanceof BigDecimal bd) return bd;
     if (o instanceof Number n) return BigDecimal.valueOf(n.doubleValue());
+    return null;
+  }
+
+  @SuppressWarnings("unchecked")
+  private UUID singleUuid(String sql, Map<String, Object> params) {
+    var query = em.createNativeQuery(sql);
+    params.forEach(query::setParameter);
+    List<Object> rows = query.setMaxResults(1).getResultList();
+    if (rows.isEmpty() || rows.get(0) == null) return null;
+    Object o = rows.get(0);
+    if (o instanceof UUID u) return u;
+    if (o instanceof String s) return UUID.fromString(s);
     return null;
   }
 }

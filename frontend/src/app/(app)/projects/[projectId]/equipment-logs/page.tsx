@@ -11,6 +11,7 @@ import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PagedResponse } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "@/lib/state/store";
 
 // Spring's native Page<T> serialises with these fields at the root of the
 // response body (no `pagination` sub-object). The paged endpoints in
@@ -50,6 +51,10 @@ const initialFormState: EquipmentLogForm = {
 };
 
 export default function EquipmentLogsPage() {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  // Equipment hours / breakdown logging is supervisor-tier write; DPR.UPDATE
+  // captures the daily reporting role-set without overlapping resource pool edits.
+  const canWrite = hasPermission("DPR.UPDATE") || hasPermission("RESOURCE.UPDATE");
   const params = useParams();
   const projectId = params.projectId as string;
 
@@ -267,12 +272,14 @@ export default function EquipmentLogsPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="mb-6 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent-hover"
-        >
-          {showForm ? "Cancel" : "Add Equipment Log"}
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="mb-6 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent-hover"
+          >
+            {showForm ? "Cancel" : "Add Equipment Log"}
+          </button>
+        )}
 
         {error && <div className="text-danger mb-4">{error}</div>}
 

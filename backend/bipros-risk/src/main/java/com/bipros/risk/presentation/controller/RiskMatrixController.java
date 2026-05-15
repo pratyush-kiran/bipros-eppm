@@ -22,13 +22,13 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/risk-matrix")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
 @RequiredArgsConstructor
 public class RiskMatrixController {
 
     private final RiskService riskService;
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<Map<String, List<RiskSummary>>>> getRiskMatrix(
         @PathVariable UUID projectId) {
         return ResponseEntity.ok(ApiResponse.ok(riskService.getRiskMatrix(projectId)));

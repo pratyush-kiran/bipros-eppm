@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   UserCheck,
+  FilePlus2,
 } from "lucide-react";
 import type { ActivityResponse } from "@/lib/api/activityApi";
 import type { ResourceKind } from "./QuickAssignResourceDialog";
@@ -26,6 +27,7 @@ interface Props {
   position: ContextMenuPosition;
   canStart: boolean;
   canComplete: boolean;
+  canDelete?: boolean;
   onClose: () => void;
   onOpenDetail: (activity: ActivityResponse) => void;
   onAssign: (activity: ActivityResponse, kind: ResourceKind) => void;
@@ -34,6 +36,7 @@ interface Props {
   onEdit: (activity: ActivityResponse) => void;
   onDelete: (activity: ActivityResponse) => void;
   onSetSupervisor: (activity: ActivityResponse) => void;
+  onCreateDpr: (activity: ActivityResponse) => void;
 }
 
 const MENU_WIDTH = 220;
@@ -46,6 +49,7 @@ export function ActivityRowContextMenu({
   position,
   canStart,
   canComplete,
+  canDelete = true,
   onClose,
   onOpenDetail,
   onAssign,
@@ -54,6 +58,7 @@ export function ActivityRowContextMenu({
   onEdit,
   onDelete,
   onSetSupervisor,
+  onCreateDpr,
 }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +135,12 @@ export function ActivityRowContextMenu({
       icon: <UserCheck size={14} />,
       onClick: () => onSetSupervisor(activity),
     },
+    {
+      key: "create-dpr",
+      label: "Create DPR",
+      icon: <FilePlus2 size={14} />,
+      onClick: () => onCreateDpr(activity),
+    },
     { key: "d2", divider: true },
     {
       key: "start",
@@ -151,14 +162,18 @@ export function ActivityRowContextMenu({
       icon: <Pencil size={14} />,
       onClick: () => onEdit(activity),
     },
-    { key: "d3", divider: true },
-    {
-      key: "delete",
-      label: "Delete activity",
-      icon: <Trash2 size={14} />,
-      onClick: () => onDelete(activity),
-      danger: true,
-    },
+    ...(canDelete
+      ? ([
+          { key: "d3", divider: true },
+          {
+            key: "delete",
+            label: "Delete activity",
+            icon: <Trash2 size={14} />,
+            onClick: () => onDelete(activity),
+            danger: true,
+          },
+        ] as Array<Item | Divider>)
+      : []),
   ];
 
   return createPortal(

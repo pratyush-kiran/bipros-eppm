@@ -33,7 +33,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/calendars")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
 @RequiredArgsConstructor
 @Slf4j
 public class CalendarController {
@@ -42,6 +41,7 @@ public class CalendarController {
 
   /** POST / - Create a new calendar. */
   @PostMapping
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<CalendarResponse>> createCalendar(
       @Valid @RequestBody CreateCalendarRequest request) {
     log.info("POST /v1/calendars - Creating calendar: {}", request.name());
@@ -51,6 +51,7 @@ public class CalendarController {
 
   /** GET / - List calendars (filter by type). */
   @GetMapping
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
   public ResponseEntity<ApiResponse<List<CalendarResponse>>> listCalendars(
       @RequestParam(required = false) CalendarType type) {
     log.info("GET /v1/calendars - Listing calendars, type={}", type);
@@ -62,6 +63,7 @@ public class CalendarController {
 
   /** GET /{id} - Get calendar detail (with work weeks + exceptions). */
   @GetMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
   public ResponseEntity<ApiResponse<CalendarDetailResponse>> getCalendar(
       @PathVariable UUID id) {
     log.info("GET /v1/calendars/{} - Fetching calendar detail", id);
@@ -71,6 +73,7 @@ public class CalendarController {
 
   /** PUT /{id} - Update calendar. */
   @PutMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<CalendarResponse>> updateCalendar(
       @PathVariable UUID id, @Valid @RequestBody CreateCalendarRequest request) {
     log.info("PUT /v1/calendars/{} - Updating calendar", id);
@@ -80,6 +83,7 @@ public class CalendarController {
 
   /** DELETE /{id} - Delete calendar. */
   @DeleteMapping("/{id}")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> deleteCalendar(@PathVariable UUID id) {
     log.info("DELETE /v1/calendars/{} - Deleting calendar", id);
     calendarService.deleteCalendar(id);
@@ -88,6 +92,7 @@ public class CalendarController {
 
   /** PUT /{id}/work-week - Set work week. */
   @PutMapping("/{id}/work-week")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<List<CalendarWorkWeekResponse>>> setWorkWeek(
       @PathVariable UUID id, @Valid @RequestBody List<CalendarWorkWeekRequest> requests) {
     log.info("PUT /v1/calendars/{}/work-week - Setting work week, days={}", id, requests.size());
@@ -97,6 +102,7 @@ public class CalendarController {
 
   /** POST /{id}/exceptions - Add exception. */
   @PostMapping("/{id}/exceptions")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<CalendarExceptionResponse>> addException(
       @PathVariable UUID id, @Valid @RequestBody CalendarExceptionRequest request) {
     log.info(
@@ -109,6 +115,7 @@ public class CalendarController {
 
   /** DELETE /{id}/exceptions/{exceptionId} - Remove exception. */
   @DeleteMapping("/{id}/exceptions/{exceptionId}")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> removeException(
       @PathVariable UUID id, @PathVariable UUID exceptionId) {
     log.info("DELETE /v1/calendars/{}/exceptions/{} - Removing exception", id, exceptionId);
@@ -118,6 +125,7 @@ public class CalendarController {
 
   /** GET /{id}/exceptions - Get exceptions in range. */
   @GetMapping("/{id}/exceptions")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
   public ResponseEntity<ApiResponse<List<CalendarExceptionResponse>>> getExceptions(
       @PathVariable UUID id,
       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,

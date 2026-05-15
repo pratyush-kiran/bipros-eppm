@@ -28,14 +28,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/equipment-logs")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class EquipmentLogController {
 
   private final EquipmentLogService equipmentLogService;
 
-  @PreAuthorize("@projectAccess.canEdit(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
   @PostMapping
   public ResponseEntity<ApiResponse<EquipmentLogResponse>> createEquipmentLog(
       @PathVariable UUID projectId,
@@ -45,7 +45,7 @@ public class EquipmentLogController {
     return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
   }
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping
   public ResponseEntity<ApiResponse<Page<EquipmentLogResponse>>> getEquipmentLogs(
       @PathVariable UUID projectId,
@@ -75,7 +75,7 @@ public class EquipmentLogController {
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping("/utilization")
   public ResponseEntity<ApiResponse<List<EquipmentUtilizationSummary>>> getUtilizationSummary(
       @PathVariable UUID projectId) {

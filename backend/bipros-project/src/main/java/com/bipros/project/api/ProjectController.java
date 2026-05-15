@@ -24,7 +24,7 @@ import java.util.UUID;
 @RequestMapping("/v1/projects")
 // Class-level RBAC is just an authentication gate: any signed-in user may HIT the endpoint.
 // What they actually see/edit is enforced by service-layer ProjectAccessGuard (RLS) and the
-// per-method @projectAccess.canEdit/canDelete checks (ABAC) further below.
+// per-method @projectAccess.hasProjectPermission(...) checks (ABAC) further below.
 @PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 public class ProjectController {
@@ -60,14 +60,14 @@ public class ProjectController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'PROJECT.CREATE')")
     public ResponseEntity<ApiResponse<ProjectResponse>> createProject(@Valid @RequestBody CreateProjectRequest request) {
         ProjectResponse response = projectService.createProject(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
     @PutMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER') and @projectAccess.canEdit(#id)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#id, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<ProjectResponse>> updateProject(
         @PathVariable UUID id, @Valid @RequestBody UpdateProjectRequest request) {
         ProjectResponse response = projectService.updateProject(id, request);
@@ -80,7 +80,7 @@ public class ProjectController {
      * (e.g. a date picker on the project header) can update just this field cleanly.
      */
     @PutMapping("/{id:[0-9a-fA-F-]{36}}/data-date")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER') and @projectAccess.canEdit(#id)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#id, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<ProjectResponse>> setDataDate(
         @PathVariable UUID id, @Valid @RequestBody SetDataDateRequest request) {
         ProjectResponse response = projectService.setDataDate(id, request.dataDate());
@@ -92,14 +92,14 @@ public class ProjectController {
      * only deletion verb the API exposes. Restore via {@code POST /v1/projects/{id}/restore}.
      */
     @DeleteMapping("/{id:[0-9a-fA-F-]{36}}")
-    @PreAuthorize("hasRole('ADMIN') or @projectAccess.canDelete(#id)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#id, 'PROJECT.DELETE')")
     public ResponseEntity<Void> deleteProject(@PathVariable UUID id) {
         projectService.deleteProject(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id:[0-9a-fA-F-]{36}}/restore")
-    @PreAuthorize("hasRole('ADMIN') or @projectAccess.canDelete(#id)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#id, 'PROJECT.DELETE')")
     public ResponseEntity<ApiResponse<ProjectResponse>> restoreProject(@PathVariable UUID id) {
         ProjectResponse response = projectService.restoreProject(id);
         return ResponseEntity.ok(ApiResponse.ok(response));

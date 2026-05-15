@@ -51,29 +51,51 @@ import java.util.UUID;
 @Builder
 public class DprIssue extends BaseEntity {
 
-    @Column(name = "dpr_id", nullable = false, updatable = false)
+    @Column(name = "dpr_id", nullable = true, updatable = false)
     private UUID dprId;
 
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
-    /** Snapshot from parent DPR at create. Stamped, not re-synced. */
-    @Column(name = "activity_id", updatable = false)
+    @Column(name = "activity_id")
     private UUID activityId;
 
-    @Column(name = "activity_name", length = 150, updatable = false)
+    @Column(name = "activity_name", length = 150)
     private String activityName;
 
-    /** The supervisor who logged the issue. Defaults to {@code DPR.supervisorResourceId}. */
+    /**
+     * The supervisor who logged the issue, as a Resource id.
+     *
+     * @deprecated RBAC Phase 4.2 — superseded by {@link #supervisorUserId} (canonical identity is
+     *     the User, not the Resource). Kept on the entity for one commit only; the column is
+     *     dropped by Liquibase changeset {@code 093-2-drop-supervisor-resource-id}. New code MUST
+     *     read/write {@link #supervisorUserId}.
+     */
+    @Deprecated
     @Column(name = "supervisor_resource_id")
     private UUID supervisorResourceId;
+
+    /** The supervisor who logged the issue. Defaults to {@code DPR.supervisorUserId}. */
+    @Column(name = "supervisor_user_id")
+    private UUID supervisorUserId;
 
     @Column(name = "supervisor_name", length = 150)
     private String supervisorName;
 
-    /** "Who is looking into this." Defaults to the supervisor on create; reassignable via PATCH. */
+    /**
+     * "Who is looking into this" as a Resource id.
+     *
+     * @deprecated RBAC Phase 4.2 — superseded by {@link #assignedToUserId}. Dropped by Liquibase
+     *     changeset {@code 093-3-drop-assigned-to-resource-id}. New code MUST read/write
+     *     {@link #assignedToUserId}.
+     */
+    @Deprecated
     @Column(name = "assigned_to_resource_id")
     private UUID assignedToResourceId;
+
+    /** "Who is looking into this." Defaults to the supervisor on create; reassignable via PATCH. */
+    @Column(name = "assigned_to_user_id")
+    private UUID assignedToUserId;
 
     @Column(name = "assigned_to_name", length = 150)
     private String assignedToName;

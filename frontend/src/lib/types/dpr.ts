@@ -111,18 +111,38 @@ export type IssueStatus =
  */
 export interface DprIssueRow {
   id?: string | null;
+  dprId?: string | null;
+  activityId?: string | null;
+  activityName?: string | null;
+  reportDate?: string | null;
   title: string;
   description?: string | null;
   category: IssueCategory;
   severity: IssueSeverity;
   status: IssueStatus;
-  supervisorResourceId?: string | null;
+  supervisorUserId?: string | null;
   supervisorName?: string | null;
-  assignedToResourceId?: string | null;
+  assignedToUserId?: string | null;
   assignedToName?: string | null;
   openedAt?: string | null;
   resolvedAt?: string | null;
   resolutionNotes?: string | null;
+}
+
+/** Request body for creating a standalone DprIssue not tied to a parent DPR. */
+export interface CreateDprIssueRequest {
+  title: string;
+  description?: string | null;
+  category: IssueCategory;
+  severity: IssueSeverity;
+  status?: IssueStatus;
+  supervisorResourceId?: string | null;
+  supervisorName?: string | null;
+  assignedToResourceId?: string | null;
+  assignedToName?: string | null;
+  activityId?: string | null;
+  activityName?: string | null;
+  reportDate?: string | null;
 }
 
 /** Picker-mode option returned by GET .../resource-assignments/activity/{id}/picker?kind=… */
@@ -144,7 +164,7 @@ export interface AssignedResourceOption {
 
 export interface DprBaseFields {
   reportDate: string;
-  supervisorResourceId?: string | null;
+  supervisorUserId?: string | null;
   supervisorName: string;
   chainageFromM?: number | null;
   chainageToM?: number | null;

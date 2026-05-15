@@ -22,19 +22,20 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/eps")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class EpsController {
 
     private final EpsService epsService;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<List<EpsNodeResponse>>> getTree() {
         List<EpsNodeResponse> tree = epsService.getTree();
         return ResponseEntity.ok(ApiResponse.ok(tree));
     }
 
     @GetMapping("/search")
+    @PreAuthorize("hasPermission(null, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<PagedResponse<NodeSearchResultResponse>>> search(
         @RequestParam("q") String q,
         @PageableDefault(size = 25, sort = "code", direction = Sort.Direction.ASC) Pageable pageable) {
@@ -42,18 +43,21 @@ public class EpsController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<EpsNodeResponse>> getNode(@PathVariable UUID id) {
         EpsNodeResponse response = epsService.getNode(id);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'PROJECT.CREATE')")
     public ResponseEntity<ApiResponse<EpsNodeResponse>> createNode(@Valid @RequestBody CreateEpsNodeRequest request) {
         EpsNodeResponse response = epsService.createNode(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<EpsNodeResponse>> updateNode(
         @PathVariable UUID id,
         @Valid @RequestBody UpdateEpsNodeRequest request) {
@@ -62,6 +66,7 @@ public class EpsController {
     }
 
     @PatchMapping("/{id}/move")
+    @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<EpsNodeResponse>> moveNode(
         @PathVariable UUID id,
         @RequestBody(required = false) java.util.Map<String, String> body) {
@@ -74,6 +79,7 @@ public class EpsController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'PROJECT.DELETE')")
     public ResponseEntity<Void> deleteNode(@PathVariable UUID id) {
         epsService.deleteNode(id);
         return ResponseEntity.noContent().build();

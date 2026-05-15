@@ -45,14 +45,6 @@ const SAMPLES = [
     palette: ["#0A0A0B", "#0E0E10", "#E8C67B", "#EDEDEA"],
   },
   {
-    href: "/auth/login-samples/cinematic",
-    n: "06",
-    title: "Site of Record · Cinematic Field",
-    sub: "Twilight · cranes · monumental",
-    desc: "Full-bleed SVG twilight scene of silhouetted cranes and a half-built tower. Glass auth card on a warm horizon scrim.",
-    palette: ["#0B1224", "#16243F", "#3A2A1F", "#C97A3A"],
-  },
-  {
     href: "/auth/login-samples/aerial",
     n: "07",
     title: "Aerial Programme View",

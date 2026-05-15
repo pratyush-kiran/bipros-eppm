@@ -95,7 +95,6 @@ public class ResourceService {
         .status(request.status() == null ? ResourceStatus.ACTIVE : request.status())
         .calendarId(request.calendarId())
         .parentId(request.parentId())
-        .userId(request.userId())
         .sortOrder(request.sortOrder() == null ? 0 : request.sortOrder())
         .build();
 
@@ -204,7 +203,6 @@ public class ResourceService {
     if (request.status() != null) resource.setStatus(request.status());
     resource.setCalendarId(request.calendarId());
     resource.setParentId(request.parentId());
-    resource.setUserId(request.userId());
     if (request.sortOrder() != null) resource.setSortOrder(request.sortOrder());
 
     applyRateMasterSnapshot(resource, request.rateMasterId(), type.getCode());

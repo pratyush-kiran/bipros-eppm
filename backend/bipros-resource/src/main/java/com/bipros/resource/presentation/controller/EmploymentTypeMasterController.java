@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/admin/employment-types")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class EmploymentTypeMasterController {
@@ -42,7 +42,7 @@ public class EmploymentTypeMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<EmploymentTypeMasterResponse>> create(
       @Valid @RequestBody EmploymentTypeMasterRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -50,14 +50,14 @@ public class EmploymentTypeMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<EmploymentTypeMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody EmploymentTypeMasterRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(service.update(id, request)));
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     service.delete(id);
     return ResponseEntity.ok(ApiResponse.ok(null));

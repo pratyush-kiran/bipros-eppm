@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/activities")
-@PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','PROGRAMME_MANAGER','TEAM_MEMBER','VIEWER')")
 @RequiredArgsConstructor
 public class ActivityCostSummaryController {
 
@@ -54,6 +53,7 @@ public class ActivityCostSummaryController {
   ) {}
 
   @GetMapping("/cost-summary")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<List<ActivityCostSummaryRow>>> getCostSummary(
       @PathVariable UUID projectId) {
 

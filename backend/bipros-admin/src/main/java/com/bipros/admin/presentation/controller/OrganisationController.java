@@ -26,13 +26,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/organisations")
-@PreAuthorize("isAuthenticated()")
 @RequiredArgsConstructor
 public class OrganisationController {
 
     private final OrganisationService organisationService;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_ORG.READ')")
     public ResponseEntity<ApiResponse<List<OrganisationDto>>> list(
             @RequestParam(value = "type", required = false) OrganisationType type) {
         List<OrganisationDto> result = (type != null)
@@ -42,12 +42,13 @@ public class OrganisationController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_ORG.READ')")
     public ResponseEntity<ApiResponse<OrganisationDto>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(organisationService.get(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_ORG.CREATE')")
     public ResponseEntity<ApiResponse<OrganisationDto>> create(
             @Valid @RequestBody CreateOrganisationRequest request) {
         OrganisationDto created = organisationService.create(request);
@@ -55,7 +56,7 @@ public class OrganisationController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_ORG.UPDATE')")
     public ResponseEntity<ApiResponse<OrganisationDto>> update(
             @PathVariable UUID id,
             @Valid @RequestBody CreateOrganisationRequest request) {
@@ -63,7 +64,7 @@ public class OrganisationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_ORG.DELETE')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         organisationService.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
@@ -74,7 +75,7 @@ public class OrganisationController {
      * [uuid, uuid]}}. Supplying an empty list clears all associations.
      */
     @PostMapping("/{id}/projects")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_ORG.UPDATE')")
     public ResponseEntity<ApiResponse<OrganisationDto>> assignProjects(
             @PathVariable UUID id,
             @RequestBody Map<String, List<UUID>> body) {
@@ -85,6 +86,7 @@ public class OrganisationController {
 
     /** Alias for {@link #list} at {@code /v1/contractors} to match the PMS MasterData doc. */
     @GetMapping("/as-contractors")
+    @PreAuthorize("hasPermission(null, 'ADMIN_ORG.READ')")
     public ResponseEntity<ApiResponse<List<OrganisationDto>>> listContractors() {
         return ResponseEntity.ok(ApiResponse.ok(organisationService.listAll()));
     }

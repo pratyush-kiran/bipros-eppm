@@ -16,13 +16,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/contracts/{contractId}/bonds")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class PerformanceBondController {
 
     private final PerformanceBondService bondService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.CREATE')")
     public ResponseEntity<ApiResponse<PerformanceBondResponse>> create(
         @PathVariable UUID contractId,
         @Valid @RequestBody PerformanceBondRequest request) {
@@ -31,6 +31,7 @@ public class PerformanceBondController {
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<PerformanceBondResponse>>> listByContract(
         @PathVariable UUID contractId) {
         List<PerformanceBondResponse> response = bondService.listByContract(contractId);
@@ -38,6 +39,7 @@ public class PerformanceBondController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<PerformanceBondResponse>> getById(
         @PathVariable UUID contractId,
         @PathVariable UUID id) {
@@ -46,6 +48,7 @@ public class PerformanceBondController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<PerformanceBondResponse>> update(
         @PathVariable UUID contractId,
         @PathVariable UUID id,
@@ -55,6 +58,7 @@ public class PerformanceBondController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.DELETE')")
     public ResponseEntity<Void> delete(
         @PathVariable UUID contractId,
         @PathVariable UUID id) {

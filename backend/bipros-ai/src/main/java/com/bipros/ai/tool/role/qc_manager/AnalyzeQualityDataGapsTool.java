@@ -86,7 +86,7 @@ public class AnalyzeQualityDataGapsTool extends ProjectScopedTool {
 
     @Override
     public Set<String> allowedRoles() {
-        return Set.of("QC_MANAGER", "BIM_DATA_COORDINATOR", "PROJECT_MANAGER");
+        return Set.of("QC_MANAGER", "QA_QC_ENGINEER", "BIM_DATA_COORDINATOR", "PROJECT_MANAGER");
     }
 
     @Override

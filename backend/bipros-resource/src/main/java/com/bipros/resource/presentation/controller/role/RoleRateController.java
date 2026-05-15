@@ -37,7 +37,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class RoleRateController {
@@ -53,7 +53,7 @@ public class RoleRateController {
   }
 
   @PostMapping("/roles/{roleId}/manpower-rates")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ManpowerRoleRateResponse>> createManpowerRate(
       @PathVariable UUID roleId, @Valid @RequestBody ManpowerRoleRateRequest req) {
     log.info("POST /v1/roles/{}/manpower-rates", roleId);
@@ -62,14 +62,14 @@ public class RoleRateController {
   }
 
   @PutMapping("/manpower-rates/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ManpowerRoleRateResponse>> updateManpowerRate(
       @PathVariable UUID id, @Valid @RequestBody ManpowerRoleRateRequest req) {
     return ResponseEntity.ok(ApiResponse.ok(service.updateManpowerRate(id, req)));
   }
 
   @DeleteMapping("/manpower-rates/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> deleteManpowerRate(@PathVariable UUID id) {
     service.deleteManpowerRate(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
@@ -84,7 +84,7 @@ public class RoleRateController {
   }
 
   @PostMapping("/roles/{roleId}/equipment-variants")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<EquipmentRoleVariantResponse>> createEquipmentVariant(
       @PathVariable UUID roleId, @Valid @RequestBody EquipmentRoleVariantRequest req) {
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -92,14 +92,14 @@ public class RoleRateController {
   }
 
   @PutMapping("/equipment-variants/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<EquipmentRoleVariantResponse>> updateEquipmentVariant(
       @PathVariable UUID id, @Valid @RequestBody EquipmentRoleVariantRequest req) {
     return ResponseEntity.ok(ApiResponse.ok(service.updateEquipmentVariant(id, req)));
   }
 
   @DeleteMapping("/equipment-variants/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> deleteEquipmentVariant(@PathVariable UUID id) {
     service.deleteEquipmentVariant(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
@@ -114,7 +114,7 @@ public class RoleRateController {
   }
 
   @PostMapping("/roles/{roleId}/material-variants")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<MaterialRoleVariantResponse>> createMaterialVariant(
       @PathVariable UUID roleId, @Valid @RequestBody MaterialRoleVariantRequest req) {
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -122,14 +122,14 @@ public class RoleRateController {
   }
 
   @PutMapping("/material-variants/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<MaterialRoleVariantResponse>> updateMaterialVariant(
       @PathVariable UUID id, @Valid @RequestBody MaterialRoleVariantRequest req) {
     return ResponseEntity.ok(ApiResponse.ok(service.updateMaterialVariant(id, req)));
   }
 
   @DeleteMapping("/material-variants/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> deleteMaterialVariant(@PathVariable UUID id) {
     service.deleteMaterialVariant(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
@@ -138,13 +138,14 @@ public class RoleRateController {
   // ===== Project Overrides =====
 
   @GetMapping("/projects/{projectId}/role-rate-overrides")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   public ResponseEntity<ApiResponse<List<ProjectRoleRateOverrideResponse>>> listOverrides(
       @PathVariable UUID projectId) {
     return ResponseEntity.ok(ApiResponse.ok(service.listOverridesForProject(projectId)));
   }
 
   @PostMapping("/projects/{projectId}/role-rate-overrides")
-  @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ProjectRoleRateOverrideResponse>> createOverride(
       @PathVariable UUID projectId, @Valid @RequestBody ProjectRoleRateOverrideRequest req) {
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -152,21 +153,21 @@ public class RoleRateController {
   }
 
   @DeleteMapping("/role-rate-overrides/manpower/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> deleteManpowerOverride(@PathVariable UUID id) {
     service.deleteManpowerOverride(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
   }
 
   @DeleteMapping("/role-rate-overrides/equipment/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> deleteEquipmentOverride(@PathVariable UUID id) {
     service.deleteEquipmentOverride(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
   }
 
   @DeleteMapping("/role-rate-overrides/material/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> deleteMaterialOverride(@PathVariable UUID id) {
     service.deleteMaterialOverride(id);
     return ResponseEntity.ok(ApiResponse.ok(null));
@@ -181,7 +182,7 @@ public class RoleRateController {
   }
 
   @PostMapping("/resource-roles/with-variants")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<RoleWithVariantsResponse>> createWithVariants(
       @Valid @RequestBody RoleWithVariantsRequest req) {
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -189,7 +190,7 @@ public class RoleRateController {
   }
 
   @PutMapping("/resource-roles/{roleId}/with-variants")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<RoleWithVariantsResponse>> updateWithVariants(
       @PathVariable UUID roleId, @Valid @RequestBody RoleWithVariantsRequest req) {
     return ResponseEntity.ok(ApiResponse.ok(service.updateRoleWithVariants(roleId, req)));

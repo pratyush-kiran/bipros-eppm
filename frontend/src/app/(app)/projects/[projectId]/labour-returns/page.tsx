@@ -7,6 +7,7 @@ import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
+import { useAuthStore } from "@/lib/state/store";
 
 // Spring's native Page<T> serialises with these fields at the root of the
 // response body (no `pagination` sub-object). LabourReturnController returns
@@ -48,6 +49,8 @@ const skillCategoryLabel = {
 };
 
 export default function LabourReturnsPage() {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canWrite = hasPermission("DPR.UPDATE") || hasPermission("RESOURCE.UPDATE");
   const params = useParams();
   const projectId = params.projectId as string;
 
@@ -196,12 +199,14 @@ export default function LabourReturnsPage() {
           </div>
         )}
 
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="mb-6 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent-hover"
-        >
-          {showForm ? "Cancel" : "Add Labour Return"}
-        </button>
+        {canWrite && (
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="mb-6 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent-hover"
+          >
+            {showForm ? "Cancel" : "Add Labour Return"}
+          </button>
+        )}
 
         {error && <div className="text-danger mb-4">{error}</div>}
 

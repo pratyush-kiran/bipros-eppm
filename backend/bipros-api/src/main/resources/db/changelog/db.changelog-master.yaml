@@ -147,3 +147,17 @@ databaseChangeLog:
       file: db/changelog/087-supervisor-user-columns.yaml
   - include:
       file: db/changelog/088-productivity-norm-role-columns.yaml
+  - include:
+      file: db/changelog/089-dpr-issue-dpr-id-nullable.yaml
+  - include:
+      file: db/changelog/089-roles-canonicalize.yaml
+  - include:
+      file: db/changelog/091-dpr-drop-supervisor-resource.yaml
+  - include:
+      file: db/changelog/092-dpr-issue-user-columns.yaml
+  - include:
+      file: db/changelog/093-dpr-issue-drop-resource-cols.yaml
+  - include:
+      file: db/changelog/094-activity-drop-responsible-resource.yaml
+  - include:
+      file: db/changelog/095-resource-drop-user-id.yaml

@@ -26,13 +26,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/monte-carlo")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class MonteCarloController {
 
     private final MonteCarloService monteCarloService;
 
     @PostMapping("/run")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.UPDATE')")
     public ResponseEntity<ApiResponse<MonteCarloSimulationDto>> runSimulation(
         @PathVariable UUID projectId,
         @RequestParam(required = false) Integer iterations,
@@ -45,46 +45,54 @@ public class MonteCarloController {
     }
 
     @GetMapping("/latest")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<MonteCarloSimulationDto>> getLatestSimulation(@PathVariable UUID projectId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.getLatestSimulation(projectId)));
     }
 
     @GetMapping("/{simulationId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<MonteCarloSimulationDto>> getSimulation(
         @PathVariable UUID projectId, @PathVariable UUID simulationId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.getSimulation(simulationId)));
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<MonteCarloSimulationDto>>> listSimulations(@PathVariable UUID projectId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.listProjectSimulations(projectId)));
     }
 
     @GetMapping("/{simulationId}/activity-stats")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<MonteCarloActivityStatDto>>> getActivityStats(
         @PathVariable UUID projectId, @PathVariable UUID simulationId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.getActivityStats(simulationId)));
     }
 
     @GetMapping("/{simulationId}/criticality")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<MonteCarloActivityStatDto>>> getCriticality(
         @PathVariable UUID projectId, @PathVariable UUID simulationId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.getActivityStats(simulationId)));
     }
 
     @GetMapping("/{simulationId}/milestone-stats")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<MonteCarloMilestoneStatDto>>> getMilestoneStats(
         @PathVariable UUID projectId, @PathVariable UUID simulationId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.getMilestoneStats(simulationId)));
     }
 
     @GetMapping("/{simulationId}/cashflow")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<MonteCarloCashflowBucketDto>>> getCashflow(
         @PathVariable UUID projectId, @PathVariable UUID simulationId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.getCashflow(simulationId)));
     }
 
     @GetMapping("/{simulationId}/risk-contributions")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<MonteCarloRiskContributionDto>>> getRiskContributions(
         @PathVariable UUID projectId, @PathVariable UUID simulationId) {
         return ResponseEntity.ok(ApiResponse.ok(monteCarloService.getRiskContributions(simulationId)));
@@ -95,6 +103,7 @@ public class MonteCarloController {
      * activity-stat payload as /criticality; UI picks the columns it needs.
      */
     @GetMapping("/{simulationId}/sensitivity-tornado")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<MonteCarloActivityStatDto>>> getTornado(
         @PathVariable UUID projectId, @PathVariable UUID simulationId,
         @org.springframework.web.bind.annotation.RequestParam(defaultValue = "duration") String metric) {

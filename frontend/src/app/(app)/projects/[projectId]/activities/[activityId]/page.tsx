@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, lazy, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { SimpleTable } from "@/components/common/SimpleTable";
@@ -16,14 +16,17 @@ import { calendarApi, type CalendarResponse } from "@/lib/api/calendarApi";
 import { projectApi } from "@/lib/api/projectApi";
 import { resourceApi } from "@/lib/api/resourceApi";
 import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
+import { WorkActivityCoverageChip } from "@/components/activity/WorkActivityCoverageChip";
 import type { ResourceAssignmentResponse } from "@/lib/api/resourceApi";
 import { projectResourceApi } from "@/lib/api/projectResourceApi";
 import type { ProjectResourceResponse } from "@/lib/api/projectResourceApi";
+import { userApi } from "@/lib/api/userApi";
 import { costApi } from "@/lib/api/costApi";
 import type { CostAccount } from "@/lib/api/costApi";
 import { evmApi } from "@/lib/api/evmApi";
 import type { ActivityEvmResponse } from "@/lib/api/evmApi";
 import { activityStepApi } from "@/lib/api/activityStepApi";
+import { useAuthStore } from "@/lib/state/store";
 import type { ActivityStepResponse, CreateActivityStepRequest } from "@/lib/api/activityStepApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -73,9 +76,12 @@ type EditData = Omit<UpdateActivityRequest, "originalDuration" | "percentComplet
 
 export default function ActivityDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const projectId = params.projectId as string;
   const activityId = params.activityId as string;
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canEditActivity = hasPermission("ACTIVITY.UPDATE");
 
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState("");
@@ -125,21 +131,18 @@ export default function ActivityDetailPage() {
   });
   const projectCalendars = calendarsData?.data ?? [];
 
-  // Project pool, filtered to LABOR/Manpower for the Supervisor picker.
-  const { data: supervisorPoolData, isLoading: isLoadingSupervisorPool } = useQuery({
-    queryKey: ["resource-pool", projectId],
-    queryFn: () => projectResourceApi.listPool(projectId),
-    enabled: !!projectId,
+  // Phase 4.4 RBAC: supervisor picker is sourced from the User pool, scoped to the
+  // supervisor-eligible roles. The legacy project resource pool is no longer the source
+  // of truth — see SetSupervisorDialog for the canonical mirror.
+  const { data: supervisorUsers, isLoading: isLoadingSupervisorPool } = useQuery({
+    queryKey: ["users-by-role", "supervisor-pool"],
+    queryFn: () =>
+      userApi.listByRoles(["SUPERVISOR", "FOREMAN", "SITE_ENGINEER", "SITE_MANAGER"]),
   });
-  const supervisorOptions = (supervisorPoolData?.data ?? [])
-    .filter((p) => {
-      const t = (p.resourceTypeName ?? "").toLowerCase();
-      return t.includes("labor") || t.includes("labour") || t.includes("manpower");
-    })
-    .map((p) => ({
-      value: p.resourceId,
-      label: `${p.resourceCode ? p.resourceCode + " — " : ""}${p.resourceName ?? p.resourceId}`,
-    }));
+  const supervisorOptions = (supervisorUsers ?? []).map((u) => ({
+    value: u.id,
+    label: u.employeeCode ? `${u.employeeCode} — ${u.name}` : u.name,
+  }));
 
   const { data: projectData } = useQuery({
     queryKey: ["project", projectId],
@@ -212,7 +215,15 @@ export default function ActivityDetailPage() {
     // so flipping DURATION→PHYSICAL in the same save call lets us include percentComplete.
     const effectiveType = editData.percentCompleteType ?? activity?.percentCompleteType ?? "DURATION";
     const isManualPercent = effectiveType === "PHYSICAL";
-    const { percentComplete: _editPct, ...rest } = editData;
+    // Phase 4.4: supervisor is owned by `PUT .../{activityId}/supervisor` (User-based RBAC),
+    // not the generic activity-update endpoint. Strip the picker fields off the body so they
+    // don't reach the deprecated UpdateActivityRequest path on the backend.
+    const {
+      percentComplete: _editPct,
+      supervisorUserId: nextSupervisorUserId,
+      supervisorUserName: nextSupervisorUserName,
+      ...rest
+    } = editData;
     const sanitizedData: UpdateActivityRequest = {
       ...rest,
       originalDuration: editData.originalDuration === "" ? 0 : editData.originalDuration,
@@ -220,6 +231,23 @@ export default function ActivityDetailPage() {
         ? { percentComplete: editData.percentComplete === "" ? 0 : editData.percentComplete }
         : {}),
     };
+
+    const supervisorChanged =
+      (nextSupervisorUserId ?? null) !== (activity?.responsibleResourceId ?? null);
+    if (supervisorChanged) {
+      try {
+        await activityApi.setSupervisor(projectId, activityId, {
+          supervisorUserId: nextSupervisorUserId ?? null,
+          supervisorName: nextSupervisorUserName ?? null,
+        });
+      } catch (err: unknown) {
+        const msg = getErrorMessage(err, "Failed to update supervisor");
+        setError(msg);
+        notificationHelpers.handleApiError(err, "Failed to update supervisor");
+        return;
+      }
+    }
+
     updateMutation.mutate(sanitizedData);
   };
 
@@ -239,8 +267,8 @@ export default function ActivityDetailPage() {
         workActivityId: activity.workActivityId || "",
         calendarId: activity.calendarId || "",
         costAccountId: activity.costAccountId ?? null,
-        supervisorResourceId: activity.responsibleResourceId ?? null,
-        supervisorResourceName: activity.responsibleResourceName ?? null,
+        supervisorUserId: activity.responsibleResourceId ?? null,
+        supervisorUserName: activity.responsibleResourceName ?? null,
         primaryConstraintType: activity.primaryConstraintType ?? undefined,
         primaryConstraintDate: activity.primaryConstraintDate || "",
         secondaryConstraintType: activity.secondaryConstraintType ?? undefined,
@@ -255,11 +283,11 @@ export default function ActivityDetailPage() {
   };
 
   const handleSupervisorChange = (value: string) => {
-    const pooled = (supervisorPoolData?.data ?? []).find((p) => p.resourceId === value);
+    const picked = (supervisorUsers ?? []).find((u) => u.id === value);
     setEditData((prev) => ({
       ...prev,
-      supervisorResourceId: value || null,
-      supervisorResourceName: pooled?.resourceName ?? null,
+      supervisorUserId: value || null,
+      supervisorUserName: picked?.name ?? null,
     }));
   };
 
@@ -277,13 +305,27 @@ export default function ActivityDetailPage() {
         title={activity.code}
         description={activity.name}
         actions={
-          <button
-            onClick={handleStartEdit}
-            disabled={isEditing}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-border"
-          >
-            {isEditing ? "Editing..." : "Edit"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                router.push(`/projects/${projectId}/dpr?new=1&activityId=${activityId}`)
+              }
+              className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-hover"
+              title="Create a Daily Progress Report pre-filled with this activity"
+            >
+              Create DPR
+            </button>
+            {canEditActivity && (
+              <button
+                onClick={handleStartEdit}
+                disabled={isEditing}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-border"
+              >
+                {isEditing ? "Editing..." : "Edit"}
+              </button>
+            )}
+          </div>
         }
       />
 
@@ -717,10 +759,12 @@ function ViewMode({
           </div>
         ) : (
           <p className="text-sm text-text-muted">
-            Not linked. Edit the activity and pick a master entry to enable
-            productivity-norm-driven capacity utilisation reports.
+            Not linked. This activity won't appear on Capacity Utilization (no norm to compare
+            actual vs expected). Fine for design / engineering / office work; pick a master entry
+            on the edit screen if you want productivity tracked.
           </p>
         )}
+        <WorkActivityCoverageChip workActivityId={activity.workActivityId} />
       </div>
 
       {/* Calendar */}
@@ -1275,9 +1319,11 @@ function EditForm({
             ]}
           />
           <p className="mt-1 text-xs text-text-muted">
-            Links this project activity to its master library entry — required for productivity-norm
-            lookups when computing budgeted vs actual resource-days.
+            Links this project activity to its master library entry. Optional — leave blank for
+            activities that don't need productivity tracking (e.g. design / engineering / office
+            work). When set, the productivity norms below drive DPR expected-vs-actual.
           </p>
+          <WorkActivityCoverageChip workActivityId={data.workActivityId} />
         </div>
 
         <div>
@@ -1335,23 +1381,24 @@ function EditForm({
 
         <div>
           <label className="block text-sm font-medium text-text-secondary">
-            Supervisor (Manpower / Labor)
+            Supervisor
           </label>
           <SearchableSelect
-            value={data.supervisorResourceId ?? ""}
+            value={data.supervisorUserId ?? ""}
             onChange={onSupervisorChange}
             placeholder={
               isLoadingSupervisorPool
-                ? "Loading project pool..."
+                ? "Loading users..."
                 : supervisorOptions.length
-                  ? "Search labor resources..."
-                  : "No labor resources in project pool"
+                  ? "Search supervisors..."
+                  : "No users with supervisor roles"
             }
             options={[{ value: "", label: "— none —" }, ...supervisorOptions]}
             disabled={isLoadingSupervisorPool || supervisorOptions.length === 0}
           />
           <p className="mt-1 text-xs text-text-muted">
-            Field-accountable supervisor. Picker shows only Labor resources from this project&apos;s pool.
+            Field-accountable supervisor. Picker lists users carrying SUPERVISOR /
+            FOREMAN / SITE_ENGINEER / SITE_MANAGER roles.
           </p>
         </div>
 

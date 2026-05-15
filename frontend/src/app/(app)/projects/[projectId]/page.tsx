@@ -34,6 +34,7 @@ import { apiClient } from "@/lib/api/client";
 import { wbsTemplateApi } from "@/lib/api/wbsTemplateApi";
 import { TabTip } from "@/components/common/TabTip";
 import { WbsAiGenerateDialog } from "@/components/wbs/WbsAiGenerateDialog";
+import { useAuthStore } from "@/lib/state/store";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 import { ProjectDocumentsPanel } from "@/components/document/ProjectDocumentsPanel";
 import { ProjectSetupProgress } from "@/components/project/ProjectSetupProgress";
@@ -1261,6 +1262,11 @@ function GanttTab({
 
 function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeResponse[]; isLoading: boolean; projectId: string; project: ProjectResponse }) {
   const queryClient = useQueryClient();
+  // WbsController gates create/update/delete on PROJECT.UPDATE, so the server
+  // is the source of truth — these checks just hide affordances the user
+  // can't act on (clean UX, not security).
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canEditWbs = hasPermission("PROJECT.UPDATE");
   const [showForm, setShowForm] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
@@ -1387,29 +1393,31 @@ function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeRe
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-          className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-hover/50 px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary"
-        >
-          <FileText size={16} />
-          Apply Template
-        </button>
-        <button
-          onClick={() => setShowAiDialog(true)}
-          className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-tint px-4 py-2 text-sm font-medium text-gold-ink hover:bg-gold/20"
-        >
-          <Sparkles size={16} />
-          Generate with AI
-        </button>
-        <button
-          onClick={handleAddRoot}
-          className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
-        >
-          <Plus size={16} />
-          Add WBS Node
-        </button>
-      </div>
+      {canEditWbs && (
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-hover/50 px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+          >
+            <FileText size={16} />
+            Apply Template
+          </button>
+          <button
+            onClick={() => setShowAiDialog(true)}
+            className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-tint px-4 py-2 text-sm font-medium text-gold-ink hover:bg-gold/20"
+          >
+            <Sparkles size={16} />
+            Generate with AI
+          </button>
+          <button
+            onClick={handleAddRoot}
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+          >
+            <Plus size={16} />
+            Add WBS Node
+          </button>
+        </div>
+      )}
 
       {showTemplateSelector && (
         <div className="rounded-xl border border-border bg-surface/50 p-4 shadow-lg">
@@ -1548,13 +1556,18 @@ function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeRe
       {wbsTree.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-12 text-center">
           <h3 className="text-lg font-medium text-text-primary">No WBS Structure</h3>
-          <p className="mt-2 text-text-muted">Click &quot;Add WBS Node&quot; above to create your first work package, or use &quot;Generate with AI&quot; for a quick start.</p>
+          <p className="mt-2 text-text-muted">
+            {canEditWbs
+              ? "Click \"Add WBS Node\" above to create your first work package, or use \"Generate with AI\" for a quick start."
+              : "No work breakdown structure has been set up for this project yet. Ask the project manager or scheduler to create it."}
+          </p>
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-surface/50 p-6 shadow-lg">
           <h2 className="mb-4 text-lg font-semibold text-text-primary">Work Breakdown Structure</h2>
           <WbsTree
             nodes={wbsTree}
+            canEdit={canEditWbs}
             onAddChild={handleAddChild}
             onDelete={handleDelete}
             onEdit={handleEditOpen}
@@ -1585,6 +1598,7 @@ function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeRe
 function WbsTree({
   nodes,
   level = 0,
+  canEdit = true,
   onAddChild,
   onDelete,
   onEdit,
@@ -1594,6 +1608,7 @@ function WbsTree({
 }: {
   nodes: WbsNodeResponse[];
   level?: number;
+  canEdit?: boolean;
   onAddChild: (node: WbsNodeResponse) => void;
   onDelete: (node: WbsNodeResponse) => void;
   onEdit?: (node: WbsNodeResponse) => void;
@@ -1695,31 +1710,33 @@ function WbsTree({
               )}
 
               {/* Action buttons */}
-              <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                {onEdit && (
+              {canEdit && (
+                <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  {onEdit && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onEdit(node); }}
+                      className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-accent"
+                      title="Edit node"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
                   <button
-                    onClick={(e) => { e.stopPropagation(); onEdit(node); }}
-                    className="rounded p-1 text-text-muted hover:bg-accent/10 hover:text-accent"
-                    title="Edit node"
+                    onClick={() => onAddChild(node)}
+                    className="rounded p-1 text-text-muted hover:bg-success/10 hover:text-success"
+                    title="Add child node"
                   >
-                    <Pencil size={14} />
+                    <Plus size={14} />
                   </button>
-                )}
-                <button
-                  onClick={() => onAddChild(node)}
-                  className="rounded p-1 text-text-muted hover:bg-success/10 hover:text-success"
-                  title="Add child node"
-                >
-                  <Plus size={14} />
-                </button>
-                <button
-                  onClick={() => onDelete(node)}
-                  className="rounded p-1 text-text-muted hover:bg-danger/10 hover:text-danger"
-                  title="Delete node"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </span>
+                  <button
+                    onClick={() => onDelete(node)}
+                    className="rounded p-1 text-text-muted hover:bg-danger/10 hover:text-danger"
+                    title="Delete node"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </span>
+              )}
             </div>
 
             {/* Render children if expanded */}
@@ -1727,6 +1744,7 @@ function WbsTree({
               <WbsTree
                 nodes={node.children}
                 level={level + 1}
+                canEdit={canEdit}
                 onAddChild={onAddChild}
                 onDelete={onDelete}
                 onEdit={onEdit}

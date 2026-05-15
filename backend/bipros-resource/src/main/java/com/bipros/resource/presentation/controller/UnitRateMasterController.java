@@ -42,6 +42,7 @@ public class UnitRateMasterController {
   private final ResourceRateService rateService;
 
   @GetMapping
+  @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
   public ResponseEntity<ApiResponse<List<UnitRateMasterRow>>> list(
       @RequestParam(required = false) String category) {
     log.info("GET /v1/unit-rate-master category={}", category);
@@ -49,7 +50,7 @@ public class UnitRateMasterController {
   }
 
   @PostMapping("/resources/{resourceId}/rates")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceRateResponse>> createRate(
       @PathVariable UUID resourceId,
       @Valid @RequestBody CreateResourceRateRequest request) {
@@ -58,7 +59,7 @@ public class UnitRateMasterController {
   }
 
   @PutMapping("/rates/{rateId}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ResourceRateResponse>> updateRate(
       @PathVariable UUID rateId,
       @Valid @RequestBody CreateResourceRateRequest request) {
@@ -66,13 +67,14 @@ public class UnitRateMasterController {
   }
 
   @DeleteMapping("/rates/{rateId}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> deleteRate(@PathVariable UUID rateId) {
     rateService.deleteRate(rateId);
     return ResponseEntity.ok(ApiResponse.ok(null));
   }
 
   @GetMapping("/resources/{resourceId}/rates")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
   public ResponseEntity<ApiResponse<List<ResourceRateResponse>>> listByResource(
       @PathVariable UUID resourceId) {
     return ResponseEntity.ok(ApiResponse.ok(rateService.listRatesByResource(resourceId)));

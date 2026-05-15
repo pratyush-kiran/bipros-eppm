@@ -18,6 +18,7 @@ import {
   type WorkerRole,
 } from "@/lib/api/permitApi";
 import { projectApi } from "@/lib/api/projectApi";
+import { useAuthStore } from "@/lib/state/store";
 
 interface WorkerDraft {
   fullName: string;
@@ -50,6 +51,8 @@ function NewPermitPageInner() {
   const router = useRouter();
   const search = useSearchParams();
   const projectIdParam = search.get("projectId") || "";
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreatePermit = hasPermission("PERMIT.CREATE");
   const queryClient = useQueryClient();
 
   const [projectId, setProjectId] = useState(projectIdParam);
@@ -208,6 +211,26 @@ function NewPermitPageInner() {
   const onSubmit = async () => {
     await submit.mutateAsync();
   };
+
+  if (!canCreatePermit) {
+    return (
+      <div className="space-y-6 p-6">
+        <header className="flex items-center gap-3">
+          <Link
+            href="/permits"
+            className="inline-flex items-center gap-1 rounded-md border border-divider bg-paper px-3 py-1.5 text-sm text-slate hover:bg-ivory"
+          >
+            <ArrowLeft size={14} /> Back
+          </Link>
+        </header>
+        <div className="rounded-md border border-divider bg-paper p-6 text-sm text-slate">
+          You don&apos;t have permission to raise a new permit. Required permission:{" "}
+          <code className="font-mono">PERMIT.CREATE</code>. Ask an admin to assign a profile that
+          includes this permission.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">

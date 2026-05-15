@@ -37,7 +37,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/analytics")
-@PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','PROGRAMME_MANAGER','VIEWER')")
+@PreAuthorize("hasPermission(null, 'REPORT.READ')")
 @RequiredArgsConstructor
 public class ContractorPerformanceController {
 

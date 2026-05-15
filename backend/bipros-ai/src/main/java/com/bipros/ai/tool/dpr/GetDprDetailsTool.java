@@ -371,7 +371,7 @@ public class GetDprDetailsTool implements Tool {
   public java.util.Set<String> allowedRoles() {
     return java.util.Set.of(
             "PROJECT_MANAGER", "PORTFOLIO_MANAGER",
-            "SITE_MANAGER", "PROJECT_ENGINEER", "QC_MANAGER",
+            "SITE_MANAGER", "PROJECT_ENGINEER", "QC_MANAGER", "QA_QC_ENGINEER",
             "BIM_DATA_COORDINATOR",
             "SITE_ENGINEER", "RESOURCE_MANAGER", "SCHEDULER",
             "EXECUTIVE_VIEWER"

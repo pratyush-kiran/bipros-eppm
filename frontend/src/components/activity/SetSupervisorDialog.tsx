@@ -13,8 +13,15 @@ import {
 } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { activityApi, type ActivityResponse } from "@/lib/api/activityApi";
-import { projectResourceApi } from "@/lib/api/projectResourceApi";
+import { userApi } from "@/lib/api/userApi";
 import { getErrorMessage } from "@/lib/utils/error";
+
+/**
+ * Roles eligible to supervise an activity. Server-side filter on {@code /v1/users?roles=...}
+ * (Phase 4.6) returns only users carrying at least one of these. Keep in sync with the
+ * DPR page's supervisorOptions source and SupervisorAssignmentTab.
+ */
+const SUPERVISOR_ROLES = ["SUPERVISOR", "FOREMAN", "SITE_ENGINEER", "SITE_MANAGER"];
 
 const CLEAR_VALUE = "__clear__";
 
@@ -56,26 +63,24 @@ function DialogInner({
   const queryClient = useQueryClient();
   const [pickedId, setPickedId] = useState<string>(activity.responsibleResourceId ?? "");
 
-  const { data: poolData, isLoading: isLoadingPool } = useQuery({
-    queryKey: ["resource-pool", projectId],
-    queryFn: () => projectResourceApi.listPool(projectId),
-    enabled: !!projectId,
+  // Phase 4.4 RBAC: supervisor candidates now come from the User pool (filtered by role on
+  // the server), not from the project Resource pool. The picker value is a User UUID.
+  const { data: users, isLoading: isLoadingPool } = useQuery({
+    queryKey: ["users", "by-roles", SUPERVISOR_ROLES],
+    queryFn: () => userApi.listByRoles(SUPERVISOR_ROLES),
   });
 
-  // LABOR / Manpower-only — supervisors are always a person. Same filter the full edit form
-  // uses on the activity detail page.
   const supervisorOptions = useMemo(() => {
-    const pool = poolData?.data ?? [];
-    return pool
-      .filter((p) => {
-        const t = (p.resourceTypeName ?? "").toLowerCase();
-        return t.includes("labor") || t.includes("labour") || t.includes("manpower");
-      })
-      .map((p) => ({
-        value: p.resourceId,
-        label: `${p.resourceCode ? p.resourceCode + " — " : ""}${p.resourceName ?? p.resourceId}`,
-      }));
-  }, [poolData]);
+    return (users ?? []).map((u) => {
+      // Prefer the personnel master employeeCode for the row prefix; fall back to username
+      // so admin / legacy users without a code still render something useful.
+      const prefix = u.employeeCode || u.username;
+      return {
+        value: u.id,
+        label: prefix && prefix !== u.name ? `${prefix} — ${u.name}` : u.name,
+      };
+    });
+  }, [users]);
 
   const optionsWithClear = useMemo(
     () => [{ value: CLEAR_VALUE, label: "— Clear supervisor —" }, ...supervisorOptions],
@@ -85,10 +90,10 @@ function DialogInner({
   const mutation = useMutation({
     mutationFn: () => {
       const isClear = !pickedId || pickedId === CLEAR_VALUE;
-      const matched = supervisorOptions.find((o) => o.value === pickedId);
-      return activityApi.updateActivity(projectId, activity.id, {
-        supervisorResourceId: isClear ? null : pickedId,
-        supervisorResourceName: isClear ? null : (matched?.label ?? null),
+      const matched = users?.find((u) => u.id === pickedId) ?? null;
+      return activityApi.setSupervisor(projectId, activity.id, {
+        supervisorUserId: isClear ? null : pickedId,
+        supervisorName: isClear ? null : (matched?.name ?? null),
       });
     },
     onSuccess: () => {
@@ -118,16 +123,14 @@ function DialogInner({
       </DialogHeader>
       <DialogBody>
         <label className="block text-sm font-medium text-text-secondary">
-          Supervisor (Manpower / Labor)
+          Supervisor
         </label>
         {isLoadingPool ? (
-          <p className="mt-1 text-xs text-text-muted">Loading project pool…</p>
+          <p className="mt-1 text-xs text-text-muted">Loading users…</p>
         ) : supervisorOptions.length === 0 ? (
           <p className="mt-1 text-xs text-amber-600">
-            No labor / manpower resources in this project&apos;s pool.{" "}
-            <a href={`/projects/${projectId}/resources`} className="text-accent underline">
-              Add one →
-            </a>
+            No users with a supervisor / foreman / site-engineer / site-manager role were
+            found. Grant one of those roles in User Administration to make a user eligible.
           </p>
         ) : (
           <div className="mt-1">

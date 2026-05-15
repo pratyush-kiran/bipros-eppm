@@ -35,6 +35,11 @@ export function useThemeManager() {
 
   const accessToken = useAuthStore((s) => s.accessToken);
   const isAuthenticated = accessToken !== null;
+  // /v1/admin/settings is gated on ADMIN_SETTINGS.READ — skip the fetch entirely
+  // for non-admins so we don't spam the console with 403s. Theme falls back to
+  // the localStorage cache + predefined themes for these users.
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canReadAdminSettings = hasPermission("ADMIN_SETTINGS.READ");
 
   const isAdmin = useMemo(() => {
     const roles = user?.roles ?? [];
@@ -56,7 +61,7 @@ export function useThemeManager() {
   const activeThemeQuery = useQuery({
     queryKey: ["theme-active"],
     queryFn: () => themeApi.getActiveThemeId(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && canReadAdminSettings,
     retry: 1,
     staleTime: 1000 * 60 * 5,
   });
@@ -64,7 +69,7 @@ export function useThemeManager() {
   const customThemesQuery = useQuery({
     queryKey: ["theme-custom"],
     queryFn: () => themeApi.getCustomThemes(),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && canReadAdminSettings,
     retry: 1,
     staleTime: 1000 * 60 * 5,
   });

@@ -7,11 +7,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Bulk-assigns one supervisor (a Resource) across many activities. The frontend
- * filters the picker to LABOR/Manpower resources from the project pool; the backend
- * trusts that filtering and just stores the id + denormalised name on each activity's
- * {@code responsibleResourceId} / {@code responsibleResourceName} columns.
+ * @deprecated Phase 4.5: payload for the legacy bulk-supervisor endpoint that wrote to the
+ * dropped {@code responsibleResourceId} / {@code responsibleResourceName} columns. The
+ * accepting service method ({@code ActivityService.bulkSetSupervisor}) now short-circuits to
+ * a no-op so older clients stop receiving 500s — but no assignment is performed. Use the
+ * per-activity {@code PUT /v1/activities/{id}/supervisor} endpoint (writes
+ * {@code supervisor_user_id}) instead.
  */
+@Deprecated(forRemoval = true)
 public record BulkSupervisorRequest(
     @NotNull(message = "supervisorResourceId is required")
     UUID supervisorResourceId,

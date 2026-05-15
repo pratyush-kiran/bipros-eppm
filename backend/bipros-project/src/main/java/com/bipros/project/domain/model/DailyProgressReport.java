@@ -22,11 +22,12 @@ import java.util.UUID;
  * Supervisor Daily Progress Report row: one entry per (project, date, chainage range, activity).
  * Captures what was physically executed that day.
  *
- * <p>{@code supervisorResourceId} is a soft FK to the {@code resource} schema (Resources with
- * role.code in {@code SUPERVISOR}/{@code FOREMAN}); {@code supervisorName} stays as a
- * denormalised display snapshot, so legacy rows still render and resource renames don't
- * rewrite history. When the FK is set the service overwrites {@code supervisorName} from the
- * resource on save. Free-text entries (off-roster supervisors) leave the FK null.
+ * <p>{@code supervisorUserId} is a soft FK to {@code public.users.id} (Phase 4.1 cutover —
+ * the legacy {@code supervisor_resource_id} column was dropped by migration 091). The role-only
+ * model treats the supervisor as an application user, not a Resource. {@code supervisorName}
+ * stays as a denormalised display snapshot, so legacy rows still render and user renames don't
+ * rewrite history. The service overwrites {@code supervisorName} from the user on save when
+ * the FK is set; free-text entries (off-roster supervisors) leave the FK null.
  *
  * <p>Cumulative quantity per (project, activity) is computed on read (and on event publish)
  * — there is no stored {@code cumulative_qty} column on the entity. This makes back-dated
@@ -55,20 +56,13 @@ public class DailyProgressReport extends BaseEntity {
   @Column(name = "report_date", nullable = false)
   private LocalDate reportDate;
 
-  /**
-   * Soft FK to {@code resource.resources.id}. When set, the service snapshots the resource's
-   * name into {@link #supervisorName} on save. Null for free-text "Other" entries.
-   */
-  @Column(name = "supervisor_resource_id")
-  private UUID supervisorResourceId;
-
   @Column(name = "supervisor_name", nullable = false, length = 150)
   private String supervisorName;
 
   /**
    * Soft FK to {@code public.users.id}. Role-only model: the supervisor is an application user,
-   * not a Resource. Replaces {@link #supervisorResourceId}. The service overwrites
-   * {@link #supervisorName} from the user's display name on save when this is set.
+   * not a Resource. The service overwrites {@link #supervisorName} from the user's display name
+   * on save when this is set. Null for free-text "Other" entries.
    */
   @Column(name = "supervisor_user_id")
   private UUID supervisorUserId;

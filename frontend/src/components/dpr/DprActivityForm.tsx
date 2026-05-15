@@ -26,6 +26,13 @@ import { SafetyDelaySection } from "./SafetyDelaySection";
 import { DprTotalsBar } from "./DprTotalsBar";
 import { DprPhotosSection, type PendingPhoto } from "./DprPhotosSection";
 import { DprVoiceAssistant } from "./DprVoiceAssistant";
+import {
+  ProductivityPreviewBanner,
+  type ProductivityPreviewData,
+} from "./ProductivityPreviewBanner";
+import { ProductivityCoverageBanner } from "./ProductivityCoverageBanner";
+
+type FormError = string | null;
 
 type Tab = "manpower" | "equipment" | "material" | "issues";
 
@@ -58,6 +65,20 @@ interface Props {
    */
   defaultUnitByActivityId: Map<string, string | null>;
   boqOptions: SelectOption[];
+  /**
+   * Optional seed for new DPRs (ignored on edit). When a user clicks "Create DPR" from an
+   * Activity, the parent DPR page passes the activity + supervisor + unit so the drawer opens
+   * pre-filled instead of forcing the user to re-pick. Supervisor is validated against
+   * {@code supervisorOptions} at initialisation; a no-longer-eligible user is silently dropped
+   * (matching the on-pick auto-fill guard further down in this file).
+   */
+  defaultPrefill?: {
+    activityId: string | null;
+    activityName: string | null;
+    supervisorUserId: string | null;
+    supervisorName: string | null;
+    unit: string | null;
+  } | null;
   onCancel: () => void;
   /**
    * Saves the DPR and returns the persisted record so the form can chain photo uploads against
@@ -92,12 +113,14 @@ const WEATHER_OPTS = ["Clear", "Cloudy", "Rain", "Hot", "Cold", "Windy"];
 
 const initialState = (
   editing: DailyProgressReportResponse | null,
-  defaultDate: string
+  defaultDate: string,
+  prefill?: Props["defaultPrefill"],
+  supervisorOptions?: SelectOption[]
 ): FormState => {
   if (editing) {
     return {
       reportDate: editing.reportDate,
-      supervisorResourceId: editing.supervisorResourceId ?? null,
+      supervisorUserId: editing.supervisorUserId ?? null,
       supervisorName: editing.supervisorName,
       chainageFromM: editing.chainageFromM,
       chainageToM: editing.chainageToM,
@@ -127,19 +150,29 @@ const initialState = (
       issues: editing.issues ?? [],
     };
   }
+  // Validate the seeded supervisor against the eligible options. Mirrors the on-pick auto-fill
+  // guard below (line ~408): if the activity's snapshot points at a user who has since lost
+  // their supervisor role, fall back to an empty supervisor rather than persisting an invalid id.
+  const eligibleSeed =
+    prefill?.supervisorUserId &&
+    (supervisorOptions ?? []).some((s) => s.value === prefill.supervisorUserId)
+      ? { id: prefill.supervisorUserId, name: prefill.supervisorName ?? "" }
+      : null;
+  const seedUnit = prefill?.unit && prefill.unit.trim().length > 0 ? prefill.unit.trim() : null;
+
   return {
     reportDate: defaultDate || todayIso(),
-    supervisorResourceId: null,
-    supervisorName: "",
+    supervisorUserId: eligibleSeed?.id ?? null,
+    supervisorName: eligibleSeed?.name ?? "",
     chainageFromM: null,
     chainageToM: null,
     chainageFromRaw: "",
     chainageToRaw: "",
-    activityId: null,
-    activityName: "",
+    activityId: prefill?.activityId ?? null,
+    activityName: prefill?.activityName ?? "",
     wbsNodeId: null,
     boqItemNo: null,
-    unit: "Cum",
+    unit: seedUnit ?? "Cum",
     qtyExecuted: 0,
     weatherCondition: null,
     remarks: null,
@@ -171,11 +204,12 @@ export function DprActivityForm({
   supervisorByActivityId,
   defaultUnitByActivityId,
   boqOptions,
+  defaultPrefill,
   onCancel,
   onSave,
 }: Props) {
   const [state, setState] = useState<FormState>(() => {
-    const s = initialState(editing, defaultDate);
+    const s = initialState(editing, defaultDate, defaultPrefill, supervisorOptions);
     // Editing path: backend may not yet carry activityId on legacy rows. Resolve from name.
     if (editing && !s.activityId && editing.activityName) {
       const id = activityIdByName.get(editing.activityName.toLowerCase());
@@ -184,7 +218,8 @@ export function DprActivityForm({
     return s;
   });
   const [tab, setTab] = useState<Tab>("manpower");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FormError>(null);
+  const [preview, setPreview] = useState<ProductivityPreviewData | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [photoUploadStatus, setPhotoUploadStatus] = useState<string | null>(null);
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
@@ -199,12 +234,62 @@ export function DprActivityForm({
     stateRef.current = state;
   }, [state]);
 
+  // Debounced productivity preview. Fires when manpower / equipment / activityId change and an
+  // activity is set. Cancels in-flight requests on rapid edits so the panel reflects the latest
+  // input. Never blocks save — purely advisory; the soft-warn lives on the banner itself.
+  const previewSignature = useMemo(() => {
+    const mp = (state.manpower ?? []).map((r) => ({
+      roleId: (r as { roleId?: string | null }).roleId ?? null,
+      nos: (r as { nos?: number | null }).nos ?? null,
+    }));
+    const eq = (state.equipment ?? []).map((r) => ({
+      roleId: (r as { roleId?: string | null }).roleId ?? null,
+      nos: (r as { nos?: number | null }).nos ?? null,
+      workingHours: (r as { workingHours?: number | null }).workingHours ?? null,
+    }));
+    return JSON.stringify({ a: state.activityId ?? null, mp, eq });
+  }, [state.manpower, state.equipment, state.activityId]);
+
+  useEffect(() => {
+    if (!state.activityId) {
+      setPreview(null);
+      return;
+    }
+    const { a, mp, eq } = JSON.parse(previewSignature) as {
+      a: string;
+      mp: Array<{ roleId: string | null; nos: number | null }>;
+      eq: Array<{
+        roleId: string | null;
+        nos: number | null;
+        workingHours: number | null;
+      }>;
+    };
+    // Always call the preview — even with empty rows — so the coverage banner has data to
+    // show what the Work Activity tracks before the user adds any resources. The endpoint is
+    // read-only and the response is cheap; coverage drives both the banner and the inline panel.
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      dprApi
+        .productivityPreview(projectId, a, { manpower: mp, equipment: eq })
+        .then((r) => {
+          if (!cancelled && r.data) setPreview(r.data);
+        })
+        .catch(() => {
+          if (!cancelled) setPreview(null);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [previewSignature, projectId, state.activityId]);
+
   const getVoiceState = useCallback(() => {
     const s = stateRef.current;
     return {
       reportDate: s.reportDate,
-      supervisorResourceId:
-        s.supervisorResourceId === SUPERVISOR_OTHER ? null : s.supervisorResourceId,
+      supervisorUserId:
+        s.supervisorUserId === SUPERVISOR_OTHER ? null : s.supervisorUserId,
       supervisorName: s.supervisorName,
       activityId: s.activityId,
       activityName: s.activityName,
@@ -242,7 +327,7 @@ export function DprActivityForm({
         if (value !== undefined && value !== null) next[key] = value as FormState[K];
       };
       setIfPresent("reportDate", patch.reportDate);
-      setIfPresent("supervisorResourceId", patch.supervisorResourceId);
+      setIfPresent("supervisorUserId", patch.supervisorUserId);
       setIfPresent("supervisorName", patch.supervisorName);
       setIfPresent("activityId", patch.activityId);
       setIfPresent("activityName", patch.activityName);
@@ -294,7 +379,7 @@ export function DprActivityForm({
 
   const patch = (delta: Partial<FormState>) => setState((s) => ({ ...s, ...delta }));
 
-  const supervisorPickerValue = state.supervisorResourceId || "";
+  const supervisorPickerValue = state.supervisorUserId || "";
   const supervisorIsOther = supervisorPickerValue === SUPERVISOR_OTHER;
 
   /**
@@ -305,28 +390,28 @@ export function DprActivityForm({
    * reasonable behavior so the form stays usable).
    */
   const filteredActivityOptions = useMemo(() => {
-    if (!state.supervisorResourceId || supervisorIsOther) return activityOptions;
+    if (!state.supervisorUserId || supervisorIsOther) return activityOptions;
     const filtered = activityOptions.filter((a) => {
       const sup = supervisorByActivityId.get(a.value);
-      return sup?.id === state.supervisorResourceId;
+      return sup?.id === state.supervisorUserId;
     });
     return filtered.length === 0 ? activityOptions : filtered;
-  }, [activityOptions, state.supervisorResourceId, supervisorIsOther, supervisorByActivityId]);
+  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
 
   const supervisorHasNoActivities = useMemo(() => {
-    if (!state.supervisorResourceId || supervisorIsOther) return false;
+    if (!state.supervisorUserId || supervisorIsOther) return false;
     return !activityOptions.some(
-      (a) => supervisorByActivityId.get(a.value)?.id === state.supervisorResourceId
+      (a) => supervisorByActivityId.get(a.value)?.id === state.supervisorUserId
     );
-  }, [activityOptions, state.supervisorResourceId, supervisorIsOther, supervisorByActivityId]);
+  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
 
   /** Inline mismatch when the picked supervisor isn't the activity's owner. */
   const activitySupervisorMismatch = useMemo(() => {
-    if (!state.activityId || !state.supervisorResourceId || supervisorIsOther) return null;
+    if (!state.activityId || !state.supervisorUserId || supervisorIsOther) return null;
     const sup = supervisorByActivityId.get(state.activityId);
-    if (!sup || sup.id === state.supervisorResourceId) return null;
+    if (!sup || sup.id === state.supervisorUserId) return null;
     return sup.name || "another supervisor";
-  }, [state.activityId, state.supervisorResourceId, supervisorIsOther, supervisorByActivityId]);
+  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
 
   /** Tab counters reflect rows that will actually be saved (FK picker filled).
    *  Role-only rows have variantId set instead of resourceAssignmentId. */
@@ -357,10 +442,10 @@ export function DprActivityForm({
   );
 
   const supervisorAutoFilled = useMemo(() => {
-    if (!state.activityId || !state.supervisorResourceId || supervisorIsOther) return false;
+    if (!state.activityId || !state.supervisorUserId || supervisorIsOther) return false;
     const sup = supervisorByActivityId.get(state.activityId);
-    return sup?.id === state.supervisorResourceId;
-  }, [state.activityId, state.supervisorResourceId, supervisorIsOther, supervisorByActivityId]);
+    return sup?.id === state.supervisorUserId;
+  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
 
   /**
    * Activity dropdown change: when rows already exist for the previous activity, prompt to clear
@@ -400,14 +485,14 @@ export function DprActivityForm({
       delta.unit = activityUnit.trim();
     }
     const sup = newActivityId ? supervisorByActivityId.get(newActivityId) : null;
-    const supervisorEmpty = !state.supervisorResourceId || supervisorIsOther;
+    const supervisorEmpty = !state.supervisorUserId || supervisorIsOther;
     if (sup && supervisorEmpty) {
       // Verify the supervisor actually exists in the eligible list before auto-filling — if the
       // activity's snapshot points at someone no longer eligible (e.g. role changed), fall back
       // to leaving the supervisor untouched rather than silently picking an invalid value.
       const match = supervisorOptions.find((s) => s.value === sup.id);
       if (match) {
-        delta.supervisorResourceId = sup.id;
+        delta.supervisorUserId = sup.id;
         delta.supervisorName = match.label.split(" (")[0];
       }
     }
@@ -416,11 +501,11 @@ export function DprActivityForm({
 
   const handleSupervisorChange = (value: string) => {
     if (value === SUPERVISOR_OTHER) {
-      patch({ supervisorResourceId: SUPERVISOR_OTHER, supervisorName: "" });
+      patch({ supervisorUserId: SUPERVISOR_OTHER, supervisorName: "" });
       return;
     }
     const match = supervisorOptions.find((s) => s.value === value);
-    patch({ supervisorResourceId: value || null, supervisorName: match?.label.split(" (")[0] ?? "" });
+    patch({ supervisorUserId: value || null, supervisorName: match?.label.split(" (")[0] ?? "" });
   };
 
   const handleChainageBlur = (which: "from" | "to") => {
@@ -446,9 +531,9 @@ export function DprActivityForm({
     if (!state.unit) return setError("Unit is required.");
     if (!state.qtyExecuted || state.qtyExecuted <= 0) return setError("Executed quantity must be > 0.");
 
-    const supervisorResourceId =
-      state.supervisorResourceId && state.supervisorResourceId !== SUPERVISOR_OTHER
-        ? state.supervisorResourceId
+    const supervisorUserId =
+      state.supervisorUserId && state.supervisorUserId !== SUPERVISOR_OTHER
+        ? state.supervisorUserId
         : null;
 
     // Drop skeleton rows where the user opened the tab but never picked a role.
@@ -471,7 +556,7 @@ export function DprActivityForm({
 
     const payload: DprBaseFields = {
       reportDate: state.reportDate,
-      supervisorResourceId,
+      supervisorUserId,
       supervisorName: state.supervisorName,
       chainageFromM: state.chainageFromM,
       chainageToM: state.chainageToM,
@@ -775,6 +860,11 @@ export function DprActivityForm({
               className={inputCls}
               required
             />
+            <ProductivityPreviewBanner
+              preview={preview}
+              workdone={state.qtyExecuted ?? null}
+              unit={state.unit}
+            />
           </Field>
           <Field label="Unit">
             <select
@@ -822,6 +912,12 @@ export function DprActivityForm({
           </Field>
         </div>
       </div>
+
+      {state.activityId && (
+        <div className="px-5">
+          <ProductivityCoverageBanner coverage={preview?.coverage ?? null} />
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-t border-hairline">

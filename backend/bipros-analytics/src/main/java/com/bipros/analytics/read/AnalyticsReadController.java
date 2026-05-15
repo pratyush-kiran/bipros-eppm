@@ -224,7 +224,7 @@ public class AnalyticsReadController {
      * is investigating "why is ClickHouse stale for project X".
      */
     @PostMapping("/projects/{id}/resync")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<Map<String, Integer>>> resyncProject(@PathVariable UUID id) {
         Map<String, Integer> touched = new LinkedHashMap<>();
 

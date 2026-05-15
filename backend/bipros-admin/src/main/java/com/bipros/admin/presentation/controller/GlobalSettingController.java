@@ -24,13 +24,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/admin/settings")
-@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class GlobalSettingController {
 
     private final GlobalSettingService globalSettingService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<GlobalSettingDto>> createSetting(
         @Valid @RequestBody CreateGlobalSettingRequest request) {
         GlobalSettingDto setting = globalSettingService.createSetting(request);
@@ -39,18 +39,21 @@ public class GlobalSettingController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<ApiResponse<GlobalSettingDto>> getSetting(@PathVariable UUID id) {
         GlobalSettingDto setting = globalSettingService.getSetting(id);
         return ResponseEntity.ok(ApiResponse.ok(setting));
     }
 
     @GetMapping("/key/{key}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<ApiResponse<GlobalSettingDto>> getSettingByKey(@PathVariable String key) {
         GlobalSettingDto setting = globalSettingService.getSettingByKey(key);
         return ResponseEntity.ok(ApiResponse.ok(setting));
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<ApiResponse<List<GlobalSettingDto>>> listSettings(
         @RequestParam(required = false) String category) {
         List<GlobalSettingDto> settings;
@@ -63,6 +66,7 @@ public class GlobalSettingController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<GlobalSettingDto>> updateSetting(
         @PathVariable UUID id,
         @Valid @RequestBody CreateGlobalSettingRequest request) {
@@ -71,6 +75,7 @@ public class GlobalSettingController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> deleteSetting(@PathVariable UUID id) {
         globalSettingService.deleteSetting(id);
         return ResponseEntity.ok(ApiResponse.ok(null));

@@ -48,9 +48,18 @@ public record ActivityResponse(
     Long chainageToM,
     UUID workActivityId,
     UUID costAccountId,
-    /** Supervisor cache: cached from the assignment with {@code isSupervisor=true}. */
+    // Deprecated Phase 4.5: dropped from the OLTP store by Liquibase 094. Always null
+    // for read-back; new clients must use the supervisor user id (resolved through the
+    // supervisor endpoint or a join via public.users).
     UUID responsibleResourceId,
+    // Deprecated Phase 4.5: dropped from the OLTP store by Liquibase 094. Always null
+    // for read-back; resolve the supervisor's display name from the user profile keyed by
+    // supervisor_user_id.
     String responsibleResourceName,
+    // Phase 4.5 supervisor — User FK to public.users.id. Null when unassigned.
+    UUID supervisorUserId,
+    // Display-snapshot of the supervisor's name at assignment time.
+    String supervisorUserName,
     /** Mirror of {@code resource.work_activities.default_unit} for the linked WorkActivity.
      *  Lets the DPR form auto-fill {@code DPR.unit} when an activity is picked. Null when the
      *  activity has no work-activity link, or when the list path didn't bulk-load default units. */
@@ -110,6 +119,8 @@ public record ActivityResponse(
         activity.getCostAccountId(),
         activity.getResponsibleResourceId(),
         activity.getResponsibleResourceName(),
+        activity.getSupervisorUserId(),
+        activity.getSupervisorUserName(),
         workActivityDefaultUnit,
         activity.getCreatedAt(),
         activity.getUpdatedAt(),
@@ -177,6 +188,8 @@ public record ActivityResponse(
         activity.getCostAccountId(),
         activity.getResponsibleResourceId(),
         activity.getResponsibleResourceName(),
+        activity.getSupervisorUserId(),
+        activity.getSupervisorUserName(),
         null,
         activity.getCreatedAt(),
         activity.getUpdatedAt(),

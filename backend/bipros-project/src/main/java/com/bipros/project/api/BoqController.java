@@ -33,7 +33,7 @@ public class BoqController {
   private final BoqService boqService;
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','COST_ENGINEER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
   public ResponseEntity<ApiResponse<BoqItemResponse>> create(
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateBoqItemRequest request) {
@@ -43,7 +43,7 @@ public class BoqController {
   }
 
   @PostMapping("/bulk")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','COST_ENGINEER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
   public ResponseEntity<ApiResponse<List<BoqItemResponse>>> createBulk(
       @PathVariable UUID projectId,
       @Valid @RequestBody List<CreateBoqItemRequest> requests) {
@@ -66,7 +66,7 @@ public class BoqController {
   }
 
   @PatchMapping("/{itemId}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','COST_ENGINEER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
   public ResponseEntity<ApiResponse<BoqItemResponse>> update(
       @PathVariable UUID projectId,
       @PathVariable UUID itemId,
@@ -75,7 +75,7 @@ public class BoqController {
   }
 
   @DeleteMapping("/{itemId}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(
       @PathVariable UUID projectId,
       @PathVariable UUID itemId) {

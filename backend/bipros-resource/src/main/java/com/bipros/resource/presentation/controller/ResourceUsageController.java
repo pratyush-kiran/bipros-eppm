@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/resource-usage")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ResourceUsageController {
@@ -30,7 +30,7 @@ public class ResourceUsageController {
    * month between {@code from} and {@code to}. Both range params default to the project's planned
    * bounds (or MIN/MAX of activity dates as a fallback).
    */
-  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
   @GetMapping("/time-phased")
   public ResponseEntity<ApiResponse<ResourceUsageTimePhasedResponse>> getTimePhased(
       @PathVariable UUID projectId,

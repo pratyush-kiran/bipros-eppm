@@ -49,7 +49,7 @@ public class WbsAiController {
     private final WbsAiJobWorker jobWorker;
 
     @PostMapping("/generate")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
     public ResponseEntity<ApiResponse<WbsAiGenerationResponse>> generate(
             @PathVariable UUID projectId,
             @RequestBody WbsAiGenerateRequest req) {
@@ -67,7 +67,7 @@ public class WbsAiController {
      * CANCELLED.
      */
     @PostMapping(value = "/generate-from-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
     public ResponseEntity<ApiResponse<JobAccepted>> generateFromDocument(
             @PathVariable UUID projectId,
             @RequestPart("metadata") String metadataJson,
@@ -123,7 +123,7 @@ public class WbsAiController {
     }
 
     @GetMapping("/jobs/{jobId}")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.READ')")
     public ResponseEntity<ApiResponse<WbsAiJobView>> getJob(
             @PathVariable UUID projectId,
             @PathVariable UUID jobId) throws IOException {
@@ -144,7 +144,7 @@ public class WbsAiController {
     }
 
     @DeleteMapping("/jobs/{jobId}")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> cancelJob(
             @PathVariable UUID projectId,
             @PathVariable UUID jobId) {
@@ -157,7 +157,7 @@ public class WbsAiController {
     }
 
     @PostMapping("/apply")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
     public ResponseEntity<ApiResponse<List<CollisionResult>>> apply(
             @PathVariable UUID projectId,
             @RequestBody WbsAiApplyRequest req) {

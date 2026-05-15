@@ -33,28 +33,28 @@ export default function ResourceRoleDetailPage() {
     <div className="p-6 space-y-6">
       <Link
         href="/admin/resource-roles"
-        className="inline-flex items-center gap-1 text-sm text-neutral-400 hover:text-neutral-200"
+        className="inline-flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary"
       >
         <ArrowLeft className="h-4 w-4" /> Back to roles
       </Link>
 
       <div>
-        <div className="text-xs uppercase tracking-wide text-neutral-500">
+        <div className="text-xs uppercase tracking-wide text-text-muted">
           {role.resourceTypeName}
         </div>
         <h1 className="text-3xl font-semibold">{role.name}</h1>
-        <div className="mt-1 text-sm text-neutral-400">{role.code}</div>
+        <div className="mt-1 text-sm text-text-secondary">{role.code}</div>
         {role.description && (
-          <p className="mt-2 text-sm text-neutral-300">{role.description}</p>
+          <p className="mt-2 text-sm text-text-primary">{role.description}</p>
         )}
       </div>
 
-      <div className="rounded-md border border-neutral-800 p-4">
+      <div className="rounded-md border border-border p-4">
         {isManpower && <ManpowerRoleRateTable roleId={roleId} />}
         {isEquipment && <EquipmentRoleVariantTable roleId={roleId} />}
         {isMaterial && <MaterialRoleVariantTable roleId={roleId} />}
         {!isManpower && !isEquipment && !isMaterial && (
-          <div className="text-neutral-400">
+          <div className="text-text-secondary">
             Rate configuration is only available for Manpower / Equipment / Material roles.
           </div>
         )}

@@ -20,13 +20,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/tenders/{tenderId}/bids")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class BidSubmissionController {
 
     private final BidSubmissionService bidSubmissionService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.CREATE')")
     public ResponseEntity<ApiResponse<BidSubmissionResponse>> create(
         @PathVariable UUID tenderId,
         @Valid @RequestBody BidSubmissionRequest request) {
@@ -35,6 +35,7 @@ public class BidSubmissionController {
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<PagedResponse<BidSubmissionResponse>>> listByTender(
         @PathVariable UUID tenderId,
         @RequestParam(defaultValue = "0") int page,
@@ -47,6 +48,7 @@ public class BidSubmissionController {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<BidSubmissionResponse>>> listAllByTender(
         @PathVariable UUID tenderId) {
         List<BidSubmissionResponse> response = bidSubmissionService.listByTenderAll(tenderId);
@@ -54,6 +56,7 @@ public class BidSubmissionController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<BidSubmissionResponse>> getById(
         @PathVariable UUID tenderId,
         @PathVariable UUID id) {
@@ -62,6 +65,7 @@ public class BidSubmissionController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<BidSubmissionResponse>> update(
         @PathVariable UUID tenderId,
         @PathVariable UUID id,
@@ -71,6 +75,7 @@ public class BidSubmissionController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.DELETE')")
     public ResponseEntity<Void> delete(
         @PathVariable UUID tenderId,
         @PathVariable UUID id) {

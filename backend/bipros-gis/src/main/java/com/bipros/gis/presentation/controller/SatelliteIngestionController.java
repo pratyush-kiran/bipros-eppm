@@ -28,7 +28,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/gis")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
 @RequiredArgsConstructor
 public class SatelliteIngestionController {
 

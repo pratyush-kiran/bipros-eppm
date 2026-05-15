@@ -23,13 +23,13 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/kpis/manpower")
-@PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','PROGRAMME_MANAGER','TEAM_MEMBER','VIEWER')")
 @RequiredArgsConstructor
 public class ManpowerKpiController {
 
   private final ManpowerKpiService service;
 
   @GetMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<ManpowerKpiResponse>> getKpis(
       @PathVariable UUID projectId,
       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

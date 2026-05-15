@@ -165,7 +165,7 @@ class ActivityHealthSnapshotToolTest {
         d.setActivityId(activity.getId());
         d.setActivityName(activity.getName());
         d.setSupervisorName(supervisor);
-        d.setSupervisorResourceId(UUID.randomUUID());
+        d.setSupervisorUserId(UUID.randomUUID());
         d.setUnit("Cum");
         d.setQtyExecuted(BigDecimal.valueOf(210));
         return d;

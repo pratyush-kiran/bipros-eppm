@@ -1,7 +1,7 @@
 package com.bipros.api.config;
 
-import com.bipros.security.domain.model.PermissionCatalog;
 import com.bipros.security.domain.model.Profile;
+import com.bipros.security.domain.model.RolePermissionMatrix;
 import com.bipros.security.domain.repository.ProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,9 +13,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Seeds the 10 system-default permission profiles. Idempotent: each profile is created only if a
+ * Seeds the 22 system-default permission profiles. Idempotent: each profile is created only if a
  * row with the same {@code code} is absent. Existing profiles are NOT overwritten — admins may
  * have edited them.
+ *
+ * <p>Permissions for each profile are sourced from {@link RolePermissionMatrix}, which is the
+ * single source of truth for the role → permission contract.</p>
  */
 @Component
 @Slf4j
@@ -23,13 +26,6 @@ import java.util.stream.Collectors;
 public class ProfileSeeder {
 
     private final ProfileRepository profileRepository;
-
-    private static final String READ = "READ";
-    private static final String CREATE = "CREATE";
-    private static final String UPDATE = "UPDATE";
-    private static final String DELETE = "DELETE";
-    private static final String EXPORT = "EXPORT";
-    private static final String APPROVE = "APPROVE";
 
     public void seed() {
         int created = 0;
@@ -69,228 +65,156 @@ public class ProfileSeeder {
                     "System Administrator",
                     "Full platform control: all modules, user & profile management, settings.",
                     "ADMIN",
-                    PermissionCatalog.ALL_CODES
+                    RolePermissionMatrix.permissionsFor("ADMIN")
             ),
             new DefaultProfile(
                     "PORTFOLIO_MANAGER",
                     "Portfolio Manager",
                     "Cross-project oversight, portfolio rollups, reports and analytics.",
                     "EXECUTIVE",
-                    union(
-                            allFor("PORTFOLIO"),
-                            allFor("REPORT"),
-                            of("PROJECT.READ", "ACTIVITY.READ", "SCHEDULE.READ", "COST.READ",
-                                    "EVM.READ", "EVM.EXPORT", "RISK.READ", "ADMIN_ORG.READ")
-                    )
+                    RolePermissionMatrix.permissionsFor("EXECUTIVE")
             ),
             new DefaultProfile(
                     "PROJECT_MANAGER",
                     "Project Manager",
                     "End-to-end project delivery: schedule, cost, risk, resources, contracts.",
                     "PROJECT_MANAGER",
-                    of(
-                            "PROJECT.CREATE", "PROJECT.READ", "PROJECT.UPDATE", "PROJECT.DELETE", "PROJECT.EXPORT",
-                            "ACTIVITY.CREATE", "ACTIVITY.READ", "ACTIVITY.UPDATE", "ACTIVITY.DELETE",
-                            "SCHEDULE.READ", "SCHEDULE.UPDATE",
-                            "BASELINE.CREATE", "BASELINE.READ", "BASELINE.UPDATE",
-                            "RESOURCE.READ", "RESOURCE.UPDATE",
-                            "COST.READ", "COST.UPDATE", "COST.EXPORT",
-                            "EVM.READ", "EVM.UPDATE", "EVM.EXPORT",
-                            "RISK.CREATE", "RISK.READ", "RISK.UPDATE", "RISK.APPROVE",
-                            "DOCUMENT.CREATE", "DOCUMENT.READ", "DOCUMENT.UPDATE",
-                            "CONTRACT.READ", "CONTRACT.UPDATE",
-                            "REPORT.READ", "REPORT.EXPORT",
-                            "AI.READ", "AI.WRITE"
-                    )
+                    RolePermissionMatrix.permissionsFor("PROJECT_MANAGER")
             ),
             new DefaultProfile(
                     "SCHEDULER",
                     "Scheduler / Planner",
                     "Schedule development, baseline management, schedule analytics.",
                     "SCHEDULER",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.CREATE", "ACTIVITY.READ", "ACTIVITY.UPDATE", "ACTIVITY.DELETE",
-                            "SCHEDULE.READ", "SCHEDULE.UPDATE",
-                            "BASELINE.CREATE", "BASELINE.READ", "BASELINE.UPDATE", "BASELINE.DELETE",
-                            "RESOURCE.READ",
-                            "EVM.READ",
-                            "REPORT.READ", "REPORT.EXPORT",
-                            "AI.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("SCHEDULER")
             ),
             new DefaultProfile(
                     "RESOURCE_MANAGER",
                     "Resource Manager",
                     "Labor, material and equipment pool management; deployment and rates.",
                     "RESOURCE_MANAGER",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ",
-                            "RESOURCE.CREATE", "RESOURCE.READ", "RESOURCE.UPDATE", "RESOURCE.DELETE",
-                            "COST.READ",
-                            "ADMIN_MASTER.READ", "ADMIN_MASTER.UPDATE",
-                            "REPORT.READ", "REPORT.EXPORT"
-                    )
+                    RolePermissionMatrix.permissionsFor("RESOURCE_MANAGER")
             ),
             new DefaultProfile(
                     "COST_CONTROLLER",
                     "Cost Controller",
                     "Budget, cost accounts, EVM, variance reporting, contract financials.",
                     "FINANCE",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ",
-                            "COST.CREATE", "COST.READ", "COST.UPDATE", "COST.DELETE", "COST.EXPORT",
-                            "EVM.READ", "EVM.UPDATE", "EVM.EXPORT",
-                            "CONTRACT.READ", "CONTRACT.UPDATE",
-                            "REPORT.READ", "REPORT.EXPORT",
-                            "AI.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("FINANCE")
             ),
             new DefaultProfile(
                     "RISK_MANAGER",
                     "Risk Manager",
                     "Risk register, scoring, Monte Carlo, mitigation tracking.",
                     "PMO",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ",
-                            "RISK.CREATE", "RISK.READ", "RISK.UPDATE", "RISK.DELETE", "RISK.APPROVE",
-                            "COST.READ",
-                            "EVM.READ",
-                            "REPORT.READ", "REPORT.EXPORT",
-                            "AI.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("PMO")
             ),
             new DefaultProfile(
                     "DOCUMENT_CONTROLLER",
                     "Document Controller",
                     "Document repository, RFIs, transmittals, drawing register, contracts.",
                     "TEAM_MEMBER",
-                    of(
-                            "PROJECT.READ",
-                            "DOCUMENT.CREATE", "DOCUMENT.READ", "DOCUMENT.UPDATE", "DOCUMENT.DELETE",
-                            "CONTRACT.CREATE", "CONTRACT.READ", "CONTRACT.UPDATE",
-                            "REPORT.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("TEAM_MEMBER")
             ),
             new DefaultProfile(
                     "SITE_ENGINEER",
                     "Site Engineer",
                     "Field execution: activity progress, resource consumption, site documents.",
                     "SITE_ENGINEER",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ", "ACTIVITY.UPDATE",
-                            "SCHEDULE.READ",
-                            "RESOURCE.READ", "RESOURCE.UPDATE",
-                            "DOCUMENT.CREATE", "DOCUMENT.READ", "DOCUMENT.UPDATE",
-                            "REPORT.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("SITE_ENGINEER")
             ),
             new DefaultProfile(
                     "EXECUTIVE_VIEWER",
                     "Executive Viewer",
                     "Read-only across the platform with report export.",
                     "VIEWER",
-                    union(
-                            readOnly(),
-                            of("REPORT.EXPORT", "EVM.EXPORT")
-                    )
+                    RolePermissionMatrix.permissionsFor("VIEWER")
             ),
             new DefaultProfile(
                     "SITE_MANAGER",
                     "Site Manager",
                     "Daily site execution: crew & machine deployment, materials, DPR ownership.",
                     "SITE_MANAGER",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ", "ACTIVITY.UPDATE",
-                            "SCHEDULE.READ",
-                            "RESOURCE.READ", "RESOURCE.UPDATE",
-                            "COST.READ",
-                            "DOCUMENT.CREATE", "DOCUMENT.READ", "DOCUMENT.UPDATE",
-                            "REPORT.READ",
-                            "AI.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("SITE_MANAGER")
             ),
             new DefaultProfile(
                     "PROJECT_ENGINEER",
                     "Project Engineer",
                     "Design–execution bridge: activity & DPR review, yield variance, output norms.",
                     "PROJECT_ENGINEER",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ", "ACTIVITY.UPDATE",
-                            "SCHEDULE.READ",
-                            "RESOURCE.READ",
-                            "COST.READ",
-                            "EVM.READ",
-                            "DOCUMENT.READ",
-                            "YIELD_VARIANCE.READ",
-                            "REPORT.READ",
-                            "AI.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("PROJECT_ENGINEER")
             ),
             new DefaultProfile(
-                    "QC_MANAGER",
+                    "QA_QC_ENGINEER",
                     "Quality Control Manager",
                     "Process adherence and traceability: NCRs, QC annotations on DPRs, audit trails.",
-                    "QC_MANAGER",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ",
-                            "RESOURCE.READ",
-                            "DOCUMENT.READ",
-                            "RISK.READ",
-                            "NCR.CREATE", "NCR.READ", "NCR.UPDATE", "NCR.APPROVE",
-                            "DPR.QC_ANNOTATE",
-                            "REPORT.READ",
-                            "AI.READ"
-                    )
+                    "QA_QC_ENGINEER",
+                    RolePermissionMatrix.permissionsFor("QA_QC_ENGINEER")
             ),
             new DefaultProfile(
                     "BIM_DATA_COORDINATOR",
                     "BIM / Data Coordinator",
                     "Data-integrity steward: DPR completeness audits, model linkage, data lag.",
                     "BIM_DATA_COORDINATOR",
-                    of(
-                            "PROJECT.READ",
-                            "ACTIVITY.READ",
-                            "RESOURCE.READ",
-                            "DOCUMENT.CREATE", "DOCUMENT.READ", "DOCUMENT.UPDATE",
-                            "ADMIN_MASTER.READ",
-                            "DATA_QUALITY.READ", "DATA_QUALITY.AUDIT",
-                            "REPORT.READ",
-                            "AI.READ"
-                    )
+                    RolePermissionMatrix.permissionsFor("BIM_DATA_COORDINATOR")
+            ),
+            new DefaultProfile(
+                    "PLANNING_ENGINEER",
+                    "Planning Engineer",
+                    "Schedule development, baseline creation, planning analytics across project lifecycle.",
+                    "PLANNING_ENGINEER",
+                    RolePermissionMatrix.permissionsFor("PLANNING_ENGINEER")
+            ),
+            new DefaultProfile(
+                    "SUPERVISOR",
+                    "Supervisor",
+                    "Field supervision: crew oversight, DPR submission, on-site issue tracking.",
+                    "SUPERVISOR",
+                    RolePermissionMatrix.permissionsFor("SUPERVISOR")
+            ),
+            new DefaultProfile(
+                    "FOREMAN",
+                    "Foreman",
+                    "Crew-level coordination: minimal access for DPR submission and safety logging.",
+                    "FOREMAN",
+                    RolePermissionMatrix.permissionsFor("FOREMAN")
+            ),
+            new DefaultProfile(
+                    "STORE_MANAGER",
+                    "Store Manager",
+                    "Inventory and material store management: GRN, MRR, material consumption.",
+                    "STORE_MANAGER",
+                    RolePermissionMatrix.permissionsFor("STORE_MANAGER")
+            ),
+            new DefaultProfile(
+                    "PROCUREMENT_OFFICER",
+                    "Procurement Officer",
+                    "Material purchasing, vendor coordination, contract intake.",
+                    "PROCUREMENT_OFFICER",
+                    RolePermissionMatrix.permissionsFor("PROCUREMENT_OFFICER")
+            ),
+            new DefaultProfile(
+                    "SAFETY_OFFICER",
+                    "Safety Officer",
+                    "HSE compliance: incident logging, safety inspections, permit approvals.",
+                    "SAFETY_OFFICER",
+                    RolePermissionMatrix.permissionsFor("SAFETY_OFFICER")
+            ),
+            new DefaultProfile(
+                    "CONTRACTOR",
+                    "Contractor",
+                    "External contractor: scoped access to assigned activities, DPR review, document upload.",
+                    "CONTRACTOR",
+                    RolePermissionMatrix.permissionsFor("CONTRACTOR")
+            ),
+            new DefaultProfile(
+                    "CLIENT",
+                    "Client",
+                    "External client: read-only on assigned projects with report export.",
+                    "CLIENT",
+                    RolePermissionMatrix.permissionsFor("CLIENT")
             )
     );
-
-    private static Set<String> of(String... codes) {
-        return Set.of(codes);
-    }
-
-    private static Set<String> allFor(String module) {
-        String prefix = module + ".";
-        return PermissionCatalog.ALL_CODES.stream()
-                .filter(c -> c.startsWith(prefix))
-                .collect(Collectors.toSet());
-    }
-
-    private static Set<String> readOnly() {
-        return PermissionCatalog.ALL_CODES.stream()
-                .filter(c -> c.endsWith(".READ"))
-                .collect(Collectors.toSet());
-    }
-
-    @SafeVarargs
-    private static Set<String> union(Set<String>... sets) {
-        return java.util.Arrays.stream(sets)
-                .flatMap(Set::stream)
-                .collect(Collectors.toSet());
-    }
 
     static int defaultCount() {
         return DEFAULTS.size();

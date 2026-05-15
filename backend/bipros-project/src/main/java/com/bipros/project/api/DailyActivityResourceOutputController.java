@@ -34,7 +34,7 @@ public class DailyActivityResourceOutputController {
   private final DailyActivityResourceOutputService service;
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.CREATE')")
   public ResponseEntity<ApiResponse<DailyActivityResourceOutputResponse>> create(
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateDailyActivityResourceOutputRequest request) {
@@ -45,7 +45,7 @@ public class DailyActivityResourceOutputController {
   }
 
   @PostMapping("/bulk")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.CREATE')")
   public ResponseEntity<ApiResponse<List<DailyActivityResourceOutputResponse>>> createBulk(
       @PathVariable UUID projectId,
       @Valid @RequestBody List<CreateDailyActivityResourceOutputRequest> requests) {
@@ -71,7 +71,7 @@ public class DailyActivityResourceOutputController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(
       @PathVariable UUID projectId, @PathVariable UUID id) {
     service.delete(projectId, id);

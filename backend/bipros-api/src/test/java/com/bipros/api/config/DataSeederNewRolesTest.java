@@ -17,7 +17,7 @@ class DataSeederNewRolesTest {
     @Test
     void seedsAllFourNewRoles() {
         for (String name : new String[]{
-                "SITE_MANAGER", "PROJECT_ENGINEER", "QC_MANAGER", "BIM_DATA_COORDINATOR"
+                "SITE_MANAGER", "PROJECT_ENGINEER", "QA_QC_ENGINEER", "BIM_DATA_COORDINATOR"
         }) {
             assertTrue(roleRepository.findByName(name).isPresent(),
                     "Missing role after seed: " + name);

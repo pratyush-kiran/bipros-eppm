@@ -13,6 +13,7 @@ import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
+import { useAuthStore } from "@/lib/state/store";
 
 interface WeatherForm {
   logDate: string;
@@ -49,6 +50,8 @@ const toNumberOrNull = (value: string): number | null => {
 };
 
 export default function WeatherLogPage() {
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canWrite = hasPermission("DPR.UPDATE");
   const params = useParams();
   const projectId = params.projectId as string;
 
@@ -175,16 +178,19 @@ export default function WeatherLogPage() {
     {
       id: "actions",
       header: "Actions",
-      cell: ({ row }) => (
-        <button
-          onClick={() => handleDelete(row.original.id)}
-          className="text-danger hover:underline text-sm"
-        >
-          Delete
-        </button>
-      ),
+      cell: ({ row }) =>
+        canWrite ? (
+          <button
+            onClick={() => handleDelete(row.original.id)}
+            className="text-danger hover:underline text-sm"
+          >
+            Delete
+          </button>
+        ) : (
+          <span className="text-text-muted text-sm">—</span>
+        ),
     },
-  ], [handleDelete]);
+  ], [handleDelete, canWrite]);
 
   return (
     <div className="p-6">
@@ -222,15 +228,17 @@ export default function WeatherLogPage() {
           >
             Apply
           </button>
-          <button
-            onClick={() => {
-              setShowForm(!showForm);
-              setError(null);
-            }}
-            className="px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent-hover ml-auto"
-          >
-            {showForm ? "Cancel" : "Add / Update Entry"}
-          </button>
+          {canWrite && (
+            <button
+              onClick={() => {
+                setShowForm(!showForm);
+                setError(null);
+              }}
+              className="px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent-hover ml-auto"
+            >
+              {showForm ? "Cancel" : "Add / Update Entry"}
+            </button>
+          )}
         </div>
 
         {error && <div className="text-danger mb-4">{error}</div>}

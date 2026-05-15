@@ -25,7 +25,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/schedule-scenarios")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SCHEDULER')")
 @RequiredArgsConstructor
 @Slf4j
 public class ScenarioController {
@@ -33,6 +32,7 @@ public class ScenarioController {
   private final ScenarioService scenarioService;
 
   @PostMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.UPDATE')")
   public ResponseEntity<ApiResponse<ScheduleScenarioResponse>> createScenario(
       @PathVariable UUID projectId,
       @RequestBody CreateScenarioRequest request) {
@@ -43,6 +43,7 @@ public class ScenarioController {
   }
 
   @GetMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ResponseEntity<ApiResponse<List<ScheduleScenarioResponse>>> listScenarios(
       @PathVariable UUID projectId) {
     log.info("Listing scenarios for project: {}", projectId);
@@ -51,6 +52,7 @@ public class ScenarioController {
   }
 
   @GetMapping("/{scenarioId}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ResponseEntity<ApiResponse<ScheduleScenarioResponse>> getScenario(
       @PathVariable UUID projectId,
       @PathVariable UUID scenarioId) {
@@ -60,6 +62,7 @@ public class ScenarioController {
   }
 
   @PutMapping("/{scenarioId}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.UPDATE')")
   public ResponseEntity<ApiResponse<ScheduleScenarioResponse>> updateScenario(
       @PathVariable UUID projectId,
       @PathVariable UUID scenarioId,
@@ -70,6 +73,7 @@ public class ScenarioController {
   }
 
   @PostMapping("/compare")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ResponseEntity<ApiResponse<ScenarioComparisonResponse>> compareScenarios(
       @PathVariable UUID projectId,
       @RequestParam UUID scenario1,

@@ -10,7 +10,7 @@ import { activityApi } from "@/lib/api/activityApi";
 import type { CreateActivityRequest } from "@/lib/api/activityApi";
 import { workActivityApi } from "@/lib/api/workActivityApi";
 import { calendarApi } from "@/lib/api/calendarApi";
-import { projectResourceApi } from "@/lib/api/projectResourceApi";
+import { userApi } from "@/lib/api/userApi";
 import type { WbsNodeResponse } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils/error";
 import { activityNotifications, notificationHelpers } from "@/lib/notificationHelpers";
@@ -34,8 +34,8 @@ export default function NewActivityPage() {
     plannedFinishDate: string;
     workActivityId: string;
     calendarId: string;
-    supervisorResourceId: string;
-    supervisorResourceName: string;
+    supervisorUserId: string;
+    supervisorUserName: string;
   }>({
     code: "",
     name: "",
@@ -48,8 +48,8 @@ export default function NewActivityPage() {
     plannedFinishDate: "",
     workActivityId: "",
     calendarId: "",
-    supervisorResourceId: "",
-    supervisorResourceName: "",
+    supervisorUserId: "",
+    supervisorUserName: "",
   });
 
   const [error, setError] = useState("");
@@ -81,22 +81,18 @@ export default function NewActivityPage() {
   });
   const projectCalendarId = projectData?.data?.calendarId;
 
-  // Project pool, filtered to LABOR/Manpower resources for the Supervisor picker. The
-  // resourceTypeName check is intentionally permissive (Labor / Labour / Manpower variants).
-  const { data: poolData, isLoading: isLoadingPool } = useQuery({
-    queryKey: ["resource-pool", projectId],
-    queryFn: () => projectResourceApi.listPool(projectId),
-    enabled: !!projectId,
+  // Phase 4.4 RBAC: supervisor candidates are Users carrying SUPERVISOR / FOREMAN /
+  // SITE_ENGINEER / SITE_MANAGER. The picker source moved off the project resource pool —
+  // see the SetSupervisorDialog component for the canonical pattern.
+  const { data: supervisorUsers, isLoading: isLoadingPool } = useQuery({
+    queryKey: ["users-by-role", "supervisor-pool"],
+    queryFn: () =>
+      userApi.listByRoles(["SUPERVISOR", "FOREMAN", "SITE_ENGINEER", "SITE_MANAGER"]),
   });
-  const supervisorOptions = (poolData?.data ?? [])
-    .filter((p) => {
-      const t = (p.resourceTypeName ?? "").toLowerCase();
-      return t.includes("labor") || t.includes("labour") || t.includes("manpower");
-    })
-    .map((p) => ({
-      value: p.resourceId,
-      label: `${p.resourceCode ? p.resourceCode + " — " : ""}${p.resourceName ?? p.resourceId}`,
-    }));
+  const supervisorOptions = (supervisorUsers ?? []).map((u) => ({
+    value: u.id,
+    label: u.employeeCode ? `${u.employeeCode} — ${u.name}` : u.name,
+  }));
 
   // Flatten WBS tree for dropdown
   const flattenedWbs = flattenWbsNodes(wbsNodes);
@@ -145,8 +141,8 @@ export default function NewActivityPage() {
         plannedFinishDate: formData.plannedFinishDate || undefined,
         workActivityId: formData.workActivityId || undefined,
         calendarId: formData.calendarId || undefined,
-        supervisorResourceId: formData.supervisorResourceId || undefined,
-        supervisorResourceName: formData.supervisorResourceName || undefined,
+        supervisorUserId: formData.supervisorUserId || undefined,
+        supervisorUserName: formData.supervisorUserName || undefined,
       };
 
       const result = await activityApi.createActivity(projectId, createRequest);
@@ -306,30 +302,31 @@ export default function NewActivityPage() {
           <div className="grid grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-text-secondary">
-                Supervisor (Manpower / Labor)
+                Supervisor
               </label>
               <SearchableSelect
-                value={formData.supervisorResourceId}
+                value={formData.supervisorUserId}
                 onChange={(val) => {
-                  const pooled = (poolData?.data ?? []).find((p) => p.resourceId === val);
+                  const picked = (supervisorUsers ?? []).find((u) => u.id === val);
                   setFormData((prev) => ({
                     ...prev,
-                    supervisorResourceId: val,
-                    supervisorResourceName: pooled?.resourceName ?? "",
+                    supervisorUserId: val,
+                    supervisorUserName: picked?.name ?? "",
                   }));
                 }}
                 placeholder={
                   isLoadingPool
-                    ? "Loading project pool..."
+                    ? "Loading users..."
                     : supervisorOptions.length
-                      ? "Search labor resources..."
-                      : "No labor resources in project pool"
+                      ? "Search supervisors..."
+                      : "No users with supervisor roles"
                 }
                 options={[{ value: "", label: "— none —" }, ...supervisorOptions]}
                 disabled={isLoadingPool || supervisorOptions.length === 0}
               />
               <p className="mt-1 text-xs text-text-muted">
-                Field-accountable supervisor. Picker shows only Labor resources from this project&apos;s pool. Leave empty if no supervisor.
+                Field-accountable supervisor. Picker lists users carrying SUPERVISOR /
+                FOREMAN / SITE_ENGINEER / SITE_MANAGER roles. Leave empty if no supervisor.
               </p>
             </div>
           </div>

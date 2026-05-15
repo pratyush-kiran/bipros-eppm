@@ -583,7 +583,7 @@ export const resourceApi = {
    * Active LABOR resources whose role code is SUPERVISOR or FOREMAN, scoped to the project's
    * resource pool (falls back to project-agnostic when the project has no allocations yet).
    * Powers the DPR form's Supervisor dropdown — free-text "Other" entries on the form leave
-   * supervisorResourceId null.
+   * supervisorUserId null.
    */
   getEligibleSupervisors: (projectId: string) =>
     apiClient

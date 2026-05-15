@@ -1,5 +1,6 @@
 package com.bipros.security.infrastructure.jwt;
 
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.security.domain.model.User;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -18,6 +19,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Component
@@ -30,6 +33,7 @@ public class JwtTokenProvider {
 
     private final JwtProperties jwtProperties;
     private final Environment environment;
+    private final CurrentUserService currentUserService;
 
     /**
      * Refuse to start in prod with the dev JWT default — any token signed with this key would be
@@ -62,6 +66,14 @@ public class JwtTokenProvider {
                 .map(userRole -> userRole.getRole().getName())
                 .collect(Collectors.toList());
         claims.put("roles", roles);
+
+        // Embed the user's effective permission set (role-matrix ∪ profile) as a sorted, comma-joined
+        // string so a thin client can split deterministically without re-issuing a /me call.
+        // SecurityContext is NOT populated at login-time JWT issuance, so we resolve permissions
+        // directly from the User reference via CurrentUserService.permissionsFor(user).
+        Set<String> perms = currentUserService.permissionsFor(user);
+        String permsClaim = String.join(",", new TreeSet<>(perms));
+        claims.put("perms", permsClaim);
 
         return buildToken(claims, user.getUsername(), jwtProperties.getAccessTokenExpiration());
     }

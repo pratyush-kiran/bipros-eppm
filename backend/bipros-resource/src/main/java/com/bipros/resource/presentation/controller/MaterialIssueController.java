@@ -27,7 +27,7 @@ public class MaterialIssueController {
 
     private final MaterialIssueService service;
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     @GetMapping("/projects/{projectId}/issues")
     public ResponseEntity<ApiResponse<List<MaterialIssueResponse>>> listByProject(
             @PathVariable UUID projectId) {
@@ -35,7 +35,7 @@ public class MaterialIssueController {
     }
 
     @PostMapping("/projects/{projectId}/issues")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','STORE_KEEPER','SITE_SUPERVISOR')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     public ResponseEntity<ApiResponse<MaterialIssueResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody CreateMaterialIssueRequest request) {
@@ -44,11 +44,13 @@ public class MaterialIssueController {
     }
 
     @GetMapping("/issues/{id}")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<MaterialIssueResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
     @GetMapping("/materials/{materialId}/issues")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<List<MaterialIssueResponse>>> listByMaterial(
             @PathVariable UUID materialId) {
         return ResponseEntity.ok(ApiResponse.ok(service.listByMaterial(materialId)));

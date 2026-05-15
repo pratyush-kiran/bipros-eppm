@@ -27,7 +27,7 @@ public class GoodsReceiptController {
 
     private final GoodsReceiptService service;
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     @GetMapping("/projects/{projectId}/grns")
     public ResponseEntity<ApiResponse<List<GoodsReceiptResponse>>> listByProject(
             @PathVariable UUID projectId) {
@@ -35,7 +35,7 @@ public class GoodsReceiptController {
     }
 
     @PostMapping("/projects/{projectId}/grns")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','STORE_KEEPER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     public ResponseEntity<ApiResponse<GoodsReceiptResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody CreateGoodsReceiptRequest request) {
@@ -44,11 +44,13 @@ public class GoodsReceiptController {
     }
 
     @GetMapping("/grns/{id}")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<GoodsReceiptResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
     @GetMapping("/materials/{materialId}/grns")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<List<GoodsReceiptResponse>>> listByMaterial(
             @PathVariable UUID materialId) {
         return ResponseEntity.ok(ApiResponse.ok(service.listByMaterial(materialId)));

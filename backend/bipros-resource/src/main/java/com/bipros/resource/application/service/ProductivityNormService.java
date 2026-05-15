@@ -154,13 +154,17 @@ public class ProductivityNormService {
   }
 
   private ProductivityNorm toEntity(ProductivityNorm norm, CreateProductivityNormRequest r) {
+    // Legacy scope guards stay for back-compat: a single row should not mix Type and Resource
+    // (mutually exclusive default vs override). The role-keyed scope (roleId + variant) is a
+    // separate axis — it can coexist with legacy fields on imported rows but new rows from the
+    // admin form will use exactly one of {legacy Type, legacy Resource, role-keyed, unscoped}.
     if (r.resourceTypeId() != null && r.resourceId() != null) {
       throw new BusinessRuleException("NORM_SCOPE_AMBIGUOUS",
           "Provide either resourceTypeId (default scope) or resourceId (override) — not both");
     }
 
     WorkActivity workActivity = resolveWorkActivity(r);
-    enforceScopeUniqueness(norm, workActivity.getId(), r.resourceTypeId(), r.resourceId());
+    enforceScopeUniqueness(norm, workActivity.getId(), r);
     norm.setWorkActivity(workActivity);
     norm.setActivityName(workActivity.getName());
 
@@ -172,6 +176,12 @@ public class ProductivityNormService {
         : resourceRepository.findById(r.resourceId())
             .orElseThrow(() -> new ResourceNotFoundException("Resource", r.resourceId()));
     norm.setResource(resource);
+
+    norm.setRoleId(r.roleId());
+    norm.setCategoryId(r.categoryId());
+    norm.setGradeId(r.gradeId());
+    norm.setMake(blankToNull(r.make()));
+    norm.setModel(blankToNull(r.model()));
 
     norm.setNormType(r.normType());
     norm.setUnit(r.unit());
@@ -198,7 +208,9 @@ public class ProductivityNormService {
   }
 
   private void enforceScopeUniqueness(
-      ProductivityNorm current, UUID workActivityId, UUID resourceTypeId, UUID resourceId) {
+      ProductivityNorm current, UUID workActivityId, CreateProductivityNormRequest r) {
+    UUID resourceTypeId = r.resourceTypeId();
+    UUID resourceId = r.resourceId();
     if (resourceId != null) {
       repository.findFirstByWorkActivityIdAndResourceId(workActivityId, resourceId)
           .filter(existing -> !existing.getId().equals(current.getId()))
@@ -214,7 +226,47 @@ public class ProductivityNormService {
             throw new BusinessRuleException("NORM_SCOPE_DUPLICATE_TYPE",
                 "A productivity norm already exists for this activity + resource type");
           });
+    } else if (r.roleId() != null) {
+      // Variant scope (roleId + categoryId/gradeId for manpower, or make/model for equipment).
+      repository
+          .findFirstByWorkActivityIdAndRoleIdAndCategoryIdAndGradeIdAndMakeAndModelAndNormType(
+              workActivityId,
+              r.roleId(),
+              r.categoryId(),
+              r.gradeId(),
+              blankToNull(r.make()),
+              blankToNull(r.model()),
+              r.normType())
+          .filter(existing -> !existing.getId().equals(current.getId()))
+          .ifPresent(existing -> {
+            throw new BusinessRuleException("NORM_SCOPE_DUPLICATE_VARIANT",
+                "A productivity norm already exists for this activity + role + variant");
+          });
+    } else {
+      // Fully unscoped: no legacy scope, no role-keyed scope. Two unscoped rows for the same
+      // (workActivity, normType) silently race because the resolver does ORDER BY created_at
+      // LIMIT 1 and ignores the rest. If the admin needs to differentiate productivity
+      // (e.g. a fast crew vs a regular crew), they should use Variant scope.
+      repository
+          .findFirstByWorkActivityIdAndRoleIdIsNullAndCategoryIdIsNullAndGradeIdIsNullAndMakeIsNullAndModelIsNullAndNormType(
+              workActivityId, r.normType())
+          .filter(existing -> !existing.getId().equals(current.getId()))
+          // The existing finder also matches legacy rows that have resource_type_id or
+          // resource_id set. Treat those as "different scope" so the check only blocks
+          // truly-unscoped duplicates.
+          .filter(existing -> existing.getResource() == null && existing.getResourceType() == null)
+          .ifPresent(existing -> {
+            throw new BusinessRuleException("NORM_SCOPE_DUPLICATE_UNSCOPED",
+                "An unscoped " + r.normType()
+                    + " productivity norm already exists for this Work Activity. Delete the "
+                    + "existing one first, or use Variant scope (Role + skill/grade or make/model) "
+                    + "to differentiate.");
+          });
     }
+  }
+
+  private static String blankToNull(String s) {
+    return (s == null || s.isBlank()) ? null : s.trim();
   }
 
   private WorkActivity resolveWorkActivity(CreateProductivityNormRequest r) {

@@ -15,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/reporting/analytics")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class AnalyticsController {
 
@@ -25,6 +24,7 @@ public class AnalyticsController {
    * Submit a natural language analytics query
    */
   @PostMapping("/query")
+  @PreAuthorize("hasPermission(null, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<AnalyticsQueryDto>> submitQuery(
       @Valid @RequestBody AnalyticsQueryRequest request) {
     String userId = "anonymous";
@@ -36,6 +36,7 @@ public class AnalyticsController {
    * Get query history for current user
    */
   @GetMapping("/queries")
+  @PreAuthorize("hasPermission(null, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<List<AnalyticsQueryDto>>> getQueryHistory(
       @RequestParam(defaultValue = "20") int limit) {
     String userId = "anonymous";

@@ -32,14 +32,14 @@ public class RiskScoringMatrixController {
     private final RiskScoringMatrixService matrixService;
 
     @GetMapping("/matrix")
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<List<RiskScoringMatrixDto>>> getMatrix(
         @PathVariable UUID projectId) {
         return ResponseEntity.ok(ApiResponse.ok(matrixService.getMatrix(projectId)));
     }
 
     @PutMapping("/matrix")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.UPDATE')")
     public ResponseEntity<ApiResponse<List<RiskScoringMatrixDto>>> updateMatrix(
         @PathVariable UUID projectId,
         @RequestBody @Valid @NotEmpty List<RiskScoringMatrixDto> cells) {
@@ -47,7 +47,7 @@ public class RiskScoringMatrixController {
     }
 
     @GetMapping("/config")
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.READ')")
     public ResponseEntity<ApiResponse<RiskScoringConfigDto>> getConfig(
         @PathVariable UUID projectId) {
         RiskScoringConfig config = matrixService.getConfig(projectId);
@@ -55,7 +55,7 @@ public class RiskScoringMatrixController {
     }
 
     @PutMapping("/config")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RISK.UPDATE')")
     public ResponseEntity<ApiResponse<RiskScoringConfigDto>> updateConfig(
         @PathVariable UUID projectId,
         @RequestBody Map<String, String> body) {

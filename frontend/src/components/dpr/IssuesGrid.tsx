@@ -22,9 +22,9 @@ const blank = (): DprIssueRow => ({
   category: "OTHER",
   severity: "MEDIUM",
   status: "OPEN",
-  supervisorResourceId: null,
+  supervisorUserId: null,
   supervisorName: null,
-  assignedToResourceId: null,
+  assignedToUserId: null,
   assignedToName: null,
   resolutionNotes: null,
 });
@@ -68,7 +68,7 @@ export function IssuesGrid({ rows, onChange, supervisorOptions, defaultSuperviso
     );
     update(idx, {
       assignedToName: name || null,
-      assignedToResourceId: match?.value ?? null,
+      assignedToUserId: match?.value ?? null,
     });
   };
 

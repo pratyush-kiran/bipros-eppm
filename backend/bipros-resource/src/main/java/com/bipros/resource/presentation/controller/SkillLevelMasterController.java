@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/admin/skill-levels")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class SkillLevelMasterController {
@@ -42,7 +42,7 @@ public class SkillLevelMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<SkillLevelMasterResponse>> create(
       @Valid @RequestBody SkillLevelMasterRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
@@ -50,14 +50,14 @@ public class SkillLevelMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<SkillLevelMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody SkillLevelMasterRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(service.update(id, request)));
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     service.delete(id);
     return ResponseEntity.ok(ApiResponse.ok(null));

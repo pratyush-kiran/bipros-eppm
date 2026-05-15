@@ -12,12 +12,30 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
-import java.util.stream.Collectors;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
+
+    // TODO: remove these aliases after Phase 3 controller sweep completes
+    // (legacy @PreAuthorize strings will be replaced with hasPermission(...))
+    // Keys and values are role NAMES (without the "ROLE_" prefix); the prefix
+    // is added uniformly when authorities are emitted below.
+    private static final Map<String, List<String>> ROLE_ALIASES = Map.of(
+            // Bidirectional renames (both spellings may appear in @PreAuthorize)
+            "QC_MANAGER", List.of("QA_QC_ENGINEER"),
+            "QA_QC_ENGINEER", List.of("QC_MANAGER"),
+            "HSE_OFFICER", List.of("SAFETY_OFFICER"),
+            "SAFETY_OFFICER", List.of("HSE_OFFICER"),
+            // One-way legacy strings (canonical role -> legacy authority only)
+            "SUPERVISOR", List.of("SITE_SUPERVISOR"),
+            "FINANCE", List.of("COST_ENGINEER"),
+            "STORE_MANAGER", List.of("STORE_KEEPER")
+    );
 
     private final UserRepository userRepository;
 
@@ -29,14 +47,20 @@ public class CustomUserDetailsService implements UserDetailsService {
                     return new UsernameNotFoundException("User not found with username: " + username);
                 });
 
-        Collection<GrantedAuthority> authorities = user.getRoles().stream()
-                .map(userRole -> new SimpleGrantedAuthority("ROLE_" + userRole.getRole().getName()))
-                .collect(Collectors.toList());
+        LinkedHashSet<GrantedAuthority> authorities = new LinkedHashSet<>();
+        for (var userRole : user.getRoles()) {
+            String roleName = userRole.getRole().getName();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + roleName));
+            for (String alias : ROLE_ALIASES.getOrDefault(roleName, List.of())) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + alias));
+            }
+        }
+        Collection<GrantedAuthority> finalAuthorities = authorities;
 
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUsername())
                 .password(user.getPasswordHash())
-                .authorities(authorities)
+                .authorities(finalAuthorities)
                 .accountExpired(false)
                 .accountLocked(user.isAccountLocked())
                 .credentialsExpired(false)

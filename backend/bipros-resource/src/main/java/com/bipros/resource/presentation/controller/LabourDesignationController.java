@@ -32,7 +32,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/labour-designations")
-@PreAuthorize("hasAnyRole('ADMIN')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
 @RequiredArgsConstructor
 @Slf4j
 public class LabourDesignationController {
@@ -40,6 +40,7 @@ public class LabourDesignationController {
     private final LabourDesignationService service;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<PagedResponse<LabourDesignationResponse>>> list(
             @RequestParam(required = false) LabourCategory category,
             @RequestParam(required = false) LabourGrade grade,
@@ -52,12 +53,14 @@ public class LabourDesignationController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<LabourDesignationResponse>> get(@PathVariable UUID id) {
         log.info("GET /v1/labour-designations/{} - Fetching designation", id);
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
     @GetMapping("/by-code/{code}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<LabourDesignationResponse>> getByCode(@PathVariable String code) {
         log.info("GET /v1/labour-designations/by-code/{} - Fetching designation", code);
         return ResponseEntity.ok(ApiResponse.ok(service.getByCode(code)));

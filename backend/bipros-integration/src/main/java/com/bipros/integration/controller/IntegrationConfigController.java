@@ -21,33 +21,37 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/integrations")
-@PreAuthorize("hasAnyRole('ADMIN')")
 @RequiredArgsConstructor
 public class IntegrationConfigController {
 
     private final IntegrationConfigService integrationConfigService;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<List<IntegrationConfigDto>> listAll() {
         return ResponseEntity.ok(integrationConfigService.listAll());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<IntegrationConfigDto> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(integrationConfigService.getById(id));
     }
 
     @GetMapping("/system/{systemCode}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<IntegrationConfigDto> getBySystemCode(@PathVariable String systemCode) {
         return ResponseEntity.ok(integrationConfigService.getBySystemCode(systemCode));
     }
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<IntegrationConfigDto> create(@Valid @RequestBody IntegrationConfigDto dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(integrationConfigService.create(dto));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<IntegrationConfigDto> update(
         @PathVariable UUID id,
         @Valid @RequestBody IntegrationConfigDto dto
@@ -56,6 +60,7 @@ public class IntegrationConfigController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         integrationConfigService.delete(id);
         return ResponseEntity.noContent().build();

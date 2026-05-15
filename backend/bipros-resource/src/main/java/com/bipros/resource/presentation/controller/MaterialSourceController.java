@@ -36,7 +36,7 @@ public class MaterialSourceController {
 
     private final MaterialSourceService service;
 
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     @GetMapping("/projects/{projectId}/material-sources")
     public ResponseEntity<ApiResponse<List<MaterialSourceResponse>>> listByProject(
             @PathVariable UUID projectId,
@@ -45,7 +45,7 @@ public class MaterialSourceController {
     }
 
     @PostMapping("/projects/{projectId}/material-sources")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     public ResponseEntity<ApiResponse<MaterialSourceResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody CreateMaterialSourceRequest request) {
@@ -54,12 +54,13 @@ public class MaterialSourceController {
     }
 
     @GetMapping("/material-sources/{id}")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<MaterialSourceResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
     @PutMapping("/material-sources/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
     public ResponseEntity<ApiResponse<MaterialSourceResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody CreateMaterialSourceRequest request) {
@@ -67,7 +68,7 @@ public class MaterialSourceController {
     }
 
     @DeleteMapping("/material-sources/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null));

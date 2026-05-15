@@ -24,14 +24,14 @@ public class QcTestTypeController {
     private final QcTestTypeService service;
 
     @GetMapping
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.READ')")
     public ResponseEntity<ApiResponse<List<QcTestTypeResponse>>> list(
             @PathVariable UUID projectId) {
         return ResponseEntity.ok(ApiResponse.ok(service.listByProject(projectId)));
     }
 
     @PostMapping
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.CREATE')")
     public ResponseEntity<ApiResponse<QcTestTypeResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody CreateQcTestTypeRequest request) {
@@ -40,7 +40,7 @@ public class QcTestTypeController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.UPDATE')")
     public ResponseEntity<ApiResponse<QcTestTypeResponse>> update(
             @PathVariable UUID projectId,
             @PathVariable UUID id,
@@ -49,7 +49,7 @@ public class QcTestTypeController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.UPDATE')")
     public ResponseEntity<Void> delete(
             @PathVariable UUID projectId,
             @PathVariable UUID id) {

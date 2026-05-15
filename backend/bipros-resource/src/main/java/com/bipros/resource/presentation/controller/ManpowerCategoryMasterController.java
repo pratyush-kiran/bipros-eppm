@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/admin/manpower-categories")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ManpowerCategoryMasterController {
@@ -53,7 +53,7 @@ public class ManpowerCategoryMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ManpowerCategoryMasterResponse>> create(
       @Valid @RequestBody ManpowerCategoryMasterRequest request) {
     log.info("POST /v1/admin/manpower-categories - code={}", request.code());
@@ -62,14 +62,14 @@ public class ManpowerCategoryMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ManpowerCategoryMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody ManpowerCategoryMasterRequest request) {
     return ResponseEntity.ok(ApiResponse.ok(service.update(id, request)));
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     service.delete(id);
     return ResponseEntity.ok(ApiResponse.ok(null));

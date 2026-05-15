@@ -2,12 +2,15 @@ package com.bipros.security.infrastructure.config;
 
 import com.bipros.security.infrastructure.jwt.JwtAuthenticationFilter;
 import com.bipros.security.infrastructure.jwt.JwtProperties;
+import com.bipros.security.infrastructure.security.CustomPermissionEvaluator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -78,6 +81,20 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * Wires the {@link CustomPermissionEvaluator} into Spring Security's method-security SpEL so
+     * expressions like {@code @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")} resolve
+     * against the current user's effective permission set. Picked up automatically by
+     * {@code @EnableMethodSecurity} on {@code BiprosApplication}.
+     */
+    @Bean
+    public MethodSecurityExpressionHandler methodSecurityExpressionHandler(
+            CustomPermissionEvaluator permissionEvaluator) {
+        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
+        handler.setPermissionEvaluator(permissionEvaluator);
+        return handler;
     }
 
     @Bean

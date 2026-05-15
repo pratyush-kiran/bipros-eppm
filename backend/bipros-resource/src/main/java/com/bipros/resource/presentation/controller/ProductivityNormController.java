@@ -29,7 +29,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/productivity-norms")
-@PreAuthorize("isAuthenticated()")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ProductivityNormController {
@@ -38,7 +38,7 @@ public class ProductivityNormController {
   private final ProductivityNormLookupService lookupService;
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ProductivityNormResponse>> create(
       @Valid @RequestBody CreateProductivityNormRequest request) {
     log.info("POST /v1/productivity-norms - type={}, workActivityId={}",
@@ -47,7 +47,7 @@ public class ProductivityNormController {
   }
 
   @PostMapping("/bulk")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<List<ProductivityNormResponse>>> createBulk(
       @Valid @RequestBody List<CreateProductivityNormRequest> requests) {
     log.info("POST /v1/productivity-norms/bulk - count={}", requests.size());
@@ -95,7 +95,7 @@ public class ProductivityNormController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<ProductivityNormResponse>> update(
       @PathVariable UUID id,
       @Valid @RequestBody CreateProductivityNormRequest request) {
@@ -103,7 +103,7 @@ public class ProductivityNormController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     service.delete(id);
     return ResponseEntity.ok(ApiResponse.ok(null));

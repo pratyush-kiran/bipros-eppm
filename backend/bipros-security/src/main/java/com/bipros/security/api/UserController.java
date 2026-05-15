@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -58,11 +59,18 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "List users", description = "Retrieve a paginated list of all users (admin only)")
-    public ResponseEntity<ApiResponse<PagedResponse<UserResponse>>> listUsers(Pageable pageable) {
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.READ') "
+            + "or (#roles != null and #roles.length() > 0 and hasPermission(null, 'DPR.CREATE'))")
+    @Operation(summary = "List users",
+            description = "Retrieve a paginated list of users. Unfiltered listing requires "
+                    + "ADMIN_USER.READ. The role-filtered form (?roles=COMMA,SEPARATED,NAMES) "
+                    + "is also reachable by DPR.CREATE callers — it powers the DPR supervisor "
+                    + "picker on the project pages.")
+    public ResponseEntity<ApiResponse<PagedResponse<UserResponse>>> listUsers(
+            Pageable pageable,
+            @RequestParam(name = "roles", required = false) String roles) {
         try {
-            Page<UserResponse> page = userService.listUsers(pageable);
+            Page<UserResponse> page = userService.listUsers(pageable, roles);
             PagedResponse<UserResponse> response = PagedResponse.of(
                     page.getContent(),
                     page.getTotalElements(),
@@ -79,7 +87,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.READ')")
     @Operation(summary = "Get user by ID", description = "Retrieve a specific user by their ID")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable UUID id) {
         try {
@@ -93,7 +101,7 @@ public class UserController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.CREATE')")
     @Operation(summary = "Create user", description = "Create a new user (admin only).")
     public ResponseEntity<ApiResponse<UserResponse>> createUser(
             @Valid @RequestBody CreateUserRequest request) {
@@ -101,7 +109,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.UPDATE')")
     @Operation(summary = "Update personnel profile",
         description = "Update mobile, department, joining dates, presence status and other "
             + "Personnel Master (Screen 07) fields for a user.")
@@ -112,7 +120,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.UPDATE')")
     @Operation(summary = "Enable or disable a user")
     public ResponseEntity<ApiResponse<UserResponse>> updateStatus(
             @PathVariable UUID id,
@@ -121,7 +129,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}/roles")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.UPDATE')")
     @Operation(summary = "Replace the user's role set")
     public ResponseEntity<ApiResponse<UserResponse>> updateRoles(
             @PathVariable UUID id,
@@ -130,7 +138,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}/profile")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.UPDATE')")
     @Operation(summary = "Assign (or clear with null) a permission profile to a user")
     public ResponseEntity<ApiResponse<UserResponse>> assignProfile(
             @PathVariable UUID id,
@@ -139,7 +147,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}/access")
-    @PreAuthorize("hasRole('ADMIN') or #id == @currentUserService.getCurrentUserId()")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.READ') or #id == @currentUserService.getCurrentUserId()")
     @Operation(summary = "Get IC-PMS module access & corridor scope for a user")
     public ResponseEntity<ApiResponse<UserAccessResponse>> getUserAccess(@PathVariable UUID id) {
         try {

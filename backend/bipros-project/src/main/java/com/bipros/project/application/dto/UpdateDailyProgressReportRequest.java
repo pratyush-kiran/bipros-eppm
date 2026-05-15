@@ -30,7 +30,12 @@ import java.util.UUID;
 public record UpdateDailyProgressReportRequest(
     @NotNull LocalDate reportDate,
 
-    UUID supervisorResourceId,
+    /**
+     * Optional FK to {@code public.users.id} for the supervisor (Phase 4.1 cutover). When set,
+     * the service snapshots the user's current display name into {@code supervisorName}; when
+     * null, {@code supervisorName} is taken verbatim (free-text "Other" entry).
+     */
+    UUID supervisorUserId,
 
     @NotBlank String supervisorName,
 

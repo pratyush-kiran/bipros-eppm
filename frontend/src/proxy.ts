@@ -62,7 +62,67 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // Cross-portfolio / master-data UX guards. Each route prefix declares the
+  // permission its tiles in `hubConfig.ts` already require — duplicating here
+  // catches direct-URL navigation (bookmark, deep link). Backend remains the
+  // authoritative gate; this just spares the user a "loads then 403s" flow.
+  if (token && !isForbiddenPage) {
+    const required = requiredPermissionFor(pathname);
+    if (required) {
+      const perms = decodePermsFromJwt(token);
+      if (perms === null || (!perms.has('*') && !perms.has(required))) {
+        return NextResponse.redirect(new URL('/forbidden', request.url));
+      }
+    }
+  }
+
   return NextResponse.next();
+}
+
+/** Map of path prefix → permission code required to view it. Order matters:
+ *  the first prefix that matches wins. Keep prefixes specific to avoid
+ *  accidentally gating sub-routes that belong to a different perm domain. */
+const ROUTE_PERMISSION_PREFIXES: Array<readonly [string, string]> = [
+  ['/obs', 'ADMIN_ORG.READ'],
+  ['/portfolios', 'PORTFOLIO.READ'],
+  ['/eps', 'PORTFOLIO.READ'],
+  ['/labour-master', 'ADMIN_MASTER.READ'],
+  ['/resources', 'ADMIN_MASTER.READ'],
+  ['/dashboards', 'PORTFOLIO.READ'],
+  ['/dashboard', 'PORTFOLIO.READ'],
+  ['/analytics', 'AI.WRITE'],
+  ['/reports/risk-register', 'RISK.READ'],
+  ['/reports', 'REPORT.EXPORT'],
+];
+
+function requiredPermissionFor(pathname: string): string | null {
+  for (const [prefix, perm] of ROUTE_PERMISSION_PREFIXES) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
+      return perm;
+    }
+  }
+  return null;
+}
+
+/** Best-effort decode of the comma-joined `perms` claim. Returns null on any failure. */
+function decodePermsFromJwt(token: string): Set<string> | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payloadJson = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(payloadJson) as { perms?: unknown; roles?: unknown };
+    // ADMIN role bypasses — the backend matrix maps ADMIN to every code; keep this
+    // mirror so we don't have to enumerate them in the JWT to satisfy the guard.
+    if (Array.isArray(payload.roles) && payload.roles.some((r) => typeof r === 'string' && (r === 'ADMIN' || r === 'ROLE_ADMIN'))) {
+      return new Set(['*']);
+    }
+    if (typeof payload.perms !== 'string' || payload.perms.length === 0) return new Set();
+    const set = new Set(payload.perms.split(','));
+    // Sentinel so `set.has(perm)` for any perm returns true when admin.
+    return set;
+  } catch {
+    return null;
+  }
 }
 
 /** Best-effort JWT role extraction. Returns {@code null} on any decoding failure; the caller

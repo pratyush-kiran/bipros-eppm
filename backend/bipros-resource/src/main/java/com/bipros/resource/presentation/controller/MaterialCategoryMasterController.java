@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/material-category-master")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class MaterialCategoryMasterController {
@@ -42,7 +42,7 @@ public class MaterialCategoryMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<MaterialCategoryMasterResponse>> create(
       @Valid @RequestBody MaterialCategoryMasterRequest request) {
     log.info("POST /v1/material-category-master - code={}", request.code());
@@ -51,7 +51,7 @@ public class MaterialCategoryMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<MaterialCategoryMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody MaterialCategoryMasterRequest request) {
     log.info("PUT /v1/material-category-master/{}", id);
@@ -59,7 +59,7 @@ public class MaterialCategoryMasterController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     log.info("DELETE /v1/material-category-master/{}", id);
     service.delete(id);

@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/grade-master")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class GradeMasterController {
@@ -42,7 +42,7 @@ public class GradeMasterController {
   }
 
   @PostMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<GradeMasterResponse>> create(
       @Valid @RequestBody GradeMasterRequest request) {
     log.info("POST /v1/grade-master - code={}", request.code());
@@ -51,7 +51,7 @@ public class GradeMasterController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<GradeMasterResponse>> update(
       @PathVariable UUID id, @Valid @RequestBody GradeMasterRequest request) {
     log.info("PUT /v1/grade-master/{}", id);
@@ -59,7 +59,7 @@ public class GradeMasterController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
     log.info("DELETE /v1/grade-master/{}", id);
     service.delete(id);

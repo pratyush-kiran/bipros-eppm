@@ -14,7 +14,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/admin/analytics")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
 @RequiredArgsConstructor
 @Slf4j
 public class AnalyticsBackfillController {

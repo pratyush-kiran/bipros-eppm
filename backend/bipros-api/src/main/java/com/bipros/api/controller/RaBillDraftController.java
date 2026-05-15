@@ -24,13 +24,13 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/ra-bills")
-@PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','PROGRAMME_MANAGER','TEAM_MEMBER')")
 @RequiredArgsConstructor
 public class RaBillDraftController {
 
   private final RaBillDraftService draftService;
 
   @PostMapping("/generate-draft")
+  @PreAuthorize("hasPermission(null, 'CONTRACT.UPDATE')")
   public ResponseEntity<ApiResponse<DraftPreview>> generateDraft(
       @PathVariable UUID projectId,
       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

@@ -18,13 +18,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/gis/progress-snapshots")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ConstructionProgressController {
 
     private final ConstructionProgressService progressService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<ConstructionProgressResponse>> create(
         @PathVariable UUID projectId,
         @Valid @RequestBody ConstructionProgressRequest request
@@ -35,6 +35,7 @@ public class ConstructionProgressController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<ConstructionProgressResponse>>> getAll(
         @PathVariable UUID projectId,
         @RequestParam(required = false) LocalDate from,
@@ -50,6 +51,7 @@ public class ConstructionProgressController {
     }
 
     @GetMapping("/{snapshotId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<ConstructionProgressResponse>> getById(
         @PathVariable UUID projectId,
         @PathVariable UUID snapshotId
@@ -59,6 +61,7 @@ public class ConstructionProgressController {
     }
 
     @GetMapping("/wbs/{polygonId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<ConstructionProgressResponse>>> getByWbsPolygon(
         @PathVariable UUID projectId,
         @PathVariable UUID polygonId
@@ -68,6 +71,7 @@ public class ConstructionProgressController {
     }
 
     @PutMapping("/{snapshotId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<ConstructionProgressResponse>> update(
         @PathVariable UUID projectId,
         @PathVariable UUID snapshotId,
@@ -78,6 +82,7 @@ public class ConstructionProgressController {
     }
 
     @DeleteMapping("/{snapshotId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID snapshotId
@@ -87,6 +92,7 @@ public class ConstructionProgressController {
     }
 
     @GetMapping("/variance")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<ProgressVarianceResponse>>> getProgressVariance(
         @PathVariable UUID projectId
     ) {

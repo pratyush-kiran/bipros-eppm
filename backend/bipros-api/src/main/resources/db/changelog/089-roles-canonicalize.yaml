@@ -1,0 +1,129 @@
+databaseChangeLog:
+  # Phase 0.1 of the RBAC overhaul — canonicalize the public.roles catalogue.
+  #
+  # Renames:
+  #   QC_MANAGER  -> QA_QC_ENGINEER
+  #   HSE_OFFICER -> SAFETY_OFFICER
+  # Inserts five new roles required by the operational role matrix:
+  #   PLANNING_ENGINEER, SUPERVISOR, STORE_MANAGER, PROCUREMENT_OFFICER, CONTRACTOR
+  #
+  # Every changeset uses a precondition with onFail: MARK_RAN so a rerun on a
+  # database that already has the canonical state is a no-op (Liquibase records
+  # the changeset as ran and moves on). UUIDs for inserts use gen_random_uuid()
+  # (pgcrypto) which is enabled on every Postgres >= 13 by default.
+
+  - changeSet:
+      id: 089-1-rename-qc-manager
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 1
+            sql: SELECT COUNT(*) FROM public.roles WHERE name = 'QC_MANAGER'
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              UPDATE public.roles
+                 SET name = 'QA_QC_ENGINEER',
+                     description = 'Quality assurance / quality control engineer',
+                     updated_at = NOW()
+               WHERE name = 'QC_MANAGER';
+
+  - changeSet:
+      id: 089-2-rename-hse-officer
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 1
+            sql: SELECT COUNT(*) FROM public.roles WHERE name = 'HSE_OFFICER'
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              UPDATE public.roles
+                 SET name = 'SAFETY_OFFICER',
+                     description = 'Safety / HSE officer',
+                     updated_at = NOW()
+               WHERE name = 'HSE_OFFICER';
+
+  - changeSet:
+      id: 089-3-insert-planning-engineer
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM public.roles WHERE name = 'PLANNING_ENGINEER'
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO public.roles (id, name, description, created_at, updated_at, version)
+              VALUES (gen_random_uuid(), 'PLANNING_ENGINEER',
+                      'Schedule & planning engineer', NOW(), NOW(), 0);
+
+  - changeSet:
+      id: 089-4-insert-supervisor
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM public.roles WHERE name = 'SUPERVISOR'
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO public.roles (id, name, description, created_at, updated_at, version)
+              VALUES (gen_random_uuid(), 'SUPERVISOR',
+                      'Labor supervision', NOW(), NOW(), 0);
+
+  - changeSet:
+      id: 089-5-insert-store-manager
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM public.roles WHERE name = 'STORE_MANAGER'
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO public.roles (id, name, description, created_at, updated_at, version)
+              VALUES (gen_random_uuid(), 'STORE_MANAGER',
+                      'Inventory and material store management', NOW(), NOW(), 0);
+
+  - changeSet:
+      id: 089-6-insert-procurement-officer
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM public.roles WHERE name = 'PROCUREMENT_OFFICER'
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO public.roles (id, name, description, created_at, updated_at, version)
+              VALUES (gen_random_uuid(), 'PROCUREMENT_OFFICER',
+                      'Material purchasing', NOW(), NOW(), 0);
+
+  - changeSet:
+      id: 089-7-insert-contractor
+      author: bipros
+      preConditions:
+        - onFail: MARK_RAN
+        - sqlCheck:
+            expectedResult: 0
+            sql: SELECT COUNT(*) FROM public.roles WHERE name = 'CONTRACTOR'
+      changes:
+        - sql:
+            splitStatements: false
+            sql: |
+              INSERT INTO public.roles (id, name, description, created_at, updated_at, version)
+              VALUES (gen_random_uuid(), 'CONTRACTOR',
+                      'External work execution contractor', NOW(), NOW(), 0);

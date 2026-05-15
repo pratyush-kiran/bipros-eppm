@@ -27,7 +27,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/risk-templates")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
 @RequiredArgsConstructor
 @Slf4j
 public class RiskTemplateController {
@@ -35,6 +34,7 @@ public class RiskTemplateController {
     private final RiskTemplateService service;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<RiskTemplateResponse>>> list(
         @RequestParam(required = false) Industry industry,
         @RequestParam(required = false) String projectCategory,
@@ -45,12 +45,13 @@ public class RiskTemplateController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<RiskTemplateResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(service.get(id)));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<RiskTemplateResponse>> create(
         @Valid @RequestBody CreateRiskTemplateRequest request) {
         log.info("POST /v1/risk-templates - code={}", request.code());
@@ -59,7 +60,7 @@ public class RiskTemplateController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<RiskTemplateResponse>> update(
         @PathVariable UUID id,
         @Valid @RequestBody UpdateRiskTemplateRequest request) {
@@ -68,7 +69,7 @@ public class RiskTemplateController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         log.info("DELETE /v1/risk-templates/{}", id);
         service.delete(id);

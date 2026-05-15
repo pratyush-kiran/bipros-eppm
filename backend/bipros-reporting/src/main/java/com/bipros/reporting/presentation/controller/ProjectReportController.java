@@ -45,7 +45,6 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/reports")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectReportController {
@@ -93,6 +92,7 @@ public class ProjectReportController {
   public record ResourceHistogramRequest(UUID resourceId) {}
 
   @PostMapping("/s-curve")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.EXPORT')")
   public ApiResponse<SCurveResponse> generateSCurve(@PathVariable UUID projectId) {
     LocalDate[] window = resolveProjectWindow(projectId);
     List<SCurveDataPoint> raw =
@@ -112,6 +112,7 @@ public class ProjectReportController {
   }
 
   @PostMapping("/resource-histogram")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.EXPORT')")
   public ApiResponse<ResourceHistogramResponse> generateResourceHistogram(
       @PathVariable UUID projectId,
       @RequestBody(required = false) ResourceHistogramRequest body) {
@@ -152,6 +153,7 @@ public class ProjectReportController {
   }
 
   @PostMapping("/cash-flow")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.EXPORT')")
   public ApiResponse<CashFlowResponse> generateCashFlow(@PathVariable UUID projectId) {
     List<CashFlowEntry> entries = reportDataService.getCashFlowReport(projectId);
 
@@ -171,6 +173,7 @@ public class ProjectReportController {
   }
 
   @PostMapping("/schedule-comparison")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.EXPORT')")
   public ApiResponse<ScheduleComparisonResponsePayload> generateScheduleComparison(
       @PathVariable UUID projectId,
       @RequestBody(required = false) ScheduleComparisonRequest body) {
@@ -218,6 +221,7 @@ public class ProjectReportController {
   }
 
   @GetMapping("/custom")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ApiResponse<List<ReportDefinitionResponse>> listCustom(@PathVariable UUID projectId) {
     return ApiResponse.ok(reportService.listReportDefinitions(null));
   }
@@ -227,6 +231,7 @@ public class ProjectReportController {
    * back to {@code Project.activeBaselineId}. 404 if neither is set.
    */
   @GetMapping("/schedule-variance")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ApiResponse<ScheduleVarianceReport> getScheduleVarianceReport(
       @PathVariable UUID projectId,
       @RequestParam(required = false) UUID baselineId) {
@@ -237,6 +242,7 @@ public class ProjectReportController {
    * P6-style Cost Variance Report. Same baseline-resolution rules as schedule-variance.
    */
   @GetMapping("/cost-variance")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ApiResponse<CostVarianceReport> getCostVarianceReport(
       @PathVariable UUID projectId,
       @RequestParam(required = false) UUID baselineId) {

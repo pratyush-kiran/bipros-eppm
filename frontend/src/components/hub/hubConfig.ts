@@ -37,6 +37,8 @@ export interface HeroTile {
   href: string;
   icon: LucideIcon;
   badgeKey?: HubBadgeKey;
+  /** If set, hide this tile when the user lacks the named permission. */
+  permission?: string;
 }
 
 export type HubBadgeKey =
@@ -50,6 +52,8 @@ export interface ToolLink {
   href: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  /** Permission code required to see this tile. If absent, no perm check. */
+  permission?: string;
 }
 
 export interface ToolColumn {
@@ -176,16 +180,53 @@ const HEROES_BY_ROLE: Record<string, HeroTile[]> = {
       badgeKey: "pendingPermits",
     },
     {
-      title: "Crew calendar",
-      description: "Shift roster and working days.",
-      href: "/admin/calendars",
-      icon: Calendar,
-    },
-    {
       title: "Submit progress",
       description: "Daily productivity and quantities.",
       href: "/projects",
       icon: Activity,
+    },
+  ],
+  ROLE_SUPERVISOR: [
+    {
+      title: "My projects",
+      description: "Projects you're enrolled on.",
+      href: "/projects",
+      icon: FolderTree,
+    },
+    {
+      title: "Today's permits",
+      description: "Permits for your area.",
+      href: "/permits",
+      icon: ShieldCheck,
+      badgeKey: "pendingPermits",
+    },
+    {
+      title: "Update progress",
+      description: "Daily DPRs, snags, handovers.",
+      href: "/projects",
+      icon: Activity,
+    },
+  ],
+  ROLE_SITE_MANAGER: [
+    {
+      title: "My projects",
+      description: "Projects you oversee.",
+      href: "/projects",
+      icon: FolderTree,
+    },
+    {
+      title: "Permits",
+      description: "Awaiting approval / today.",
+      href: "/permits",
+      icon: ShieldCheck,
+      badgeKey: "pendingPermits",
+    },
+    {
+      title: "Reports",
+      description: "DPR rollups and exceptions.",
+      href: "/reports",
+      icon: BarChart3,
+      permission: "REPORT.EXPORT",
     },
   ],
 };
@@ -196,18 +237,21 @@ const FALLBACK_HERO: HeroTile[] = [
     description: "Cross-portfolio scorecards and tiles.",
     href: "/dashboards",
     icon: LayoutGrid,
+    permission: "PORTFOLIO.READ",
   },
   {
     title: "Reports",
     description: "Earned-value, variance, executive summaries.",
     href: "/reports",
     icon: BarChart3,
+    permission: "REPORT.EXPORT",
   },
   {
     title: "Projects",
     description: "Browse the portfolio.",
     href: "/projects",
     icon: FolderTree,
+    permission: "PROJECT.READ",
   },
 ];
 
@@ -226,10 +270,12 @@ export const TOOL_COLUMNS: ToolColumn[] = [
     description: "Shape the work",
     icon: Layers,
     links: [
-      { label: "Projects", href: "/projects", icon: FolderTree },
-      { label: "EPS", href: "/eps", icon: Layers },
-      { label: "OBS", href: "/obs", icon: Network },
-      { label: "Portfolios", href: "/portfolios", icon: Briefcase },
+      { label: "Projects", href: "/projects", icon: FolderTree, permission: "PROJECT.READ" },
+      // EPS, OBS, Portfolios are cross-portfolio admin surfaces — supervisor / field roles
+      // hit /forbidden if they navigate directly; the tile is hidden too.
+      { label: "EPS", href: "/eps", icon: Layers, permission: "PORTFOLIO.READ" },
+      { label: "OBS", href: "/obs", icon: Network, permission: "ADMIN_ORG.READ" },
+      { label: "Portfolios", href: "/portfolios", icon: Briefcase, permission: "PORTFOLIO.READ" },
       { label: "WBS templates", href: "/admin/wbs-templates", icon: FileText, adminOnly: true },
     ],
   },
@@ -238,10 +284,12 @@ export const TOOL_COLUMNS: ToolColumn[] = [
     description: "Day-to-day execution",
     icon: Activity,
     links: [
-      { label: "Calendars", href: "/admin/calendars", icon: Calendar },
-      { label: "Permits", href: "/permits", icon: ShieldCheck },
-      { label: "Resources", href: "/resources", icon: Users },
-      { label: "Labour master", href: "/labour-master", icon: HardHat },
+      // Calendars + Labour master are master-data screens (admin / planner tier).
+      { label: "Calendars", href: "/admin/calendars", icon: Calendar, permission: "ADMIN_MASTER.READ" },
+      { label: "Permits", href: "/permits", icon: ShieldCheck, permission: "PERMIT.READ" },
+      // /resources is the cross-project resource pool — distinct from project-scoped resources tab.
+      { label: "Resources", href: "/resources", icon: Users, permission: "ADMIN_MASTER.READ" },
+      { label: "Labour master", href: "/labour-master", icon: HardHat, permission: "ADMIN_MASTER.READ" },
     ],
   },
   {
@@ -249,11 +297,12 @@ export const TOOL_COLUMNS: ToolColumn[] = [
     description: "Insights & reporting",
     icon: TrendingUp,
     links: [
-      { label: "Programme dashboard", href: "/dashboard", icon: Gauge },
-      { label: "Dashboards", href: "/dashboards", icon: LayoutGrid },
-      { label: "Reports", href: "/reports", icon: BarChart3 },
-      { label: "Analytics", href: "/analytics", icon: Sparkles },
-      { label: "Risk register", href: "/reports/risk-register", icon: ShieldAlert },
+      // Cross-portfolio dashboards / analytics gate on PORTFOLIO.READ.
+      { label: "Programme dashboard", href: "/dashboard", icon: Gauge, permission: "PORTFOLIO.READ" },
+      { label: "Dashboards", href: "/dashboards", icon: LayoutGrid, permission: "PORTFOLIO.READ" },
+      { label: "Reports", href: "/reports", icon: BarChart3, permission: "REPORT.EXPORT" },
+      { label: "Analytics", href: "/analytics", icon: Sparkles, permission: "AI.WRITE" },
+      { label: "Risk register", href: "/reports/risk-register", icon: ShieldAlert, permission: "RISK.READ" },
     ],
   },
   {

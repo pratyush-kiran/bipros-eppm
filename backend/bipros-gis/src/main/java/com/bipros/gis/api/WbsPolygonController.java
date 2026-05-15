@@ -15,13 +15,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/gis/polygons")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class WbsPolygonController {
 
     private final WbsPolygonService polygonService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<WbsPolygonResponse>> create(
         @PathVariable UUID projectId,
         @Valid @RequestBody WbsPolygonRequest request
@@ -32,6 +32,7 @@ public class WbsPolygonController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<List<WbsPolygonResponse>>> getAll(
         @PathVariable UUID projectId
     ) {
@@ -40,6 +41,7 @@ public class WbsPolygonController {
     }
 
     @GetMapping("/{polygonId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<WbsPolygonResponse>> getById(
         @PathVariable UUID projectId,
         @PathVariable UUID polygonId
@@ -49,6 +51,7 @@ public class WbsPolygonController {
     }
 
     @GetMapping("/geojson")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<GeoJsonFeatureCollection>> getAsGeoJson(
         @PathVariable UUID projectId
     ) {
@@ -57,6 +60,7 @@ public class WbsPolygonController {
     }
 
     @PutMapping("/{polygonId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<WbsPolygonResponse>> update(
         @PathVariable UUID projectId,
         @PathVariable UUID polygonId,
@@ -67,6 +71,7 @@ public class WbsPolygonController {
     }
 
     @DeleteMapping("/{polygonId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID polygonId

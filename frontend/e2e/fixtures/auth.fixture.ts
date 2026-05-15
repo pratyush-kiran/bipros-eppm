@@ -114,4 +114,93 @@ export function getE2eProjectId(): string | null {
   return fixture.projectId;
 }
 
+/**
+ * Log in as a backend-seeded user (typically from IcpmsPhaseASeeder).
+ * Returns the raw access token and the `/v1/users/me` body so callers can
+ * decode the JWT or assert against the canonical UserResponse without a
+ * second round trip.
+ *
+ * Default password matches IcpmsPhaseASeeder's `ChangeMe@2026`.
+ */
+export interface LoginAsSeededResult {
+  accessToken: string;
+  refreshToken: string;
+  user: Record<string, unknown>;
+}
+
+export async function loginAsSeeded(
+  page: Page,
+  username: string,
+  password = 'ChangeMe@2026',
+): Promise<LoginAsSeededResult> {
+  const loginRes = await page.request.post(`${API_BASE}/v1/auth/login`, {
+    data: { username, password },
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!loginRes.ok()) {
+    throw new Error(
+      `loginAsSeeded(${username}) failed: ${loginRes.status()} ${await loginRes.text()}`,
+    );
+  }
+  const body = (await loginRes.json()) as {
+    data: { accessToken: string; refreshToken: string };
+  };
+  const { accessToken, refreshToken } = body.data;
+
+  const meRes = await page.request.get(`${API_BASE}/v1/users/me`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!meRes.ok()) {
+    throw new Error(`/v1/users/me failed for ${username}: ${meRes.status()}`);
+  }
+  const meBody = (await meRes.json()) as { data: Record<string, unknown> };
+  const user = meBody.data;
+
+  await page.context().addCookies([
+    {
+      name: 'access_token',
+      value: accessToken,
+      domain: 'localhost',
+      path: '/',
+      sameSite: 'Strict',
+    },
+  ]);
+  await page.addInitScript(
+    ({ access, refresh, userObj }) => {
+      try {
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+        localStorage.setItem(
+          'bipros-auth',
+          JSON.stringify({
+            state: { user: userObj, accessToken: access, refreshToken: refresh },
+            version: 0,
+          }),
+        );
+      } catch {
+        /* test-fixture only */
+      }
+    },
+    { access: accessToken, refresh: refreshToken, userObj: user },
+  );
+
+  return { accessToken, refreshToken, user };
+}
+
+/**
+ * Decode a JWT without signature verification — sufficient for asserting
+ * claims (`perms`, `roles`, `sub`) on a token the test just received from
+ * the backend in the same request. Do NOT use this to authenticate or
+ * trust an arbitrary token.
+ */
+export function decodeJwt<T = Record<string, unknown>>(token: string): T {
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new Error(`decodeJwt: expected 3 segments, got ${parts.length}`);
+  }
+  const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+  const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
+  return JSON.parse(Buffer.from(padded, 'base64').toString('utf-8')) as T;
+}
+
 export { expect };

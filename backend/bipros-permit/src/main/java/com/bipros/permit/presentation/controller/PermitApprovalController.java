@@ -16,6 +16,7 @@ import com.bipros.permit.application.service.PermitClosureService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,6 +37,7 @@ public class PermitApprovalController {
     private final PermitClosureService closureService;
 
     @PostMapping("/{permitId}/approvals/{stepNo}/approve")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> approve(
             @PathVariable UUID permitId,
             @PathVariable int stepNo,
@@ -44,6 +46,7 @@ public class PermitApprovalController {
     }
 
     @PostMapping("/{permitId}/approvals/{stepNo}/reject")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> reject(
             @PathVariable UUID permitId,
             @PathVariable int stepNo,
@@ -52,6 +55,7 @@ public class PermitApprovalController {
     }
 
     @PostMapping("/{permitId}/gas-tests")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> recordGasTest(
             @PathVariable UUID permitId,
             @Valid @RequestBody GasTestRequest request) {
@@ -59,11 +63,13 @@ public class PermitApprovalController {
     }
 
     @GetMapping("/{permitId}/gas-tests")
+    @PreAuthorize("hasPermission(null, 'PERMIT.READ')")
     public ResponseEntity<ApiResponse<List<GasTestDto>>> listGasTests(@PathVariable UUID permitId) {
         return ResponseEntity.ok(ApiResponse.ok(approvalService.listGasTests(permitId)));
     }
 
     @PostMapping("/{permitId}/isolation-points")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<IsolationPointDto>> applyIsolation(
             @PathVariable UUID permitId,
             @Valid @RequestBody IsolationPointRequest request) {
@@ -71,11 +77,13 @@ public class PermitApprovalController {
     }
 
     @GetMapping("/{permitId}/isolation-points")
+    @PreAuthorize("hasPermission(null, 'PERMIT.READ')")
     public ResponseEntity<ApiResponse<List<IsolationPointDto>>> listIsolation(@PathVariable UUID permitId) {
         return ResponseEntity.ok(ApiResponse.ok(approvalService.listIsolationPoints(permitId)));
     }
 
     @PutMapping("/{permitId}/isolation-points/{pointId}/remove")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<IsolationPointDto>> removeIsolation(
             @PathVariable UUID permitId,
             @PathVariable UUID pointId) {
@@ -83,16 +91,19 @@ public class PermitApprovalController {
     }
 
     @PostMapping("/{permitId}/issue")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> issue(@PathVariable UUID permitId) {
         return ResponseEntity.ok(ApiResponse.ok(approvalService.issue(permitId)));
     }
 
     @PostMapping("/{permitId}/start")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> start(@PathVariable UUID permitId) {
         return ResponseEntity.ok(ApiResponse.ok(approvalService.start(permitId)));
     }
 
     @PostMapping("/{permitId}/close")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> close(
             @PathVariable UUID permitId,
             @Valid @RequestBody ClosePermitRequest request) {
@@ -100,6 +111,7 @@ public class PermitApprovalController {
     }
 
     @PostMapping("/{permitId}/revoke")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> revoke(
             @PathVariable UUID permitId,
             @Valid @RequestBody RevokePermitRequest request) {
@@ -107,6 +119,7 @@ public class PermitApprovalController {
     }
 
     @PostMapping("/{permitId}/suspend")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> suspend(
             @PathVariable UUID permitId,
             @Valid @RequestBody SuspendPermitRequest request) {
@@ -114,6 +127,7 @@ public class PermitApprovalController {
     }
 
     @PostMapping("/{permitId}/resume")
+    @PreAuthorize("hasPermission(null, 'PERMIT.APPROVE')")
     public ResponseEntity<ApiResponse<PermitDetailResponse>> resume(@PathVariable UUID permitId) {
         return ResponseEntity.ok(ApiResponse.ok(closureService.resume(permitId)));
     }

@@ -43,9 +43,10 @@ public class DailyProgressReportController {
 
   private final DailyProgressReportService service;
   private final DprAttachmentService attachmentService;
+  private final com.bipros.project.application.service.DprProductivityPreviewService previewService;
 
   @PostMapping
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<DailyProgressReportResponse>> create(
       @PathVariable UUID projectId,
       @Valid @RequestBody CreateDailyProgressReportRequest request) {
@@ -55,7 +56,7 @@ public class DailyProgressReportController {
   }
 
   @PostMapping("/bulk")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.CREATE')")
   public ResponseEntity<ApiResponse<List<DailyProgressReportResponse>>> createBulk(
       @PathVariable UUID projectId,
       @Valid @RequestBody List<CreateDailyProgressReportRequest> requests) {
@@ -84,6 +85,21 @@ public class DailyProgressReportController {
    * Powers the Supervisor filter dropdown on the Capacity Utilization page so only people with
    * data are listed.
    */
+  /**
+   * Productivity preview — read-only, never writes. Returns expected output from manpower,
+   * equipment, and the bottleneck (min) given the rows already entered on the form. Called
+   * from the DPR form on debounced row changes.
+   */
+  @PostMapping("/activities/{activityId}/productivity-preview")
+  public ResponseEntity<ApiResponse<com.bipros.project.application.dto.ProductivityPreviewResponse>>
+      productivityPreview(
+          @PathVariable UUID projectId,
+          @PathVariable UUID activityId,
+          @RequestBody com.bipros.project.application.dto.ProductivityPreviewRequest body) {
+    return ResponseEntity.ok(
+        ApiResponse.ok(previewService.preview(projectId, activityId, body)));
+  }
+
   @GetMapping("/supervisors-used")
   public ResponseEntity<ApiResponse<List<SupervisorOption>>> supervisorsUsed(
       @PathVariable UUID projectId,
@@ -93,7 +109,7 @@ public class DailyProgressReportController {
   }
 
   @PutMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.UPDATE')")
   public ResponseEntity<ApiResponse<DailyProgressReportResponse>> update(
       @PathVariable UUID projectId,
       @PathVariable UUID id,
@@ -103,7 +119,7 @@ public class DailyProgressReportController {
   }
 
   @DeleteMapping("/{id}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.DELETE')")
   public ResponseEntity<ApiResponse<Void>> delete(
       @PathVariable UUID projectId,
       @PathVariable UUID id) {
@@ -123,7 +139,7 @@ public class DailyProgressReportController {
    * {@code curl -F 'captions=…'}).
    */
   @PostMapping(value = "/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.UPDATE')")
   public ResponseEntity<ApiResponse<List<DprAttachmentResponse>>> uploadPhotos(
       @PathVariable UUID projectId,
       @PathVariable UUID id,
@@ -157,7 +173,7 @@ public class DailyProgressReportController {
   }
 
   @DeleteMapping("/{id}/photos/{photoId}")
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.UPDATE')")
   public ResponseEntity<ApiResponse<Void>> deletePhoto(
       @PathVariable UUID projectId,
       @PathVariable UUID id,

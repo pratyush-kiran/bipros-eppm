@@ -9,7 +9,25 @@ interface AuthState {
   setAuth: (user: UserResponse, accessToken: string, refreshToken: string) => void;
   clearAuth: () => void;
   isAuthenticated: () => boolean;
+  /**
+   * Returns {@code true} when the current user holds the named permission code, e.g.
+   * {@code "PROJECT.READ"}. Admins ({@code ROLE_ADMIN} or {@code ADMIN}) short-circuit to
+   * {@code true} — mirrors the server-side escape hatch in {@code PermissionEvaluator}.
+   * Backend is the source of truth; this is a UX gate only.
+   */
+  hasPermission: (code: string) => boolean;
+  /** Logical OR over {@link hasPermission}. Empty list returns {@code false}. */
+  hasAnyPermission: (codes: readonly string[]) => boolean;
+  /** Shorthand for "is the current user an admin?" — accepts {@code ADMIN} or {@code ROLE_ADMIN}. */
+  isAdmin: () => boolean;
 }
+
+const ROLE_PREFIX = "ROLE_";
+const normRole = (r: string) => (r.startsWith(ROLE_PREFIX) ? r : `${ROLE_PREFIX}${r}`);
+const userIsAdmin = (user: UserResponse | null): boolean => {
+  if (!user?.roles?.length) return false;
+  return user.roles.some((r) => normRole(r) === "ROLE_ADMIN");
+};
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -28,6 +46,22 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, accessToken: null, refreshToken: null });
       },
       isAuthenticated: () => get().accessToken !== null,
+      hasPermission: (code) => {
+        const u = get().user;
+        if (!u) return false;
+        if (userIsAdmin(u)) return true;
+        return u.permissions?.includes(code) ?? false;
+      },
+      hasAnyPermission: (codes) => {
+        if (!codes?.length) return false;
+        const u = get().user;
+        if (!u) return false;
+        if (userIsAdmin(u)) return true;
+        const perms = u.permissions;
+        if (!perms?.length) return false;
+        return codes.some((c) => perms.includes(c));
+      },
+      isAdmin: () => userIsAdmin(get().user),
     }),
     { name: "bipros-auth" }
   )

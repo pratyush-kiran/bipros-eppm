@@ -15,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/predictions")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class PredictionController {
 
@@ -25,6 +24,7 @@ public class PredictionController {
    * Run all predictions for a project
    */
   @PostMapping("/run")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<List<PredictionDto>>> runPredictions(
       @PathVariable UUID projectId) {
     List<PredictionDto> predictions = predictionService.runAllPredictions(projectId);
@@ -35,6 +35,7 @@ public class PredictionController {
    * Get latest predictions for a project
    */
   @GetMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<List<PredictionDto>>> getPredictions(
       @PathVariable UUID projectId) {
     List<PredictionDto> predictions = predictionService.getProjectPredictions(projectId);
@@ -45,6 +46,7 @@ public class PredictionController {
    * Get latest prediction by type
    */
   @GetMapping("/{type}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<PredictionDto>> getPredictionByType(
       @PathVariable UUID projectId,
       @PathVariable String type) {

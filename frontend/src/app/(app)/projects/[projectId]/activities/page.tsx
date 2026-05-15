@@ -44,6 +44,7 @@ import {
 } from "@/lib/utils/schedulePercent";
 import { ScheduleLogPanel } from "@/components/schedule/ScheduleLogPanel";
 import type { ScheduleResultResponse } from "@/lib/api/scheduleApi";
+import { useAuthStore } from "@/lib/state/store";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -95,6 +96,12 @@ export default function ActivitiesPage() {
   const [deleteTarget, setDeleteTarget] = useState<ActivityResponse | null>(null);
   const [supervisorTarget, setSupervisorTarget] = useState<ActivityResponse | null>(null);
   const [bulkSupervisorOpen, setBulkSupervisorOpen] = useState(false);
+
+  // ActivityController gates POST on ACTIVITY.CREATE and DELETE on ACTIVITY.DELETE.
+  // Server is source of truth — these checks just hide affordances the user can't act on.
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canCreateActivity = hasPermission("ACTIVITY.CREATE");
+  const canDeleteActivity = hasPermission("ACTIVITY.DELETE");
 
   const markScheduleStale = useScheduleStaleStore((s) => s.markScheduleStale);
   const markScheduleFresh = useScheduleStaleStore((s) => s.markScheduleFresh);
@@ -354,27 +361,33 @@ export default function ActivitiesPage() {
         description="View and manage project activities"
         actions={
           <div className="flex gap-2">
-            <button
-              onClick={() => setBulkSupervisorOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-hover px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-active"
-              title="Bulk-assign one supervisor across many activities"
-            >
-              <UserCheck size={16} />
-              Assign Supervisor
-            </button>
-            <button
-              onClick={() => setShowAiDialog(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-tint px-4 py-2 text-sm font-medium text-gold-ink hover:bg-gold/20"
-            >
-              <Sparkles size={16} />
-              Generate with AI
-            </button>
-            <button
-              onClick={() => router.push(`/projects/${projectId}/activities/new`)}
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
-            >
-              New Activity
-            </button>
+            {canCreateActivity && (
+              <button
+                onClick={() => setBulkSupervisorOpen(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-hover px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-active"
+                title="Bulk-assign one supervisor across many activities"
+              >
+                <UserCheck size={16} />
+                Assign Supervisor
+              </button>
+            )}
+            {canCreateActivity && (
+              <button
+                onClick={() => setShowAiDialog(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-tint px-4 py-2 text-sm font-medium text-gold-ink hover:bg-gold/20"
+              >
+                <Sparkles size={16} />
+                Generate with AI
+              </button>
+            )}
+            {canCreateActivity && (
+              <button
+                onClick={() => router.push(`/projects/${projectId}/activities/new`)}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+              >
+                New Activity
+              </button>
+            )}
           </div>
         }
       />
@@ -667,6 +680,7 @@ export default function ActivitiesPage() {
           position={contextMenu.position}
           canStart={canStart(contextMenu.activity)}
           canComplete={canComplete(contextMenu.activity)}
+          canDelete={canDeleteActivity}
           onClose={() => setContextMenu(null)}
           onOpenDetail={(a) => setSelectedActivityId(a.id)}
           onAssign={handleAssign}
@@ -675,6 +689,9 @@ export default function ActivitiesPage() {
           onEdit={handleEditFromMenu}
           onDelete={(a) => setDeleteTarget(a)}
           onSetSupervisor={(a) => setSupervisorTarget(a)}
+          onCreateDpr={(a) =>
+            router.push(`/projects/${projectId}/dpr?new=1&activityId=${a.id}`)
+          }
         />
       )}
 
@@ -1081,7 +1098,7 @@ function ActivitiesListTable({
                       className="rounded-md border border-border px-2 py-0.5 text-xs hover:bg-surface-hover"
                       title="Click to set or change supervisor"
                     >
-                      {activity.responsibleResourceName ?? (
+                      {activity.supervisorUserName ?? activity.responsibleResourceName ?? (
                         <span className="text-text-muted">— Set —</span>
                       )}
                     </button>

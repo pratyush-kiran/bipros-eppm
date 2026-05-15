@@ -24,13 +24,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/admin/categories")
-@PreAuthorize("hasAnyRole('ADMIN')")
 @RequiredArgsConstructor
 public class AdminCategoryController {
 
     private final AdminCategoryService adminCategoryService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<AdminCategoryDto>> createCategory(
         @Valid @RequestBody CreateAdminCategoryRequest request) {
         AdminCategoryDto category = adminCategoryService.createCategory(request);
@@ -39,12 +39,14 @@ public class AdminCategoryController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<AdminCategoryDto>> getCategory(@PathVariable UUID id) {
         AdminCategoryDto category = adminCategoryService.getCategory(id);
         return ResponseEntity.ok(ApiResponse.ok(category));
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<AdminCategoryDto>>> listCategories(
         @RequestParam(required = false) String categoryType) {
         List<AdminCategoryDto> categories = adminCategoryService.listCategories(categoryType);
@@ -52,12 +54,14 @@ public class AdminCategoryController {
     }
 
     @GetMapping("/{id}/children")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<AdminCategoryDto>>> getChildCategories(@PathVariable UUID id) {
         List<AdminCategoryDto> children = adminCategoryService.getChildCategories(id);
         return ResponseEntity.ok(ApiResponse.ok(children));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<AdminCategoryDto>> updateCategory(
         @PathVariable UUID id,
         @Valid @RequestBody CreateAdminCategoryRequest request) {
@@ -66,6 +70,7 @@ public class AdminCategoryController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable UUID id) {
         adminCategoryService.deleteCategory(id);
         return ResponseEntity.ok(ApiResponse.ok(null));

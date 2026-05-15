@@ -22,13 +22,13 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/dashboards/field")
-@PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','PROGRAMME_MANAGER','TEAM_MEMBER','VIEWER')")
 @RequiredArgsConstructor
 public class FieldDashboardController {
 
   private final FieldDashboardSummaryService service;
 
   @GetMapping("/summary")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
   public ResponseEntity<ApiResponse<FieldSummaryResponse>> getSummary(
       @PathVariable UUID projectId,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate) {

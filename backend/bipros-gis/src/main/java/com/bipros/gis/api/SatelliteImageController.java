@@ -20,13 +20,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/gis/satellite-images")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class SatelliteImageController {
 
     private final SatelliteImageService imageService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<SatelliteImageResponse>> create(
         @PathVariable UUID projectId,
         @Valid @RequestBody SatelliteImageRequest request
@@ -37,6 +37,7 @@ public class SatelliteImageController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<List<SatelliteImageResponse>>> getAll(
         @PathVariable UUID projectId,
         @RequestParam(required = false) LocalDate from,
@@ -52,6 +53,7 @@ public class SatelliteImageController {
     }
 
     @GetMapping("/{imageId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.READ')")
     public ResponseEntity<ApiResponse<SatelliteImageResponse>> getById(
         @PathVariable UUID projectId,
         @PathVariable UUID imageId
@@ -61,6 +63,7 @@ public class SatelliteImageController {
     }
 
     @PutMapping("/{imageId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<SatelliteImageResponse>> update(
         @PathVariable UUID projectId,
         @PathVariable UUID imageId,
@@ -71,6 +74,7 @@ public class SatelliteImageController {
     }
 
     @DeleteMapping("/{imageId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID imageId
@@ -80,6 +84,7 @@ public class SatelliteImageController {
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'PROJECT.UPDATE')")
     public ResponseEntity<ApiResponse<SatelliteImageResponse>> upload(
         @PathVariable UUID projectId,
         @Valid @RequestPart("metadata") UploadSatelliteImageRequest metadata,

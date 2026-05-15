@@ -1,0 +1,50 @@
+databaseChangeLog:
+  # Phase 4.5: drop the legacy Activity.responsibleResourceId / responsibleResourceName cache.
+  # The canonical supervisor identity is activities.supervisor_user_id (added by 087). The
+  # precondition guards against silent data loss — if any activity has a non-null
+  # responsible_resource_id but a null supervisor_user_id, the 087 backfill missed it (the
+  # Resource was not user-linked) and dropping the column would orphan the supervisor.
+
+  - changeSet:
+      id: 094-1-precondition
+      author: bipros
+      preConditions:
+        - onFail: HALT
+          onFailMessage: >
+            Phase 4.5 cannot drop activity.activities.responsible_resource_id while there are
+            activities whose legacy supervisor (responsible_resource_id) was not backfilled into
+            supervisor_user_id. Re-run the 087 backfill OR null out the orphan
+            responsible_resource_id entries, then retry.
+        - sqlCheck:
+            expectedResult: 0
+            sql: >
+              SELECT count(*) FROM activity.activities
+              WHERE responsible_resource_id IS NOT NULL
+                AND supervisor_user_id IS NULL
+      changes:
+        - sql:
+            sql: "SELECT 1"
+
+  - changeSet:
+      id: 094-2-drop-column
+      author: bipros
+      changes:
+        - dropColumn:
+            tableName: activities
+            schemaName: activity
+            columnName: responsible_resource_id
+        - dropColumn:
+            tableName: activities
+            schemaName: activity
+            columnName: responsible_resource_name
+      rollback:
+        - addColumn:
+            tableName: activities
+            schemaName: activity
+            columns:
+              - column:
+                  name: responsible_resource_id
+                  type: uuid
+              - column:
+                  name: responsible_resource_name
+                  type: varchar(150)

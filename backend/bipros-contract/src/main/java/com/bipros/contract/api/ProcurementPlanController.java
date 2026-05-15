@@ -20,13 +20,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/procurement-plans")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ProcurementPlanController {
 
     private final ProcurementPlanService procurementPlanService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.CREATE')")
     public ResponseEntity<ApiResponse<ProcurementPlanResponse>> create(
         @PathVariable UUID projectId,
         @Valid @RequestBody ProcurementPlanRequest request) {
@@ -35,6 +35,7 @@ public class ProcurementPlanController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<PagedResponse<ProcurementPlanResponse>>> listByProject(
         @PathVariable UUID projectId,
         @RequestParam(defaultValue = "0") int page,
@@ -47,6 +48,7 @@ public class ProcurementPlanController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<ProcurementPlanResponse>> getById(
         @PathVariable UUID projectId,
         @PathVariable UUID id) {
@@ -55,6 +57,7 @@ public class ProcurementPlanController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ProcurementPlanResponse>> update(
         @PathVariable UUID projectId,
         @PathVariable UUID id,
@@ -64,6 +67,7 @@ public class ProcurementPlanController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.DELETE')")
     public ResponseEntity<Void> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID id) {
@@ -72,6 +76,7 @@ public class ProcurementPlanController {
     }
 
     @GetMapping("/wbs/{wbsNodeId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<ProcurementPlanResponse>>> listByWbsNode(
         @PathVariable UUID projectId,
         @PathVariable UUID wbsNodeId) {

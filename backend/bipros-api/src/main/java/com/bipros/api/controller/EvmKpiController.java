@@ -21,13 +21,13 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/kpis/evm")
-@PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','PROGRAMME_MANAGER','COST_ENGINEER','TEAM_MEMBER','VIEWER')")
 @RequiredArgsConstructor
 public class EvmKpiController {
 
   private final EvmService evmService;
 
   @GetMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'EVM.READ')")
   public ResponseEntity<ApiResponse<EvmSummaryResponse>> getEvmKpis(@PathVariable UUID projectId) {
     return ResponseEntity.ok(ApiResponse.ok(evmService.getSummary(projectId)));
   }

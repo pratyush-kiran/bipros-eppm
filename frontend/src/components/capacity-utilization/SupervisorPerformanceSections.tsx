@@ -153,7 +153,7 @@ function EquipmentUtilizationTableInner({
           <tr>
             <th className="px-3 py-2 text-left">#</th>
             <th className="px-3 py-2 text-left">Equipment</th>
-            <th className="px-3 py-2 text-right">Avg. Rate / Day</th>
+            <th className="px-3 py-2 text-right">Eq Rate / Day</th>
             <th className="px-3 py-2 text-right">Bud. Eqpt-days</th>
             <th className="px-3 py-2 text-right">Bud. Nos</th>
             <th className="px-3 py-2 text-right">Act. Eqpt-days</th>
@@ -213,10 +213,6 @@ function NormsCell({ norms }: { norms: ProductivityNorms }) {
         <span className="text-text-muted">Budget:</span> {fmt(norms.budget)}
       </div>
       <div>
-        <span className="text-text-muted">Projection:</span>{" "}
-        {fmt(norms.projection)}
-      </div>
-      <div>
         <span className="text-text-muted">Actual FTM:</span>{" "}
         {fmt(norms.actualsFtm)}
       </div>
@@ -224,7 +220,18 @@ function NormsCell({ norms }: { norms: ProductivityNorms }) {
   );
 }
 
-function PlanActualCell({ pa }: { pa: PlannedActuals }) {
+function PlanActualCell({
+  pa,
+  variant,
+}: {
+  pa: PlannedActuals;
+  variant: "plan" | "actual";
+}) {
+  // PLAN column carries raw planned headcount (nos) from RoleAssignment.plannedUnits.
+  // ACTUAL column carries deployed person-days from DPRs. Different units → only the
+  // Actual column shows a %Util pill (budget-days ÷ actual-days); the Plan column's
+  // headcount-vs-days comparison would be meaningless.
+  const isPlan = variant === "plan";
   return (
     <div className="space-y-0.5 text-xs">
       <div>
@@ -234,11 +241,19 @@ function PlanActualCell({ pa }: { pa: PlannedActuals }) {
         <span className="text-text-muted">Bud days:</span> {fmt(pa.budgetDays)}
       </div>
       <div>
-        <span className="text-text-muted">Days:</span> {fmt(pa.days)}
+        <span className="text-text-muted">
+          {isPlan ? "Planned:" : "Actual Days:"}
+        </span>{" "}
+        {fmt(pa.days)}
+        {isPlan && pa.days != null && (
+          <span className="text-text-muted"> nos</span>
+        )}
       </div>
-      <div>
-        <UtilCell util={pa.utilizationPct} />
-      </div>
+      {!isPlan && (
+        <div>
+          <UtilCell util={pa.utilizationPct} />
+        </div>
+      )}
     </div>
   );
 }
@@ -318,10 +333,10 @@ function ActivityDrillDownPanelInner({
                       <NormsCell norms={r.norms} />
                     </td>
                     <td className="px-3 py-2">
-                      <PlanActualCell pa={r.planMonth} />
+                      <PlanActualCell pa={r.planMonth} variant="plan" />
                     </td>
                     <td className="px-3 py-2">
-                      <PlanActualCell pa={r.actualMonth} />
+                      <PlanActualCell pa={r.actualMonth} variant="actual" />
                     </td>
                   </tr>
                 ))}

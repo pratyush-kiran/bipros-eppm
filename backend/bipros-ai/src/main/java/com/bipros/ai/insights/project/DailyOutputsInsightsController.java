@@ -31,7 +31,7 @@ public class DailyOutputsInsightsController {
     private final InsightsGenerationLock generationLock;
 
     @PostMapping("/insights")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<InsightsResponse>> generate(
             @PathVariable UUID projectId,
             @RequestParam(defaultValue = "false") boolean force) {
@@ -39,7 +39,7 @@ public class DailyOutputsInsightsController {
     }
 
     @PostMapping("/insights/refresh")
-    @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<InsightsResponse>> refresh(
             @PathVariable UUID projectId) {
         return generateInsights(projectId, true);

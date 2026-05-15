@@ -31,7 +31,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/resources")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ResourceController {
@@ -78,7 +78,7 @@ public class ResourceController {
   }
 
   @DeleteMapping
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasPermission(null, 'RESOURCE.DELETE')")
   public ResponseEntity<ApiResponse<Void>> deleteAll() {
     log.info("DELETE /v1/resources");
     resourceService.deleteAllResources();

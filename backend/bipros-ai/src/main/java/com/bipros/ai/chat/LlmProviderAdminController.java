@@ -21,12 +21,12 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v1/admin/llm-providers")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
 public class LlmProviderAdminController {
 
     private final LlmProviderService providerService;
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<ApiResponse<List<LlmProviderConfigResponse>>> list() {
         List<LlmProviderConfigResponse> list = providerService.findAll().stream()
                 .map(this::toResponse)
@@ -35,17 +35,20 @@ public class LlmProviderAdminController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<ApiResponse<LlmProviderConfigResponse>> get(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(providerService.findById(id))));
     }
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<LlmProviderConfigResponse>> create(
             @Valid @RequestBody LlmProviderService.CreateLlmProviderRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(providerService.create(request))));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<LlmProviderConfigResponse>> update(
             @PathVariable UUID id,
             @Valid @RequestBody LlmProviderService.UpdateLlmProviderRequest request) {
@@ -53,12 +56,14 @@ public class LlmProviderAdminController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         providerService.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PostMapping("/{id}/test")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<LlmProviderService.ProviderTestResponse>> test(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.ok(providerService.testProvider(id)));
     }

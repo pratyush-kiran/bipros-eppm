@@ -314,7 +314,7 @@ export function RoleWithVariantsEditor({ editingRoleId, onSaved, onCancel }: Pro
       {isManpower && (
         <section className="rounded-md border border-hairline p-3">
           <div className="mb-2 flex items-center justify-between">
-            <h4 className="text-sm font-semibold">Manpower Rates</h4>
+            <h4 className="text-sm font-semibold">Configure Role Rates</h4>
             <button
               type="button"
               onClick={addManpower}

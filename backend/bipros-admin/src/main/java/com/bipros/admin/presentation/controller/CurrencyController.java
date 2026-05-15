@@ -25,13 +25,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/admin/currencies")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class CurrencyController {
 
     private final CurrencyService currencyService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<CurrencyDto>> createCurrency(
         @Valid @RequestBody CreateCurrencyRequest request) {
         CurrencyDto currency = currencyService.createCurrency(request);
@@ -40,18 +40,21 @@ public class CurrencyController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<CurrencyDto>> getCurrency(@PathVariable UUID id) {
         CurrencyDto currency = currencyService.getCurrency(id);
         return ResponseEntity.ok(ApiResponse.ok(currency));
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<List<CurrencyDto>>> listCurrencies() {
         List<CurrencyDto> currencies = currencyService.listCurrencies();
         return ResponseEntity.ok(ApiResponse.ok(currencies));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<CurrencyDto>> updateCurrency(
         @PathVariable UUID id,
         @Valid @RequestBody CreateCurrencyRequest request) {
@@ -60,18 +63,21 @@ public class CurrencyController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> deleteCurrency(@PathVariable UUID id) {
         currencyService.deleteCurrency(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PostMapping("/{code}/set-base")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> setBaseCurrency(@PathVariable String code) {
         currencyService.setBaseCurrency(code);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @GetMapping("/convert")
+    @PreAuthorize("hasPermission(null, 'ADMIN_MASTER.READ')")
     public ResponseEntity<ApiResponse<BigDecimal>> convertCurrency(
         @RequestParam BigDecimal amount,
         @RequestParam String from,

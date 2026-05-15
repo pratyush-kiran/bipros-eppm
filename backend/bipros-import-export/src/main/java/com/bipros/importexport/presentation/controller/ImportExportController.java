@@ -23,13 +23,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/import-export")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
 @RequiredArgsConstructor
 public class ImportExportController {
 
   private final ImportExportService importExportService;
 
   @PostMapping("/export")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ApiResponse<ImportExportJobResponse> exportProject(
       @Valid @RequestBody ExportProjectRequest request) throws Exception {
     return ApiResponse.ok(
@@ -37,6 +37,7 @@ public class ImportExportController {
   }
 
   @PostMapping("/import")
+  @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")
   public ApiResponse<ImportExportJobResponse> importProject(
       @RequestParam("file") MultipartFile file,
       @RequestParam ImportExportFormat format) throws Exception {
@@ -44,21 +45,25 @@ public class ImportExportController {
   }
 
   @GetMapping("/jobs")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ApiResponse<List<ImportExportJobResponse>> listJobs() {
     return ApiResponse.ok(importExportService.listJobs());
   }
 
   @GetMapping("/jobs/{jobId}")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ApiResponse<ImportExportJobResponse> getJobStatus(@PathVariable UUID jobId) {
     return ApiResponse.ok(importExportService.getJobStatus(jobId));
   }
 
   @GetMapping("/jobs/{jobId}/logs")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ApiResponse<List<ImportExportLogResponse>> getJobLogs(@PathVariable UUID jobId) {
     return ApiResponse.ok(importExportService.getJobLogs(jobId));
   }
 
   @GetMapping("/jobs/{jobId}/download")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ResponseEntity<byte[]> downloadExportedFile(@PathVariable UUID jobId) throws Exception {
     var job = importExportService.getJobStatus(jobId);
     Path filePath = Paths.get(job.filePath()).normalize();
@@ -75,6 +80,7 @@ public class ImportExportController {
   }
 
   @GetMapping("/projects/{projectId}/export/p6xml")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ResponseEntity<String> exportP6Xml(@PathVariable UUID projectId) throws Exception {
     String content = importExportService.exportP6Xml(projectId);
     return ResponseEntity.ok()
@@ -84,6 +90,7 @@ public class ImportExportController {
   }
 
   @GetMapping("/projects/{projectId}/export/msp")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ResponseEntity<String> exportMspXml(@PathVariable UUID projectId) throws Exception {
     String content = importExportService.exportMspXml(projectId);
     return ResponseEntity.ok()
@@ -93,6 +100,7 @@ public class ImportExportController {
   }
 
   @GetMapping("/projects/{projectId}/export/excel")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ResponseEntity<byte[]> exportExcel(@PathVariable UUID projectId) throws Exception {
     byte[] content = importExportService.exportExcel(projectId);
     return ResponseEntity.ok()
@@ -102,6 +110,7 @@ public class ImportExportController {
   }
 
   @GetMapping("/projects/{projectId}/export/csv")
+  @PreAuthorize("hasPermission(null, 'PROJECT.EXPORT')")
   public ResponseEntity<String> exportCsv(@PathVariable UUID projectId) throws Exception {
     String content = importExportService.exportCsv(projectId);
     return ResponseEntity.ok()
@@ -111,6 +120,7 @@ public class ImportExportController {
   }
 
   @PostMapping("/projects/import/xer")
+  @PreAuthorize("hasPermission(null, 'PROJECT.UPDATE')")
   public ApiResponse<ImportExportJobResponse> importXer(@RequestParam("file") MultipartFile file) throws Exception {
     return ApiResponse.ok(importExportService.importProject(file, ImportExportFormat.XER));
   }

@@ -115,10 +115,14 @@ public class DailyProgressReportService {
           });
     }
 
+    // Work Activity is intentionally NOT required. Some activities (e.g. detailed engineering
+    // / design / office work) don't track productivity. The DPR form surfaces a coverage banner
+    // so the user knows when productivity won't be measured.
+
     DailyProgressReport dpr = DailyProgressReport.builder()
         .projectId(projectId)
         .reportDate(request.reportDate())
-        .supervisorResourceId(request.supervisorResourceId())
+        .supervisorUserId(request.supervisorUserId())
         .supervisorName(request.supervisorName())
         .chainageFromM(request.chainageFromM())
         .chainageToM(request.chainageToM())
@@ -192,7 +196,7 @@ public class DailyProgressReportService {
         computeCumulative(dpr.getProjectId(), dpr.getActivityName(), dpr.getReportDate()));
 
     dpr.setReportDate(request.reportDate());
-    dpr.setSupervisorResourceId(request.supervisorResourceId());
+    dpr.setSupervisorUserId(request.supervisorUserId());
     dpr.setSupervisorName(request.supervisorName());
     dpr.setChainageFromM(request.chainageFromM());
     dpr.setChainageToM(request.chainageToM());
@@ -388,19 +392,23 @@ public class DailyProgressReportService {
       UUID projectId, LocalDate fromDate, LocalDate toDate) {
     ensureProjectExists(projectId);
 
+    // Phase 4.4 cutover: pivots off the new supervisor_user_id column (DPR carries it directly
+    // post Phase 091 OLTP migration). The Phase-10 dual-source UNION I had on
+    // feat/capacity-utilization is obsolete — supervisor_resource_id was dropped from the DPR
+    // table, so the only valid lookup is via the User FK.
     @SuppressWarnings("unchecked")
     List<Object[]> raw = em.createNativeQuery(
-            "SELECT d.supervisor_resource_id, "
-                + "       COALESCE(r.code, '')                               AS supervisor_code, "
+            "SELECT d.supervisor_user_id, "
+                + "       COALESCE(u.username, '')                            AS supervisor_code, "
                 + "       MAX(d.supervisor_name)                              AS supervisor_name, "
                 + "       COUNT(*)                                            AS dpr_count "
                 + "FROM project.daily_progress_reports d "
-                + "LEFT JOIN resource.resources r ON r.id = d.supervisor_resource_id "
+                + "LEFT JOIN public.users u ON u.id = d.supervisor_user_id "
                 + "WHERE d.project_id = :projectId "
-                + "  AND d.supervisor_resource_id IS NOT NULL "
+                + "  AND d.supervisor_user_id IS NOT NULL "
                 + "  AND (CAST(:fromDate AS date) IS NULL OR d.report_date >= CAST(:fromDate AS date)) "
                 + "  AND (CAST(:toDate AS date) IS NULL OR d.report_date <= CAST(:toDate AS date)) "
-                + "GROUP BY d.supervisor_resource_id, r.code "
+                + "GROUP BY d.supervisor_user_id, u.username "
                 + "ORDER BY dpr_count DESC, supervisor_name")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
@@ -478,7 +486,8 @@ public class DailyProgressReportService {
         issues.size(),
         totalManpowerHours,
         totalEquipmentHours,
-        totalFuelLitres);
+        totalFuelLitres,
+        saved.getSupervisorUserId());
   }
 
   private static BigDecimal add(BigDecimal a, BigDecimal b) {
@@ -551,9 +560,10 @@ public class DailyProgressReportService {
     target.setCategory(row.category());
     target.setSeverity(row.severity());
     target.setStatus(row.status());
-    target.setSupervisorResourceId(row.supervisorResourceId());
+    // RBAC Phase 4.2: canonical identity is the User id. Resource id is no longer written.
+    target.setSupervisorUserId(row.supervisorUserId());
     if (row.supervisorName() != null) target.setSupervisorName(row.supervisorName());
-    target.setAssignedToResourceId(row.assignedToResourceId());
+    target.setAssignedToUserId(row.assignedToUserId());
     if (row.assignedToName() != null) target.setAssignedToName(row.assignedToName());
     target.setResolutionNotes(row.resolutionNotes());
     boolean wasTerminal = oldStatus != null && oldStatus.resolvedAtTerminal();
@@ -567,9 +577,14 @@ public class DailyProgressReportService {
 
   /** Stamp a brand-new issue with snapshots from the parent DPR. */
   private static DprIssue stampNewIssue(DailyProgressReport parent, DprIssueRow row, Instant now) {
-    UUID assignee = row.assignedToResourceId() != null
-        ? row.assignedToResourceId()
-        : (row.supervisorResourceId() != null ? row.supervisorResourceId() : parent.getSupervisorResourceId());
+    // RBAC Phase 4.2: stamp the canonical User id from row or fall back to the parent DPR's
+    // supervisor User. Resource id is no longer stamped on new rows.
+    UUID supervisorUserId = row.supervisorUserId() != null
+        ? row.supervisorUserId()
+        : parent.getSupervisorUserId();
+    UUID assigneeUserId = row.assignedToUserId() != null
+        ? row.assignedToUserId()
+        : (row.supervisorUserId() != null ? row.supervisorUserId() : parent.getSupervisorUserId());
     String assigneeName = row.assignedToName() != null
         ? row.assignedToName()
         : (row.supervisorName() != null ? row.supervisorName() : parent.getSupervisorName());
@@ -579,10 +594,9 @@ public class DailyProgressReportService {
         .projectId(parent.getProjectId())
         .activityId(parent.getActivityId())
         .activityName(parent.getActivityName())
-        .supervisorResourceId(row.supervisorResourceId() != null
-            ? row.supervisorResourceId() : parent.getSupervisorResourceId())
+        .supervisorUserId(supervisorUserId)
         .supervisorName(row.supervisorName() != null ? row.supervisorName() : parent.getSupervisorName())
-        .assignedToResourceId(assignee)
+        .assignedToUserId(assigneeUserId)
         .assignedToName(assigneeName)
         .reportDate(parent.getReportDate())
         .chainageFromM(parent.getChainageFromM())

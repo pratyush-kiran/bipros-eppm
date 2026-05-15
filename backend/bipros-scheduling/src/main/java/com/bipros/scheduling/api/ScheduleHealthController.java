@@ -15,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SCHEDULER')")
 @Slf4j
 @RequiredArgsConstructor
 public class ScheduleHealthController {
@@ -23,6 +22,7 @@ public class ScheduleHealthController {
   private final ScheduleHealthService scheduleHealthService;
 
   @GetMapping("/{projectId}/schedule-health")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ResponseEntity<ScheduleHealthResponse> getScheduleHealth(@PathVariable UUID projectId) {
     log.debug("GET /v1/projects/{}/schedule-health", projectId);
     return ResponseEntity.ok(scheduleHealthService.getLatestHealth(projectId));

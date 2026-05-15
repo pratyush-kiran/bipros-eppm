@@ -37,7 +37,14 @@ public record ProductivityNormResponse(
     Double workingHoursPerDay,
     BigDecimal fuelLitresPerHour,
     String equipmentSpec,
-    String remarks
+    String remarks,
+
+    /** Role-keyed scope. Optional — null on legacy Type/Resource/Unscoped rows. */
+    UUID roleId,
+    UUID categoryId,
+    UUID gradeId,
+    String make,
+    String model
 ) {
   public static ProductivityNormResponse from(ProductivityNorm norm) {
     WorkActivity wa = norm.getWorkActivity();
@@ -63,7 +70,12 @@ public record ProductivityNormResponse(
         norm.getWorkingHoursPerDay(),
         norm.getFuelLitresPerHour(),
         norm.getEquipmentSpec(),
-        norm.getRemarks()
+        norm.getRemarks(),
+        norm.getRoleId(),
+        norm.getCategoryId(),
+        norm.getGradeId(),
+        norm.getMake(),
+        norm.getModel()
     );
   }
 }

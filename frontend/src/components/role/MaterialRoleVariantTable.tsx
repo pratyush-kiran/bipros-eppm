@@ -66,22 +66,22 @@ export function MaterialRoleVariantTable({ roleId }: Props) {
       </div>
 
       {showForm && (
-        <div className="rounded-md border border-neutral-700 p-4">
+        <div className="rounded-md border border-border p-4">
           {error && <div className="mb-2 text-sm text-red-400">{error}</div>}
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-sm">
-              <span className="text-neutral-400">Spec / Grade *</span>
+              <span className="text-text-secondary">Spec / Grade *</span>
               <input
-                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-border bg-paper text-text-primary px-2 py-1.5"
                 value={form.specGrade}
                 onChange={(e) => setForm({ ...form, specGrade: e.target.value })}
                 placeholder="e.g. OPC 53, 12mm rebar"
               />
             </label>
             <label className="block text-sm">
-              <span className="text-neutral-400">Unit *</span>
+              <span className="text-text-secondary">Unit *</span>
               <select
-                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-border bg-paper text-text-primary px-2 py-1.5"
                 value={form.unit}
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
               >
@@ -93,11 +93,11 @@ export function MaterialRoleVariantTable({ roleId }: Props) {
               </select>
             </label>
             <label className="block text-sm">
-              <span className="text-neutral-400">Rate *</span>
+              <span className="text-text-secondary">Rate *</span>
               <input
                 type="number"
                 step="0.01"
-                className="mt-1 w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1.5"
+                className="mt-1 w-full rounded-md border border-border bg-paper text-text-primary px-2 py-1.5"
                 value={form.rate}
                 onChange={(e) =>
                   setForm({ ...form, rate: parseFloat(e.target.value) || 0 })
@@ -115,7 +115,7 @@ export function MaterialRoleVariantTable({ roleId }: Props) {
             </button>
             <button
               onClick={() => setShowForm(false)}
-              className="rounded-md border border-neutral-700 px-3 py-1.5 text-sm"
+              className="rounded-md border border-border px-3 py-1.5 text-sm"
             >
               Cancel
             </button>
@@ -124,7 +124,7 @@ export function MaterialRoleVariantTable({ roleId }: Props) {
       )}
 
       <table className="w-full text-sm">
-        <thead className="border-b border-neutral-700 text-neutral-400">
+        <thead className="border-b border-border text-text-secondary">
           <tr>
             <th className="py-2 text-left">Spec / Grade</th>
             <th className="py-2 text-left">Unit</th>
@@ -136,13 +136,13 @@ export function MaterialRoleVariantTable({ roleId }: Props) {
         <tbody>
           {variants.length === 0 && (
             <tr>
-              <td colSpan={5} className="py-6 text-center text-neutral-500">
+              <td colSpan={5} className="py-6 text-center text-text-muted">
                 No variants defined yet
               </td>
             </tr>
           )}
           {variants.map((v: MaterialRoleVariant) => (
-            <tr key={v.id} className="border-b border-neutral-800">
+            <tr key={v.id} className="border-b border-border">
               <td className="py-2">{v.specGrade}</td>
               <td className="py-2">{v.unit}</td>
               <td className="py-2 text-right">{v.rate}</td>

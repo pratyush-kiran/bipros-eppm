@@ -18,13 +18,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/contracts/{contractId}/variation-orders")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class VariationOrderController {
 
     private final VariationOrderService variationOrderService;
 
     @PostMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.CREATE')")
     public ResponseEntity<ApiResponse<VariationOrderResponse>> create(
         @PathVariable UUID contractId,
         @Valid @RequestBody VariationOrderRequest request) {
@@ -33,6 +33,7 @@ public class VariationOrderController {
     }
 
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<VariationOrderResponse>>> listByContract(
         @PathVariable UUID contractId) {
         List<VariationOrderResponse> response = variationOrderService.listByContract(contractId);
@@ -40,6 +41,7 @@ public class VariationOrderController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<VariationOrderResponse>> getById(
         @PathVariable UUID contractId,
         @PathVariable UUID id) {
@@ -48,6 +50,7 @@ public class VariationOrderController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<VariationOrderResponse>> update(
         @PathVariable UUID contractId,
         @PathVariable UUID id,
@@ -57,6 +60,7 @@ public class VariationOrderController {
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.APPROVE')")
     public ResponseEntity<ApiResponse<VariationOrderResponse>> updateStatus(
         @PathVariable UUID contractId,
         @PathVariable UUID id,
@@ -66,6 +70,7 @@ public class VariationOrderController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.DELETE')")
     public ResponseEntity<Void> delete(
         @PathVariable UUID contractId,
         @PathVariable UUID id) {

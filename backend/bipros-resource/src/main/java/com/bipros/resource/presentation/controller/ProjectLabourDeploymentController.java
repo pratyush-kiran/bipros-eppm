@@ -26,7 +26,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/labour-deployments")
-@PreAuthorize("hasAnyRole('ADMIN')")
+@PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectLabourDeploymentController {
@@ -34,6 +34,7 @@ public class ProjectLabourDeploymentController {
     private final ProjectLabourDeploymentService service;
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<List<ProjectLabourDeploymentResponse>>> list(
             @PathVariable UUID projectId) {
         log.info("GET /v1/projects/{}/labour-deployments", projectId);
@@ -41,6 +42,7 @@ public class ProjectLabourDeploymentController {
     }
 
     @GetMapping("/dashboard")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<LabourMasterDashboardSummary>> dashboard(
             @PathVariable UUID projectId) {
         log.info("GET /v1/projects/{}/labour-deployments/dashboard", projectId);
@@ -48,6 +50,7 @@ public class ProjectLabourDeploymentController {
     }
 
     @GetMapping("/by-category")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.READ')")
     public ResponseEntity<ApiResponse<List<LabourCategorySummary>>> byCategory(
             @PathVariable UUID projectId) {
         log.info("GET /v1/projects/{}/labour-deployments/by-category", projectId);
@@ -55,6 +58,7 @@ public class ProjectLabourDeploymentController {
     }
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     public ResponseEntity<ApiResponse<ProjectLabourDeploymentResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody ProjectLabourDeploymentRequest req) {
@@ -64,6 +68,7 @@ public class ProjectLabourDeploymentController {
     }
 
     @PutMapping("/{deploymentId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     public ResponseEntity<ApiResponse<ProjectLabourDeploymentResponse>> update(
             @PathVariable UUID projectId,
             @PathVariable UUID deploymentId,
@@ -73,6 +78,7 @@ public class ProjectLabourDeploymentController {
     }
 
     @DeleteMapping("/{deploymentId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'RESOURCE.UPDATE')")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable UUID projectId,
             @PathVariable UUID deploymentId) {

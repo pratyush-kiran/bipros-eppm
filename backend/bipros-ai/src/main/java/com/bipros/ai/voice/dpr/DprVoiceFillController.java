@@ -42,7 +42,7 @@ public class DprVoiceFillController {
   private final ObjectMapper objectMapper;
 
   @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  @PreAuthorize("hasAnyRole('ADMIN','PROJECT_MANAGER','SITE_SUPERVISOR')")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.UPDATE')")
   public ResponseEntity<ApiResponse<DprVoiceFillResponse>> fill(
       @PathVariable UUID projectId,
       @NotNull @RequestPart("audio") MultipartFile audio,

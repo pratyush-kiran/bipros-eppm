@@ -35,7 +35,6 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/v1/projects/{projectId}/contracts/{contractId}")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ContractAttachmentController {
 
@@ -44,6 +43,7 @@ public class ContractAttachmentController {
     // ---------------------------------------------------------------- contract-level
 
     @PostMapping(value = "/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ContractAttachmentResponse>> uploadContractAttachment(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -58,6 +58,7 @@ public class ContractAttachmentController {
 
     /** Returns every attachment under the contract regardless of entity type (for the unified Attachments tab). */
     @GetMapping("/attachments")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<ContractAttachmentResponse>>> listAllAttachments(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId) {
@@ -68,6 +69,7 @@ public class ContractAttachmentController {
     // ---------------------------------------------------------------- milestone-level
 
     @PostMapping(value = "/milestones/{milestoneId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ContractAttachmentResponse>> uploadMilestoneAttachment(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -82,6 +84,7 @@ public class ContractAttachmentController {
     }
 
     @GetMapping("/milestones/{milestoneId}/attachments")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<ContractAttachmentResponse>>> listMilestoneAttachments(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -93,6 +96,7 @@ public class ContractAttachmentController {
     // ---------------------------------------------------------------- variation-order-level
 
     @PostMapping(value = "/variation-orders/{voId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ContractAttachmentResponse>> uploadVariationOrderAttachment(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -107,6 +111,7 @@ public class ContractAttachmentController {
     }
 
     @GetMapping("/variation-orders/{voId}/attachments")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<ContractAttachmentResponse>>> listVariationOrderAttachments(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -118,6 +123,7 @@ public class ContractAttachmentController {
     // ---------------------------------------------------------------- performance-bond-level
 
     @PostMapping(value = "/bonds/{bondId}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ContractAttachmentResponse>> uploadPerformanceBondAttachment(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -132,6 +138,7 @@ public class ContractAttachmentController {
     }
 
     @GetMapping("/bonds/{bondId}/attachments")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<List<ContractAttachmentResponse>>> listPerformanceBondAttachments(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -143,6 +150,7 @@ public class ContractAttachmentController {
     // ---------------------------------------------------------------- shared download/delete
 
     @GetMapping("/attachments/{attachmentId}/download")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<Resource> download(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,
@@ -161,6 +169,7 @@ public class ContractAttachmentController {
     }
 
     @DeleteMapping("/attachments/{attachmentId}")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.DELETE')")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable UUID projectId,
             @PathVariable UUID contractId,

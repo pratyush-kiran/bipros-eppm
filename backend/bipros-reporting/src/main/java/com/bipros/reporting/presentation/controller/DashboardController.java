@@ -18,7 +18,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/dashboards")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'VIEWER')")
 @RequiredArgsConstructor
 public class DashboardController {
 
@@ -27,11 +26,13 @@ public class DashboardController {
     /** List all configured dashboards. Serves {@code GET /v1/dashboards} so consumers can
      * discover tier ids before drilling into {@code /v1/dashboards/{tier}}. */
     @GetMapping
+    @PreAuthorize("hasPermission(null, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<DashboardConfigDto>>> listDashboards() {
         return ResponseEntity.ok(ApiResponse.ok(dashboardService.listDashboards()));
     }
 
     @GetMapping("/{tier}")
+    @PreAuthorize("hasPermission(null, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<DashboardConfigDto>> getDashboardByTier(
             @PathVariable String tier) {
         DashboardConfigDto response = dashboardService.getDashboardByTier(tier);
@@ -39,6 +40,7 @@ public class DashboardController {
     }
 
     @GetMapping("/{tier}/kpis")
+    @PreAuthorize("hasPermission(null, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<KpiSnapshotDto>>> getDashboardKpis(
             @PathVariable String tier,
             @RequestParam(required = false) UUID projectId) {
@@ -47,12 +49,14 @@ public class DashboardController {
     }
 
     @GetMapping("/kpi-definitions")
+    @PreAuthorize("hasPermission(null, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<KpiDefinitionDto>>> getKpiDefinitions() {
         List<KpiDefinitionDto> response = dashboardService.getAllKpiDefinitions();
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @PostMapping("/kpi-definitions")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<ApiResponse<KpiDefinitionDto>> createKpiDefinition(
             @Valid @RequestBody CreateKpiDefinitionRequest request) {
         KpiDefinitionDto response = dashboardService.createKpiDefinition(request);
@@ -60,6 +64,7 @@ public class DashboardController {
     }
 
     @GetMapping("/projects/{projectId}/kpi-snapshots")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<KpiSnapshotDto>>> getProjectKpiSnapshots(
             @PathVariable UUID projectId) {
         List<KpiSnapshotDto> response = dashboardService.getProjectKpiSnapshots(projectId);
@@ -67,6 +72,7 @@ public class DashboardController {
     }
 
     @PostMapping("/projects/{projectId}/kpi-snapshots/calculate")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'REPORT.READ')")
     public ResponseEntity<ApiResponse<List<KpiSnapshotDto>>> calculateProjectKpis(
             @PathVariable UUID projectId) {
         List<KpiSnapshotDto> response = dashboardService.calculateProjectKpis(projectId);

@@ -1,6 +1,9 @@
 package com.bipros.security.application.service;
 
+import com.bipros.security.domain.model.Profile;
+import com.bipros.security.domain.model.RolePermissionMatrix;
 import com.bipros.security.domain.model.User;
+import com.bipros.security.domain.repository.ProfileRepository;
 import com.bipros.security.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -9,6 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +34,7 @@ import java.util.stream.Collectors;
 public class CurrentUserService {
 
     private final UserRepository userRepository;
+    private final ProfileRepository profileRepository;
 
     /** @return the current user's ID, or {@code null} if no authenticated user is in scope. */
     public UUID getCurrentUserId() {
@@ -72,5 +77,71 @@ public class CurrentUserService {
         return auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Returns the union of every fine-grained permission code the current user can exercise.
+     *
+     * <p>Two sources are combined:
+     * <ol>
+     *   <li>{@link RolePermissionMatrix} — the <em>default</em> permission set hard-coded for each
+     *       role the user holds (via {@code user_roles}). This is the platform's shipped baseline
+     *       and is identical for every user in that role.</li>
+     *   <li>The user's directly-assigned {@link Profile} (via {@code User.profileId}) —
+     *       <em>admin-customised</em> permissions layered on top. A profile may grant codes the
+     *       role's matrix omits; it never revokes (the union widens, it does not narrow).</li>
+     * </ol>
+     *
+     * <p>Precedence: both sources are additive — {@code effective = matrix(roles) ∪ profile}. There
+     * is no subtraction. To restrict a user, remove a role or assign a narrower profile.
+     *
+     * <p>If there is no authenticated user (system context, anonymous, or unknown principal) an
+     * empty immutable set is returned. The returned set is always immutable.
+     */
+    public Set<String> getEffectivePermissions() {
+        return getCurrentUser().map(this::permissionsFor).orElse(Set.of());
+    }
+
+    /**
+     * Compute the effective permission union for an arbitrary {@link User} reference, independent
+     * of the {@code SecurityContext}. Used at JWT-issue time (login / refresh) before any
+     * authentication has been planted into the context, and anywhere else a permission set is
+     * needed for a user other than the current principal.
+     *
+     * <p>Semantics mirror {@link #getEffectivePermissions()}: union of
+     * {@link RolePermissionMatrix#permissionsForAll(java.util.Collection)} over the user's role
+     * names plus the user's assigned {@link Profile#getPermissions()}. Returns an immutable set;
+     * empty if {@code user} is {@code null}.
+     */
+    public Set<String> permissionsFor(User user) {
+        if (user == null) {
+            return Set.of();
+        }
+        Set<String> result = new HashSet<>();
+        Set<String> roleNames = user.getRoles().stream()
+                .map(ur -> ur.getRole() == null ? null : ur.getRole().getName())
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+        result.addAll(RolePermissionMatrix.permissionsForAll(roleNames));
+        if (user.getProfileId() != null) {
+            profileRepository.findById(user.getProfileId())
+                    .map(Profile::getPermissions)
+                    .ifPresent(result::addAll);
+        }
+        return Set.copyOf(result);
+    }
+
+    /**
+     * Convenience predicate over {@link #getEffectivePermissions()}.
+     *
+     * <p>Returns {@code true} when {@code code} appears in either the user's role-matrix defaults
+     * or the user's assigned profile. See {@link #getEffectivePermissions()} for the union /
+     * precedence rules — the same additive semantics apply here.
+     *
+     * @param code a fine-grained permission code (e.g. {@code "PROJECT.READ"})
+     * @return {@code true} when the current user holds the permission via role default or profile
+     */
+    public boolean hasPermission(String code) {
+        return getEffectivePermissions().contains(code);
     }
 }

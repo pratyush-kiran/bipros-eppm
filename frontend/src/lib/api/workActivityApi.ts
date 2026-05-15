@@ -16,6 +16,34 @@ export interface WorkActivityResponse {
   updatedBy: string | null;
 }
 
+export interface ProductivityCoverageNorm {
+  scope: "VARIANT" | "ROLE" | "UNSCOPED";
+  label: string;
+  outputPerDay: number | null;
+  outputPerManPerDay: number | null;
+  workingHoursPerDay: number | null;
+}
+
+export interface ProductivityCoverageSide {
+  configured: boolean;
+  norms: ProductivityCoverageNorm[];
+}
+
+export type ProductivityCoverageSummary =
+  | "MANPOWER_ONLY"
+  | "EQUIPMENT_ONLY"
+  | "BOTH"
+  | "NONE";
+
+export interface ProductivityCoverageResponse {
+  workActivityId: string;
+  workActivityName: string;
+  defaultUnit: string | null;
+  manpower: ProductivityCoverageSide;
+  equipment: ProductivityCoverageSide;
+  summary: ProductivityCoverageSummary;
+}
+
 export interface CreateWorkActivityRequest {
   code?: string;
   name: string;
@@ -36,6 +64,13 @@ export const workActivityApi = {
 
   get: (id: string) =>
     apiClient.get<ApiResponse<WorkActivityResponse>>(`/v1/work-activities/${id}`).then((r) => r.data),
+
+  productivityCoverage: (id: string) =>
+    apiClient
+      .get<ApiResponse<ProductivityCoverageResponse>>(
+        `/v1/work-activities/${id}/productivity-coverage`,
+      )
+      .then((r) => r.data),
 
   create: (request: CreateWorkActivityRequest) =>
     apiClient

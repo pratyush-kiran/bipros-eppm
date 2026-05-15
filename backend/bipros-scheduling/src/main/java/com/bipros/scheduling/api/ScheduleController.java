@@ -23,7 +23,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/schedule")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SCHEDULER')")
 @Slf4j
 @RequiredArgsConstructor
 public class ScheduleController {
@@ -31,6 +30,7 @@ public class ScheduleController {
   private final SchedulingService schedulingService;
 
   @PostMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.UPDATE')")
   public ApiResponse<ScheduleResultResponse> scheduleProject(
       @PathVariable UUID projectId,
       @Valid @RequestBody(required = false) ScheduleRequest request) {
@@ -43,6 +43,7 @@ public class ScheduleController {
   }
 
   @GetMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ApiResponse<ScheduleResultResponse> getLatestSchedule(@PathVariable UUID projectId) {
     log.debug("Fetching latest schedule for project: id={}", projectId);
 
@@ -51,6 +52,7 @@ public class ScheduleController {
   }
 
   @GetMapping("/critical-path")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ApiResponse<List<ScheduleActivityResultResponse>> getCriticalPath(@PathVariable UUID projectId) {
     log.debug("Fetching critical path for project: id={}", projectId);
 
@@ -59,6 +61,7 @@ public class ScheduleController {
   }
 
   @GetMapping("/float-paths")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ApiResponse<List<FloatPathResponse>> getFloatPaths(@PathVariable UUID projectId) {
     log.debug("Fetching float paths for project: id={}", projectId);
 
@@ -67,6 +70,7 @@ public class ScheduleController {
   }
 
   @GetMapping("/activities")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'SCHEDULE.READ')")
   public ApiResponse<List<ScheduleActivityResultResponse>> getAllScheduledActivities(
       @PathVariable UUID projectId) {
     log.debug("Fetching all scheduled activities for project: id={}", projectId);

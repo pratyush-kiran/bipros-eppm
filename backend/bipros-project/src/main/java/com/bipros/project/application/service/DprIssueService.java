@@ -5,6 +5,7 @@ import com.bipros.common.event.DprMutationType;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
 import com.bipros.common.util.AuditService;
+import com.bipros.project.application.dto.CreateDprIssueRequest;
 import com.bipros.project.application.dto.DprIssueRow;
 import com.bipros.project.application.dto.UpdateDprIssueRequest;
 import com.bipros.project.domain.model.DprIssue;
@@ -49,7 +50,7 @@ public class DprIssueService {
             IssueStatus status,
             IssueSeverity severity,
             IssueCategory category,
-            UUID supervisorResourceId,
+            UUID supervisorUserId,
             UUID activityId,
             LocalDate dateFrom,
             LocalDate dateTo) {
@@ -57,8 +58,8 @@ public class DprIssueService {
                 .filter(i -> status == null || i.getStatus() == status)
                 .filter(i -> severity == null || i.getSeverity() == severity)
                 .filter(i -> category == null || i.getCategory() == category)
-                .filter(i -> supervisorResourceId == null
-                        || supervisorResourceId.equals(i.getSupervisorResourceId()))
+                .filter(i -> supervisorUserId == null
+                        || supervisorUserId.equals(i.getSupervisorUserId()))
                 .filter(i -> activityId == null || activityId.equals(i.getActivityId()))
                 .filter(i -> dateFrom == null || !i.getReportDate().isBefore(dateFrom))
                 .filter(i -> dateTo == null || !i.getReportDate().isAfter(dateTo))
@@ -85,15 +86,17 @@ public class DprIssueService {
         if (request.description() != null) issue.setDescription(request.description());
         if (request.category() != null) issue.setCategory(request.category());
         if (request.severity() != null) issue.setSeverity(request.severity());
-        if (request.supervisorResourceId() != null) {
-            issue.setSupervisorResourceId(request.supervisorResourceId());
+        if (request.supervisorUserId() != null) {
+            issue.setSupervisorUserId(request.supervisorUserId());
         }
         if (request.supervisorName() != null) issue.setSupervisorName(request.supervisorName());
-        if (request.assignedToResourceId() != null) {
-            issue.setAssignedToResourceId(request.assignedToResourceId());
+        if (request.assignedToUserId() != null) {
+            issue.setAssignedToUserId(request.assignedToUserId());
         }
         if (request.assignedToName() != null) issue.setAssignedToName(request.assignedToName());
         if (request.resolutionNotes() != null) issue.setResolutionNotes(request.resolutionNotes());
+        if (request.activityId() != null) issue.setActivityId(request.activityId());
+        if (request.activityName() != null) issue.setActivityName(request.activityName());
 
         IssueStatus newStatus = request.status() != null ? request.status() : oldStatus;
         if (request.status() != null && newStatus != oldStatus) {
@@ -128,6 +131,37 @@ public class DprIssueService {
                 projectId, dprId, id,
                 oldStatus != null ? oldStatus.name() : null, null,
                 DprMutationType.DELETED));
+    }
+
+    public DprIssueRow create(UUID projectId, CreateDprIssueRequest req) {
+        IssueStatus status = req.status() != null ? req.status() : IssueStatus.OPEN;
+        DprIssue issue = DprIssue.builder()
+                .dprId(null)
+                .projectId(projectId)
+                .activityId(req.activityId())
+                .activityName(req.activityName())
+                .supervisorResourceId(req.supervisorResourceId())
+                .supervisorName(req.supervisorName())
+                .assignedToResourceId(
+                        req.assignedToResourceId() != null
+                                ? req.assignedToResourceId()
+                                : req.supervisorResourceId())
+                .assignedToName(
+                        req.assignedToName() != null ? req.assignedToName() : req.supervisorName())
+                .reportDate(req.reportDate() != null ? req.reportDate() : LocalDate.now())
+                .category(req.category())
+                .severity(req.severity())
+                .status(status)
+                .title(req.title())
+                .description(req.description())
+                .openedAt(Instant.now())
+                .resolvedAt(status.resolvedAtTerminal() ? Instant.now() : null)
+                .build();
+        DprIssue saved = issueRepository.save(issue);
+        auditService.logCreate("DprIssue", saved.getId(), DprIssueRow.from(saved));
+        eventPublisher.publishEvent(new DprIssueChangedEvent(
+                projectId, null, saved.getId(), null, status.name(), DprMutationType.CREATED));
+        return DprIssueRow.from(saved);
     }
 
     private DprIssue findIssue(UUID projectId, UUID id) {

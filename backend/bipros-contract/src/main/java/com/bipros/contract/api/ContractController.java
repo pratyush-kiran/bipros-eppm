@@ -20,7 +20,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/contracts")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class ContractController {
 
@@ -28,6 +27,7 @@ public class ContractController {
     private final ContractKpiService contractKpiService;
 
     @PostMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.CREATE')")
     public ResponseEntity<ApiResponse<ContractResponse>> create(
         @PathVariable UUID projectId,
         @Valid @RequestBody ContractRequest request) {
@@ -36,6 +36,7 @@ public class ContractController {
     }
 
     @GetMapping
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<PagedResponse<ContractResponse>>> listByProject(
         @PathVariable UUID projectId,
         @RequestParam(defaultValue = "0") int page,
@@ -48,6 +49,7 @@ public class ContractController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.READ')")
     public ResponseEntity<ApiResponse<ContractResponse>> getById(
         @PathVariable UUID projectId,
         @PathVariable UUID id) {
@@ -56,6 +58,7 @@ public class ContractController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ContractResponse>> update(
         @PathVariable UUID projectId,
         @PathVariable UUID id,
@@ -65,6 +68,7 @@ public class ContractController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.DELETE')")
     public ResponseEntity<Void> delete(
         @PathVariable UUID projectId,
         @PathVariable UUID id) {
@@ -73,6 +77,7 @@ public class ContractController {
     }
 
     @PostMapping("/{id}/kpi/refresh")
+    @PreAuthorize("hasPermission(null, 'CONTRACT.UPDATE')")
     public ResponseEntity<ApiResponse<ContractResponse>> refreshKpi(
         @PathVariable UUID projectId,
         @PathVariable UUID id) {

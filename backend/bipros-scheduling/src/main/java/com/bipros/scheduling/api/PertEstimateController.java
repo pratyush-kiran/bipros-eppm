@@ -20,7 +20,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/activities")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'SCHEDULER')")
 @Slf4j
 @RequiredArgsConstructor
 public class PertEstimateController {
@@ -28,12 +27,14 @@ public class PertEstimateController {
   private final PertEstimateService pertEstimateService;
 
   @GetMapping("/{activityId}/pert-estimate")
+  @PreAuthorize("hasPermission(null, 'SCHEDULE.READ')")
   public ResponseEntity<PertEstimateResponse> getPertEstimate(@PathVariable UUID activityId) {
     log.debug("GET /v1/activities/{}/pert-estimate", activityId);
     return ResponseEntity.ok(pertEstimateService.getByActivity(activityId));
   }
 
   @PostMapping("/{activityId}/pert-estimate")
+  @PreAuthorize("hasPermission(null, 'SCHEDULE.UPDATE')")
   public ResponseEntity<PertEstimateResponse> createPertEstimate(
       @PathVariable UUID activityId,
       @RequestBody PertEstimateRequest request) {
@@ -51,6 +52,7 @@ public class PertEstimateController {
   }
 
   @PutMapping("/{activityId}/pert-estimate")
+  @PreAuthorize("hasPermission(null, 'SCHEDULE.UPDATE')")
   public ResponseEntity<PertEstimateResponse> updatePertEstimate(
       @PathVariable UUID activityId,
       @RequestBody PertEstimateRequest request) {

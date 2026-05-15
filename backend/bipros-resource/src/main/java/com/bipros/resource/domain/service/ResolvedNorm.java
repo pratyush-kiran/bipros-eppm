@@ -16,9 +16,15 @@ public record ResolvedNorm(
     UUID resourceId
 ) {
   public enum Source {
-    /** A {@code ProductivityNorm} row scoped to the specific resource. */
+    /** Role-keyed variant tier: (work activity, role, skill/grade or make/model). */
+    VARIANT,
+    /** Role-keyed role-only tier: (work activity, role). */
+    ROLE,
+    /** Unscoped tier: (work activity) — the 102 seeded rows fall here. */
+    UNSCOPED,
+    /** A {@code ProductivityNorm} row scoped to the specific resource. Legacy. */
     SPECIFIC_RESOURCE,
-    /** A {@code ProductivityNorm} row scoped to the resource type. */
+    /** A {@code ProductivityNorm} row scoped to the resource type. Legacy. */
     RESOURCE_TYPE,
     /** Fell back to {@code Resource.standardOutputPerDay}. */
     RESOURCE_LEGACY,

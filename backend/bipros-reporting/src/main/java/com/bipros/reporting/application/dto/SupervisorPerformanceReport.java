@@ -18,13 +18,16 @@ import java.util.UUID;
  *       free-text remarks.</li>
  * </ul>
  *
- * <p>When {@code supervisorResourceId} is null the report aggregates project-wide (every DPR in
+ * <p>When {@code supervisorUserId} is null the report aggregates project-wide (every DPR in
  * the date window). When set, only DPRs filed under that supervisor contribute.
+ *
+ * <p>RBAC Phase 4.4 — the identity field carries a User UUID (FK to {@code public.users.id})
+ * after the OLTP rename in migration 091.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorPerformanceReport(
     UUID projectId,
-    UUID supervisorResourceId,
+    UUID supervisorUserId,
     String supervisorName,
     LocalDate fromDate,
     LocalDate toDate,

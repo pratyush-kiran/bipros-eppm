@@ -28,7 +28,7 @@ public class QcTestRecordController {
     private final QcSessionService service;
 
     @GetMapping
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.READ')")
     public ResponseEntity<ApiResponse<List<QcSessionResponse>>> list(
             @PathVariable UUID projectId,
             @RequestParam(required = false) UUID activityId,
@@ -39,7 +39,7 @@ public class QcTestRecordController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.READ')")
     public ResponseEntity<ApiResponse<QcSessionResponse>> get(
             @PathVariable UUID projectId,
             @PathVariable UUID id) {
@@ -47,7 +47,7 @@ public class QcTestRecordController {
     }
 
     @PostMapping
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.CREATE')")
     public ResponseEntity<ApiResponse<QcSessionResponse>> create(
             @PathVariable UUID projectId,
             @Valid @RequestBody CreateQcSessionRequest request) {
@@ -56,7 +56,7 @@ public class QcTestRecordController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.UPDATE')")
     public ResponseEntity<ApiResponse<QcSessionResponse>> update(
             @PathVariable UUID projectId,
             @PathVariable UUID id,
@@ -65,7 +65,7 @@ public class QcTestRecordController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("@projectAccess.canEdit(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.UPDATE')")
     public ResponseEntity<Void> delete(
             @PathVariable UUID projectId,
             @PathVariable UUID id) {
@@ -74,7 +74,7 @@ public class QcTestRecordController {
     }
 
     @GetMapping("/dashboard")
-    @PreAuthorize("@projectAccess.canRead(#projectId)")
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'NCR.READ')")
     public ResponseEntity<ApiResponse<QcDashboardResponse>> dashboard(
             @PathVariable UUID projectId,
             @RequestParam(required = false) UUID activityId,

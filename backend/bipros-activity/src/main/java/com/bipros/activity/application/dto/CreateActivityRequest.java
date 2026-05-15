@@ -55,18 +55,13 @@ public record CreateActivityRequest(
      */
     UUID costAccountId,
 
-    /**
-     * Soft FK to {@code resource.resources.id} — the LABOR Resource accountable for this activity
-     * as supervisor. The frontend filters the picker to LABOR resources from the project pool.
-     * Stored on {@code Activity.responsibleResourceId} so the activity grid + DPR pre-fill can
-     * resolve without a cross-module fetch.
-     */
+    // Deprecated Phase 4.5: ignored by ActivityService.createActivity. The legacy
+    // Activity.responsibleResourceId cache was dropped by Liquibase 094; supervisor
+    // identity is now assigned via PUT /v1/activities/{id}/supervisor
+    // (Activity.supervisorUserId). Retained on the request to keep older frontends compiling.
     UUID supervisorResourceId,
 
-    /**
-     * Display-snapshot of the supervisor Resource's name at the moment of assignment. Frontend
-     * passes this from the picker option label so the backend doesn't need a cross-module
-     * lookup. Goes stale if the Resource is later renamed — accepted limitation.
-     */
+    // Deprecated Phase 4.5: ignored by ActivityService.createActivity (the display
+    // cache it fed is gone — see supervisorResourceId).
     String supervisorResourceName
 ) {}

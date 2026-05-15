@@ -20,13 +20,13 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/v1/projects/{projectId}/pfms")
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
 @RequiredArgsConstructor
 public class PfmsController {
 
     private final PfmsIntegrationService pfmsIntegrationService;
 
     @PostMapping("/check-fund")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<PfmsFundTransfer> checkFundStatus(
         @PathVariable UUID projectId,
         @NotBlank @RequestParam String sanctionOrderNumber
@@ -35,6 +35,7 @@ public class PfmsController {
     }
 
     @PostMapping("/initiate-payment")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.UPDATE')")
     public ResponseEntity<PfmsFundTransfer> initiatePayment(
         @PathVariable UUID projectId,
         @NotBlank @RequestParam String sanctionOrderNumber,
@@ -54,6 +55,7 @@ public class PfmsController {
     }
 
     @GetMapping("/transfers")
+    @PreAuthorize("hasPermission(null, 'ADMIN_SETTINGS.READ')")
     public ResponseEntity<Page<PfmsFundTransfer>> getFundTransfers(
         @PathVariable UUID projectId,
         @RequestParam(defaultValue = "0") int page,

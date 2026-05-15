@@ -33,8 +33,8 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
   List<DailyProgressReport> findByProjectIdAndActivityNameIgnoreCaseOrderByReportDateAsc(
       UUID projectId, String activityName);
 
-  long countBySupervisorResourceIdAndReportDateGreaterThanEqual(
-      UUID supervisorResourceId, LocalDate sinceInclusive);
+  long countBySupervisorUserIdAndReportDateGreaterThanEqual(
+      UUID supervisorUserId, LocalDate sinceInclusive);
 
   /**
    * Sum of qty_executed for the (project, activityName) up to and including {@code reportDate}.

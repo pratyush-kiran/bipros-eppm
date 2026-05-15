@@ -162,7 +162,12 @@ public class ResourceContextFacade {
             r.getParentId(),
             parent != null ? parent.getCode() : null,
             parent != null ? parent.getName() : null,
-            r.getUserId(),
+            // resource.user_id was dropped in Liquibase 095 (Phase 4.6 of the RBAC overhaul):
+            // the soft FK from Resource to User is now replaced by the explicit
+            // {@code supervisor_user_id} columns on Activity / DPR. Profile keeps the field
+            // for backwards compatibility — emit null until the AI surface needs a
+            // user-link from another source.
+            null,
             r.getCalendarId(),
             role != null ? role.getId() : null,
             role != null ? role.getCode() : null,

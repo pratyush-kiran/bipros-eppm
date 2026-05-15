@@ -4,14 +4,18 @@ import { memo, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Download, PlusCircle } from "lucide-react";
+import { AlertTriangle, Download, PlusCircle } from "lucide-react";
 import {
   capacityUtilizationApi,
   type CapacityGroupBy,
   type CapacityNormType,
   type CapacityPeriod,
+  type CapacityRoleRow,
+  type CapacitySection,
   type CapacityUtilizationRow,
+  type RolePeriod,
 } from "@/lib/api/capacityUtilizationApi";
+import { activityApi } from "@/lib/api/activityApi";
 import { TabTip } from "@/components/common/TabTip";
 import { SupervisorPerformanceSections } from "@/components/capacity-utilization/SupervisorPerformanceSections";
 import { SupervisorComparisonSections } from "@/components/capacity-utilization/SupervisorComparisonSections";
@@ -105,9 +109,9 @@ function downloadCsv(
     csvRows.push(
       [
         r.groupKey.displayLabel,
-        r.workActivity.code,
-        r.workActivity.name,
-        r.workActivity.defaultUnit ?? "",
+        r.workActivity?.code ?? "",
+        r.workActivity?.name ?? "",
+        r.workActivity?.defaultUnit ?? "",
         r.budgeted.outputPerDay ?? "",
         r.budgeted.source,
         r.forTheDay.qty ?? "",
@@ -146,6 +150,145 @@ function downloadCsv(
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// ─── SC180-style Summary table ─────────────────────────────────────────────────────────────
+// One row per Role with three time buckets (Day · Month · Cumulative), each carrying the SC180
+// column set: Budget Days·Nos · Planned Days · Actual Days·Nos · %Util · Cost Implication.
+
+const RolePeriodCell = memo(function RolePeriodCell({ period }: { period: RolePeriod | null }) {
+  if (!period) {
+    return <span className="text-xs text-text-muted">—</span>;
+  }
+  return (
+    <div className="space-y-0.5 text-xs">
+      {period.qty != null && period.qty > 0 && (
+        <div>
+          <span className="text-text-muted">Qty done:</span> {fmt(period.qty, 2)}
+        </div>
+      )}
+      <div>
+        <span className="text-text-muted">Budget:</span> {fmt(period.budgetDays, 1)}
+      </div>
+      {period.plannedDays != null && (
+        <div>
+          <span className="text-text-muted">Planned:</span> {fmt(period.plannedDays, 1)} nos
+        </div>
+      )}
+      <div>
+        <span className="text-text-muted">Actual:</span> {fmt(period.actualDays, 1)}
+      </div>
+      {period.actualDaysUntracked != null && period.actualDaysUntracked > 0 && (
+        <div className="text-text-muted italic">
+          ({fmt(period.actualDaysUntracked, 1)} day{period.actualDaysUntracked === 1 ? "" : "s"} on activities not tracking productivity)
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${utilBand(period.utilizationPct)}`}
+        >
+          {period.utilizationPct == null ? "—" : `${fmt(period.utilizationPct, 1)} %`}
+        </span>
+        {period.costImplication != null && (
+          <span
+            className={`text-xs ${period.costImplication < 0 ? "text-success" : period.costImplication > 0 ? "text-danger" : "text-text-muted"}`}
+          >
+            ₹{fmt(period.costImplication, 0)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+});
+
+const Sc180SectionTable = memo(function Sc180SectionTable({
+  title,
+  section,
+}: {
+  title: string;
+  section: CapacitySection | null;
+}) {
+  if (!section || section.rows.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-paper px-6 py-6 text-center text-sm text-text-muted">
+        No {title.toLowerCase()} data in this date range.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-border bg-paper overflow-hidden mb-6">
+      <div className="bg-ivory border-b border-border px-4 py-3">
+        <h3 className="font-semibold text-text-primary uppercase tracking-wide text-sm">
+          {title}
+        </h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead className="bg-ivory border-b border-border">
+            <tr>
+              <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                Role
+              </th>
+              <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                Rate / Day
+              </th>
+              <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-secondary border-l border-border">
+                For the Day
+              </th>
+              <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                For the Month
+              </th>
+              <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                Cumulative
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {section.rows.map((r) => (
+              <tr key={r.roleId} className="border-t border-border/50 hover:bg-surface/30">
+                <td className="px-4 py-3 align-top">
+                  <div className="text-text-primary">{r.roleName ?? "(role)"}</div>
+                  {r.roleCode && (
+                    <div className="text-xs text-text-muted font-mono">{r.roleCode}</div>
+                  )}
+                  <div className="text-xs text-text-muted mt-1">
+                    {r.normSource === "NONE"
+                      ? "Productivity not tracked on this activity"
+                      : `Norm: ${r.normSource.toLowerCase()}`}
+                  </div>
+                </td>
+                <td className="px-4 py-3 align-top text-right text-xs">
+                  {r.ratePerDay == null ? "—" : `₹${fmt(r.ratePerDay, 0)}`}
+                </td>
+                <td className="px-4 py-3 align-top border-l border-border">
+                  <RolePeriodCell period={r.forTheDay} />
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <RolePeriodCell period={r.forTheMonth} />
+                </td>
+                <td className="px-4 py-3 align-top">
+                  <RolePeriodCell period={r.cumulative} />
+                </td>
+              </tr>
+            ))}
+            <tr className="bg-ivory/60 border-t border-border font-semibold">
+              <td className="px-4 py-2 text-text-primary">Total</td>
+              <td />
+              <td className="px-4 py-2 border-l border-border">
+                <RolePeriodCell period={section.totalForTheDay} />
+              </td>
+              <td className="px-4 py-2">
+                <RolePeriodCell period={section.totalForTheMonth} />
+              </td>
+              <td className="px-4 py-2">
+                <RolePeriodCell period={section.totalCumulative} />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+});
 
 interface GroupedRow {
   label: string;
@@ -241,7 +384,7 @@ const GroupSection = memo(function GroupSection({
         </td>
       </tr>
       {group.rows.map((r, i) => (
-        <DataRow key={`${r.workActivity.id}-${i}`} row={r} />
+        <DataRow key={`${r.workActivity?.id ?? r.groupKey.displayLabel}-${i}`} row={r} />
       ))}
     </>
   );
@@ -256,15 +399,15 @@ const DataRow = memo(function DataRow({
     <tr className="border-t border-border/50 hover:bg-surface/30">
       <td />
       <td className="px-4 py-3 align-top">
-        <div className="text-text-primary">{row.workActivity.name}</div>
+        <div className="text-text-primary">{row.workActivity?.name ?? row.groupKey.displayLabel}</div>
         <div className="text-xs text-text-muted font-mono">
-          {row.workActivity.code}
+          {row.workActivity?.code ?? ""}
         </div>
       </td>
       <td className="px-4 py-3 align-top text-right">
         <div>{fmt(row.budgeted.outputPerDay)}</div>
         <div className="text-xs text-text-muted">
-          {row.workActivity.defaultUnit ?? ""}
+          {row.workActivity?.defaultUnit ?? ""}
         </div>
         <div className="text-xs text-text-muted mt-1">
           {row.budgeted.source.replace("_", " ").toLowerCase()}
@@ -291,7 +434,7 @@ export default function CapacityUtilizationPage() {
   const [toDate, setToDate] = useState(today());
   const [groupBy, setGroupBy] = useState<CapacityGroupBy>("RESOURCE_TYPE");
   const [normType, setNormType] = useState<CapacityNormType | "">("");
-  const [supervisorResourceId, setSupervisorResourceId] = useState<string>("");
+  const [supervisorUserId, setSupervisorUserId] = useState<string>("");
   const [workDays, setWorkDays] = useState<number>(26);
   const [compareMode, setCompareMode] = useState<boolean>(false);
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -307,6 +450,16 @@ export default function CapacityUtilizationPage() {
     placeholderData: keepPreviousData,
   });
 
+  // Activities in this window with no Work Activity linked. Their DPRs are silently excluded
+  // by the capacity-utilization SQL (INNER JOIN on work_activities), so we surface a banner
+  // that lets the user jump back and fix the link.
+  const { data: missingWaData } = useQuery({
+    queryKey: ["missing-work-activity", projectId, fromDate, toDate],
+    queryFn: () => activityApi.listMissingWorkActivity(projectId, fromDate, toDate),
+    placeholderData: keepPreviousData,
+  });
+  const missingWa = missingWaData?.data ?? [];
+
   const { data, isLoading, isError, error } = useQuery({
     queryKey: [
       "capacity-utilization",
@@ -315,7 +468,7 @@ export default function CapacityUtilizationPage() {
       toDate,
       groupBy,
       normType,
-      supervisorResourceId,
+      supervisorUserId,
     ],
     queryFn: () =>
       capacityUtilizationApi.get({
@@ -324,7 +477,7 @@ export default function CapacityUtilizationPage() {
         toDate,
         groupBy,
         normType: normType || undefined,
-        supervisorResourceId: supervisorResourceId || undefined,
+        supervisorUserId: supervisorUserId || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -335,18 +488,18 @@ export default function CapacityUtilizationPage() {
       projectId,
       fromDate,
       toDate,
-      supervisorResourceId,
+      supervisorUserId,
       workDays,
     ],
     queryFn: () =>
       capacityUtilizationApi.getSupervisorPerformance({
         projectId,
-        supervisorResourceId: supervisorResourceId || undefined,
+        supervisorUserId: supervisorUserId || undefined,
         fromDate,
         toDate,
         workDays,
       }),
-    enabled: !compareMode && !!supervisorResourceId,
+    enabled: !compareMode && !!supervisorUserId,
     placeholderData: keepPreviousData,
   });
 
@@ -362,7 +515,7 @@ export default function CapacityUtilizationPage() {
     queryFn: () =>
       capacityUtilizationApi.compareSupervisorPerformance({
         projectId,
-        supervisorResourceIds: compareIds,
+        supervisorUserIds: compareIds,
         fromDate,
         toDate,
         workDays,
@@ -511,8 +664,8 @@ export default function CapacityUtilizationPage() {
                 >
                   {supervisors.map((s) => (
                     <option
-                      key={s.supervisorResourceId}
-                      value={s.supervisorResourceId}
+                      key={s.supervisorUserId}
+                      value={s.supervisorUserId}
                     >
                       {s.supervisorName} ({s.dprCount})
                     </option>
@@ -520,15 +673,15 @@ export default function CapacityUtilizationPage() {
                 </select>
               ) : (
                 <select
-                  value={supervisorResourceId}
-                  onChange={(e) => setSupervisorResourceId(e.target.value)}
+                  value={supervisorUserId}
+                  onChange={(e) => setSupervisorUserId(e.target.value)}
                   className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
                 >
                   <option value="">All supervisors (project-wide)</option>
                   {supervisors.map((s) => (
                     <option
-                      key={s.supervisorResourceId}
-                      value={s.supervisorResourceId}
+                      key={s.supervisorUserId}
+                      value={s.supervisorUserId}
                     >
                       {s.supervisorName} ({s.dprCount} DPRs)
                     </option>
@@ -554,7 +707,7 @@ export default function CapacityUtilizationPage() {
                   type="button"
                   onClick={() => {
                     setCompareMode((m) => !m);
-                    if (!compareMode) setSupervisorResourceId("");
+                    if (!compareMode) setSupervisorUserId("");
                     else setCompareIds([]);
                   }}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold ${
@@ -579,6 +732,31 @@ export default function CapacityUtilizationPage() {
           </div>
         </div>
 
+        {missingWa.length > 0 && (
+          <div className="mt-3 flex items-start gap-3 rounded-lg border border-text-muted/20 bg-surface-hover/40 px-4 py-3 text-sm">
+            <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-text-muted" />
+            <div className="flex-1">
+              <p className="font-semibold text-text-primary">
+                {missingWa.length}{" "}
+                {missingWa.length === 1 ? "activity doesn't" : "activities don't"} track productivity
+              </p>
+              <p className="mt-1 text-text-secondary">
+                These activities have no Work Activity linked — DPRs were filed against them but
+                there's no norm to compare actual vs expected, so they don't appear in this
+                report. This is fine for design / engineering / office work. Link a Work Activity
+                if you want capacity utilization for an activity here.
+              </p>
+              <Link
+                href={`/projects/${projectId}/activities?filter=missing-work-activity`}
+                prefetch={false}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+              >
+                Review activities →
+              </Link>
+            </div>
+          </div>
+        )}
+
         {isLoading && (
           <div className="text-text-muted mt-4">Loading report...</div>
         )}
@@ -590,11 +768,31 @@ export default function CapacityUtilizationPage() {
 
         {!isLoading && !isError && !compareMode && (
           <div className="mt-4">
-            <ResultTable groups={groups} totalRows={totalRows} />
+            {(!data?.data?.manpower && !data?.data?.equipment) ? (
+              <div className="rounded-xl border border-border bg-paper px-6 py-8 text-center text-sm text-text-muted">
+                No DPR data in this date range. Record DPRs on the project's DPR page; the
+                capacity-utilization grid populates from the manpower &amp; equipment rows there.
+              </div>
+            ) : (
+              <>
+                {data?.data?.manpower && (
+                  <Sc180SectionTable
+                    title="Manpower Utilization"
+                    section={data.data.manpower}
+                  />
+                )}
+                {data?.data?.equipment && (
+                  <Sc180SectionTable
+                    title="Equipment Utilization"
+                    section={data.data.equipment}
+                  />
+                )}
+              </>
+            )}
           </div>
         )}
 
-        {!compareMode && supervisorResourceId && supervisorPerf?.data && (
+        {!compareMode && supervisorUserId && supervisorPerf?.data && (
           <SupervisorPerformanceSections report={supervisorPerf.data} />
         )}
 

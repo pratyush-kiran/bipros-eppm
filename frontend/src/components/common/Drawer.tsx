@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -31,6 +31,12 @@ export function Drawer({
   widthClass = "max-w-2xl",
   children,
 }: DrawerProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -40,7 +46,7 @@ export function Drawer({
     };
   }, [open]);
 
-  if (typeof document === "undefined") return null;
+  if (!mounted) return null;
 
   const node = (
     <div inert={!open || undefined}>
