@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { resourceRoleApi, type ResourceRole } from "@/lib/api/resourceRoleApi";
 import {
   roleRateApi,
@@ -19,6 +19,8 @@ interface Props {
   projectId: string;
   activityId: string;
   onChanged?: () => void;
+  // When true, every add/edit/delete control is disabled. Backend also rejects with ACTIVITY_LOCKED.
+  locked?: boolean;
 }
 
 /**
@@ -31,7 +33,7 @@ interface Props {
  *   POST /v1/projects/{p}/role-assignments
  *   DELETE /v1/role-assignments/{id}
  */
-export function RoleDemandSections({ projectId, activityId, onChanged }: Props) {
+export function RoleDemandSections({ projectId, activityId, onChanged, locked = false }: Props) {
   const qc = useQueryClient();
 
   const { data: rolesResp } = useQuery({
@@ -83,12 +85,18 @@ export function RoleDemandSections({ projectId, activityId, onChanged }: Props) 
 
   return (
     <div className="space-y-5">
+      {locked && (
+        <p className="rounded-md border border-border bg-surface-hover px-3 py-2 text-xs text-text-muted">
+          Activity is locked — resource plan is frozen and can no longer be edited.
+        </p>
+      )}
       <ManpowerSection
         projectId={projectId}
         activityId={activityId}
         roles={manpowerRoles}
         rows={manpowerAssignments}
         onChanged={refresh}
+        locked={locked}
       />
       <EquipmentSection
         projectId={projectId}
@@ -96,6 +104,7 @@ export function RoleDemandSections({ projectId, activityId, onChanged }: Props) 
         roles={equipmentRoles}
         rows={equipmentAssignments}
         onChanged={refresh}
+        locked={locked}
       />
       <MaterialSection
         projectId={projectId}
@@ -103,6 +112,7 @@ export function RoleDemandSections({ projectId, activityId, onChanged }: Props) 
         roles={materialRoles}
         rows={materialAssignments}
         onChanged={refresh}
+        locked={locked}
       />
     </div>
   );
@@ -118,6 +128,7 @@ interface ManpowerSectionProps {
   roles: ResourceRole[];
   rows: RoleAssignmentResponse[];
   onChanged: () => void;
+  locked: boolean;
 }
 
 function ManpowerSection({
@@ -126,6 +137,7 @@ function ManpowerSection({
   roles,
   rows,
   onChanged,
+  locked,
 }: ManpowerSectionProps) {
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
@@ -169,6 +181,19 @@ function ManpowerSection({
   const remove = useMutation({
     mutationFn: (id: string) => roleAssignmentApi.delete(id),
     onSuccess: () => onChanged(),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to remove row"),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ row, value }: { row: RoleAssignmentResponse; value: number }) =>
+      roleAssignmentApi.update(row.id, {
+        activityId,
+        roleId: row.roleId!,
+        manpowerRoleRateId: row.variantId ?? undefined,
+        headcount: value,
+      }),
+    onSuccess: () => onChanged(),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
   });
 
   return (
@@ -181,7 +206,8 @@ function ManpowerSection({
           <select
             value={roleId}
             onChange={(e) => setRoleId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs"
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           >
             <option value="">— pick role —</option>
             {roles.map((r) => (
@@ -196,7 +222,7 @@ function ManpowerSection({
           <select
             value={variantId}
             onChange={(e) => setVariantId(e.target.value)}
-            disabled={!roleId}
+            disabled={locked || !roleId}
             className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           >
             <option value="">— pick variant —</option>
@@ -214,11 +240,12 @@ function ManpowerSection({
             min={1}
             value={headcount}
             onChange={(e) => setHeadcount(parseInt(e.target.value) || 1)}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs"
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           />
         </label>
         <button
-          disabled={!roleId || !variantId || !headcount || create.isPending}
+          disabled={locked || !roleId || !variantId || !headcount || create.isPending}
           onClick={() => create.mutate()}
           className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
@@ -241,7 +268,11 @@ function ManpowerSection({
           a.headcount ?? a.plannedUnits ?? "—",
           a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
         ]}
+        editCellIndex={2}
+        editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
+        onEditSave={(row, value) => update.mutate({ row, value })}
         onDelete={(id) => remove.mutate(id)}
+        locked={locked}
       />
     </section>
   );
@@ -257,6 +288,7 @@ interface EquipmentSectionProps {
   roles: ResourceRole[];
   rows: RoleAssignmentResponse[];
   onChanged: () => void;
+  locked: boolean;
 }
 
 function EquipmentSection({
@@ -265,6 +297,7 @@ function EquipmentSection({
   roles,
   rows,
   onChanged,
+  locked,
 }: EquipmentSectionProps) {
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
@@ -308,6 +341,19 @@ function EquipmentSection({
   const remove = useMutation({
     mutationFn: (id: string) => roleAssignmentApi.delete(id),
     onSuccess: () => onChanged(),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to remove row"),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ row, value }: { row: RoleAssignmentResponse; value: number }) =>
+      roleAssignmentApi.update(row.id, {
+        activityId,
+        roleId: row.roleId!,
+        equipmentRoleVariantId: row.variantId ?? undefined,
+        headcount: value,
+      }),
+    onSuccess: () => onChanged(),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
   });
 
   return (
@@ -320,7 +366,8 @@ function EquipmentSection({
           <select
             value={roleId}
             onChange={(e) => setRoleId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs"
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           >
             <option value="">— pick equipment —</option>
             {roles.map((r) => (
@@ -335,7 +382,7 @@ function EquipmentSection({
           <select
             value={variantId}
             onChange={(e) => setVariantId(e.target.value)}
-            disabled={!roleId}
+            disabled={locked || !roleId}
             className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           >
             <option value="">— pick variant —</option>
@@ -353,11 +400,12 @@ function EquipmentSection({
             min={1}
             value={headcount}
             onChange={(e) => setHeadcount(parseInt(e.target.value) || 1)}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs"
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           />
         </label>
         <button
-          disabled={!roleId || !variantId || !headcount || create.isPending}
+          disabled={locked || !roleId || !variantId || !headcount || create.isPending}
           onClick={() => create.mutate()}
           className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
@@ -380,7 +428,11 @@ function EquipmentSection({
           a.headcount ?? a.plannedUnits ?? "—",
           a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
         ]}
+        editCellIndex={2}
+        editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
+        onEditSave={(row, value) => update.mutate({ row, value })}
         onDelete={(id) => remove.mutate(id)}
+        locked={locked}
       />
     </section>
   );
@@ -396,6 +448,7 @@ interface MaterialSectionProps {
   roles: ResourceRole[];
   rows: RoleAssignmentResponse[];
   onChanged: () => void;
+  locked: boolean;
 }
 
 function MaterialSection({
@@ -404,6 +457,7 @@ function MaterialSection({
   roles,
   rows,
   onChanged,
+  locked,
 }: MaterialSectionProps) {
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
@@ -446,6 +500,19 @@ function MaterialSection({
   const remove = useMutation({
     mutationFn: (id: string) => roleAssignmentApi.delete(id),
     onSuccess: () => onChanged(),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to remove row"),
+  });
+
+  const update = useMutation({
+    mutationFn: ({ row, value }: { row: RoleAssignmentResponse; value: number }) =>
+      roleAssignmentApi.update(row.id, {
+        activityId,
+        roleId: row.roleId!,
+        materialRoleVariantId: row.variantId ?? undefined,
+        quantity: value,
+      }),
+    onSuccess: () => onChanged(),
+    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
   });
 
   return (
@@ -458,7 +525,8 @@ function MaterialSection({
           <select
             value={roleId}
             onChange={(e) => setRoleId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs"
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           >
             <option value="">— pick material —</option>
             {roles.map((r) => (
@@ -473,7 +541,7 @@ function MaterialSection({
           <select
             value={variantId}
             onChange={(e) => setVariantId(e.target.value)}
-            disabled={!roleId}
+            disabled={locked || !roleId}
             className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           >
             <option value="">— pick variant —</option>
@@ -494,11 +562,12 @@ function MaterialSection({
             min={0}
             value={quantity}
             onChange={(e) => setQuantity(parseFloat(e.target.value) || 0)}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs"
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           />
         </label>
         <button
-          disabled={!roleId || !variantId || !quantity || create.isPending}
+          disabled={locked || !roleId || !variantId || !quantity || create.isPending}
           onClick={() => create.mutate()}
           className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
@@ -521,7 +590,11 @@ function MaterialSection({
           a.quantity ?? "—",
           a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
         ]}
+        editCellIndex={2}
+        editValueOf={(a) => Number(a.quantity ?? 0)}
+        onEditSave={(row, value) => update.mutate({ row, value })}
         onDelete={(id) => remove.mutate(id)}
+        locked={locked}
       />
     </section>
   );
@@ -536,9 +609,29 @@ interface DemandTableProps {
   rows: RoleAssignmentResponse[];
   cells: (row: RoleAssignmentResponse) => (string | number)[];
   onDelete: (id: string) => void;
+  // Inline edit: when all three are set, the cell at editCellIndex flips to a number input
+  // when the pencil is clicked. Save calls onEditSave(row, newValue); Cancel restores.
+  editCellIndex?: number;
+  editValueOf?: (row: RoleAssignmentResponse) => number;
+  onEditSave?: (row: RoleAssignmentResponse, value: number) => void;
+  locked?: boolean;
 }
 
-function DemandTable({ columns, rows, cells, onDelete }: DemandTableProps) {
+function DemandTable({
+  columns,
+  rows,
+  cells,
+  onDelete,
+  editCellIndex,
+  editValueOf,
+  onEditSave,
+  locked = false,
+}: DemandTableProps) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<number>(0);
+
+  const editable = editCellIndex != null && editValueOf != null && onEditSave != null;
+
   if (rows.length === 0) {
     return (
       <p className="mt-3 text-xs text-text-muted">No rows added yet.</p>
@@ -558,24 +651,78 @@ function DemandTable({ columns, rows, cells, onDelete }: DemandTableProps) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-b border-border/40">
-              {cells(r).map((c, i) => (
-                <td key={i} className="py-1.5 pr-2">
-                  {c}
+          {rows.map((r) => {
+            const isEditing = editable && editingId === r.id;
+            const cellValues = cells(r);
+            return (
+              <tr key={r.id} className="border-b border-border/40">
+                {cellValues.map((c, i) => (
+                  <td key={i} className="py-1.5 pr-2">
+                    {isEditing && i === editCellIndex ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={draft}
+                        onChange={(e) => setDraft(parseFloat(e.target.value) || 0)}
+                        className="w-20 rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs"
+                        autoFocus
+                      />
+                    ) : (
+                      c
+                    )}
+                  </td>
+                ))}
+                <td className="py-1.5 text-right">
+                  {isEditing ? (
+                    <span className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          onEditSave!(r, draft);
+                          setEditingId(null);
+                        }}
+                        className="text-accent hover:opacity-80"
+                        title="Save"
+                      >
+                        <Check className="h-3.5 w-3.5 inline" />
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="text-text-muted hover:opacity-80"
+                        title="Cancel"
+                      >
+                        <X className="h-3.5 w-3.5 inline" />
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2">
+                      {editable && (
+                        <button
+                          onClick={() => {
+                            setEditingId(r.id);
+                            setDraft(editValueOf!(r));
+                          }}
+                          disabled={locked}
+                          className="text-text-secondary hover:text-text-primary disabled:opacity-40"
+                          title={locked ? "Activity is locked" : "Edit"}
+                        >
+                          <Pencil className="h-3.5 w-3.5 inline" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onDelete(r.id)}
+                        disabled={locked}
+                        className="text-danger hover:opacity-80 disabled:opacity-40"
+                        title={locked ? "Activity is locked" : "Remove"}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 inline" />
+                      </button>
+                    </span>
+                  )}
                 </td>
-              ))}
-              <td className="py-1.5 text-right">
-                <button
-                  onClick={() => onDelete(r.id)}
-                  className="text-danger hover:opacity-80"
-                  title="Remove"
-                >
-                  <Trash2 className="h-3.5 w-3.5 inline" />
-                </button>
-              </td>
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

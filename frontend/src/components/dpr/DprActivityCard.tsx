@@ -1,5 +1,13 @@
 "use client";
 
+/**
+ * @deprecated Superseded by {@link ./DprActivityGroup} + {@link ./DprWorkFrontRow},
+ * which together provide the Day → Activity → Work-front "Site Ledger" view.
+ * Kept here only because deleting it expands the diff; remove in a follow-up PR once
+ * no IDE / dead-code analyser still references it. Confirmed not imported anywhere:
+ * {@code grep -rn "DprActivityCard" frontend/src} returns only this file.
+ */
+
 import { useState } from "react";
 import {
   AlertTriangle,
@@ -182,10 +190,11 @@ export function DprActivityCard({ row, onEdit, onDelete }: Props) {
           <DetailTable
             title="Manpower"
             empty="No manpower"
-            headers={["Role · Category / Grade", "Nos"]}
+            headers={["Role · Category / Grade", "Nos", "Hours"]}
             rows={(row.manpower ?? []).map((m) => [
               m.trade,
               fmt(m.nos, 0),
+              fmt(m.workingHours),
             ])}
           />
           <DetailTable

@@ -39,8 +39,12 @@ public class ListProjectsTool extends ProjectScopedTool {
     @Override
     public String description() {
         return "List projects the user can access. Returns project_id, code, name, status, "
-                + "planned_start, planned_finish. Optional `status` filter (e.g. ACTIVE). "
-                + "Use this first when the user asks a portfolio / cross-project question.";
+                + "planned_start, planned_finish, budget_currency (ISO 4217 — e.g. OMR for "
+                + "an Oman project, INR for India, USD for cross-border). Optional `status` "
+                + "filter (e.g. ACTIVE). Use this first when the user asks a portfolio / "
+                + "cross-project question, AND whenever you are about to quote any cost / "
+                + "amount on a project — the project's budget_currency is the canonical "
+                + "currency to suffix on every money figure (never assume INR or USD).";
     }
 
     @Override
@@ -80,13 +84,14 @@ public class ListProjectsTool extends ProjectScopedTool {
             o.put("status", p.getStatus() != null ? p.getStatus().name() : null);
             o.put("planned_start", p.getPlannedStartDate() != null ? p.getPlannedStartDate().toString() : null);
             o.put("planned_finish", p.getPlannedFinishDate() != null ? p.getPlannedFinishDate().toString() : null);
+            o.put("budget_currency", p.getBudgetCurrency());
             arr.add(o);
         }
 
         return ToolResult.table(
                 "Found " + filtered.size() + " accessible project" + (filtered.size() == 1 ? "" : "s"),
                 arr,
-                new String[]{"project_id", "code", "name", "status", "planned_start", "planned_finish"}
+                new String[]{"project_id", "code", "name", "status", "planned_start", "planned_finish", "budget_currency"}
         );
     }
 }

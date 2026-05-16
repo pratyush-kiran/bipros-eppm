@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS bipros_analytics.dim_activity (
     code String,
     name String,
     activity_type LowCardinality(String),
+    edit_status LowCardinality(String) DEFAULT 'LOCKED',
     uom LowCardinality(String),
     bq_quantity Float64,
     planned_start Date,
@@ -58,6 +59,9 @@ CREATE TABLE IF NOT EXISTS bipros_analytics.dim_activity (
 ALTER TABLE bipros_analytics.dim_activity
     ADD COLUMN IF NOT EXISTS responsible_resource_id Nullable(UUID),
     ADD COLUMN IF NOT EXISTS responsible_resource_name String DEFAULT '';
+
+ALTER TABLE bipros_analytics.dim_activity
+    ADD COLUMN IF NOT EXISTS edit_status LowCardinality(String) DEFAULT 'LOCKED';
 
 CREATE TABLE IF NOT EXISTS bipros_analytics.dim_resource (
     resource_id UUID,
@@ -585,3 +589,233 @@ AS SELECT project_id, activity_id, toMonday(date) AS week_start,
           maxState(pct_complete_physical) AS pct_state,
           sumState(qty_executed) AS qty_state
 FROM bipros_analytics.fact_activity_progress_daily GROUP BY project_id, activity_id, week_start;
+
+-- ========================================================================
+-- Role-owned rate book dimensions (Phase 2 — 2026-05-14)
+-- Mirrors OLTP entities introduced in the 2026-05-13 role rate book rollout.
+-- ResourceRole + per-variant rate rows + per-project overrides + work activity
+-- master + productivity norms + users. Populated by event listeners and the
+-- nightly DimensionSyncJob; backfill is idempotent via _version.
+-- ========================================================================
+
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_resource_role (
+    role_id UUID,
+    code String,
+    name String,
+    description String DEFAULT '',
+    resource_type LowCardinality(String),     -- MANPOWER | EQUIPMENT | MATERIAL
+    sort_order Int32 DEFAULT 0,
+    active UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY role_id;
+
+-- One row per (role, category, grade). Manpower rate book.
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_manpower_role_rate (
+    manpower_role_rate_id UUID,
+    role_id UUID,
+    role_code String,
+    role_name String,
+    category_id UUID,
+    category_name String,
+    grade_id UUID,
+    grade_name String,
+    unit LowCardinality(String),
+    rate Decimal(19,4),
+    active UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY (role_id, manpower_role_rate_id);
+
+-- One row per (role, make, model). Equipment variant rate book.
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_equipment_role_variant (
+    equipment_role_variant_id UUID,
+    role_id UUID,
+    role_code String,
+    role_name String,
+    make String,
+    model String,
+    unit LowCardinality(String),
+    rate Decimal(19,4),
+    active UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY (role_id, equipment_role_variant_id);
+
+-- One row per (role, spec_grade). Material variant rate book.
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_material_role_variant (
+    material_role_variant_id UUID,
+    role_id UUID,
+    role_code String,
+    role_name String,
+    spec_grade String,
+    unit LowCardinality(String),
+    rate Decimal(19,4),
+    active UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY (role_id, material_role_variant_id);
+
+-- Per-project rate overrides for ANY of the three variant families. One unified
+-- table keyed by variant_type so AI queries don't have to UNION three tables for
+-- "is there any override on this project". variant_id points to the matching
+-- dim_*_role_*'s PK.
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_project_rate_override (
+    override_id UUID,
+    project_id UUID,
+    variant_type LowCardinality(String),       -- MANPOWER | EQUIPMENT | MATERIAL
+    variant_id UUID,                            -- FK to dim_manpower_role_rate / equipment_role_variant / material_role_variant
+    role_id UUID,                               -- denormalised for filter speed
+    role_code String,
+    override_rate Decimal(19,4),
+    active UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY (project_id, variant_type, variant_id);
+
+-- WorkActivity master library (Blinding, Excavation, …). Shared across projects.
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_work_activity (
+    work_activity_id UUID,
+    code String,
+    name String,
+    default_unit LowCardinality(String),
+    discipline LowCardinality(String),
+    sort_order Int32 DEFAULT 0,
+    active UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY work_activity_id;
+
+-- Productivity norms keyed on (work_activity, role, variant qualifier). scope
+-- carries the resolver tier so the AI can quote "VARIANT-level" vs "ROLE-level"
+-- vs "UNSCOPED" when explaining an expected output.
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_productivity_norm (
+    productivity_norm_id UUID,
+    work_activity_id UUID,
+    work_activity_code String,
+    work_activity_name String,
+    norm_type LowCardinality(String),          -- MANPOWER | EQUIPMENT | MATERIAL
+    scope LowCardinality(String),               -- VARIANT | ROLE | UNSCOPED
+    role_id Nullable(UUID),
+    role_code String DEFAULT '',
+    category_id Nullable(UUID),                 -- manpower variant only
+    category_name String DEFAULT '',
+    grade_id Nullable(UUID),                    -- manpower variant only
+    grade_name String DEFAULT '',
+    make String DEFAULT '',                     -- equipment variant only
+    model String DEFAULT '',                    -- equipment variant only
+    unit LowCardinality(String),
+    output_per_man_per_day Nullable(Decimal(19,4)),
+    crew_size Nullable(Int32),
+    output_per_day Nullable(Decimal(19,4)),
+    output_per_hour Nullable(Decimal(19,4)),
+    active UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY (work_activity_id, productivity_norm_id);
+
+-- User dimension (auth.users). Source of truth for supervisor identity.
+CREATE TABLE IF NOT EXISTS bipros_analytics.dim_user (
+    user_id UUID,
+    username String,
+    first_name String,
+    last_name String,
+    display_name String,                        -- "<first_name> <last_name>" precomputed
+    designation String DEFAULT '',
+    organisation_id Nullable(UUID),
+    enabled UInt8,
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  ORDER BY user_id;
+
+-- ========================================================================
+-- ALTERs to existing dim_activity + fact_dpr_* tables (Phase 2 — 2026-05-14).
+-- Idempotent — ClickHouse ADD COLUMN IF NOT EXISTS no-ops if the column exists.
+-- ========================================================================
+
+ALTER TABLE bipros_analytics.dim_activity
+    ADD COLUMN IF NOT EXISTS supervisor_user_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS supervisor_user_name String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS work_activity_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS work_activity_code String DEFAULT '';
+
+-- fact_dpr_logs already has a supervisor_user_id column whose target diverges
+-- across the 2026-05-13 cutover (legacy rows hold Resource.id; new rows hold
+-- User.id). We add an explicit supervisor_user_name and a legacy fallback
+-- column so the AI can disambiguate post-backfill.
+ALTER TABLE bipros_analytics.fact_dpr_logs
+    ADD COLUMN IF NOT EXISTS legacy_supervisor_resource_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS supervisor_user_name_v2 String DEFAULT '';
+
+-- DPR resource line items: add role + variant + effective_rate + line_cost +
+-- supervisor_user_id. Equipment also gains make/model; material gains spec_grade.
+ALTER TABLE bipros_analytics.fact_dpr_manpower_daily
+    ADD COLUMN IF NOT EXISTS role_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS role_code String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS role_name String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS manpower_role_rate_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS category_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS grade_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS unit LowCardinality(String) DEFAULT 'Day',
+    ADD COLUMN IF NOT EXISTS unit_rate Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS effective_rate Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS line_cost Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS supervisor_user_id Nullable(UUID);
+
+ALTER TABLE bipros_analytics.fact_dpr_equipment_daily
+    ADD COLUMN IF NOT EXISTS role_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS role_code String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS role_name String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS equipment_role_variant_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS make String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS model String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS unit LowCardinality(String) DEFAULT 'Day',
+    ADD COLUMN IF NOT EXISTS unit_rate Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS effective_rate Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS line_cost Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS supervisor_user_id Nullable(UUID);
+
+ALTER TABLE bipros_analytics.fact_dpr_material_daily
+    ADD COLUMN IF NOT EXISTS role_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS role_code String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS role_name String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS material_role_variant_id Nullable(UUID),
+    ADD COLUMN IF NOT EXISTS spec_grade String DEFAULT '',
+    ADD COLUMN IF NOT EXISTS unit_rate Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS effective_rate Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS line_cost Nullable(Decimal(19,4)),
+    ADD COLUMN IF NOT EXISTS supervisor_user_id Nullable(UUID);
+
+-- ========================================================================
+-- Activity cost daily fact (Phase 2 — 2026-05-14)
+-- Pre-aggregated at (project, activity, date, role) grain. The engine behind
+-- "total cost of activity X" and "spend on day D for activity X" questions.
+-- Sourced from resource_assignments (planned) + dpr_manpower/equipment/material
+-- (actual) by ResourceAssignmentChangedListener / DprSubmittedListener.
+-- ReplacingMergeTree on _version — listeners can re-emit safely.
+-- ========================================================================
+
+CREATE TABLE IF NOT EXISTS bipros_analytics.fact_activity_cost_daily (
+    project_id UUID,
+    activity_id UUID,
+    activity_code String,
+    report_date Date,
+    role_id Nullable(UUID),
+    role_code String DEFAULT '',
+    resource_type LowCardinality(String),       -- MANPOWER | EQUIPMENT | MATERIAL | ALL
+    planned_units Decimal(19,4) DEFAULT 0,
+    actual_units Decimal(19,4) DEFAULT 0,
+    remaining_units Decimal(19,4) DEFAULT 0,
+    planned_cost Decimal(19,4) DEFAULT 0,
+    actual_cost Decimal(19,4) DEFAULT 0,
+    remaining_cost Decimal(19,4) DEFAULT 0,
+    supervisor_user_id Nullable(UUID),
+    supervisor_user_name String DEFAULT '',
+    event_ts DateTime64(3),
+    _version UInt64
+) ENGINE = ReplacingMergeTree(_version)
+  PARTITION BY toYYYYMM(report_date)
+  ORDER BY (project_id, activity_id, report_date,
+            coalesce(role_id, toUUID('00000000-0000-0000-0000-000000000000')),
+            resource_type)
+  TTL report_date + INTERVAL 7 YEAR;

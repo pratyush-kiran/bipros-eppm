@@ -1,0 +1,124 @@
+databaseChangeLog:
+  # Multi-supervisor: replaces the single-row {@code activities.supervisor_user_id} cache with
+  # a join table so one activity can carry several co-supervisors (real-world: a single BOQ
+  # line on a road project supervised by multiple site engineers).
+  # The legacy {@code supervisor_user_id} / {@code supervisor_user_name} columns are kept on
+  # the activities table for one release for back-compat (filled with the first entry by the
+  # service layer); they will be dropped in a follow-up changeset.
+
+  - changeSet:
+      id: 097-1-activity-supervisors-table
+      author: bipros
+      changes:
+        - createTable:
+            tableName: activity_supervisors
+            schemaName: activity
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: activity_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_name_snapshot
+                  type: VARCHAR(255)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: version
+                  type: BIGINT
+      rollback:
+        - dropTable:
+            tableName: activity_supervisors
+            schemaName: activity
+
+  - changeSet:
+      id: 097-2-activity-supervisors-unique
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: activity_supervisors
+            schemaName: activity
+            constraintName: uk_activity_supervisor
+            columnNames: activity_id, user_id
+      rollback:
+        - dropUniqueConstraint:
+            tableName: activity_supervisors
+            schemaName: activity
+            constraintName: uk_activity_supervisor
+
+  - changeSet:
+      id: 097-3-activity-supervisors-indexes
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: activity_supervisors
+            schemaName: activity
+            indexName: idx_activity_supervisors_activity
+            columns:
+              - column:
+                  name: activity_id
+        - createIndex:
+            tableName: activity_supervisors
+            schemaName: activity
+            indexName: idx_activity_supervisors_user
+            columns:
+              - column:
+                  name: user_id
+      rollback:
+        - dropIndex:
+            tableName: activity_supervisors
+            schemaName: activity
+            indexName: idx_activity_supervisors_activity
+        - dropIndex:
+            tableName: activity_supervisors
+            schemaName: activity
+            indexName: idx_activity_supervisors_user
+
+  - changeSet:
+      id: 097-4-activity-supervisors-backfill
+      author: bipros
+      changes:
+        - sql:
+            comment: Copy the legacy single-supervisor cache into the join table. Idempotent via the unique constraint — re-runs are no-ops.
+            sql: >-
+              INSERT INTO activity.activity_supervisors
+                (id, activity_id, user_id, user_name_snapshot, created_at, updated_at)
+              SELECT gen_random_uuid(), a.id, a.supervisor_user_id, a.supervisor_user_name,
+                     COALESCE(a.created_at, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+              FROM activity.activities a
+              WHERE a.supervisor_user_id IS NOT NULL
+                AND NOT EXISTS (
+                  SELECT 1 FROM activity.activity_supervisors s
+                  WHERE s.activity_id = a.id AND s.user_id = a.supervisor_user_id
+                )
+      rollback:
+        - sql:
+            sql: DELETE FROM activity.activity_supervisors

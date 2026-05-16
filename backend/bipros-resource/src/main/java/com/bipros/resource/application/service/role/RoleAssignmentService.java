@@ -1,6 +1,7 @@
 package com.bipros.resource.application.service.role;
 
 import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -54,6 +56,7 @@ public class RoleAssignmentService {
   private final RoleRateResolver rateResolver;
 
   public RoleAssignmentResponse createRoleAssignment(UUID projectId, RoleAssignmentRequest req) {
+    assertActivityEditable(req.activityId());
     ResourceRole role =
         roleRepo
             .findById(req.roleId())
@@ -105,6 +108,41 @@ public class RoleAssignmentService {
       }
     }
 
+    // Dedup: same (activity, role, variant) merges into the existing row instead of
+    // inserting a duplicate. Headcount/quantity is incremented and cost recomputed.
+    Optional<ResourceAssignment> existing = findExisting(req.activityId(), req.roleId(), typeCode, variantId);
+    if (existing.isPresent()) {
+      ResourceAssignment merged = existing.get();
+      BigDecimal mergedUnits;
+      if ("MATERIAL".equals(typeCode)) {
+        BigDecimal current = merged.getQuantity() == null ? BigDecimal.ZERO : merged.getQuantity();
+        BigDecimal next = current.add(quantity);
+        merged.setQuantity(next);
+        mergedUnits = next;
+      } else {
+        int current = merged.getHeadcount() == null ? 0 : merged.getHeadcount();
+        int next = current + headcount;
+        merged.setHeadcount(next);
+        mergedUnits = BigDecimal.valueOf(next);
+      }
+      BigDecimal mergedCost = mergedUnits.multiply(rate);
+      merged.setPlannedUnits(mergedUnits.doubleValue());
+      merged.setBudgetedUnits(mergedUnits.doubleValue());
+      merged.setPlannedCost(mergedCost);
+      merged.setBudgetedCost(mergedCost);
+      BigDecimal actualCost = merged.getActualCost() == null ? BigDecimal.ZERO : merged.getActualCost();
+      merged.setRemainingCost(mergedCost.subtract(actualCost).max(BigDecimal.ZERO));
+      double actualUnits = merged.getActualUnits() == null ? 0.0 : merged.getActualUnits();
+      merged.setRemainingUnits(Math.max(mergedUnits.doubleValue() - actualUnits, 0.0));
+      merged.setEffectiveRate(rate);
+      merged.setUnit(unit);
+      ResourceAssignment saved = assignmentRepo.save(merged);
+      log.info(
+          "Role assignment merged: id={}, activity={}, role={}, variant={}, plannedUnits={}, plannedCost={}",
+          saved.getId(), req.activityId(), req.roleId(), variantId, mergedUnits, mergedCost);
+      return toResponse(saved, role, typeCode, variantId);
+    }
+
     ResourceAssignment assignment =
         ResourceAssignment.builder()
             .activityId(req.activityId())
@@ -149,6 +187,7 @@ public class RoleAssignmentService {
         assignmentRepo
             .findById(assignmentId)
             .orElseThrow(() -> new ResourceNotFoundException("ResourceAssignment", assignmentId));
+    assertActivityEditable(a.getActivityId());
     ResourceRole role =
         roleRepo
             .findById(req.roleId())
@@ -203,10 +242,12 @@ public class RoleAssignmentService {
   }
 
   public void deleteRoleAssignment(UUID assignmentId) {
-    if (!assignmentRepo.existsById(assignmentId)) {
-      throw new ResourceNotFoundException("ResourceAssignment", assignmentId);
-    }
-    assignmentRepo.deleteById(assignmentId);
+    ResourceAssignment a =
+        assignmentRepo
+            .findById(assignmentId)
+            .orElseThrow(() -> new ResourceNotFoundException("ResourceAssignment", assignmentId));
+    assertActivityEditable(a.getActivityId());
+    assignmentRepo.delete(a);
   }
 
   @Transactional(readOnly = true)
@@ -253,7 +294,8 @@ public class RoleAssignmentService {
           a.getUnit(),
           a.getRateType(),
           a.getPlannedStartDate(),
-          a.getPlannedFinishDate());
+          a.getPlannedFinishDate(),
+          isUnplanned(a));
     }
     ResourceRole role = roleRepo.findById(a.getRoleId()).orElse(null);
     String typeCode = role == null ? null : role.getResourceType().getCode().toUpperCase();
@@ -296,7 +338,17 @@ public class RoleAssignmentService {
         a.getUnit(),
         a.getRateType(),
         a.getPlannedStartDate(),
-        a.getPlannedFinishDate());
+        a.getPlannedFinishDate(),
+        isUnplanned(a));
+  }
+
+  // A row is "unplanned" when it has no demand booked against it — i.e. it was created
+  // by the DPR write path (ensureAssignmentsExist) for a (role, variant) the planner
+  // never added. plannedUnits and budgetedUnits are both zero/null in that case.
+  private static boolean isUnplanned(ResourceAssignment a) {
+    Double planned = a.getPlannedUnits();
+    Double budgeted = a.getBudgetedUnits();
+    return (planned == null || planned == 0.0) && (budgeted == null || budgeted == 0.0);
   }
 
   private String buildVariantLabel(String typeCode, UUID variantId) {
@@ -339,5 +391,32 @@ public class RoleAssignmentService {
 
   private static BigDecimal toBig(Double d) {
     return d == null ? null : BigDecimal.valueOf(d);
+  }
+
+  private void assertActivityEditable(UUID activityId) {
+    if (activityId == null) return;
+    Activity activity = activityRepo.findById(activityId).orElse(null);
+    if (activity == null) return;
+    if (activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+      throw new BusinessRuleException(
+          "ACTIVITY_LOCKED",
+          "Activity '" + activity.getCode() + "' is locked. Unlock it before editing.");
+    }
+  }
+
+  private Optional<ResourceAssignment> findExisting(
+      UUID activityId, UUID roleId, String typeCode, UUID variantId) {
+    return switch (typeCode) {
+      case "LABOR", "MANPOWER" ->
+          assignmentRepo.findFirstByActivityIdAndRoleIdAndManpowerRoleRateId(
+              activityId, roleId, variantId);
+      case "EQUIPMENT" ->
+          assignmentRepo.findFirstByActivityIdAndRoleIdAndEquipmentRoleVariantId(
+              activityId, roleId, variantId);
+      case "MATERIAL" ->
+          assignmentRepo.findFirstByActivityIdAndRoleIdAndMaterialRoleVariantId(
+              activityId, roleId, variantId);
+      default -> Optional.empty();
+    };
   }
 }

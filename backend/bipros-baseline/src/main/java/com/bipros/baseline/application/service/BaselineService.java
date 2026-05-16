@@ -1,6 +1,7 @@
 package com.bipros.baseline.application.service;
 
 import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.model.ActivityRelationship;
 import com.bipros.activity.domain.model.RelationshipType;
 import com.bipros.activity.domain.repository.ActivityRelationshipRepository;
@@ -38,6 +39,7 @@ import com.bipros.project.domain.repository.WbsNodeRepository;
 import com.bipros.resource.domain.model.ResourceAssignment;
 import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +55,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BaselineService {
 
   private final BaselineRepository baselineRepository;
@@ -410,9 +413,14 @@ public class BaselineService {
 
     List<Activity> liveActivities = activityRepository.findByProjectId(projectId);
     int restored = 0;
+    int skippedLocked = 0;
     for (Activity activity : liveActivities) {
       BaselineActivity snap = snapshotByActivityId.get(activity.getId());
       if (snap == null) continue; // activity didn't exist when the snapshot was taken — skip
+      if (activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+        skippedLocked++;
+        continue;
+      }
       // Planned dates come from earlyStart/earlyFinish (createBaseline copies them from
       // plannedStart/plannedFinish, so they are the right round-trip target).
       activity.setPlannedStartDate(snap.getEarlyStart());
@@ -433,6 +441,9 @@ public class BaselineService {
       // restore should preserve actuals so the planner doesn't lose progress data.
       activityRepository.save(activity);
       restored++;
+    }
+    if (skippedLocked > 0) {
+      log.info("Skipped {} LOCKED activities", skippedLocked);
     }
 
     // Restore relationships: delete every existing relationship for the project, then re-create

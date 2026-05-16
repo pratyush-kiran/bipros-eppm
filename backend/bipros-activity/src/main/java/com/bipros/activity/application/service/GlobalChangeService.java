@@ -1,6 +1,7 @@
 package com.bipros.activity.application.service;
 
 import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.model.ActivityStatus;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.common.exception.BusinessRuleException;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,7 +22,13 @@ public class GlobalChangeService {
 
   private final ActivityRepository activityRepository;
 
-  public int applyGlobalChange(UUID projectId, GlobalChangeRequest request) {
+  /**
+   * Apply a bulk change to every activity that matches the filter, skipping any
+   * activity that is {@code LOCKED} — locked activities are silently excluded so
+   * a typo-fix on 1000 activities doesn't fail because three are locked. Callers
+   * surface the {@code skippedLocked} count in the UI.
+   */
+  public GlobalChangeResult applyGlobalChange(UUID projectId, GlobalChangeRequest request) {
     log.info("Applying global change for project: projectId={}, filterField={}, filterValue={}, " +
             "updateField={}, updateValue={}, operation={}",
         projectId, request.filterField(), request.filterValue(),
@@ -28,17 +36,23 @@ public class GlobalChangeService {
 
     List<Activity> activities = activityRepository.findByProjectId(projectId);
     int updatedCount = 0;
+    List<String> skippedLockedCodes = new ArrayList<>();
 
     for (Activity activity : activities) {
       if (matchesFilter(activity, request.filterField(), request.filterValue())) {
+        if (activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+          skippedLockedCodes.add(activity.getCode());
+          continue;
+        }
         applyUpdate(activity, request.updateField(), request.updateValue(), request.operation());
         activityRepository.save(activity);
         updatedCount++;
       }
     }
 
-    log.info("Global change applied successfully: projectId={}, updatedCount={}", projectId, updatedCount);
-    return updatedCount;
+    log.info("Global change applied: projectId={}, updatedCount={}, skippedLocked={}",
+        projectId, updatedCount, skippedLockedCodes.size());
+    return new GlobalChangeResult(updatedCount, skippedLockedCodes.size(), skippedLockedCodes);
   }
 
   private boolean matchesFilter(Activity activity, String filterField, String filterValue) {

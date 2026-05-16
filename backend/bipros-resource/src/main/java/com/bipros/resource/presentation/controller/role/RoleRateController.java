@@ -52,6 +52,14 @@ public class RoleRateController {
     return ResponseEntity.ok(ApiResponse.ok(service.listManpowerForRole(roleId)));
   }
 
+  // Flat rate-book listings — used by the DPR Add screen so the supervisor can pick any
+  // role+variant from a single dropdown (planned + unplanned). Returns every active rate
+  // across all manpower / equipment / material roles, sorted by roleName then variant label.
+  @GetMapping("/role-rates/manpower")
+  public ResponseEntity<ApiResponse<List<ManpowerRoleRateResponse>>> listAllManpower() {
+    return ResponseEntity.ok(ApiResponse.ok(service.listAllManpower()));
+  }
+
   @PostMapping("/roles/{roleId}/manpower-rates")
   @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<ManpowerRoleRateResponse>> createManpowerRate(
@@ -83,6 +91,11 @@ public class RoleRateController {
     return ResponseEntity.ok(ApiResponse.ok(service.listEquipmentForRole(roleId)));
   }
 
+  @GetMapping("/role-rates/equipment")
+  public ResponseEntity<ApiResponse<List<EquipmentRoleVariantResponse>>> listAllEquipment() {
+    return ResponseEntity.ok(ApiResponse.ok(service.listAllEquipment()));
+  }
+
   @PostMapping("/roles/{roleId}/equipment-variants")
   @PreAuthorize("hasPermission(null, 'RESOURCE.UPDATE')")
   public ResponseEntity<ApiResponse<EquipmentRoleVariantResponse>> createEquipmentVariant(
@@ -111,6 +124,11 @@ public class RoleRateController {
   public ResponseEntity<ApiResponse<List<MaterialRoleVariantResponse>>> listMaterialForRole(
       @PathVariable UUID roleId) {
     return ResponseEntity.ok(ApiResponse.ok(service.listMaterialForRole(roleId)));
+  }
+
+  @GetMapping("/role-rates/material")
+  public ResponseEntity<ApiResponse<List<MaterialRoleVariantResponse>>> listAllMaterial() {
+    return ResponseEntity.ok(ApiResponse.ok(service.listAllMaterial()));
   }
 
   @PostMapping("/roles/{roleId}/material-variants")

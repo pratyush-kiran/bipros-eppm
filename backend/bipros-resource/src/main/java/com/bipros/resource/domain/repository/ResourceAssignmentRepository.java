@@ -37,6 +37,15 @@ public interface ResourceAssignmentRepository extends JpaRepository<ResourceAssi
   Optional<ResourceAssignment> findByActivityIdAndResourceIdIsNullAndRoleId(
       UUID activityId, UUID roleId);
 
+  Optional<ResourceAssignment> findFirstByActivityIdAndRoleIdAndManpowerRoleRateId(
+      UUID activityId, UUID roleId, UUID manpowerRoleRateId);
+
+  Optional<ResourceAssignment> findFirstByActivityIdAndRoleIdAndEquipmentRoleVariantId(
+      UUID activityId, UUID roleId, UUID equipmentRoleVariantId);
+
+  Optional<ResourceAssignment> findFirstByActivityIdAndRoleIdAndMaterialRoleVariantId(
+      UUID activityId, UUID roleId, UUID materialRoleVariantId);
+
   List<ResourceAssignment> findByProjectIdAndResourceId(UUID projectId, UUID resourceId);
 
   @Query("select coalesce(sum(ra.plannedUnits), 0) from ResourceAssignment ra where ra.activityId = :activityId")

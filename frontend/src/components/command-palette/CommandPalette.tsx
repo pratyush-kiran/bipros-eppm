@@ -18,7 +18,7 @@ export function CommandPalette() {
   const pushRecent = useCommandPaletteStore((s) => s.pushRecent);
   const router = useRouter();
 
-  const { flatItems, count } = useFilteredCommands();
+  const { sorted, flatItems, count } = useFilteredCommands();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
@@ -78,9 +78,8 @@ export function CommandPalette() {
 
   const execute = useCallback(
     (index: number) => {
-      const item = flatItems[index];
-      if (!item || item.type !== "cmd") return;
-      const cmd = item.cmd;
+      const cmd = sorted[index];
+      if (!cmd) return;
       pushRecent(cmd.id);
       setOpen(false);
       setQuery("");
@@ -90,7 +89,7 @@ export function CommandPalette() {
         router.push(cmd.href);
       }
     },
-    [flatItems, pushRecent, setOpen, setQuery, router]
+    [sorted, pushRecent, setOpen, setQuery, router]
   );
 
   const handleKeyDown = useCallback(

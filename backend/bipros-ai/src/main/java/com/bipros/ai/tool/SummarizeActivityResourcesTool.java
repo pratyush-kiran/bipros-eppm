@@ -73,9 +73,16 @@ public class SummarizeActivityResourcesTool implements Tool {
 
     @Override
     public String description() {
-        return "Aggregate resource assignments across many activities and return the cost / "
-                + "effort split by resource type (Manpower, Material, Equipment). Filters "
-                + "activities on the current project by status (COMPLETED / IN_PROGRESS / "
+        return "Aggregate resource ASSIGNMENTS across many activities and return the cost / "
+                + "effort split by resource type (Manpower, Material, Equipment). SCOPE: this "
+                + "tool only sees resources that have an active resource_assignments row on "
+                + "an activity in the current project. For catalogue / rate questions (size "
+                + "of the priced master, daily rate of an excavator, most expensive equipment, "
+                + "top labor categories by rate, per-MT material rate) use "
+                + "query_resource_catalogue — it reads the project-agnostic /v1/resources "
+                + "master, which can hold a fully-priced catalogue even when no assignments "
+                + "exist on this project. "
+                + "Filters activities on the current project by status (COMPLETED / IN_PROGRESS / "
                 + "NOT_STARTED / ANY), percent-complete window, or activity-code prefix. "
                 + "Returns headline percentage shares (planned and actual), per-type cost "
                 + "and unit totals, the top resources inside each type, and a sample of the "

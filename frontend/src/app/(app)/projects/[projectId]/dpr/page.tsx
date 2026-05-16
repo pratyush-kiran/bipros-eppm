@@ -24,13 +24,13 @@ import { useStickyMeasure } from "@/hooks/useStickyMeasure";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
-// Filter window defaults to "last 30 days" so freshly-saved rows (typically reportDate = today
-// or very recent) are visible without the user touching the date inputs. Decoupled from the
-// project's plannedStartDate, which was prone to hiding new entries when the project hadn't
-// officially started yet (or had started more than a month ago).
-const oneMonthAgoIso = () => {
+// Filter window defaults to "last 6 months" so the demo opens on a populated list even
+// when the most recent customer-data import lands a few months back (e.g. Khasab Jan–Mar).
+// Decoupled from the project's plannedStartDate, which was prone to hiding entries when
+// the project hadn't officially started yet (or had started more than a window ago).
+const defaultFromIso = () => {
   const d = new Date();
-  d.setMonth(d.getMonth() - 1);
+  d.setMonth(d.getMonth() - 6);
   return d.toISOString().split("T")[0];
 };
 
@@ -68,9 +68,10 @@ export default function DprPage() {
     const opts: SelectOption[] = [];
     const byName = new Map<string, string>();
     const byId = new Map<string, string>();
-    // activityId → assigned supervisor (from Activity.responsibleResourceId snapshot). Used by
-    // the form to cross-filter the supervisor/activity pickers and auto-fill on activity pick.
-    const supervisorByActivityId = new Map<string, { id: string; name: string } | null>();
+    // activityId → assigned supervisors (multi). Used by the form to cross-filter the
+    // supervisor/activity pickers, auto-fill on activity pick, and warn when the chosen
+    // DPR supervisor isn't in the activity's set. Empty list means no supervisor assigned.
+    const supervisorsByActivityId = new Map<string, Array<{ id: string; name: string }>>();
     // activityId → the linked WorkActivity's default_unit. Drives the DPR form's unit auto-fill
     // when the user picks an activity, so DPRs default to the right unit and the Capacity
     // Utilization math doesn't divide Cum by nr.
@@ -82,15 +83,18 @@ export default function DprPage() {
       opts.push({ value: a.id, label: a.name });
       if (!byName.has(a.name.toLowerCase())) byName.set(a.name.toLowerCase(), a.id);
       byId.set(a.id, a.name);
-      supervisorByActivityId.set(
-        a.id,
-        a.responsibleResourceId
-          ? { id: a.responsibleResourceId, name: a.responsibleResourceName ?? "" }
-          : null
-      );
+      // Prefer the multi-supervisor list; fall back to the legacy single cache for activities
+      // that haven't been touched since the multi-supervisor rollout.
+      const list: Array<{ id: string; name: string }> =
+        a.supervisors && a.supervisors.length > 0
+          ? a.supervisors.map((s) => ({ id: s.userId, name: s.userName ?? "" }))
+          : a.supervisorUserId
+            ? [{ id: a.supervisorUserId, name: a.supervisorUserName ?? "" }]
+            : [];
+      supervisorsByActivityId.set(a.id, list);
       defaultUnitByActivityId.set(a.id, a.workActivityDefaultUnit ?? null);
     }
-    return { opts, byName, byId, supervisorByActivityId, defaultUnitByActivityId };
+    return { opts, byName, byId, supervisorsByActivityId, defaultUnitByActivityId };
   }, [activitiesData]);
   const activityOptions = activityIndex.opts;
 
@@ -146,9 +150,9 @@ export default function DprPage() {
   // project's plannedFinishDate — for any project past its planned finish that
   // would produce a backwards range (from > to) and the list silently empties.
   // Users can widen the window via the date inputs when they need older rows.
-  const [fromInput, setFromInput] = useState<string>(() => oneMonthAgoIso());
+  const [fromInput, setFromInput] = useState<string>(() => defaultFromIso());
   const [toInput, setToInput] = useState<string>(() => todayIso());
-  const [from, setFrom] = useState<string>(() => oneMonthAgoIso());
+  const [from, setFrom] = useState<string>(() => defaultFromIso());
   const [to, setTo] = useState<string>(() => todayIso());
 
   const [showForm, setShowForm] = useState(false);
@@ -170,7 +174,10 @@ export default function DprPage() {
     if (!activitiesData || !supervisorUsers) return null;
     const activityName = activityIndex.byId.get(activityIdParam);
     if (!activityName) return null;
-    const sup = activityIndex.supervisorByActivityId.get(activityIdParam) ?? null;
+    // Multi-supervisor era: an activity may have several. The deep-link prefill seeds
+    // the FIRST supervisor for the picker; the form's mismatch check is set-based.
+    const sups = activityIndex.supervisorsByActivityId.get(activityIdParam) ?? [];
+    const sup = sups[0] ?? null;
     const unit = activityIndex.defaultUnitByActivityId.get(activityIdParam) ?? null;
     return {
       activityId: activityIdParam,
@@ -346,7 +353,7 @@ export default function DprPage() {
             activityOptions={activityOptions}
             activityNameById={activityIndex.byId}
             activityIdByName={activityIndex.byName}
-            supervisorByActivityId={activityIndex.supervisorByActivityId}
+            supervisorsByActivityId={activityIndex.supervisorsByActivityId}
             defaultUnitByActivityId={activityIndex.defaultUnitByActivityId}
             boqOptions={boqOptions}
             defaultPrefill={prefill}

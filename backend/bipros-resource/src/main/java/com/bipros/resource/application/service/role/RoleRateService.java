@@ -67,6 +67,25 @@ public class RoleRateService {
         .toList();
   }
 
+  // Flat rate-book listing across every manpower role. Used by the DPR Add screen so the
+  // supervisor can pick any role+variant from a single dropdown (planned + unplanned).
+  // One IN-query against the variant repo plus role lookups by id — no per-role round-trips.
+  @Transactional(readOnly = true)
+  public List<ManpowerRoleRateResponse> listAllManpower() {
+    List<ResourceRole> roles = roleRepo.findByResourceType_Code("MANPOWER");
+    if (roles.isEmpty()) roles = roleRepo.findByResourceType_Code("LABOR");
+    if (roles.isEmpty()) return List.of();
+    java.util.Map<UUID, ResourceRole> byId = new java.util.HashMap<>();
+    for (ResourceRole r : roles) byId.put(r.getId(), r);
+    return manpowerRepo.findByRoleIdInAndActiveTrue(new java.util.ArrayList<>(byId.keySet())).stream()
+        .map(r -> toManpowerResponse(r, byId.get(r.getRoleId())))
+        .sorted(java.util.Comparator
+            .comparing((ManpowerRoleRateResponse r) -> r.roleName() == null ? "" : r.roleName())
+            .thenComparing(r -> (r.categoryName() == null ? "" : r.categoryName())
+                + "/" + (r.gradeName() == null ? "" : r.gradeName())))
+        .toList();
+  }
+
   public ManpowerRoleRateResponse createManpowerRate(UUID roleId, ManpowerRoleRateRequest req) {
     ResourceRole role = requireRole(roleId, "LABOR", "MANPOWER");
     manpowerRepo
@@ -125,6 +144,21 @@ public class RoleRateService {
     ResourceRole role = requireRole(roleId, "EQUIPMENT");
     return equipmentRepo.findByRoleIdAndActiveTrue(roleId).stream()
         .map(v -> toEquipmentResponse(v, role))
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<EquipmentRoleVariantResponse> listAllEquipment() {
+    List<ResourceRole> roles = roleRepo.findByResourceType_Code("EQUIPMENT");
+    if (roles.isEmpty()) return List.of();
+    java.util.Map<UUID, ResourceRole> byId = new java.util.HashMap<>();
+    for (ResourceRole r : roles) byId.put(r.getId(), r);
+    return equipmentRepo.findByRoleIdInAndActiveTrue(new java.util.ArrayList<>(byId.keySet())).stream()
+        .map(v -> toEquipmentResponse(v, byId.get(v.getRoleId())))
+        .sorted(java.util.Comparator
+            .comparing((EquipmentRoleVariantResponse v) -> v.roleName() == null ? "" : v.roleName())
+            .thenComparing(v -> (v.make() == null ? "" : v.make())
+                + "/" + (v.model() == null ? "" : v.model())))
         .toList();
   }
 
@@ -188,6 +222,20 @@ public class RoleRateService {
     ResourceRole role = requireRole(roleId, "MATERIAL");
     return materialRepo.findByRoleIdAndActiveTrue(roleId).stream()
         .map(v -> toMaterialResponse(v, role))
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
+  public List<MaterialRoleVariantResponse> listAllMaterial() {
+    List<ResourceRole> roles = roleRepo.findByResourceType_Code("MATERIAL");
+    if (roles.isEmpty()) return List.of();
+    java.util.Map<UUID, ResourceRole> byId = new java.util.HashMap<>();
+    for (ResourceRole r : roles) byId.put(r.getId(), r);
+    return materialRepo.findByRoleIdInAndActiveTrue(new java.util.ArrayList<>(byId.keySet())).stream()
+        .map(v -> toMaterialResponse(v, byId.get(v.getRoleId())))
+        .sorted(java.util.Comparator
+            .comparing((MaterialRoleVariantResponse v) -> v.roleName() == null ? "" : v.roleName())
+            .thenComparing(v -> v.specGrade() == null ? "" : v.specGrade()))
         .toList();
   }
 

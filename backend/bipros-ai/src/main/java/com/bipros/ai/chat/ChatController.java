@@ -45,6 +45,12 @@ public class ChatController {
         }
         List<LlmProvider.Message> history = conversationService.getMessages(conv.getId());
 
+        // Persist the user message BEFORE invoking the orchestrator so a thrown
+        // orchestrator (LLM outage, timeout, tool error escaping the loop) does
+        // not lose the user's message from conversation history. The streaming
+        // endpoint already does this in the same order — keep them aligned.
+        conversationService.appendUserMessage(conv.getId(), request.message());
+
         var flux = orchestrator.handle(request.message(), request.imageUrl(), history, ctx, llmProvider,
                 resolveConfig());
         List<com.bipros.ai.orchestrator.AiOrchestrator.ChatEvent> events = flux.collectList().block();
@@ -61,7 +67,6 @@ public class ChatController {
             }
         }
 
-        conversationService.appendUserMessage(conv.getId(), request.message());
         conversationService.appendAssistantMessage(conv.getId(), text.toString());
 
         return ResponseEntity.ok(ApiResponse.ok(new ChatResponse(conv.getId(), text.toString())));

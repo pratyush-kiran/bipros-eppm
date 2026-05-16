@@ -663,7 +663,10 @@ export function AiChatPanel() {
     return (
       <button
         onClick={toggle}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-medium text-accent-foreground shadow-lg hover:bg-accent-hover transition-colors"
+        // ai-chat-fab class is hidden via globals.css when the activity detail drawer
+        // sets body[data-activity-drawer-open="true"]. Avoids the FAB overlapping the
+        // drawer footer (Create DPR) without a global store.
+        className="ai-chat-fab fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-medium text-accent-foreground shadow-lg hover:bg-accent-hover transition-colors"
         title="Open AI chat (Ctrl+Shift+K)"
       >
         <Bot size={18} />

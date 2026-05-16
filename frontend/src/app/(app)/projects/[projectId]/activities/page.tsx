@@ -1092,16 +1092,7 @@ function ActivitiesListTable({
                     className="px-4 py-4 text-sm whitespace-nowrap"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onSetSupervisor(activity)}
-                      className="rounded-md border border-border px-2 py-0.5 text-xs hover:bg-surface-hover"
-                      title="Click to set or change supervisor"
-                    >
-                      {activity.supervisorUserName ?? activity.responsibleResourceName ?? (
-                        <span className="text-text-muted">— Set —</span>
-                      )}
-                    </button>
+                    <SupervisorCell activity={activity} onClick={() => onSetSupervisor(activity)} />
                   </td>
                   <td
                     className="px-4 py-4 text-sm whitespace-nowrap"
@@ -1156,5 +1147,63 @@ function ActivitiesListTable({
         </table>
       </div>
     </div>
+  );
+}
+
+/**
+ * Supervisor column cell. Renders up to 2 supervisor name chips plus a "+N more" overflow
+ * (with full list in a title tooltip) and falls back to the legacy single-supervisor cache
+ * when an activity hasn't been touched since the multi-supervisor rollout. Clicking opens
+ * the multi-select dialog.
+ */
+function SupervisorCell({
+  activity,
+  onClick,
+}: {
+  activity: ActivityResponse;
+  onClick: () => void;
+}) {
+  const names: string[] = activity.supervisors && activity.supervisors.length > 0
+    ? activity.supervisors.map((s) => s.userName || "Unknown")
+    : activity.supervisorUserName
+      ? [activity.supervisorUserName]
+      : activity.responsibleResourceName
+        ? [activity.responsibleResourceName]
+        : [];
+
+  if (names.length === 0) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="rounded-md border border-border px-2 py-0.5 text-xs hover:bg-surface-hover"
+        title="Click to set supervisors"
+      >
+        <span className="text-text-muted">— Set —</span>
+      </button>
+    );
+  }
+
+  const visible = names.slice(0, 2);
+  const overflow = names.length - visible.length;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex max-w-[260px] flex-wrap items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs hover:bg-surface-hover"
+      title={`Supervisors: ${names.join(", ")}\nClick to edit`}
+    >
+      {visible.map((n) => (
+        <span
+          key={n}
+          className="inline-flex items-center rounded bg-accent/15 px-1.5 py-0.5"
+        >
+          {n}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="text-text-muted">+{overflow}</span>
+      )}
+    </button>
   );
 }

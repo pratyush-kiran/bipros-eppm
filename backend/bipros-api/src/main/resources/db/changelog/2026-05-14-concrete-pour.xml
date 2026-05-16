@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Concrete pour ledger: dedicated table for site-poured concrete records (grade / structure /
+      element / m3 / slump / temperature). Distinct from project.dpr_materials so the rich pour
+      metadata stays first-class and reporting queries don't have to filter generic material rows.
+      supervisor_user_id is a soft FK to public.users.id; dpr_id is a soft FK to
+      project.daily_progress_reports.id. Both nullable so imports from supplier tickets can land
+      ahead of the DPR.
+    -->
+    <changeSet id="2026-05-14-create-concrete-pour" author="bipros">
+        <createTable schemaName="project" tableName="concrete_pour">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pour_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="site" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="plant_name" type="VARCHAR(100)"/>
+            <column name="chainage_m" type="BIGINT"/>
+            <column name="structure" type="VARCHAR(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="element" type="VARCHAR(255)"/>
+            <column name="grade_code" type="VARCHAR(20)"/>
+            <column name="quantity_m3" type="DECIMAL(18,3)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="slump_value" type="DECIMAL(6,2)"/>
+            <column name="temperature_c" type="DECIMAL(6,2)"/>
+            <column name="section_label" type="VARCHAR(150)"/>
+            <column name="supervisor_user_id" type="UUID"/>
+            <column name="dpr_id" type="UUID"/>
+            <column name="remarks" type="VARCHAR(1000)"/>
+            <column name="created_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="version" type="BIGINT"/>
+        </createTable>
+
+        <createIndex
+            schemaName="project"
+            tableName="concrete_pour"
+            indexName="idx_concrete_pour_project_date">
+            <column name="project_id"/>
+            <column name="pour_date"/>
+        </createIndex>
+
+        <createIndex
+            schemaName="project"
+            tableName="concrete_pour"
+            indexName="idx_concrete_pour_project_site">
+            <column name="project_id"/>
+            <column name="site"/>
+        </createIndex>
+
+        <createIndex
+            schemaName="project"
+            tableName="concrete_pour"
+            indexName="idx_concrete_pour_project_grade">
+            <column name="project_id"/>
+            <column name="grade_code"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -70,9 +70,6 @@ class DailyActivityResourceOutputServiceTest {
   @Test
   @DisplayName("derives daysWorked from hoursWorked / 8 when daysWorked is null")
   void derivesDaysFromHours() {
-    when(repository
-        .findFirstByProjectIdAndOutputDateAndActivityIdAndResourceId(any(), any(), any(), any()))
-        .thenReturn(Optional.empty());
     when(repository.save(any())).thenAnswer(inv -> {
       DailyActivityResourceOutput row = inv.getArgument(0);
       row.setId(UUID.randomUUID());
@@ -126,8 +123,8 @@ class DailyActivityResourceOutputServiceTest {
         .qtyExecuted(BigDecimal.ONE).unit("Sqm").build();
     existing.setId(UUID.randomUUID());
     when(repository
-        .findFirstByProjectIdAndOutputDateAndActivityIdAndResourceId(
-            projectId, LocalDate.of(2026, 5, 1), activityId, resourceId))
+        .findFirstByProjectIdAndOutputDateAndActivityIdAndResourceIdAndSource(
+            projectId, LocalDate.of(2026, 5, 1), activityId, resourceId, "MANUAL"))
         .thenReturn(Optional.of(existing));
 
     CreateDailyActivityResourceOutputRequest req = new CreateDailyActivityResourceOutputRequest(
@@ -155,9 +152,6 @@ class DailyActivityResourceOutputServiceTest {
   @Test
   @DisplayName("blocks save when unit is blank and the activity has no defaultUnit fallback")
   void unitRequiredWhenNoFallback() {
-    when(repository
-        .findFirstByProjectIdAndOutputDateAndActivityIdAndResourceId(any(), any(), any(), any()))
-        .thenReturn(Optional.empty());
     // EntityManager returns no row → resolveUnitFromActivity catches the NoResultException and returns null
     when(entityManager.createNativeQuery(any(String.class)))
         .thenThrow(new RuntimeException("no result"));

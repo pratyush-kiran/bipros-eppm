@@ -51,6 +51,17 @@ public class Activity extends BaseEntity {
   @Column(nullable = false)
   private ActivityStatus status = ActivityStatus.NOT_STARTED;
 
+  /**
+   * Lifecycle / edit-lock status. Default {@code DRAFT} for new in-memory instances;
+   * the DB-level {@code DEFAULT 'LOCKED'} backfills existing rows when this column
+   * is added by Hibernate's {@code ddl-auto: update}, preserving DPR submission for
+   * pre-existing seeded activities.
+   */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "edit_status", nullable = false, length = 16,
+      columnDefinition = "VARCHAR(16) DEFAULT 'LOCKED'")
+  private ActivityEditStatus editStatus = ActivityEditStatus.DRAFT;
+
   @Column(name = "original_duration")
   private Double originalDuration;
 

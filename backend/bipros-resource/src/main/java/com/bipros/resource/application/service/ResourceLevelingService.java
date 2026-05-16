@@ -1,6 +1,7 @@
 package com.bipros.resource.application.service;
 
 import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.common.exception.ResourceNotFoundException;
 import com.bipros.project.domain.model.Project;
@@ -113,12 +114,18 @@ public class ResourceLevelingService {
         output.iterationsUsed(), output.overallocationsResolved().size());
 
     // Update activity dates with delays
+    int skippedLocked = 0;
     for (Map.Entry<UUID, LocalDate> delay : output.delayedActivities().entrySet()) {
       UUID activityId = delay.getKey();
       LocalDate newStartDate = delay.getValue();
 
       Activity activity = activityRepository.findById(activityId)
           .orElseThrow(() -> new ResourceNotFoundException("Activity", activityId));
+
+      if (activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+        skippedLocked++;
+        continue;
+      }
 
       if (activity.getPlannedStartDate() != null) {
         long originalDuration = java.time.temporal.ChronoUnit.DAYS.between(
@@ -133,6 +140,9 @@ public class ResourceLevelingService {
         log.info("Updated activity {} dates: start={}, finish={}",
             activityId, newStartDate, newFinishDate);
       }
+    }
+    if (skippedLocked > 0) {
+      log.info("Skipped {} LOCKED activities", skippedLocked);
     }
 
     // Convert output to result
@@ -363,12 +373,17 @@ public class ResourceLevelingService {
 
     // Apply shifted dates to activities (skipped on dryRun — preview path)
     List<ResourceLevelingResponse.ShiftedActivity> shifted = new ArrayList<>();
+    int skippedLocked = 0;
     for (var entry : result.shiftedActivities().entrySet()) {
       UUID activityId = entry.getKey();
       LocalDate newStart = entry.getValue();
       LocalDate origStart = originalStarts.get(activityId);
 
       Activity activity = activities.stream().filter(a -> a.getId().equals(activityId)).findFirst().orElse(null);
+      if (activity != null && !dryRun && activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+        skippedLocked++;
+        continue;
+      }
       if (activity != null && activity.getPlannedStartDate() != null && !dryRun) {
         long duration = ChronoUnit.DAYS.between(activity.getPlannedStartDate(), activity.getPlannedFinishDate()) + 1;
         activity.setPlannedStartDate(newStart);
@@ -378,6 +393,9 @@ public class ResourceLevelingService {
 
       long delayDays = origStart != null ? ChronoUnit.DAYS.between(origStart, newStart) : 0;
       shifted.add(new ResourceLevelingResponse.ShiftedActivity(activityId, origStart, newStart, delayDays));
+    }
+    if (skippedLocked > 0) {
+      log.info("Skipped {} LOCKED activities", skippedLocked);
     }
 
     return new ResourceLevelingResponse(
@@ -409,6 +427,7 @@ public class ResourceLevelingService {
 
     // Only apply shifts that stay within original float
     List<ResourceLevelingResponse.ShiftedActivity> shifted = new ArrayList<>();
+    int skippedLocked = 0;
     for (var entry : output.delayedActivities().entrySet()) {
       UUID activityId = entry.getKey();
       LocalDate newStart = entry.getValue();
@@ -422,6 +441,10 @@ public class ResourceLevelingService {
       }
 
       Activity activity = activities.stream().filter(a -> a.getId().equals(activityId)).findFirst().orElse(null);
+      if (activity != null && !dryRun && activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+        skippedLocked++;
+        continue;
+      }
       if (activity != null && activity.getPlannedStartDate() != null && !dryRun) {
         long duration = ChronoUnit.DAYS.between(activity.getPlannedStartDate(), activity.getPlannedFinishDate()) + 1;
         activity.setPlannedStartDate(newStart);
@@ -431,6 +454,9 @@ public class ResourceLevelingService {
 
       long delayDays = origStart != null ? ChronoUnit.DAYS.between(origStart, newStart) : 0;
       shifted.add(new ResourceLevelingResponse.ShiftedActivity(activityId, origStart, newStart, delayDays));
+    }
+    if (skippedLocked > 0) {
+      log.info("Skipped {} LOCKED activities", skippedLocked);
     }
 
     double peakAfter = calculatePeakUtilization(activityInfos, assignmentInfos, resourceMaxUnits);
@@ -454,12 +480,17 @@ public class ResourceLevelingService {
     LevelingOutput output = leveler.level(input);
 
     List<ResourceLevelingResponse.ShiftedActivity> shifted = new ArrayList<>();
+    int skippedLocked = 0;
     for (var entry : output.delayedActivities().entrySet()) {
       UUID activityId = entry.getKey();
       LocalDate newStart = entry.getValue();
       LocalDate origStart = originalStarts.get(activityId);
 
       Activity activity = activities.stream().filter(a -> a.getId().equals(activityId)).findFirst().orElse(null);
+      if (activity != null && !dryRun && activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+        skippedLocked++;
+        continue;
+      }
       if (activity != null && activity.getPlannedStartDate() != null && !dryRun) {
         long duration = ChronoUnit.DAYS.between(activity.getPlannedStartDate(), activity.getPlannedFinishDate()) + 1;
         activity.setPlannedStartDate(newStart);
@@ -469,6 +500,9 @@ public class ResourceLevelingService {
 
       long delayDays = origStart != null ? ChronoUnit.DAYS.between(origStart, newStart) : 0;
       shifted.add(new ResourceLevelingResponse.ShiftedActivity(activityId, origStart, newStart, delayDays));
+    }
+    if (skippedLocked > 0) {
+      log.info("Skipped {} LOCKED activities", skippedLocked);
     }
 
     double peakAfter = calculatePeakUtilization(activityInfos, assignmentInfos, resourceMaxUnits);

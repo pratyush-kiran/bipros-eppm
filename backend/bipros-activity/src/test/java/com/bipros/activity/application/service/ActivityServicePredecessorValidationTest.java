@@ -10,6 +10,7 @@ import com.bipros.activity.domain.model.RelationshipType;
 import com.bipros.activity.domain.repository.ActivityRelationshipRepository;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.activity.domain.repository.ActivityStepRepository;
+import com.bipros.activity.domain.repository.ActivitySupervisorRepository;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.security.ProjectAccessGuard;
 import com.bipros.common.util.AuditService;
@@ -39,6 +40,7 @@ import static org.mockito.Mockito.when;
 class ActivityServicePredecessorValidationTest {
 
   @Mock private ActivityRepository activityRepository;
+  @Mock private ActivitySupervisorRepository activitySupervisorRepository;
   @Mock private ActivityRelationshipRepository relationshipRepository;
   @Mock private AuditService auditService;
   @Mock private ProjectAccessGuard projectAccess;
@@ -55,7 +57,7 @@ class ActivityServicePredecessorValidationTest {
 
   @BeforeEach
   void setUp() {
-    service = new ActivityService(activityRepository, relationshipRepository, auditService, projectAccess, projectRepository, percentCompleteCalculator, stepRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
+    service = new ActivityService(activityRepository, activitySupervisorRepository, relationshipRepository, auditService, projectAccess, projectRepository, percentCompleteCalculator, stepRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
 
     successorId = UUID.randomUUID();
     predecessorId = UUID.randomUUID();

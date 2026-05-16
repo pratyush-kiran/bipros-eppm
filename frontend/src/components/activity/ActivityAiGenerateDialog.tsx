@@ -53,6 +53,7 @@ export function ActivityAiGenerateDialog({ open, onClose, projectId }: ActivityA
   const [docDefaultDuration, setDocDefaultDuration] = useState(5);
   const [generationResult, setGenerationResult] = useState<ActivityAiGenerationResponse | null>(null);
   const [applyResult, setApplyResult] = useState<ActivityAiApplyResponse | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
   /**
    * Original-WBS-code → confirmed-existing-WBS-code map. Populated when the
    * user accepts a WBS_NEAR_MATCH suggestion in the preview. Sent on apply
@@ -124,7 +125,9 @@ export function ActivityAiGenerateDialog({ open, onClose, projectId }: ActivityA
       }
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to apply activities"));
+      const msg = getErrorMessage(err, "Failed to apply activities");
+      setApplyError(msg);
+      toast.error(msg);
     },
   });
 
@@ -133,6 +136,7 @@ export function ActivityAiGenerateDialog({ open, onClose, projectId }: ActivityA
     setSetupTab("document");
     setGenerationResult(null);
     setApplyResult(null);
+    setApplyError(null);
     setDocFile(null);
     setWbsRemap({});
     onClose();
@@ -220,22 +224,29 @@ export function ActivityAiGenerateDialog({ open, onClose, projectId }: ActivityA
           )}
 
           {phase === "preview" && generationResult && (
-            <PreviewPhase
-              rationale={generationResult.rationale}
-              activities={generationResult.activities}
-              annotations={generationResult.previewAnnotations ?? null}
-              wbsRemap={wbsRemap}
-              onAcceptNearMatch={(originalWbsCode, suggestedCode) =>
-                setWbsRemap((prev) => ({ ...prev, [originalWbsCode]: suggestedCode }))
-              }
-              onRejectNearMatch={(originalWbsCode) =>
-                setWbsRemap((prev) => {
-                  const next = { ...prev };
-                  delete next[originalWbsCode];
-                  return next;
-                })
-              }
-            />
+            <>
+              {applyError && (
+                <div className="mx-4 mt-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <strong>Apply failed:</strong> {applyError}
+                </div>
+              )}
+              <PreviewPhase
+                rationale={generationResult.rationale}
+                activities={generationResult.activities}
+                annotations={generationResult.previewAnnotations ?? null}
+                wbsRemap={wbsRemap}
+                onAcceptNearMatch={(originalWbsCode, suggestedCode) =>
+                  setWbsRemap((prev) => ({ ...prev, [originalWbsCode]: suggestedCode }))
+                }
+                onRejectNearMatch={(originalWbsCode) =>
+                  setWbsRemap((prev) => {
+                    const next = { ...prev };
+                    delete next[originalWbsCode];
+                    return next;
+                  })
+                }
+              />
+            </>
           )}
 
           {phase === "report" && applyResult && <ReportPhase result={applyResult} />}
@@ -291,7 +302,7 @@ export function ActivityAiGenerateDialog({ open, onClose, projectId }: ActivityA
                 Regenerate
               </button>
               <button
-                onClick={() => applyMutation.mutate()}
+                onClick={() => { setApplyError(null); applyMutation.mutate(); }}
                 disabled={applyMutation.isPending}
                 className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
               >
@@ -709,12 +720,14 @@ function PreviewPhase({
       },
       {
         header: "Predecessors",
-        accessorKey: "predecessorCodes",
+        accessorKey: "predecessors",
         cell: ({ getValue }) => {
-          const codes = getValue() as string[];
+          const preds = getValue() as Array<{ code: string; lagDays: number; type?: string | null }>;
+          if (!preds || preds.length === 0) return <span className="text-text-muted text-xs">&mdash;</span>;
+          const labels = preds.map(p => p.lagDays > 0 ? `${p.code}+${p.lagDays}d` : p.code);
           return (
             <span className="text-text-muted text-xs">
-              {codes.length > 0 ? codes.join(", ") : "\u2014"}
+              {labels.join(", ")}
             </span>
           );
         },

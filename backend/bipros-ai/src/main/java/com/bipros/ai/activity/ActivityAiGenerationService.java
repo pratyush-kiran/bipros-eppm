@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -165,19 +166,21 @@ public class ActivityAiGenerationService {
             "ACTIVITY RULES (these are mandatory — violations cause the activity or its relationships to be dropped):\n" +
             "1. Every activity MUST have a UNIQUE `code` within this response. Use stable short codes like A-001, A-002, A-003. Do not emit two activities with the same code.\n" +
             "2. `wbsNodeCode` MUST exactly match one of the WBS codes shown in the user message. PREFER LEAF nodes. Never invent a WBS code.\n" +
-            "3. `predecessorCodes` MUST reference activity codes from THIS RESPONSE only. Never reference WBS codes. Never reference activities not in this batch. Do not list a code as its own predecessor. Do not list the same predecessor twice.\n" +
+            "3. Each entry in `predecessors` MUST reference an activity code from THIS RESPONSE only. Never reference WBS codes. Never reference activities not in this batch. Do not list a code as its own predecessor. Do not list the same predecessor code twice.\n" +
             "4. NEVER create cycles. If activity X depends (directly or transitively) on Y, then Y must NOT depend on X.\n" +
-            "5. Use FINISH-TO-START semantics throughout — a predecessor must finish before its successor can begin.\n" +
-            "6. Order activities physically: prerequisites (mobilization, design, statutory clearances) before construction; construction phases before commissioning. Project starters (mobilization, kick-off) have an empty `predecessorCodes` list.\n" +
+            "5. Use FINISH-TO-START semantics — a predecessor must finish before its successor can begin. Set `type` to \"FS\" for all entries.\n" +
+            "6. Order activities physically: prerequisites (mobilization, design, statutory clearances) before construction; construction phases before commissioning. Project starters (mobilization, kick-off) have an empty `predecessors` list.\n" +
             "7. `originalDurationDays` must be a positive number sized for a real-world activity. Use the supplied default duration as a hint when the document is silent.\n" +
+            "8. Use `lagDays` in a predecessor entry when there is an explicit wait between the end of one activity and the start of the next (e.g. concrete curing = 7 days). Default `lagDays` to 0. Do NOT set `lagDays` larger than the predecessor's own duration.\n" +
+            "9. ALL activities must fit within the project start date and deadline shown in the user message. Size durations and lags so the cumulative schedule does not exceed the deadline.\n" +
             "\n" +
             "EXAMPLE of a correctly structured response:\n" +
             "{\n" +
             "  \"rationale\": \"Sequenced earthworks and pavement under existing WBS leaves...\",\n" +
             "  \"activities\": [\n" +
-            "    { \"code\": \"A-001\", \"name\": \"Mobilization\",     \"description\": null, \"wbsNodeCode\": \"1.3\", \"originalDurationDays\": 14, \"predecessorCodes\": [] },\n" +
-            "    { \"code\": \"A-002\", \"name\": \"Site clearance\",   \"description\": null, \"wbsNodeCode\": \"2.1\", \"originalDurationDays\": 21, \"predecessorCodes\": [\"A-001\"] },\n" +
-            "    { \"code\": \"A-003\", \"name\": \"Excavation\",       \"description\": null, \"wbsNodeCode\": \"3.1\", \"originalDurationDays\": 60, \"predecessorCodes\": [\"A-002\"] }\n" +
+            "    { \"code\": \"A-001\", \"name\": \"Mobilization\",     \"description\": null, \"wbsNodeCode\": \"1.3\", \"originalDurationDays\": 14, \"predecessors\": [] },\n" +
+            "    { \"code\": \"A-002\", \"name\": \"Site clearance\",   \"description\": null, \"wbsNodeCode\": \"2.1\", \"originalDurationDays\": 21, \"predecessors\": [{\"code\": \"A-001\", \"lagDays\": 0, \"type\": \"FS\"}] },\n" +
+            "    { \"code\": \"A-003\", \"name\": \"Concrete curing\",  \"description\": null, \"wbsNodeCode\": \"3.1\", \"originalDurationDays\": 28, \"predecessors\": [{\"code\": \"A-002\", \"lagDays\": 7, \"type\": \"FS\"}] }\n" +
             "  ]\n" +
             "}";
 
@@ -397,18 +400,18 @@ public class ActivityAiGenerationService {
             }
         }
 
-        // Second pass: create relationships
+        // Second pass: create relationships (using per-predecessor lag from AiPredecessor)
         for (ActivityAiNode node : req.activities()) {
-            if (node.predecessorCodes() == null || node.predecessorCodes().isEmpty()) continue;
+            if (node.predecessors() == null || node.predecessors().isEmpty()) continue;
 
             UUID successorId = generatedCodeToId.get(node.code());
             if (successorId == null) continue;
 
-            for (String predCode : node.predecessorCodes()) {
+            for (AiPredecessor pred : node.predecessors()) {
+                String predCode = pred.code();
                 String resolvedPredCode = codeRemap.getOrDefault(predCode, predCode);
                 UUID predecessorId = generatedCodeToId.get(predCode);
                 if (predecessorId == null) {
-                    // Try resolved code
                     for (Map.Entry<String, UUID> entry : generatedCodeToId.entrySet()) {
                         if (codeRemap.getOrDefault(entry.getKey(), entry.getKey()).equals(resolvedPredCode)) {
                             predecessorId = entry.getValue();
@@ -422,25 +425,26 @@ public class ActivityAiGenerationService {
                     continue;
                 }
 
+                double lag = pred.lagDays() != null ? pred.lagDays() : 0.0;
+                RelationshipType relType = parseRelType(pred.type());
+
                 CreateRelationshipRequest relReq = new CreateRelationshipRequest(
-                        predecessorId,
-                        successorId,
-                        RelationshipType.FINISH_TO_START,
-                        0.0
-                );
+                        predecessorId, successorId, relType, lag);
 
                 try {
                     RelationshipResponse rel = relationshipService.createRelationship(relReq);
                     createdRelationshipIds.add(rel.id());
                 } catch (BusinessRuleException e) {
-                    relationshipResolutionFailures.add(
-                            node.code() + " -> " + predCode + ": " + e.getMessage());
+                    relationshipResolutionFailures.add(node.code() + " -> " + predCode + ": " + e.getMessage());
                 } catch (Exception e) {
-                    relationshipResolutionFailures.add(
-                            node.code() + " -> " + predCode + ": " + e.getMessage());
+                    relationshipResolutionFailures.add(node.code() + " -> " + predCode + ": " + e.getMessage());
                 }
             }
         }
+
+        // Third pass: forward-pass date computation, deadline validation, then persist dates.
+        // Aborts the entire transaction (hard reject) if any activity exceeds the project deadline.
+        computeAndPersistDates(project, req.activities(), skippedCodes, codeRemap, generatedCodeToId);
 
         auditService.logCreate("ActivityAiBatch", projectId, req);
 
@@ -583,6 +587,146 @@ public class ActivityAiGenerationService {
         return requested;
     }
 
+    private static RelationshipType parseRelType(String type) {
+        if (type == null || type.isBlank()) return RelationshipType.FINISH_TO_START;
+        return switch (type.toUpperCase(java.util.Locale.ROOT)) {
+            case "FF" -> RelationshipType.FINISH_TO_FINISH;
+            case "SS" -> RelationshipType.START_TO_START;
+            case "SF" -> RelationshipType.START_TO_FINISH;
+            default   -> RelationshipType.FINISH_TO_START;
+        };
+    }
+
+    /**
+     * Topological forward-pass: computes plannedStartDate / plannedFinishDate for
+     * every newly created activity, validates that none exceed the project deadline,
+     * then persists the dates. Throws BusinessRuleException on any violation so the
+     * surrounding @Transactional rolls back all inserts.
+     */
+    private void computeAndPersistDates(Project project,
+                                        List<ActivityAiNode> nodes,
+                                        Set<String> skippedCodes,
+                                        Map<String, String> codeRemap,
+                                        Map<String, UUID> generatedCodeToId) {
+        LocalDate effectiveStart = project.getPlannedStartDate() != null
+                ? project.getPlannedStartDate() : LocalDate.now();
+        LocalDate effectiveDeadline = project.getMustFinishByDate() != null
+                ? project.getMustFinishByDate() : project.getPlannedFinishDate();
+
+        // Existing activities' finish dates — needed when a predecessor is an already-existing activity.
+        Map<String, LocalDate> existingFinishByCode = activityRepository
+                .findByProjectId(project.getId())
+                .stream()
+                .filter(a -> a.getCode() != null && a.getPlannedFinishDate() != null
+                        && !generatedCodeToId.containsValue(a.getId()))
+                .collect(Collectors.toMap(Activity::getCode, Activity::getPlannedFinishDate, (a, b) -> a));
+
+        // Only process newly created activities (not skipped duplicates whose dates are already set).
+        List<ActivityAiNode> created = nodes.stream()
+                .filter(n -> !skippedCodes.contains(n.code()) && generatedCodeToId.containsKey(n.code()))
+                .collect(Collectors.toList());
+
+        // Build adjacency for Kahn's topo sort (original codes).
+        Map<String, Integer> inDegree = new HashMap<>();
+        Map<String, List<String>> successorMap = new HashMap<>();
+        for (ActivityAiNode n : created) {
+            inDegree.put(n.code(), 0);
+            successorMap.put(n.code(), new ArrayList<>());
+        }
+        Set<String> createdCodes = inDegree.keySet();
+        for (ActivityAiNode n : created) {
+            if (n.predecessors() == null) continue;
+            for (AiPredecessor pred : n.predecessors()) {
+                if (createdCodes.contains(pred.code())) {
+                    inDegree.merge(n.code(), 1, Integer::sum);
+                    successorMap.computeIfAbsent(pred.code(), k -> new ArrayList<>()).add(n.code());
+                }
+            }
+        }
+
+        // Kahn's BFS topo sort + forward-pass date computation (store in local maps, not DB yet).
+        Map<String, LocalDate> computedStart = new HashMap<>();
+        Map<String, LocalDate> computedFinish = new HashMap<>();
+        Queue<String> queue = new LinkedList<>();
+        for (Map.Entry<String, Integer> e : inDegree.entrySet()) {
+            if (e.getValue() == 0) queue.add(e.getKey());
+        }
+
+        Map<String, ActivityAiNode> nodeByCode = created.stream()
+                .collect(Collectors.toMap(ActivityAiNode::code, n -> n));
+
+        while (!queue.isEmpty()) {
+            String code = queue.poll();
+            ActivityAiNode node = nodeByCode.get(code);
+            LocalDate start = effectiveStart;
+            if (node.predecessors() != null) {
+                for (AiPredecessor pred : node.predecessors()) {
+                    double lag = pred.lagDays() != null ? pred.lagDays() : 0.0;
+                    LocalDate predFinish = computedFinish.containsKey(pred.code())
+                            ? computedFinish.get(pred.code())
+                            : existingFinishByCode.get(pred.code());
+                    if (predFinish != null) {
+                        LocalDate candidate = predFinish.plusDays((long) Math.ceil(lag));
+                        if (candidate.isAfter(start)) start = candidate;
+                    }
+                }
+            }
+            computedStart.put(code, start);
+            long durDays = (long) Math.ceil(
+                    node.originalDurationDays() != null && node.originalDurationDays() > 0
+                            ? node.originalDurationDays() : 1.0);
+            LocalDate finish = start.plusDays(durDays);
+            computedFinish.put(code, finish);
+            for (String succ : successorMap.getOrDefault(code, List.of())) {
+                if (inDegree.merge(succ, -1, Integer::sum) == 0) queue.add(succ);
+            }
+        }
+
+        // Hard-reject if any activity breaches the deadline.
+        if (effectiveDeadline != null) {
+            List<String> violations = new ArrayList<>();
+            for (Map.Entry<String, LocalDate> e : computedFinish.entrySet()) {
+                if (e.getValue().isAfter(effectiveDeadline)) {
+                    violations.add(e.getKey() + " ends " + e.getValue());
+                }
+            }
+            if (!violations.isEmpty()) {
+                throw new BusinessRuleException("ACTIVITY_DATES_EXCEED_PROJECT_DEADLINE",
+                        violations.size() + " activity(ies) exceed project deadline " + effectiveDeadline
+                                + ": " + String.join("; ", violations.subList(0, Math.min(violations.size(), 10)))
+                                + (violations.size() > 10 ? " (and " + (violations.size() - 10) + " more)" : ""));
+            }
+        }
+
+        // No violations — persist computed dates.
+        for (ActivityAiNode node : created) {
+            UUID actId = generatedCodeToId.get(node.code());
+            if (actId == null) continue;
+            String resolvedCode = codeRemap.getOrDefault(node.code(), node.code());
+            LocalDate start = computedStart.get(node.code());
+            LocalDate finish = computedFinish.get(node.code());
+            if (start == null || finish == null) continue;
+            activityRepository.findById(actId).ifPresent(activity -> {
+                activity.setPlannedStartDate(start);
+                activity.setPlannedFinishDate(finish);
+                activityRepository.save(activity);
+            });
+            log.debug("AI activity {} ({}) dates: {} → {}", node.code(), resolvedCode, start, finish);
+        }
+    }
+
+    private static void appendProjectDates(StringBuilder sb, Project project) {
+        LocalDate start = project.getPlannedStartDate();
+        LocalDate deadline = project.getMustFinishByDate() != null
+                ? project.getMustFinishByDate() : project.getPlannedFinishDate();
+        sb.append("\nProject start date: ").append(start != null ? start : "not set").append("\n");
+        sb.append("Project deadline:   ").append(deadline != null ? deadline : "not set").append("\n");
+        if (start != null && deadline != null) {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(start, deadline);
+            sb.append("Total available calendar days: ").append(days).append("\n");
+        }
+    }
+
     private String buildPrompt(Project project, List<WbsNode> wbsNodes, ActivityAiGenerateRequest req,
                                 String existingActivitiesContext) {
         StringBuilder sb = new StringBuilder();
@@ -643,6 +787,7 @@ public class ActivityAiGenerationService {
 
         sb.append("\nEvery activity MUST set wbsNodeCode to one of the existing codes listed above — prefer leaves.\n");
 
+        appendProjectDates(sb, project);
         appendExistingActivitiesContext(sb, existingActivitiesContext);
 
         int targetCount = req.targetActivityCount() != null ? req.targetActivityCount() : 15;
@@ -660,7 +805,7 @@ public class ActivityAiGenerationService {
 
         sb.append("\nReturn activities with stable, unique codes like A-001, A-002. ");
         sb.append("Each activity's wbsNodeCode MUST exactly match one of the WBS codes listed above (prefer leaves). ");
-        sb.append("predecessorCodes references other activity codes in THIS batch only — never WBS codes, never codes outside the response. ");
+        sb.append("Each predecessor entry in `predecessors` references other activity codes in THIS batch only — never WBS codes, never codes outside the response. ");
         sb.append("Use finish-to-start sequencing and order activities physically (mobilization → site prep → construction → commissioning). ");
         sb.append("Do not create cycles. ");
         sb.append("Include a brief rationale for the activity breakdown.");
@@ -701,6 +846,7 @@ public class ActivityAiGenerationService {
             sb.append('\n');
         }
 
+        appendProjectDates(sb, project);
         appendExistingActivitiesContext(sb, existingActivitiesContext);
 
         Integer target = req.targetActivityCount();
@@ -712,7 +858,7 @@ public class ActivityAiGenerationService {
 
         sb.append("\nReturn activities with stable, unique codes like A-001, A-002. ");
         sb.append("Each activity's wbsNodeCode MUST exactly match one of the WBS codes listed above (prefer leaves). ");
-        sb.append("predecessorCodes references other activity codes in THIS batch only — never WBS codes, never codes outside the response. ");
+        sb.append("Each predecessor entry in `predecessors` references other activity codes in THIS batch only — never WBS codes, never codes outside the response. ");
         sb.append("Use finish-to-start sequencing and order activities physically (mobilization → site prep → construction → commissioning). ");
         sb.append("Do not create cycles. ");
         sb.append("Include a brief rationale that mentions which activities came directly from the ");
@@ -754,6 +900,7 @@ public class ActivityAiGenerationService {
             sb.append('\n');
         }
 
+        appendProjectDates(sb, project);
         appendExistingActivitiesContext(sb, existingActivitiesContext);
 
         Integer target = req.targetActivityCount();
@@ -765,7 +912,7 @@ public class ActivityAiGenerationService {
 
         sb.append("\nReturn activities with stable, unique codes like A-001, A-002. ");
         sb.append("Each activity's wbsNodeCode MUST exactly match one of the WBS codes listed above (prefer leaves). ");
-        sb.append("predecessorCodes references other activity codes in THIS batch only — never WBS codes, never codes outside the response. ");
+        sb.append("Each predecessor entry in `predecessors` references other activity codes in THIS batch only — never WBS codes, never codes outside the response. ");
         sb.append("Use finish-to-start sequencing and order activities physically (mobilization → site prep → construction → commissioning). ");
         sb.append("Do not create cycles. ");
         sb.append("Include a brief rationale that mentions which activities came directly from the ");
@@ -872,12 +1019,33 @@ public class ActivityAiGenerationService {
         durationProp.put("type", "number");
         properties.set("originalDurationDays", durationProp);
 
+        // predecessors: array of { code, lagDays, type? }
         ObjectNode predecessorsProp = objectMapper.createObjectNode();
         predecessorsProp.put("type", "array");
-        ObjectNode predItems = objectMapper.createObjectNode();
-        predItems.put("type", "string");
-        predecessorsProp.set("items", predItems);
-        properties.set("predecessorCodes", predecessorsProp);
+        ObjectNode predItemDef = objectMapper.createObjectNode();
+        predItemDef.put("type", "object");
+        predItemDef.put("additionalProperties", false);
+        ObjectNode predProps = objectMapper.createObjectNode();
+        ObjectNode predCode = objectMapper.createObjectNode();
+        predCode.put("type", "string");
+        predProps.set("code", predCode);
+        ObjectNode predLag = objectMapper.createObjectNode();
+        predLag.put("type", "number");
+        predProps.set("lagDays", predLag);
+        ObjectNode predType = objectMapper.createObjectNode();
+        ArrayNode predTypeTypes = objectMapper.createArrayNode();
+        predTypeTypes.add("string");
+        predTypeTypes.add("null");
+        predType.set("type", predTypeTypes);
+        predProps.set("type", predType);
+        predItemDef.set("properties", predProps);
+        ArrayNode predRequired = objectMapper.createArrayNode();
+        predRequired.add("code");
+        predRequired.add("lagDays");
+        predRequired.add("type");
+        predItemDef.set("required", predRequired);
+        predecessorsProp.set("items", predItemDef);
+        properties.set("predecessors", predecessorsProp);
 
         node.set("properties", properties);
 
@@ -887,7 +1055,7 @@ public class ActivityAiGenerationService {
         required.add("description");
         required.add("wbsNodeCode");
         required.add("originalDurationDays");
-        required.add("predecessorCodes");
+        required.add("predecessors");
         node.set("required", required);
 
         return node;

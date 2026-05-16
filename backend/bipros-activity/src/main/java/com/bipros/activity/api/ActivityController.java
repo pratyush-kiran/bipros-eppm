@@ -87,6 +87,34 @@ public class ActivityController {
     return ResponseEntity.noContent().build();
   }
 
+  /**
+   * Flip the activity to LOCKED. Idempotent. Once locked, all manual edits
+   * via this controller are rejected with {@code ACTIVITY_LOCKED}, and DPR
+   * submission becomes permitted (a DRAFT activity rejects DPRs).
+   */
+  @PostMapping("/{activityId}/lock")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.LOCK')")
+  public ResponseEntity<ApiResponse<ActivityResponse>> lockActivity(
+      @PathVariable UUID projectId,
+      @PathVariable UUID activityId) {
+    ActivityResponse response = activityService.lockActivity(activityId);
+    return ResponseEntity.ok(ApiResponse.ok(response));
+  }
+
+  /**
+   * Flip the activity back to DRAFT. Idempotent. Re-enables manual edits and
+   * causes new DPR submissions against this activity to be rejected until it
+   * is locked again.
+   */
+  @PostMapping("/{activityId}/unlock")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UNLOCK')")
+  public ResponseEntity<ApiResponse<ActivityResponse>> unlockActivity(
+      @PathVariable UUID projectId,
+      @PathVariable UUID activityId) {
+    ActivityResponse response = activityService.unlockActivity(activityId);
+    return ResponseEntity.ok(ApiResponse.ok(response));
+  }
+
   @PutMapping("/{activityId}/progress")
   // Progress updates are allowed for assignees even without full project-edit rights;
   // service performs the precise check.
@@ -113,11 +141,10 @@ public class ActivityController {
 
   @PostMapping("/global-change")
   @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
-  public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> applyGlobalChange(
+  public ResponseEntity<ApiResponse<com.bipros.activity.application.service.GlobalChangeResult>> applyGlobalChange(
       @PathVariable UUID projectId,
       @Valid @RequestBody GlobalChangeRequest request) {
-    int updatedCount = globalChangeService.applyGlobalChange(projectId, request);
-    java.util.Map<String, Object> result = java.util.Map.of("updatedCount", updatedCount);
+    var result = globalChangeService.applyGlobalChange(projectId, request);
     return ResponseEntity.ok(ApiResponse.ok(result));
   }
 
@@ -138,8 +165,9 @@ public class ActivityController {
   }
 
   /**
-   * Per-activity supervisor assignment — Phase 4.5. Writes
-   * {@code Activity.supervisor_user_id}. {@code supervisorUserId = null} clears.
+   * Legacy single-supervisor write. Now delegates to {@link #setSupervisors} with a
+   * one-element list, so callers that haven't migrated to the multi-supervisor contract
+   * keep working. {@code supervisorUserId = null} clears the entire set.
    */
   @PutMapping("/{activityId}/supervisor")
   @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
@@ -148,6 +176,21 @@ public class ActivityController {
       @PathVariable UUID activityId,
       @Valid @RequestBody com.bipros.activity.application.dto.SetSupervisorRequest request) {
     ActivityResponse response = activityService.setSupervisor(activityId, request);
+    return ResponseEntity.ok(ApiResponse.ok(response));
+  }
+
+  /**
+   * Replace the supervisor set on an activity. Accepts a list — all supervisors are equal,
+   * there is no primary. Empty (or null) list clears all supervisors. Duplicates are
+   * deduplicated server-side.
+   */
+  @PutMapping("/{activityId}/supervisors")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'ACTIVITY.UPDATE')")
+  public ResponseEntity<ApiResponse<ActivityResponse>> setSupervisors(
+      @PathVariable UUID projectId,
+      @PathVariable UUID activityId,
+      @Valid @RequestBody com.bipros.activity.application.dto.SetSupervisorsRequest request) {
+    ActivityResponse response = activityService.setSupervisors(activityId, request);
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 

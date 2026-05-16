@@ -1,0 +1,52 @@
+- main [ref=e250]:
+  - generic [ref=e475]:
+    - generic [ref=e476]:
+      - generic [ref=e477]:
+        - heading "OMAN-Demo-Khasab — Khasab–Daba Asphalt Road & Link to Lima" [level=1] [ref=e478]
+        - paragraph [ref=e479]: OMAN-DEMO-KHASAB
+      - button "Open dashboards" [ref=e481]:
+        - img [ref=e482]
+        - text: Open dashboards
+        - img [ref=e484]
+    - navigation "Tabs" [ref=e487]:
+      - generic [ref=e488]:
+        - button "Overview" [ref=e489] [cursor=pointer]
+        - button "WBS" [ref=e490] [cursor=pointer]
+        - button "Activities" [ref=e491] [cursor=pointer]
+        - button "Resources" [ref=e492] [cursor=pointer]
+        - button "Gantt" [ref=e493] [cursor=pointer]
+        - button "Network" [ref=e494] [cursor=pointer]
+        - button "DPR" [ref=e495] [cursor=pointer]
+        - button "Capacity Util." [ref=e496] [cursor=pointer]
+        - button "Costs" [ref=e497] [cursor=pointer]
+        - button "EVM" [active] [ref=e498] [cursor=pointer]
+        - button "Baselines" [ref=e499] [cursor=pointer]
+        - button "Insights" [ref=e500] [cursor=pointer]
+        - button "Risks" [ref=e501] [cursor=pointer]
+        - button "Contracts" [ref=e502] [cursor=pointer]
+        - button "GIS" [ref=e503] [cursor=pointer]
+        - button "Workfronts" [ref=e504] [cursor=pointer]
+        - button "Snags" [ref=e505] [cursor=pointer]
+        - button "Handovers" [ref=e506] [cursor=pointer]
+        - button "Attendance" [ref=e507] [cursor=pointer]
+        - button "Checklists" [ref=e508] [cursor=pointer]
+        - button "Indents" [ref=e509] [cursor=pointer]
+        - button "NCRs" [ref=e510] [cursor=pointer]
+      - button "More" [ref=e512] [cursor=pointer]:
+        - text: More
+        - img [ref=e513]
+    - generic [ref=e182014]:
+      - navigation "Breadcrumb" [ref=e182016]:
+        - link "Projects" [ref=e182018] [cursor=pointer]:
+          - /url: /projects
+        - generic [ref=e182019]
+      - generic [ref=e182024]:
+        - img [ref=e182026]
+        - generic [ref=e182028]
+      - generic [ref=e182181]:
+        - generic [ref=e182182]
+        - generic [ref=e182190]
+        - generic [ref=e182193]
+        - generic [ref=e182211]
+        - generic [ref=e182234]
+        - generic [ref=e182262]

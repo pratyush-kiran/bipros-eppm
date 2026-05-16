@@ -64,13 +64,18 @@ public class ScheduleAdvancedTool implements Tool {
   public String description() {
     return "Use this for deep schedule analytics that go beyond simple activity listing. Operations "
         + "via op param: 'critical_path' (latest ScheduleResult; lists activities with isCritical=true "
-        + "from the schedule_activity_results snapshot, joined to activity codes/names), 'scenarios' "
+        + "from the schedule_activity_results snapshot, joined to activity codes/names), "
+        + "'negative_float' (activities with total_float < 0 in the latest schedule run — USE THIS "
+        + "for any 'which activities have negative float', 'activities behind on float', or "
+        + "'is this activity in slip' question; do NOT filter list_activities for this because "
+        + "activity.total_float is the live OLTP column and can lag the latest scheduler run, so "
+        + "they routinely disagree by design), 'scenarios' "
         + "(named what-if schedule scenarios with duration / cost / status), 'compression' "
         + "(crashing/fast-track analyses — original vs compressed duration, additional cost, "
         + "recommendations), 'monte_carlo' (latest simulation: P10/P50/P80/P90 duration & cost; "
         + "milestone P50/P80/P90 dates; top activities by criticality index). Examples: 'what's on "
-        + "the critical path', 'show me the schedule scenarios', 'what does the Monte Carlo say "
-        + "about the finish date'. Project-scoped.";
+        + "the critical path', 'which activities have negative float', 'show me the schedule "
+        + "scenarios', 'what does the Monte Carlo say about the finish date'. Project-scoped.";
   }
 
   @Override
@@ -80,6 +85,7 @@ public class ScheduleAdvancedTool implements Tool {
     ObjectNode props = objectMapper.createObjectNode();
     ArrayNode opEnum = objectMapper.createArrayNode();
     opEnum.add("critical_path");
+    opEnum.add("negative_float");
     opEnum.add("scenarios");
     opEnum.add("compression");
     opEnum.add("monte_carlo");
@@ -114,8 +120,71 @@ public class ScheduleAdvancedTool implements Tool {
       case "scenarios" -> doScenarios(projectId);
       case "compression" -> doCompression(projectId);
       case "monte_carlo" -> doMonteCarlo(projectId, limit);
+      case "negative_float" -> doNegativeFloat(projectId, limit);
       default -> ToolResult.error("Unknown op: " + op);
     };
+  }
+
+  /**
+   * Negative-float activities from the latest scheduler run. This is the canonical
+   * source — activity.activities.total_float is the live OLTP field which may lag
+   * the latest scheduler run until reconciliation. The schedule_activity_results
+   * row is what the scheduler actually computed last time it ran, so this is what
+   * the user means by "activities with negative float".
+   */
+  private ToolResult doNegativeFloat(UUID projectId, int limit) {
+    Optional<ScheduleResult> latest = scheduleResultRepository.findTopByProjectIdOrderByCalculatedAtDesc(projectId);
+    if (latest.isEmpty()) {
+      return ToolResult.error("No ScheduleResult exists for this project — run a schedule first.");
+    }
+    ScheduleResult sr = latest.get();
+    List<ScheduleActivityResult> all = activityResultRepository.findByScheduleResultId(sr.getId());
+    List<ScheduleActivityResult> negative = new ArrayList<>();
+    for (ScheduleActivityResult r : all) {
+      if (r.getTotalFloat() != null && r.getTotalFloat() < 0) negative.add(r);
+    }
+    negative.sort((a, b) -> Double.compare(
+            a.getTotalFloat() == null ? 0.0 : a.getTotalFloat(),
+            b.getTotalFloat() == null ? 0.0 : b.getTotalFloat()));
+
+    List<UUID> ids = new ArrayList<>();
+    for (ScheduleActivityResult r : negative) ids.add(r.getActivityId());
+    Map<UUID, Activity> actBy = new HashMap<>();
+    if (!ids.isEmpty()) activityRepository.findAllById(ids).forEach(a -> actBy.put(a.getId(), a));
+
+    ArrayNode rows = objectMapper.createArrayNode();
+    int n = 0;
+    for (ScheduleActivityResult r : negative) {
+      if (n++ >= limit) break;
+      Activity a = actBy.get(r.getActivityId());
+      ObjectNode o = objectMapper.createObjectNode();
+      o.put("activity_id", r.getActivityId().toString());
+      o.put("activity_code", a == null ? null : a.getCode());
+      o.put("activity_name", a == null ? null : a.getName());
+      o.put("total_float", r.getTotalFloat());
+      o.put("free_float", r.getFreeFloat());
+      o.put("is_critical", r.getIsCritical());
+      o.put("late_finish", r.getLateFinish() == null ? null : r.getLateFinish().toString());
+      o.put("early_finish", r.getEarlyFinish() == null ? null : r.getEarlyFinish().toString());
+      o.put("remaining_duration", r.getRemainingDuration());
+      rows.add(o);
+    }
+    ObjectNode w = objectMapper.createObjectNode();
+    w.set("rows", rows);
+    w.put("schedule_result_id", sr.getId().toString());
+    w.put("data_date", sr.getDataDate() == null ? null : sr.getDataDate().toString());
+    w.put("source", "scheduling.schedule_activity_results (latest schedule run)");
+    w.put("note", "This is the scheduler-authoritative source for negative float. "
+            + "activity.activities.total_float is the live OLTP column and may show 0 "
+            + "until the next scheduler-to-OLTP reconciliation, so it can disagree "
+            + "with this row's total_float by design.");
+    w.put("total_negative", negative.size());
+    w.put("returned", rows.size());
+    if (!ids.isEmpty()) ToolResult.attachLinks(w, Map.of("activity", ids));
+    return ToolResult.ok(
+            negative.size() + " activities with negative float in the latest schedule run"
+                    + (negative.isEmpty() ? "." : " (worst: " + negative.get(0).getTotalFloat() + " days)."),
+            w);
   }
 
   private ToolResult doCriticalPath(UUID projectId, int limit) {

@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
+import { roleRateApi } from "@/lib/api/roleRateApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
 import type { DprMaterialRow } from "@/lib/types/dpr";
@@ -23,20 +23,64 @@ interface Props {
   onChange: (rows: DprMaterialRow[]) => void;
 }
 
+const optKey = (roleId: string | null | undefined, variantId: string | null | undefined) =>
+  `${roleId ?? ""}::${variantId ?? ""}`;
+
 /**
- * Role-only Material DPR grid. Two columns — Material (dropdown of activity's
- * planned material) and Quantity.
+ * Role-only Material DPR grid. Dropdown shows the activity's planned material at the top
+ * (suffixed " (planned)") and the rest of the rate book below — supervisor can report any
+ * material consumed. Backend creates a phantom assignment for unplanned picks.
  */
 export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
-  const { data, isLoading } = useQuery({
+  const { data: plannedResp, isLoading: plannedLoading } = useQuery({
     queryKey: ["role-assignments", projectId, activityId],
     queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId!),
     enabled: !!projectId && !!activityId,
   });
+  const { data: bookResp, isLoading: bookLoading } = useQuery({
+    queryKey: ["role-rates", "material"],
+    queryFn: () => roleRateApi.listAllMaterial(),
+  });
+  const isLoading = plannedLoading || bookLoading;
+
   const options = useMemo(() => {
-    const list = Array.isArray(data?.data) ? data.data : [];
-    return list.filter((a) => a.roleType === "MATERIAL");
-  }, [data]);
+    // Exclude phantom rows (created by ensureAssignmentsExist for unplanned DPR variants).
+    const planned = (Array.isArray(plannedResp?.data) ? plannedResp.data : []).filter(
+      (a) => a.roleType === "MATERIAL" && !a.unplanned,
+    );
+    const seen = new Set<string>();
+    const out: { value: string; label: string; roleId: string; variantId: string; materialName: string; unit: string | null }[] = [];
+    for (const p of planned) {
+      if (!p.roleId || !p.variantId) continue;
+      const k = optKey(p.roleId, p.variantId);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({
+        value: k,
+        label: `${p.roleName ?? "—"}${p.variantLabel ? ` — ${p.variantLabel}` : ""}  (planned)`,
+        roleId: p.roleId,
+        variantId: p.variantId,
+        materialName: p.roleName ?? "",
+        unit: p.unit ?? null,
+      });
+    }
+    const book = Array.isArray(bookResp?.data) ? bookResp.data : [];
+    for (const v of book) {
+      const k = optKey(v.roleId, v.id);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const variantLabel = `${v.specGrade} — ${v.unit} @ ₹${v.rate}`;
+      out.push({
+        value: k,
+        label: `${v.roleName ?? "—"} — ${variantLabel}`,
+        roleId: v.roleId,
+        variantId: v.id,
+        materialName: v.roleName ?? "",
+        unit: v.unit ?? null,
+      });
+    }
+    return out;
+  }, [plannedResp, bookResp]);
 
   const update = (idx: number, patch: Partial<DprMaterialRow>) => {
     const next = rows.slice();
@@ -46,35 +90,19 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
   const remove = (idx: number) => onChange(rows.filter((_, i) => i !== idx));
   const add = () => onChange([...rows, blank()]);
 
-  const handlePick = (idx: number, assignmentId: string) => {
-    const opt = options.find((o) => o.id === assignmentId);
+  const handlePick = (idx: number, key: string) => {
+    const opt = options.find((o) => o.value === key);
     if (!opt) return;
     update(idx, {
-      materialRoleVariantId: opt.variantId ?? null,
-      roleId: opt.roleId ?? null,
-      materialName: opt.roleName ?? "",
-      unit: opt.unit ?? null,
+      materialRoleVariantId: opt.variantId,
+      roleId: opt.roleId,
+      materialName: opt.materialName,
+      unit: opt.unit,
     });
   };
 
-  const selectedAssignmentId = (r: DprMaterialRow): string =>
-    options.find(
-      (o) =>
-        (r.materialRoleVariantId && r.materialRoleVariantId === o.variantId) ||
-        (r.roleId && r.roleId === o.roleId),
-    )?.id ?? "";
-
-  const remainingFor = (r: DprMaterialRow): number | null => {
-    const opt = options.find(
-      (o) =>
-        (r.materialRoleVariantId && r.materialRoleVariantId === o.variantId) ||
-        (r.roleId && r.roleId === o.roleId),
-    );
-    return opt?.remainingUnits ?? null;
-  };
-
-  // SHOW_REMAINING flag — temporarily hidden per user request.
-  const SHOW_REMAINING = false;
+  const selectedKey = (r: DprMaterialRow): string =>
+    r.roleId && r.materialRoleVariantId ? optKey(r.roleId, r.materialRoleVariantId) : "";
 
   const columns: RowGridColumn<DprMaterialRow>[] = [
     {
@@ -84,38 +112,15 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
       grow: 1,
       render: (r, i) => (
         <SearchableSelect
-          options={options.map((o) => ({
-            value: o.id,
-            label: o.variantLabel ? `${o.roleName} — ${o.variantLabel}` : (o.roleName ?? "—"),
-          }))}
-          value={selectedAssignmentId(r)}
+          options={options.map((o) => ({ value: o.value, label: o.label }))}
+          value={selectedKey(r)}
           onChange={(v) => handlePick(i, v)}
-          placeholder={isLoading ? "Loading…" : "Pick assigned material…"}
+          placeholder={isLoading ? "Loading…" : "Pick material…"}
           loading={isLoading}
-          disabled={!activityId || options.length === 0}
+          disabled={!activityId}
         />
       ),
     },
-    ...(SHOW_REMAINING
-      ? ([
-          {
-            key: "remaining",
-            label: "Remaining",
-            minWidth: 100,
-            align: "right" as const,
-            render: (r: DprMaterialRow) => {
-              const rem = remainingFor(r);
-              return (
-                <span
-                  className={`tabular-nums text-xs ${rem === null ? "text-slate" : rem <= 0 ? "text-burgundy" : "text-slate"}`}
-                >
-                  {rem == null ? "—" : rem}
-                </span>
-              );
-            },
-          },
-        ] as RowGridColumn<DprMaterialRow>[])
-      : []),
     {
       key: "quantity",
       label: "Qty",
@@ -137,19 +142,7 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
     <>
       {!activityId && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          Pick an activity above to choose its planned material.
-        </div>
-      )}
-      {activityId && !isLoading && options.length === 0 && (
-        <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          No material planned for this activity yet.{" "}
-          <Link
-            href={`/projects/${projectId}/activities/${activityId}`}
-            className="font-semibold text-gold-deep underline"
-          >
-            Open activity
-          </Link>{" "}
-          and add material demand first.
+          Pick an activity above to choose material.
         </div>
       )}
       <RowGrid
@@ -161,9 +154,7 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
         onRemove={remove}
         emptyHint={
           activityId
-            ? options.length === 0
-              ? "No material planned for this activity."
-              : "Click Add material to record consumption."
+            ? "Click Add material to record consumption."
             : "Pick an activity first."
         }
         addLabel="Add material"

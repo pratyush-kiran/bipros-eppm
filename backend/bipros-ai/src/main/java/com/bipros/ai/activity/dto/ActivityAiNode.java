@@ -8,6 +8,6 @@ public record ActivityAiNode(
         String description,
         String wbsNodeCode,
         Double originalDurationDays,
-        List<String> predecessorCodes
+        List<AiPredecessor> predecessors
 ) {
 }

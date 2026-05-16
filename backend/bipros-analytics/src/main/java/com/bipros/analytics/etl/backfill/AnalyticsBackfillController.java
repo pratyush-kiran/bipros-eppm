@@ -63,4 +63,27 @@ public class AnalyticsBackfillController {
                 "status", "ok",
                 "elapsed_ms", String.valueOf(elapsed))));
     }
+
+    /**
+     * Targeted backfill for the role-owned rate book + supervisor User dimensions added in the
+     * 2026-05-13 role-rate rollout. Idempotent — re-runs cleanly via ReplacingMergeTree(_version).
+     * Use after the Phase-2 ClickHouse DDL lands (or after a CH re-init) to populate the new
+     * dim_resource_role / dim_*_role_*_rate / dim_project_rate_override / dim_work_activity /
+     * dim_productivity_norm / dim_user tables along with supervisor_user_id + work_activity_id
+     * columns on dim_activity. Wraps {@link DimensionSyncJob#runBackfill()}.
+     */
+    @PostMapping("/backfill-role-model")
+    public ResponseEntity<ApiResponse<Map<String, String>>> backfillRoleModel() {
+        log.info("Admin backfill-role-model triggered");
+        long start = System.currentTimeMillis();
+        dimensionSyncJob.runBackfill();
+        long elapsed = System.currentTimeMillis() - start;
+        return ResponseEntity.ok(ApiResponse.ok(Map.of(
+                "status", "ok",
+                "elapsed_ms", String.valueOf(elapsed),
+                "note", "Synced resource roles, role rates/variants, project rate overrides, "
+                        + "work activities, productivity norms, and users to ClickHouse. "
+                        + "dim_activity rows now carry supervisor_user_id + work_activity_id "
+                        + "columns. Re-run anytime; ReplacingMergeTree(_version) dedupes.")));
+    }
 }

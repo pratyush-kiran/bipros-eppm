@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, HelpCircle, Plus, Search } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useCommandPaletteStore } from "@/lib/state/store";
 import { cn } from "@/lib/utils/cn";
 
 const UUID_RE =
@@ -48,6 +49,7 @@ function useBreadcrumbs(pathname: string) {
 export function Header() {
   const pathname = usePathname();
   const crumbs = useBreadcrumbs(pathname);
+  const openPalette = useCommandPaletteStore((s) => s.setOpen);
 
   return (
     <header className="relative flex h-16 items-center gap-5 border-b border-hairline bg-paper px-7">
@@ -95,11 +97,13 @@ export function Header() {
       {/* Command-palette search */}
       <button
         type="button"
+        onClick={() => openPalette(true)}
         className={cn(
           "ml-4 flex h-10 max-w-[440px] flex-1 items-center gap-2.5 rounded-[10px] border border-hairline bg-ivory px-3.5",
           "text-[13px] text-slate hover:border-gold-deep/50 transition-colors"
         )}
         title="Search (⌘K)"
+        aria-label="Open command palette"
       >
         <Search size={15} className="text-ash" strokeWidth={1.5} />
         <span className="flex-1 text-left">Search projects, activities, resources…</span>

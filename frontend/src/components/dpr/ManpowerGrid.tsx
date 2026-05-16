@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
+import { roleRateApi } from "@/lib/api/roleRateApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
 import type { DprManpowerRow } from "@/lib/types/dpr";
@@ -11,6 +11,7 @@ import type { DprManpowerRow } from "@/lib/types/dpr";
 const blank = (): DprManpowerRow => ({
   trade: "",
   nos: null,
+  workingHours: null,
   manpowerRoleRateId: null,
   roleId: null,
 });
@@ -23,22 +24,69 @@ interface Props {
   onChange: (rows: DprManpowerRow[]) => void;
 }
 
+// Synthetic dropdown key: "{roleId}::{variantId}". Lets unplanned rate-book entries
+// (which have no ResourceAssignment id) carry a meaningful value through the picker.
+const optKey = (roleId: string | null | undefined, variantId: string | null | undefined) =>
+  `${roleId ?? ""}::${variantId ?? ""}`;
+
 /**
- * Role-only Manpower DPR grid. Two columns only — Role (dropdown of the
- * activity's planned manpower assignments) and Nos. Rate and cost are resolved
- * server-side from the variant on save.
+ * Role-only Manpower DPR grid. The dropdown shows the activity's planned manpower at the
+ * top (suffixed " (planned)") and the rest of the rate book below — the supervisor can
+ * report any role+variant they actually used, planned or not. Backend creates a phantom
+ * ResourceAssignment for unplanned picks so they roll up into the activity Resource Plan.
  */
 export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
-  const { data, isLoading } = useQuery({
+  const { data: plannedResp, isLoading: plannedLoading } = useQuery({
     queryKey: ["role-assignments", projectId, activityId],
     queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId!),
     enabled: !!projectId && !!activityId,
   });
+  const { data: bookResp, isLoading: bookLoading } = useQuery({
+    queryKey: ["role-rates", "manpower"],
+    queryFn: () => roleRateApi.listAllManpower(),
+  });
+  const isLoading = plannedLoading || bookLoading;
 
+  // Planned items first (in their existing order), then the rest of the rate book —
+  // dedup by (roleId, variantId) so a planned item doesn't appear twice.
   const options = useMemo(() => {
-    const list = Array.isArray(data?.data) ? data.data : [];
-    return list.filter((a) => a.roleType === "MANPOWER" || a.roleType === "LABOR");
-  }, [data]);
+    // Exclude phantom rows (created by ensureAssignmentsExist for unplanned DPR variants) —
+    // they're not "planned" and shouldn't carry the (planned) suffix when re-opening a DPR.
+    // They still surface via the rate-book bucket below.
+    const planned = (Array.isArray(plannedResp?.data) ? plannedResp.data : []).filter(
+      (a) => (a.roleType === "MANPOWER" || a.roleType === "LABOR") && !a.unplanned,
+    );
+    const seen = new Set<string>();
+    const out: { value: string; label: string; roleId: string; variantId: string; trade: string }[] = [];
+    for (const p of planned) {
+      if (!p.roleId || !p.variantId) continue;
+      const k = optKey(p.roleId, p.variantId);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({
+        value: k,
+        label: `${p.roleName ?? "—"}${p.variantLabel ? ` — ${p.variantLabel}` : ""}  (planned)`,
+        roleId: p.roleId,
+        variantId: p.variantId,
+        trade: p.roleName ?? "",
+      });
+    }
+    const book = Array.isArray(bookResp?.data) ? bookResp.data : [];
+    for (const v of book) {
+      const k = optKey(v.roleId, v.id);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const variantLabel = `${v.categoryName ?? "?"} / ${v.gradeName ?? "?"} — ${v.unit} @ ₹${v.rate}`;
+      out.push({
+        value: k,
+        label: `${v.roleName ?? "—"} — ${variantLabel}`,
+        roleId: v.roleId,
+        variantId: v.id,
+        trade: v.roleName ?? "",
+      });
+    }
+    return out;
+  }, [plannedResp, bookResp]);
 
   const update = (idx: number, patch: Partial<DprManpowerRow>) => {
     const next = rows.slice();
@@ -48,34 +96,25 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
   const remove = (idx: number) => onChange(rows.filter((_, i) => i !== idx));
   const add = () => onChange([...rows, blank()]);
 
-  // We use roleId as the dropdown value (one assignment per role is the common case;
-  // if a role has multiple variant rows we use the first match — the variant FK is
-  // captured automatically). For a finer-grained pick we'd switch to assignmentId.
-  const handlePick = (idx: number, assignmentId: string) => {
-    const opt = options.find((o) => o.id === assignmentId);
+  const handlePick = (idx: number, key: string) => {
+    const opt = options.find((o) => o.value === key);
     if (!opt) return;
     update(idx, {
-      manpowerRoleRateId: opt.variantId ?? null,
-      roleId: opt.roleId ?? null,
-      trade: opt.roleName ?? "",
+      manpowerRoleRateId: opt.variantId,
+      roleId: opt.roleId,
+      trade: opt.trade,
     });
   };
 
-  const selectedAssignmentId = (r: DprManpowerRow): string => {
-    return options.find(
-      (o) =>
-        (r.manpowerRoleRateId && r.manpowerRoleRateId === o.variantId) ||
-        (r.roleId && r.roleId === o.roleId),
-    )?.id ?? "";
-  };
+  const selectedKey = (r: DprManpowerRow): string =>
+    r.roleId && r.manpowerRoleRateId ? optKey(r.roleId, r.manpowerRoleRateId) : "";
 
   const remainingFor = (r: DprManpowerRow): number | null => {
-    const opt = options.find(
-      (o) =>
-        (r.manpowerRoleRateId && r.manpowerRoleRateId === o.variantId) ||
-        (r.roleId && r.roleId === o.roleId),
+    const planned = Array.isArray(plannedResp?.data) ? plannedResp.data : [];
+    const match = planned.find(
+      (o) => o.roleId === r.roleId && o.variantId === r.manpowerRoleRateId,
     );
-    return opt?.remainingUnits ?? null;
+    return match?.remainingUnits ?? null;
   };
 
   // SHOW_REMAINING flag — temporarily hidden per user request. Keep the column
@@ -90,15 +129,12 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
       grow: 1,
       render: (r, i) => (
         <SearchableSelect
-          options={options.map((o) => ({
-            value: o.id,
-            label: o.variantLabel ? `${o.roleName} — ${o.variantLabel}` : (o.roleName ?? "—"),
-          }))}
-          value={selectedAssignmentId(r)}
+          options={options.map((o) => ({ value: o.value, label: o.label }))}
+          value={selectedKey(r)}
           onChange={(v) => handlePick(i, v)}
-          placeholder={isLoading ? "Loading…" : "Pick assigned role…"}
+          placeholder={isLoading ? "Loading…" : "Pick role…"}
           loading={isLoading}
-          disabled={!activityId || options.length === 0}
+          disabled={!activityId}
         />
       ),
     },
@@ -136,25 +172,28 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
         />
       ),
     },
+    {
+      key: "workingHours",
+      label: "Hrs",
+      minWidth: 100,
+      align: "right",
+      render: (r, _i, u) => (
+        <CellInput
+          type="number"
+          step="0.25"
+          min="0"
+          value={r.workingHours}
+          onChange={(v) => u({ workingHours: v === "" ? null : Number(v) })}
+        />
+      ),
+    },
   ];
 
   return (
     <>
       {!activityId && (
         <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          Pick an activity above to choose its planned manpower.
-        </div>
-      )}
-      {activityId && !isLoading && options.length === 0 && (
-        <div className="mb-3 rounded-md border border-hairline bg-ivory/60 px-3 py-2 text-xs text-slate">
-          No manpower planned for this activity yet.{" "}
-          <Link
-            href={`/projects/${projectId}/activities/${activityId}`}
-            className="font-semibold text-gold-deep underline"
-          >
-            Open activity
-          </Link>{" "}
-          and add manpower demand first.
+          Pick an activity above to choose manpower.
         </div>
       )}
       <RowGrid
@@ -166,9 +205,7 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
         onRemove={remove}
         emptyHint={
           activityId
-            ? options.length === 0
-              ? "No manpower planned for this activity."
-              : "Click Add manpower to record a deployed role."
+            ? "Click Add manpower to record a deployed role."
             : "Pick an activity first."
         }
         addLabel="Add manpower"

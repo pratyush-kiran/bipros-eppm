@@ -161,3 +161,9 @@ databaseChangeLog:
       file: db/changelog/094-activity-drop-responsible-resource.yaml
   - include:
       file: db/changelog/095-resource-drop-user-id.yaml
+  - include:
+      file: db/changelog/2026-05-14-concrete-pour.xml
+  - include:
+      file: db/changelog/096-activity-add-edit-status.yaml
+  - include:
+      file: db/changelog/097-activity-supervisors-multi.yaml

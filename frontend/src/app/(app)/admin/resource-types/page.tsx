@@ -141,18 +141,18 @@ export default function ResourceTypesAdminPage() {
           <span className="text-text-muted">Inactive</span>
         ),
     },
-    {
-      accessorKey: "systemDefault",
-      header: "System",
-      cell: ({ row }) =>
-        row.original.systemDefault ? (
-          <span className="inline-flex rounded bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent ring-1 ring-accent/20">
-            system
-          </span>
-        ) : (
-          <span className="text-text-muted">—</span>
-        ),
-    },
+    // {
+    //   accessorKey: "systemDefault",
+    //   header: "System",
+    //   cell: ({ row }) =>
+    //     row.original.systemDefault ? (
+    //       <span className="inline-flex rounded bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent ring-1 ring-accent/20">
+    //         system
+    //       </span>
+    //     ) : (
+    //       <span className="text-text-muted">—</span>
+    //     ),
+    // },
     {
       id: "actions",
       header: "Actions",

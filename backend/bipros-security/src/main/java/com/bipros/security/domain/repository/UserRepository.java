@@ -20,9 +20,24 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmployeeCode(String employeeCode);
+
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    /**
+     * Users that belong to the Oman-Demo tenant by either: (a) legacy slug-prefix
+     * username, or (b) the demo email domain. Used by the cleanup seeder to wipe
+     * every Oman-Demo identity before the staff seeder re-creates them with the
+     * current EMP-XXX scheme — covers both the historic {@code oman-demo.*} rows
+     * and intermediate-revision EMP-XXX rows from a wrong range.
+     */
+    @Query("SELECT u FROM User u "
+            + "WHERE u.username LIKE 'oman-demo.%' "
+            + "   OR u.username LIKE 'oman.demo.%' "
+            + "   OR u.email LIKE '%@oman-demo.bipros.demo'")
+    List<User> findLegacyOmanDemoUsers();
 
     /**
      * Find enabled users that hold ANY of the given role names. Used by the supervisor /

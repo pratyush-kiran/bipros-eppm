@@ -27,4 +27,8 @@ public record RoleAssignmentResponse(
     String unit,
     String rateType,
     LocalDate plannedStartDate,
-    LocalDate plannedFinishDate) {}
+    LocalDate plannedFinishDate,
+    // True when this row was auto-created from a DPR for a (role, variant) that was never
+    // planned for the activity. plannedUnits = budgetedUnits = 0; only actual* / remaining*
+    // carry meaning. Frontend uses this to render an "Unplanned" pill in the Resource Plan.
+    boolean unplanned) {}

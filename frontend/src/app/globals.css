@@ -278,3 +278,8 @@ html, body, main, nav, aside {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Hide the floating Ask AI FAB while the activity detail drawer is open
+   so it doesn't overlap the drawer's footer (Create DPR). The drawer toggles
+   data-activity-drawer-open on <body> via a useEffect. */
+body[data-activity-drawer-open="true"] .ai-chat-fab { display: none; }

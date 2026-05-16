@@ -45,7 +45,7 @@ const blankItem = (): QcTestItemRow => ({
 });
 
 const inputCls =
-  "w-full rounded border border-hairline bg-white px-2.5 py-1.5 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/30 transition";
+  "w-full rounded border border-hairline bg-white dark:bg-[#2A2520] px-2.5 py-1.5 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/30 transition";
 
 const numInputCls = cn(inputCls, "text-right tabular-nums");
 
@@ -266,7 +266,7 @@ export function QcSessionForm({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[780px] border-collapse text-sm">
               <thead className="sticky top-0 z-10">
-                <tr className="border-b-2 border-gold/30 bg-charcoal text-xs font-semibold uppercase tracking-wider text-white/80">
+                <tr className="border-b-2 border-gold/30 bg-charcoal/90 dark:bg-parchment text-xs font-semibold uppercase tracking-wider text-white/80">
                   <th className="w-8 px-3 py-2.5 text-center text-white/40">#</th>
                   <th className="px-3 py-2.5 text-left" style={{ minWidth: 210 }}>Test Type</th>
                   <th className="px-3 py-2.5 text-left" style={{ minWidth: 130 }}>Sample Ref</th>
@@ -293,7 +293,7 @@ export function QcSessionForm({
                         key={idx}
                         className={cn(
                           "group border-b border-hairline/60 transition-colors",
-                          isEven ? "bg-white" : "bg-ivory/40",
+                          isEven ? "bg-white dark:bg-[#161616]" : "bg-ivory/40 dark:bg-[#1E1E1E]",
                           "hover:bg-gold-tint/20"
                         )}
                       >

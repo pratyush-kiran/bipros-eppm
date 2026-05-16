@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, Briefcase, HardHat, Info, Package, Save } from "lucide-react";
+import { AlertTriangle, Briefcase, HardHat, Info, Package, Save, X } from "lucide-react";
+import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect, type SelectOption } from "@/components/common/SearchableSelect";
 import { chainageLabel, parseChainage } from "@/lib/format/chainage";
@@ -53,11 +54,11 @@ interface Props {
   /** lowercased name → id, used for legacy DPRs whose server payload only carries activityName. */
   activityIdByName: Map<string, string>;
   /**
-   * activityId → its assigned supervisor (from `Activity.responsibleResourceId`). Powers the
-   * cross-filter / auto-fill between the Supervisor and Activity pickers. `null` means the
-   * activity has no supervisor assigned yet.
+   * activityId → its assigned supervisors (multi). Powers the cross-filter / auto-fill
+   * between the Supervisor and Activity pickers and the set-membership mismatch warning.
+   * Empty array means the activity has no supervisors assigned yet.
    */
-  supervisorByActivityId: Map<string, { id: string; name: string } | null>;
+  supervisorsByActivityId: Map<string, Array<{ id: string; name: string }>>;
   /**
    * activityId → the linked WorkActivity's `default_unit`. The form auto-fills the unit
    * dropdown when an activity is picked so DPRs default to the activity's unit instead of
@@ -139,7 +140,7 @@ const initialState = (
       startTime: editing.startTime,
       endTime: editing.endTime,
       shift: editing.shift ?? null,
-      approvalStatus: editing.approvalStatus ?? "DRAFT",
+      approvalStatus: editing.approvalStatus ?? "SUBMITTED",
       contractorName: editing.contractorName,
       delayReason: editing.delayReason,
       safetyObservation: editing.safetyObservation,
@@ -181,7 +182,7 @@ const initialState = (
     startTime: null,
     endTime: null,
     shift: "DAY",
-    approvalStatus: "DRAFT",
+    approvalStatus: "SUBMITTED",
     contractorName: null,
     delayReason: null,
     safetyObservation: null,
@@ -201,7 +202,7 @@ export function DprActivityForm({
   activityOptions,
   activityNameById,
   activityIdByName,
-  supervisorByActivityId,
+  supervisorsByActivityId,
   defaultUnitByActivityId,
   boqOptions,
   defaultPrefill,
@@ -219,8 +220,19 @@ export function DprActivityForm({
   });
   const [tab, setTab] = useState<Tab>("manpower");
   const [error, setError] = useState<FormError>(null);
+  /**
+   * Inline error pinned to the Activity selector. Set when the server rejects the DPR with
+   * {@code ACTIVITY_DRAFT_DPR_REJECTED} (activity is still in DRAFT). Surfacing the message
+   * next to the picker — instead of in the generic footer banner — makes the recovery
+   * action obvious: pick a different activity, or ask someone with {@code ACTIVITY.LOCK} to
+   * lock the chosen one.
+   */
+  const [activityFieldError, setActivityFieldError] = useState<FormError>(null);
   const [preview, setPreview] = useState<ProductivityPreviewData | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Server-side soft warnings from the most recent save (overrun / missing-rate). The DPR is
+  // saved successfully when these are present — they're advisory, not blockers.
+  const [recentWarnings, setRecentWarnings] = useState<string[]>([]);
   const [photoUploadStatus, setPhotoUploadStatus] = useState<string | null>(null);
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [existingPhotos, setExistingPhotos] = useState<DprAttachment[]>(
@@ -383,35 +395,39 @@ export function DprActivityForm({
   const supervisorIsOther = supervisorPickerValue === SUPERVISOR_OTHER;
 
   /**
-   * Activities owned by the currently selected supervisor (per `Activity.responsibleResourceId`).
-   * If the user hasn't picked a supervisor — or picked the free-text "Other" — show the full list.
-   * If the picked supervisor has zero assigned activities, fall back to showing all activities
-   * (the user explicitly asked for "do nothing" in that case; surfacing all is the closest
-   * reasonable behavior so the form stays usable).
+   * Activities the currently selected supervisor co-supervises. If the user hasn't picked
+   * a supervisor — or picked the free-text "Other" — show the full list. If the picked
+   * supervisor has zero assigned activities, fall back to showing all (so the form stays
+   * usable when an admin/PM is filing on someone else's behalf).
    */
   const filteredActivityOptions = useMemo(() => {
     if (!state.supervisorUserId || supervisorIsOther) return activityOptions;
     const filtered = activityOptions.filter((a) => {
-      const sup = supervisorByActivityId.get(a.value);
-      return sup?.id === state.supervisorUserId;
+      const sups = supervisorsByActivityId.get(a.value) ?? [];
+      return sups.some((s) => s.id === state.supervisorUserId);
     });
     return filtered.length === 0 ? activityOptions : filtered;
-  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
+  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
 
   const supervisorHasNoActivities = useMemo(() => {
     if (!state.supervisorUserId || supervisorIsOther) return false;
-    return !activityOptions.some(
-      (a) => supervisorByActivityId.get(a.value)?.id === state.supervisorUserId
+    return !activityOptions.some((a) =>
+      (supervisorsByActivityId.get(a.value) ?? []).some((s) => s.id === state.supervisorUserId)
     );
-  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
+  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
 
-  /** Inline mismatch when the picked supervisor isn't the activity's owner. */
-  const activitySupervisorMismatch = useMemo(() => {
+  /**
+   * Inline mismatch when the picked supervisor isn't in the activity's supervisor set.
+   * Returns the comma-joined names of the activity's actual supervisors so the message
+   * can name them; null when the picked user IS one of them (or no check is needed).
+   */
+  const activitySupervisorMismatch = useMemo<string | null>(() => {
     if (!state.activityId || !state.supervisorUserId || supervisorIsOther) return null;
-    const sup = supervisorByActivityId.get(state.activityId);
-    if (!sup || sup.id === state.supervisorUserId) return null;
-    return sup.name || "another supervisor";
-  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
+    const sups = supervisorsByActivityId.get(state.activityId) ?? [];
+    if (sups.length === 0) return null;
+    if (sups.some((s) => s.id === state.supervisorUserId)) return null;
+    return sups.map((s) => s.name).filter(Boolean).join(", ") || "another supervisor";
+  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
 
   /** Tab counters reflect rows that will actually be saved (FK picker filled).
    *  Role-only rows have variantId set instead of resourceAssignmentId. */
@@ -443,9 +459,9 @@ export function DprActivityForm({
 
   const supervisorAutoFilled = useMemo(() => {
     if (!state.activityId || !state.supervisorUserId || supervisorIsOther) return false;
-    const sup = supervisorByActivityId.get(state.activityId);
-    return sup?.id === state.supervisorUserId;
-  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorByActivityId]);
+    const sups = supervisorsByActivityId.get(state.activityId) ?? [];
+    return sups.some((s) => s.id === state.supervisorUserId);
+  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
 
   /**
    * Activity dropdown change: when rows already exist for the previous activity, prompt to clear
@@ -456,6 +472,9 @@ export function DprActivityForm({
    * domain model.
    */
   const handleActivityChange = (newActivityId: string) => {
+    // Switching activities is the recovery for an ACTIVITY_DRAFT_DPR_REJECTED — wipe the
+    // inline error so the field doesn't keep complaining after the user has moved on.
+    if (activityFieldError) setActivityFieldError(null);
     const existingRows =
       (state.manpower?.length ?? 0) +
       (state.equipment?.length ?? 0) +
@@ -484,16 +503,19 @@ export function DprActivityForm({
     if (activityUnit && activityUnit.trim().length > 0) {
       delta.unit = activityUnit.trim();
     }
-    const sup = newActivityId ? supervisorByActivityId.get(newActivityId) : null;
+    // Multi-supervisor: pick the first supervisor in the activity's list that is still
+    // eligible (i.e. still has a supervisor role). If none are eligible, leave the supervisor
+    // untouched rather than silently filling an invalid id.
+    const sups = newActivityId ? (supervisorsByActivityId.get(newActivityId) ?? []) : [];
     const supervisorEmpty = !state.supervisorUserId || supervisorIsOther;
-    if (sup && supervisorEmpty) {
-      // Verify the supervisor actually exists in the eligible list before auto-filling — if the
-      // activity's snapshot points at someone no longer eligible (e.g. role changed), fall back
-      // to leaving the supervisor untouched rather than silently picking an invalid value.
-      const match = supervisorOptions.find((s) => s.value === sup.id);
-      if (match) {
-        delta.supervisorUserId = sup.id;
-        delta.supervisorName = match.label.split(" (")[0];
+    if (sups.length > 0 && supervisorEmpty) {
+      for (const sup of sups) {
+        const match = supervisorOptions.find((s) => s.value === sup.id);
+        if (match) {
+          delta.supervisorUserId = sup.id;
+          delta.supervisorName = match.label.split(" (")[0];
+          break;
+        }
       }
     }
     patch(delta);
@@ -588,6 +610,21 @@ export function DprActivityForm({
     setPhotoUploadStatus(null);
     try {
       const saved = await onSave(payload);
+      // Surface soft warnings (overrun on planned rows, missing rate on unplanned rows). The
+      // DPR is already persisted — these are advisory. One summary toast keeps the page tidy
+      // even when many warnings fire; the sticky banner above the tabs lists every one.
+      const warnings = saved?.warnings ?? [];
+      if (warnings.length > 0) {
+        toast(
+          warnings.length === 1
+            ? "Saved with 1 warning — see details above the tabs."
+            : `Saved with ${warnings.length} warnings — see details above the tabs.`,
+          { icon: "⚠️", duration: 5000 },
+        );
+        setRecentWarnings(warnings);
+      } else {
+        setRecentWarnings([]);
+      }
       // Two-step upload: DPR is now persisted (either freshly-created or updated). If the user
       // queued any photos in the drawer, ship them against the saved id. The drawer is closed by
       // calling onCancel() — only after the upload step so the form stays mounted in the meantime.
@@ -624,13 +661,18 @@ export function DprActivityForm({
         onCancel();
       }
     } catch (err: unknown) {
-      // Surface DPR_OVERRUN (hard-block) with the full server-side detail string.
       const axiosErr = err as {
         response?: { data?: { error?: { code?: string; message?: string } } };
       };
       const apiErr = axiosErr?.response?.data?.error;
-      if (apiErr?.code === "DPR_OVERRUN") {
-        setError(apiErr.message ?? "DPR would exceed planned units for one or more roles.");
+      if (apiErr?.code === "ACTIVITY_DRAFT_DPR_REJECTED") {
+        // Pin this one to the Activity field — recovery is "pick a different activity" or
+        // "lock this one", both of which the user does at the picker.
+        setActivityFieldError(
+          apiErr.message ??
+            "This activity is still in Draft — lock it before submitting a DPR against it."
+        );
+        setError(null);
       } else {
         const msg = err instanceof Error ? err.message : "Failed to save DPR.";
         setError(msg);
@@ -643,9 +685,6 @@ export function DprActivityForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 border-b border-hairline px-5 py-3">
-        <Badge variant={editing ? "info" : "gold"} withDot>
-          {state.approvalStatus ?? "DRAFT"}
-        </Badge>
         {state.shift && (
           <Badge variant="neutral">{state.shift === "DAY" ? "Day shift" : "Night shift"}</Badge>
         )}
@@ -702,7 +741,13 @@ export function DprActivityForm({
           {activitySupervisorMismatch && (
             <p className="mt-1 inline-flex items-center gap-1 text-xs text-burgundy">
               <Info className="h-3 w-3" />
-              Activity is supervised by {activitySupervisorMismatch}, not the selected supervisor.
+              Activity is supervised by {activitySupervisorMismatch} — not the selected supervisor.
+            </p>
+          )}
+          {activityFieldError && (
+            <p className="mt-1 inline-flex items-start gap-1 text-xs text-burgundy">
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>{activityFieldError}</span>
             </p>
           )}
         </Field>
@@ -727,21 +772,6 @@ export function DprActivityForm({
           >
             <option value="">—</option>
             {SHIFT_OPTS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Approval status">
-          <select
-            value={state.approvalStatus ?? "DRAFT"}
-            onChange={(e) =>
-              patch({ approvalStatus: e.target.value as DprApprovalStatus })
-            }
-            className={inputCls}
-          >
-            {STATUS_OPTS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -916,6 +946,30 @@ export function DprActivityForm({
       {state.activityId && (
         <div className="px-5">
           <ProductivityCoverageBanner coverage={preview?.coverage ?? null} />
+        </div>
+      )}
+
+      {recentWarnings.length > 0 && (
+        <div className="mx-5 mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+          <div className="mb-1 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-1.5 font-semibold">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Saved with warnings ({recentWarnings.length})
+            </div>
+            <button
+              type="button"
+              onClick={() => setRecentWarnings([])}
+              className="text-amber-900/70 hover:text-amber-900 dark:text-amber-200/70 dark:hover:text-amber-200"
+              aria-label="Dismiss warnings"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {recentWarnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
         </div>
       )}
 

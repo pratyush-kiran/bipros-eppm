@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -15,11 +16,21 @@ public class ToolRegistry {
 
     private static final String SYSTEM_ADMIN = "SYSTEM_ADMIN";
 
+    // OpenAI rejects tool names that don't match this pattern, so fail fast at boot
+    // rather than at the first chat request that lands on the offending tool.
+    private static final Pattern VALID_TOOL_NAME = Pattern.compile("^[a-zA-Z0-9_-]+$");
+
     private final Map<String, Tool> tools = new HashMap<>();
 
     public ToolRegistry(Collection<Tool> toolBeans) {
         for (Tool t : toolBeans) {
-            tools.put(t.name(), t);
+            String name = t.name();
+            if (name == null || !VALID_TOOL_NAME.matcher(name).matches()) {
+                throw new IllegalStateException(
+                        "Tool " + t.getClass().getName() + " has invalid name '" + name
+                                + "'. Tool names must match ^[a-zA-Z0-9_-]+$ (OpenAI tool name regex).");
+            }
+            tools.put(name, t);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.bipros.ai.activity;
 
 import com.bipros.ai.activity.dto.ActivityAiNode;
+import com.bipros.ai.activity.dto.AiPredecessor;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -11,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Deterministic safety net that takes whatever shape of activity DAG the LLM
@@ -64,40 +66,50 @@ public final class ActivityRelationshipValidator {
             byCode.put(a.code(), a);
         }
 
-        // Pass 1: drop invalid predecessors. Mutable lists so cycle-breaking
-        // can mutate them later.
-        Map<String, List<String>> preds = new HashMap<>();
+        // Pass 1: drop invalid predecessors. Keep lag/type on surviving entries.
+        // codeOnlyPreds is mutable — cycle-breaking mutates it in pass 2.
+        Map<String, List<AiPredecessor>> cleanedPreds = new HashMap<>();
+        Map<String, List<String>> codeOnlyPreds = new HashMap<>();
         int dropDangling = 0;
         int dropSelf = 0;
         int dropDup = 0;
         for (Map.Entry<String, ActivityAiNode> e : byCode.entrySet()) {
             String code = e.getKey();
-            List<String> raw = e.getValue().predecessorCodes();
-            List<String> kept = new ArrayList<>(raw == null ? 0 : raw.size());
+            List<AiPredecessor> raw = e.getValue().predecessors();
+            List<AiPredecessor> kept = new ArrayList<>(raw == null ? 0 : raw.size());
+            List<String> keptCodes = new ArrayList<>(raw == null ? 0 : raw.size());
             if (raw != null) {
                 Set<String> seen = new HashSet<>();
-                for (String p : raw) {
-                    if (p == null || p.isBlank()) { dropDangling++; continue; }
-                    if (p.equals(code)) { dropSelf++; continue; }
-                    if (!byCode.containsKey(p)) { dropDangling++; continue; }
-                    if (!seen.add(p)) { dropDup++; continue; }
+                for (AiPredecessor p : raw) {
+                    if (p == null || p.code() == null || p.code().isBlank()) { dropDangling++; continue; }
+                    if (p.code().equals(code)) { dropSelf++; continue; }
+                    if (!byCode.containsKey(p.code())) { dropDangling++; continue; }
+                    if (!seen.add(p.code())) { dropDup++; continue; }
                     kept.add(p);
+                    keptCodes.add(p.code());
                 }
             }
-            preds.put(code, kept);
+            cleanedPreds.put(code, kept);
+            codeOnlyPreds.put(code, keptCodes);
         }
 
-        // Pass 2: cycle detection + break.
-        int dropCycle = breakCycles(preds);
+        // Pass 2: cycle detection + break on code-only map (mutates keptCodes lists).
+        int dropCycle = breakCycles(codeOnlyPreds);
 
-        // Rebuild activities with cleaned predecessor lists, preserving original order.
+        // Rebuild activities with cleaned predecessor lists. For cycle-dropped edges,
+        // filter cleanedPreds to only keep entries whose code survived cycle detection.
         List<ActivityAiNode> out = new ArrayList<>(byCode.size());
         for (Map.Entry<String, ActivityAiNode> e : byCode.entrySet()) {
             ActivityAiNode src = e.getValue();
+            Set<String> survivingCodes = new HashSet<>(codeOnlyPreds.getOrDefault(src.code(), List.of()));
+            List<AiPredecessor> finalPreds = cleanedPreds.getOrDefault(src.code(), List.of())
+                    .stream()
+                    .filter(p -> survivingCodes.contains(p.code()))
+                    .collect(Collectors.toList());
             out.add(new ActivityAiNode(
                     src.code(), src.name(), src.description(),
                     src.wbsNodeCode(), src.originalDurationDays(),
-                    List.copyOf(preds.getOrDefault(src.code(), List.of()))));
+                    List.copyOf(finalPreds)));
         }
         return new Result(out, duplicates, dropDangling, dropSelf, dropDup, dropCycle);
     }

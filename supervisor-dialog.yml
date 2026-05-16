@@ -1,0 +1,2312 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - img "Bipros" [ref=e5]
+      - button "Expand sidebar" [ref=e6]:
+        - img [ref=e7]
+      - navigation [ref=e9]:
+        - generic [ref=e10]:
+          - link "Home" [ref=e11] [cursor=pointer]:
+            - /url: /
+            - img [ref=e12]
+          - link "Portfolios" [ref=e15] [cursor=pointer]:
+            - /url: /portfolios
+            - img [ref=e16]
+          - link "Projects" [ref=e19] [cursor=pointer]:
+            - /url: /projects
+            - img [ref=e21]
+          - link "EPS" [ref=e26] [cursor=pointer]:
+            - /url: /eps
+            - img [ref=e27]
+          - link "OBS" [ref=e31] [cursor=pointer]:
+            - /url: /obs
+            - img [ref=e32]
+          - link "QC" [ref=e37] [cursor=pointer]:
+            - /url: /qc
+            - img [ref=e38]
+          - link "Dashboards" [ref=e42] [cursor=pointer]:
+            - /url: /dashboards
+            - img [ref=e43]
+        - link "Calendars" [ref=e49] [cursor=pointer]:
+          - /url: /admin/calendars
+          - img [ref=e50]
+        - link "Reports" [ref=e53] [cursor=pointer]:
+          - /url: /reports
+          - img [ref=e54]
+        - generic [ref=e56]:
+          - link "Users" [ref=e57] [cursor=pointer]:
+            - /url: /admin/users
+            - img [ref=e58]
+          - link "Profiles" [ref=e62] [cursor=pointer]:
+            - /url: /admin/profiles
+            - img [ref=e63]
+          - link "Risk Scoring Matrix" [ref=e66] [cursor=pointer]:
+            - /url: /admin/risk-scoring-matrix
+            - img [ref=e67]
+          - link "Integrations" [ref=e69] [cursor=pointer]:
+            - /url: /admin/integrations
+            - img [ref=e70]
+          - link "Settings" [ref=e72] [cursor=pointer]:
+            - /url: /admin/settings
+            - img [ref=e73]
+          - generic [ref=e77]:
+            - link "Resource Types" [ref=e78] [cursor=pointer]:
+              - /url: /admin/resource-types
+              - img [ref=e79]
+            - link "Resource Roles" [ref=e82] [cursor=pointer]:
+              - /url: /admin/resource-roles
+              - img [ref=e83]
+          - generic [ref=e88]:
+            - link "Formulas" [ref=e89] [cursor=pointer]:
+              - /url: /admin/formulas
+              - img [ref=e90]
+            - link "Productivity Norms" [ref=e92] [cursor=pointer]:
+              - /url: /admin/productivity-norms
+              - img [ref=e93]
+            - link "Work Activities" [ref=e96] [cursor=pointer]:
+              - /url: /admin/work-activities
+              - img [ref=e97]
+            - link "Risk Library" [ref=e100] [cursor=pointer]:
+              - /url: /admin/risk-library
+              - img [ref=e101]
+            - link "Risk Categories" [ref=e103] [cursor=pointer]:
+              - /url: /admin/risk-categories
+              - img [ref=e104]
+            - link "Employment Types" [ref=e108] [cursor=pointer]:
+              - /url: /admin/employment-types
+              - img [ref=e109]
+            - link "Skills" [ref=e112] [cursor=pointer]:
+              - /url: /admin/skills
+              - img [ref=e113]
+            - link "Skill Levels" [ref=e116] [cursor=pointer]:
+              - /url: /admin/skill-levels
+              - img [ref=e117]
+            - link "Grades" [ref=e120] [cursor=pointer]:
+              - /url: /admin/grades
+              - img [ref=e121]
+            - link "Material Categories" [ref=e124] [cursor=pointer]:
+              - /url: /admin/material-categories
+              - img [ref=e125]
+            - link "Project Categories" [ref=e130] [cursor=pointer]:
+              - /url: /admin/project-categories
+              - img [ref=e131]
+            - link "Permits" [ref=e134] [cursor=pointer]:
+              - /url: /permits
+              - img [ref=e135]
+            - link "Workflow Reference" [ref=e138] [cursor=pointer]:
+              - /url: /permits/workflow
+              - img [ref=e139]
+      - generic [ref=e143]:
+        - generic "Admin · admin" [ref=e144]: AD
+        - button "Sign out" [ref=e145]:
+          - img [ref=e146]
+    - generic [ref=e149]:
+      - banner [ref=e150]:
+        - navigation "Breadcrumbs" [ref=e152]:
+          - generic [ref=e153]:
+            - link "Home" [ref=e154] [cursor=pointer]:
+              - /url: /
+            - generic [ref=e155]: ›
+          - generic [ref=e156]:
+            - link "Projects" [ref=e157] [cursor=pointer]:
+              - /url: /projects
+            - generic [ref=e158]: ›
+          - generic [ref=e159]:
+            - link "…" [ref=e160] [cursor=pointer]:
+              - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11
+            - generic [ref=e161]: ›
+          - generic [ref=e163]: Activities
+        - button "Search projects, activities, resources… ⌘K" [ref=e164]:
+          - img [ref=e165]
+          - generic [ref=e168]: Search projects, activities, resources…
+          - generic [ref=e169]: ⌘K
+        - generic [ref=e170]:
+          - button "Notifications" [ref=e171]:
+            - img [ref=e172]
+          - button "Help" [ref=e176]:
+            - img [ref=e177]
+          - button "Switch to dark mode" [ref=e181]:
+            - img [ref=e182]
+          - link "New project" [ref=e184] [cursor=pointer]:
+            - /url: /projects/new
+            - img [ref=e185]
+            - text: New project
+      - main [ref=e186]:
+        - generic [ref=e188]:
+          - generic [ref=e195]:
+            - generic [ref=e196]:
+              - heading "OMAN-Demo-Khasab — Khasab–Daba Asphalt Road & Link to Lima" [level=1] [ref=e197]
+              - paragraph [ref=e198]: OMAN-DEMO-KHASAB
+            - button "Open dashboards" [ref=e200]:
+              - img [ref=e201]
+              - text: Open dashboards
+              - img [ref=e203]
+          - navigation "Tabs" [ref=e206]:
+            - generic [ref=e207]:
+              - button "Overview" [ref=e208] [cursor=pointer]
+              - button "WBS" [ref=e209] [cursor=pointer]
+              - button "Activities" [ref=e210] [cursor=pointer]
+              - button "Resources" [ref=e211] [cursor=pointer]
+              - button "Gantt" [ref=e212] [cursor=pointer]
+              - button "Network" [ref=e213] [cursor=pointer]
+              - button "DPR" [ref=e214] [cursor=pointer]
+              - button "Capacity Util." [ref=e215] [cursor=pointer]
+              - button "Costs" [ref=e216] [cursor=pointer]
+              - button "EVM" [ref=e217] [cursor=pointer]
+              - button "Baselines" [ref=e218] [cursor=pointer]
+              - button "Insights" [ref=e219] [cursor=pointer]
+              - button "Risks" [ref=e220] [cursor=pointer]
+              - button "Contracts" [ref=e221] [cursor=pointer]
+              - button "GIS" [ref=e222] [cursor=pointer]
+              - button "Workfronts" [ref=e223] [cursor=pointer]
+              - button "Snags" [ref=e224] [cursor=pointer]
+              - button "Handovers" [ref=e225] [cursor=pointer]
+              - button "Attendance" [ref=e226] [cursor=pointer]
+              - button "Checklists" [ref=e227] [cursor=pointer]
+              - button "Indents" [ref=e228] [cursor=pointer]
+              - button "NCRs" [ref=e229] [cursor=pointer]
+            - button "More" [ref=e231] [cursor=pointer]:
+              - text: More
+              - img [ref=e232]
+          - generic [ref=e235]:
+            - generic [ref=e236]:
+              - generic [ref=e237]:
+                - heading "Activities" [level=1] [ref=e238]
+                - paragraph [ref=e239]: View and manage project activities
+              - generic [ref=e241]:
+                - button "Assign Supervisor" [ref=e242]:
+                  - img [ref=e243]
+                  - text: Assign Supervisor
+                - button "Generate with AI" [ref=e247]:
+                  - img [ref=e248]
+                  - text: Generate with AI
+                - button "New Activity" [ref=e251]
+            - generic [ref=e252]:
+              - button "Run Schedule" [ref=e254]:
+                - img [ref=e255]
+                - text: Run Schedule
+              - generic [ref=e257]:
+                - button "All Activities" [ref=e258]
+                - button "4-Week Look-Ahead" [ref=e259]
+                - button "13-Week Look-Ahead" [ref=e260]
+              - generic [ref=e261]:
+                - button "List" [ref=e262]:
+                  - img [ref=e263]
+                  - text: List
+                - button "WBS Tree" [ref=e264]:
+                  - img [ref=e265]
+                  - text: WBS Tree
+              - button "Columns" [ref=e2270]:
+                - img [ref=e2271]
+                - text: Columns
+            - table [ref=e2275]:
+              - rowgroup [ref=e2276]:
+                - row "Code Name Duration (days) % Complete Status Float (days) Planned Start Planned Finish ES EF LS LF Supervisor Actions Deps" [ref=e2277]:
+                  - columnheader "Code" [ref=e2278]
+                  - columnheader "Name" [ref=e2279]
+                  - columnheader "Duration (days)" [ref=e2280]
+                  - columnheader "% Complete" [ref=e2281]
+                  - columnheader "Status" [ref=e2282]
+                  - columnheader "Float (days)" [ref=e2283]
+                  - columnheader "Planned Start" [ref=e2284]
+                  - columnheader "Planned Finish" [ref=e2285]
+                  - columnheader "ES" [ref=e2286]
+                  - columnheader "EF" [ref=e2287]
+                  - columnheader "LS" [ref=e2288]
+                  - columnheader "LF" [ref=e2289]
+                  - columnheader "Supervisor" [ref=e2290]
+                  - columnheader "Actions" [ref=e2291]
+                  - columnheader "Deps" [ref=e2292]
+              - rowgroup [ref=e2293]:
+                - row "1.0 Camp work 30 40% In Progress — Oct 1, 2024 Oct 31, 2024 — — — — Mohd Ismaila Complete View 2P / 1S" [ref=e2294] [cursor=pointer]:
+                  - cell "1.0" [ref=e2295]
+                  - cell "Camp work" [ref=e2296]
+                  - cell "30" [ref=e2297]
+                  - cell "40%" [ref=e2298]:
+                    - button "40%" [ref=e2299]
+                  - cell "In Progress" [ref=e2300]:
+                    - generic [ref=e2301]: In Progress
+                  - cell "—" [ref=e2302]
+                  - cell "Oct 1, 2024" [ref=e2303]
+                  - cell "Oct 31, 2024" [ref=e2304]
+                  - cell "—" [ref=e2305]
+                  - cell "—" [ref=e2306]
+                  - cell "—" [ref=e2307]
+                  - cell "—" [ref=e2308]
+                  - cell "Mohd Ismaila" [ref=e2309]:
+                    - button "Mohd Ismaila" [ref=e2310]
+                  - cell "Complete View" [ref=e2311]:
+                    - generic [ref=e2312]:
+                      - button "Complete" [ref=e2313]
+                      - link "View" [ref=e2314]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/37292e5f-38fc-4909-9003-cc34b06b0e04
+                  - cell "2P / 1S" [ref=e2315]:
+                    - generic [ref=e2316]:
+                      - generic [ref=e2317]: 2P
+                      - text: /
+                      - generic [ref=e2318]: 1S
+                - row "1.1 Diversion of existing roads and construction of graded slip roads/ access roads 30 40% In Progress — Oct 8, 2024 Nov 7, 2024 — — — — Md Saiffuddin Complete View 1P / 1S" [ref=e2319] [cursor=pointer]:
+                  - cell "1.1" [ref=e2320]
+                  - cell "Diversion of existing roads and construction of graded slip roads/ access roads" [ref=e2321]
+                  - cell "30" [ref=e2322]
+                  - cell "40%" [ref=e2323]:
+                    - button "40%" [ref=e2324]
+                  - cell "In Progress" [ref=e2325]:
+                    - generic [ref=e2326]: In Progress
+                  - cell "—" [ref=e2327]
+                  - cell "Oct 8, 2024" [ref=e2328]
+                  - cell "Nov 7, 2024" [ref=e2329]
+                  - cell "—" [ref=e2330]
+                  - cell "—" [ref=e2331]
+                  - cell "—" [ref=e2332]
+                  - cell "—" [ref=e2333]
+                  - cell "Md Saiffuddin" [ref=e2334]:
+                    - button "Md Saiffuddin" [ref=e2335]
+                  - cell "Complete View" [ref=e2336]:
+                    - generic [ref=e2337]:
+                      - button "Complete" [ref=e2338]
+                      - link "View" [ref=e2339]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/92bc832e-281d-4d30-87e2-13c0da169823
+                  - cell "1P / 1S" [ref=e2340]:
+                    - generic [ref=e2341]:
+                      - generic [ref=e2342]: 1P
+                      - text: /
+                      - generic [ref=e2343]: 1S
+                - row "1.2 Access to site including protection 30 40% In Progress — Oct 15, 2024 Nov 14, 2024 — — — — Anirban Datta Complete View 1P / 1S" [ref=e2344] [cursor=pointer]:
+                  - cell "1.2" [ref=e2345]
+                  - cell "Access to site including protection" [ref=e2346]
+                  - cell "30" [ref=e2347]
+                  - cell "40%" [ref=e2348]:
+                    - button "40%" [ref=e2349]
+                  - cell "In Progress" [ref=e2350]:
+                    - generic [ref=e2351]: In Progress
+                  - cell "—" [ref=e2352]
+                  - cell "Oct 15, 2024" [ref=e2353]
+                  - cell "Nov 14, 2024" [ref=e2354]
+                  - cell "—" [ref=e2355]
+                  - cell "—" [ref=e2356]
+                  - cell "—" [ref=e2357]
+                  - cell "—" [ref=e2358]
+                  - cell "Anirban Datta" [ref=e2359]:
+                    - button "Anirban Datta" [ref=e2360]
+                  - cell "Complete View" [ref=e2361]:
+                    - generic [ref=e2362]:
+                      - button "Complete" [ref=e2363]
+                      - link "View" [ref=e2364]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/15b9be45-7eec-4dce-ac01-ac13de52f060
+                  - cell "1P / 1S" [ref=e2365]:
+                    - generic [ref=e2366]:
+                      - generic [ref=e2367]: 1P
+                      - text: /
+                      - generic [ref=e2368]: 1S
+                - row "1.3 Soil Investigation 30 40% In Progress — Oct 22, 2024 Nov 21, 2024 — — — — Md Saiffuddin Complete View 1P / 1S" [ref=e2369] [cursor=pointer]:
+                  - cell "1.3" [ref=e2370]
+                  - cell "Soil Investigation" [ref=e2371]
+                  - cell "30" [ref=e2372]
+                  - cell "40%" [ref=e2373]:
+                    - button "40%" [ref=e2374]
+                  - cell "In Progress" [ref=e2375]:
+                    - generic [ref=e2376]: In Progress
+                  - cell "—" [ref=e2377]
+                  - cell "Oct 22, 2024" [ref=e2378]
+                  - cell "Nov 21, 2024" [ref=e2379]
+                  - cell "—" [ref=e2380]
+                  - cell "—" [ref=e2381]
+                  - cell "—" [ref=e2382]
+                  - cell "—" [ref=e2383]
+                  - cell "Md Saiffuddin" [ref=e2384]:
+                    - button "Md Saiffuddin" [ref=e2385]
+                  - cell "Complete View" [ref=e2386]:
+                    - generic [ref=e2387]:
+                      - button "Complete" [ref=e2388]
+                      - link "View" [ref=e2389]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/ec5a64f2-c37c-4a99-b2d6-868144462ab5
+                  - cell "1P / 1S" [ref=e2390]:
+                    - generic [ref=e2391]:
+                      - generic [ref=e2392]: 1P
+                      - text: /
+                      - generic [ref=e2393]: 1S
+                - row "2.1.5 (i) Clearing and Grubbing 30 40% In Progress — Oct 29, 2024 Nov 28, 2024 — — — — Illayaraja Complete View 1S" [ref=e2394] [cursor=pointer]:
+                  - cell "2.1.5 (i)" [ref=e2395]
+                  - cell "Clearing and Grubbing" [ref=e2396]
+                  - cell "30" [ref=e2397]
+                  - cell "40%" [ref=e2398]:
+                    - button "40%" [ref=e2399]
+                  - cell "In Progress" [ref=e2400]:
+                    - generic [ref=e2401]: In Progress
+                  - cell "—" [ref=e2402]
+                  - cell "Oct 29, 2024" [ref=e2403]
+                  - cell "Nov 28, 2024" [ref=e2404]
+                  - cell "—" [ref=e2405]
+                  - cell "—" [ref=e2406]
+                  - cell "—" [ref=e2407]
+                  - cell "—" [ref=e2408]
+                  - cell "Illayaraja" [ref=e2409]:
+                    - button "Illayaraja" [ref=e2410]
+                  - cell "Complete View" [ref=e2411]:
+                    - generic [ref=e2412]:
+                      - button "Complete" [ref=e2413]
+                      - link "View" [ref=e2414]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/9d8f4644-3b7d-493b-b82e-55e0cde59fc4
+                  - cell "1S" [ref=e2415]:
+                    - generic [ref=e2417]: 1S
+                - row "2.1.5 (ii) Removal and delivery or disposal of trees 30 40% In Progress — Nov 5, 2024 Dec 5, 2024 — — — — A.K.mishra Complete View 1P / 1S" [ref=e2418] [cursor=pointer]:
+                  - cell "2.1.5 (ii)" [ref=e2419]
+                  - cell "Removal and delivery or disposal of trees" [ref=e2420]
+                  - cell "30" [ref=e2421]
+                  - cell "40%" [ref=e2422]:
+                    - button "40%" [ref=e2423]
+                  - cell "In Progress" [ref=e2424]:
+                    - generic [ref=e2425]: In Progress
+                  - cell "—" [ref=e2426]
+                  - cell "Nov 5, 2024" [ref=e2427]
+                  - cell "Dec 5, 2024" [ref=e2428]
+                  - cell "—" [ref=e2429]
+                  - cell "—" [ref=e2430]
+                  - cell "—" [ref=e2431]
+                  - cell "—" [ref=e2432]
+                  - cell "A.K.mishra" [ref=e2433]:
+                    - button "A.K.mishra" [ref=e2434]
+                  - cell "Complete View" [ref=e2435]:
+                    - generic [ref=e2436]:
+                      - button "Complete" [ref=e2437]
+                      - link "View" [ref=e2438]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/1f165f28-5ccb-41e8-b77e-bdce9e0eba15
+                  - cell "1P / 1S" [ref=e2439]:
+                    - generic [ref=e2440]:
+                      - generic [ref=e2441]: 1P
+                      - text: /
+                      - generic [ref=e2442]: 1S
+                - row "2.3.6(i) Unclassified Excavation 30 40% In Progress — Nov 12, 2024 Dec 12, 2024 — — — — K. Barman Complete View 1P / 1S" [ref=e2443] [cursor=pointer]:
+                  - cell "2.3.6(i)" [ref=e2444]
+                  - cell "Unclassified Excavation" [ref=e2445]
+                  - cell "30" [ref=e2446]
+                  - cell "40%" [ref=e2447]:
+                    - button "40%" [ref=e2448]
+                  - cell "In Progress" [ref=e2449]:
+                    - generic [ref=e2450]: In Progress
+                  - cell "—" [ref=e2451]
+                  - cell "Nov 12, 2024" [ref=e2452]
+                  - cell "Dec 12, 2024" [ref=e2453]
+                  - cell "—" [ref=e2454]
+                  - cell "—" [ref=e2455]
+                  - cell "—" [ref=e2456]
+                  - cell "—" [ref=e2457]
+                  - cell "K. Barman" [ref=e2458]:
+                    - button "K. Barman" [ref=e2459]
+                  - cell "Complete View" [ref=e2460]:
+                    - generic [ref=e2461]:
+                      - button "Complete" [ref=e2462]
+                      - link "View" [ref=e2463]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/d86e080b-f46d-41a7-94a5-da6fee737ed2
+                  - cell "1P / 1S" [ref=e2464]:
+                    - generic [ref=e2465]:
+                      - generic [ref=e2466]: 1P
+                      - text: /
+                      - generic [ref=e2467]: 1S
+                - row "2.3.6(i)a Mechanical Excavation 30 40% In Progress — Nov 19, 2024 Dec 19, 2024 — — — — Vijaykumar Complete View 1P / 1S" [ref=e2468] [cursor=pointer]:
+                  - cell "2.3.6(i)a" [ref=e2469]
+                  - cell "Mechanical Excavation" [ref=e2470]
+                  - cell "30" [ref=e2471]
+                  - cell "40%" [ref=e2472]:
+                    - button "40%" [ref=e2473]
+                  - cell "In Progress" [ref=e2474]:
+                    - generic [ref=e2475]: In Progress
+                  - cell "—" [ref=e2476]
+                  - cell "Nov 19, 2024" [ref=e2477]
+                  - cell "Dec 19, 2024" [ref=e2478]
+                  - cell "—" [ref=e2479]
+                  - cell "—" [ref=e2480]
+                  - cell "—" [ref=e2481]
+                  - cell "—" [ref=e2482]
+                  - cell "Vijaykumar" [ref=e2483]:
+                    - button "Vijaykumar" [ref=e2484]
+                  - cell "Complete View" [ref=e2485]:
+                    - generic [ref=e2486]:
+                      - button "Complete" [ref=e2487]
+                      - link "View" [ref=e2488]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/c6d823f0-5f0a-4c4a-ad62-1f42b38058c0
+                  - cell "1P / 1S" [ref=e2489]:
+                    - generic [ref=e2490]:
+                      - generic [ref=e2491]: 1P
+                      - text: /
+                      - generic [ref=e2492]: 1S
+                - row "2.3.6(i)b Blasting 30 40% In Progress — Nov 26, 2024 Dec 26, 2024 — — — — Illayaraja Complete View 1P / 1S" [ref=e2493] [cursor=pointer]:
+                  - cell "2.3.6(i)b" [ref=e2494]
+                  - cell "Blasting" [ref=e2495]
+                  - cell "30" [ref=e2496]
+                  - cell "40%" [ref=e2497]:
+                    - button "40%" [ref=e2498]
+                  - cell "In Progress" [ref=e2499]:
+                    - generic [ref=e2500]: In Progress
+                  - cell "—" [ref=e2501]
+                  - cell "Nov 26, 2024" [ref=e2502]
+                  - cell "Dec 26, 2024" [ref=e2503]
+                  - cell "—" [ref=e2504]
+                  - cell "—" [ref=e2505]
+                  - cell "—" [ref=e2506]
+                  - cell "—" [ref=e2507]
+                  - cell "Illayaraja" [ref=e2508]:
+                    - button "Illayaraja" [ref=e2509]
+                  - cell "Complete View" [ref=e2510]:
+                    - generic [ref=e2511]:
+                      - button "Complete" [ref=e2512]
+                      - link "View" [ref=e2513]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/ff5ab331-dffb-42ec-98ad-012f562b6acd
+                  - cell "1P / 1S" [ref=e2514]:
+                    - generic [ref=e2515]:
+                      - generic [ref=e2516]: 1P
+                      - text: /
+                      - generic [ref=e2517]: 1S
+                - row "2.3.6(i)c Mocking for Blasting 30 40% In Progress — Dec 3, 2024 Jan 2, 2025 — — — — Illayaraja Complete View 1P / 1S" [ref=e2518] [cursor=pointer]:
+                  - cell "2.3.6(i)c" [ref=e2519]
+                  - cell "Mocking for Blasting" [ref=e2520]
+                  - cell "30" [ref=e2521]
+                  - cell "40%" [ref=e2522]:
+                    - button "40%" [ref=e2523]
+                  - cell "In Progress" [ref=e2524]:
+                    - generic [ref=e2525]: In Progress
+                  - cell "—" [ref=e2526]
+                  - cell "Dec 3, 2024" [ref=e2527]
+                  - cell "Jan 2, 2025" [ref=e2528]
+                  - cell "—" [ref=e2529]
+                  - cell "—" [ref=e2530]
+                  - cell "—" [ref=e2531]
+                  - cell "—" [ref=e2532]
+                  - cell "Illayaraja" [ref=e2533]:
+                    - button "Illayaraja" [ref=e2534]
+                  - cell "Complete View" [ref=e2535]:
+                    - generic [ref=e2536]:
+                      - button "Complete" [ref=e2537]
+                      - link "View" [ref=e2538]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/48372216-51e9-4ad1-b129-44e88d5f31f2
+                  - cell "1P / 1S" [ref=e2539]:
+                    - generic [ref=e2540]:
+                      - generic [ref=e2541]: 1P
+                      - text: /
+                      - generic [ref=e2542]: 1S
+                - row "2.3.6(i)d Slope dressing 30 40% In Progress — Dec 10, 2024 Jan 9, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2543] [cursor=pointer]:
+                  - cell "2.3.6(i)d" [ref=e2544]
+                  - cell "Slope dressing" [ref=e2545]
+                  - cell "30" [ref=e2546]
+                  - cell "40%" [ref=e2547]:
+                    - button "40%" [ref=e2548]
+                  - cell "In Progress" [ref=e2549]:
+                    - generic [ref=e2550]: In Progress
+                  - cell "—" [ref=e2551]
+                  - cell "Dec 10, 2024" [ref=e2552]
+                  - cell "Jan 9, 2025" [ref=e2553]
+                  - cell "—" [ref=e2554]
+                  - cell "—" [ref=e2555]
+                  - cell "—" [ref=e2556]
+                  - cell "—" [ref=e2557]
+                  - cell "K. Barman" [ref=e2558]:
+                    - button "K. Barman" [ref=e2559]
+                  - cell "Complete View" [ref=e2560]:
+                    - generic [ref=e2561]:
+                      - button "Complete" [ref=e2562]
+                      - link "View" [ref=e2563]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/7dcdec9f-e2b2-425b-8f9d-9fe098e95c02
+                  - cell "1P / 1S" [ref=e2564]:
+                    - generic [ref=e2565]:
+                      - generic [ref=e2566]: 1P
+                      - text: /
+                      - generic [ref=e2567]: 1S
+                - row "2.3.6(ii) Excavation of Unstable material outside Right-of -way 30 40% In Progress — Dec 17, 2024 Jan 16, 2025 — — — — V.P. Gupta Complete View 1P / 2S" [ref=e2568] [cursor=pointer]:
+                  - cell "2.3.6(ii)" [ref=e2569]
+                  - cell "Excavation of Unstable material outside Right-of -way" [ref=e2570]
+                  - cell "30" [ref=e2571]
+                  - cell "40%" [ref=e2572]:
+                    - button "40%" [ref=e2573]
+                  - cell "In Progress" [ref=e2574]:
+                    - generic [ref=e2575]: In Progress
+                  - cell "—" [ref=e2576]
+                  - cell "Dec 17, 2024" [ref=e2577]
+                  - cell "Jan 16, 2025" [ref=e2578]
+                  - cell "—" [ref=e2579]
+                  - cell "—" [ref=e2580]
+                  - cell "—" [ref=e2581]
+                  - cell "—" [ref=e2582]
+                  - cell "V.P. Gupta" [ref=e2583]:
+                    - button "V.P. Gupta" [ref=e2584]
+                  - cell "Complete View" [ref=e2585]:
+                    - generic [ref=e2586]:
+                      - button "Complete" [ref=e2587]
+                      - link "View" [ref=e2588]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/4f4dd238-acae-4216-b946-e29442b888ab
+                  - cell "1P / 2S" [ref=e2589]:
+                    - generic [ref=e2590]:
+                      - generic [ref=e2591]: 1P
+                      - text: /
+                      - generic [ref=e2592]: 2S
+                - row "2.4.6(i) Borrow Excavation 30 40% In Progress — Dec 24, 2024 Jan 23, 2025 — — — — Parvaiz Complete View 1P / 1S" [ref=e2593] [cursor=pointer]:
+                  - cell "2.4.6(i)" [ref=e2594]
+                  - cell "Borrow Excavation" [ref=e2595]
+                  - cell "30" [ref=e2596]
+                  - cell "40%" [ref=e2597]:
+                    - button "40%" [ref=e2598]
+                  - cell "In Progress" [ref=e2599]:
+                    - generic [ref=e2600]: In Progress
+                  - cell "—" [ref=e2601]
+                  - cell "Dec 24, 2024" [ref=e2602]
+                  - cell "Jan 23, 2025" [ref=e2603]
+                  - cell "—" [ref=e2604]
+                  - cell "—" [ref=e2605]
+                  - cell "—" [ref=e2606]
+                  - cell "—" [ref=e2607]
+                  - cell "Parvaiz" [ref=e2608]:
+                    - button "Parvaiz" [ref=e2609]
+                  - cell "Complete View" [ref=e2610]:
+                    - generic [ref=e2611]:
+                      - button "Complete" [ref=e2612]
+                      - link "View" [ref=e2613]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/5f73ef19-ea8e-4e61-a6cb-32b29b159b8c
+                  - cell "1P / 1S" [ref=e2614]:
+                    - generic [ref=e2615]:
+                      - generic [ref=e2616]: 1P
+                      - text: /
+                      - generic [ref=e2617]: 1S
+                - row "2.4.6(i)a Borrow Excavation (screened/crucher) 30 40% In Progress — Dec 31, 2024 Jan 30, 2025 — — — — Illayaraja Complete View 1P / 1S" [ref=e2618] [cursor=pointer]:
+                  - cell "2.4.6(i)a" [ref=e2619]
+                  - cell "Borrow Excavation (screened/crucher)" [ref=e2620]
+                  - cell "30" [ref=e2621]
+                  - cell "40%" [ref=e2622]:
+                    - button "40%" [ref=e2623]
+                  - cell "In Progress" [ref=e2624]:
+                    - generic [ref=e2625]: In Progress
+                  - cell "—" [ref=e2626]
+                  - cell "Dec 31, 2024" [ref=e2627]
+                  - cell "Jan 30, 2025" [ref=e2628]
+                  - cell "—" [ref=e2629]
+                  - cell "—" [ref=e2630]
+                  - cell "—" [ref=e2631]
+                  - cell "—" [ref=e2632]
+                  - cell "Illayaraja" [ref=e2633]:
+                    - button "Illayaraja" [ref=e2634]
+                  - cell "Complete View" [ref=e2635]:
+                    - generic [ref=e2636]:
+                      - button "Complete" [ref=e2637]
+                      - link "View" [ref=e2638]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/27852a0c-c5b5-4531-8c51-ff57d0e55b23
+                  - cell "1P / 1S" [ref=e2639]:
+                    - generic [ref=e2640]:
+                      - generic [ref=e2641]: 1P
+                      - text: /
+                      - generic [ref=e2642]: 1S
+                - row "2.6.6(i) Subgrade Preparation in Cut 30 40% In Progress — Jan 7, 2025 Feb 6, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2643] [cursor=pointer]:
+                  - cell "2.6.6(i)" [ref=e2644]
+                  - cell "Subgrade Preparation in Cut" [ref=e2645]
+                  - cell "30" [ref=e2646]
+                  - cell "40%" [ref=e2647]:
+                    - button "40%" [ref=e2648]
+                  - cell "In Progress" [ref=e2649]:
+                    - generic [ref=e2650]: In Progress
+                  - cell "—" [ref=e2651]
+                  - cell "Jan 7, 2025" [ref=e2652]
+                  - cell "Feb 6, 2025" [ref=e2653]
+                  - cell "—" [ref=e2654]
+                  - cell "—" [ref=e2655]
+                  - cell "—" [ref=e2656]
+                  - cell "—" [ref=e2657]
+                  - cell "K. Barman" [ref=e2658]:
+                    - button "K. Barman" [ref=e2659]
+                  - cell "Complete View" [ref=e2660]:
+                    - generic [ref=e2661]:
+                      - button "Complete" [ref=e2662]
+                      - link "View" [ref=e2663]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/d4bd49f6-148c-48ec-808d-44fe928cfca6
+                  - cell "1P / 1S" [ref=e2664]:
+                    - generic [ref=e2665]:
+                      - generic [ref=e2666]: 1P
+                      - text: /
+                      - generic [ref=e2667]: 1S
+                - row "2.6.6(i)a Subgrade Preparation in Cut production 30 40% In Progress — Jan 14, 2025 Feb 13, 2025 — — — — Mohd Ismaila Complete View 1P / 1S" [ref=e2668] [cursor=pointer]:
+                  - cell "2.6.6(i)a" [ref=e2669]
+                  - cell "Subgrade Preparation in Cut production" [ref=e2670]
+                  - cell "30" [ref=e2671]
+                  - cell "40%" [ref=e2672]:
+                    - button "40%" [ref=e2673]
+                  - cell "In Progress" [ref=e2674]:
+                    - generic [ref=e2675]: In Progress
+                  - cell "—" [ref=e2676]
+                  - cell "Jan 14, 2025" [ref=e2677]
+                  - cell "Feb 13, 2025" [ref=e2678]
+                  - cell "—" [ref=e2679]
+                  - cell "—" [ref=e2680]
+                  - cell "—" [ref=e2681]
+                  - cell "—" [ref=e2682]
+                  - cell "Mohd Ismaila" [ref=e2683]:
+                    - button "Mohd Ismaila" [ref=e2684]
+                  - cell "Complete View" [ref=e2685]:
+                    - generic [ref=e2686]:
+                      - button "Complete" [ref=e2687]
+                      - link "View" [ref=e2688]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/65d7f0b1-68ac-4541-8923-b655c1f62a0f
+                  - cell "1P / 1S" [ref=e2689]:
+                    - generic [ref=e2690]:
+                      - generic [ref=e2691]: 1P
+                      - text: /
+                      - generic [ref=e2692]: 1S
+                - row "2.7.6 (i) Unclassified structural excavation (Depth 0 to 2m) 30 40% In Progress — Jan 21, 2025 Feb 20, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2693] [cursor=pointer]:
+                  - cell "2.7.6 (i)" [ref=e2694]
+                  - cell "Unclassified structural excavation (Depth 0 to 2m)" [ref=e2695]
+                  - cell "30" [ref=e2696]
+                  - cell "40%" [ref=e2697]:
+                    - button "40%" [ref=e2698]
+                  - cell "In Progress" [ref=e2699]:
+                    - generic [ref=e2700]: In Progress
+                  - cell "—" [ref=e2701]
+                  - cell "Jan 21, 2025" [ref=e2702]
+                  - cell "Feb 20, 2025" [ref=e2703]
+                  - cell "—" [ref=e2704]
+                  - cell "—" [ref=e2705]
+                  - cell "—" [ref=e2706]
+                  - cell "—" [ref=e2707]
+                  - cell "K. Barman" [ref=e2708]:
+                    - button "K. Barman" [ref=e2709]
+                  - cell "Complete View" [ref=e2710]:
+                    - generic [ref=e2711]:
+                      - button "Complete" [ref=e2712]
+                      - link "View" [ref=e2713]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/acafc14c-48d9-4dd4-9364-8f9fe66852b5
+                  - cell "1P / 1S" [ref=e2714]:
+                    - generic [ref=e2715]:
+                      - generic [ref=e2716]: 1P
+                      - text: /
+                      - generic [ref=e2717]: 1S
+                - row "2.8.6 (i) Trench excavation and backfilling (Depth 0 to 2m) 30 40% In Progress — Jan 28, 2025 Feb 27, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2718] [cursor=pointer]:
+                  - cell "2.8.6 (i)" [ref=e2719]
+                  - cell "Trench excavation and backfilling (Depth 0 to 2m)" [ref=e2720]
+                  - cell "30" [ref=e2721]
+                  - cell "40%" [ref=e2722]:
+                    - button "40%" [ref=e2723]
+                  - cell "In Progress" [ref=e2724]:
+                    - generic [ref=e2725]: In Progress
+                  - cell "—" [ref=e2726]
+                  - cell "Jan 28, 2025" [ref=e2727]
+                  - cell "Feb 27, 2025" [ref=e2728]
+                  - cell "—" [ref=e2729]
+                  - cell "—" [ref=e2730]
+                  - cell "—" [ref=e2731]
+                  - cell "—" [ref=e2732]
+                  - cell "K. Barman" [ref=e2733]:
+                    - button "K. Barman" [ref=e2734]
+                  - cell "Complete View" [ref=e2735]:
+                    - generic [ref=e2736]:
+                      - button "Complete" [ref=e2737]
+                      - link "View" [ref=e2738]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/012074f7-dadf-4d69-af29-ef3616bd38ff
+                  - cell "1P / 1S" [ref=e2739]:
+                    - generic [ref=e2740]:
+                      - generic [ref=e2741]: 1P
+                      - text: /
+                      - generic [ref=e2742]: 1S
+                - row "3.2.6 (ii) GSB mixing 30 40% In Progress — Feb 4, 2025 Mar 6, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2743] [cursor=pointer]:
+                  - cell "3.2.6 (ii)" [ref=e2744]
+                  - cell "GSB mixing" [ref=e2745]
+                  - cell "30" [ref=e2746]
+                  - cell "40%" [ref=e2747]:
+                    - button "40%" [ref=e2748]
+                  - cell "In Progress" [ref=e2749]:
+                    - generic [ref=e2750]: In Progress
+                  - cell "—" [ref=e2751]
+                  - cell "Feb 4, 2025" [ref=e2752]
+                  - cell "Mar 6, 2025" [ref=e2753]
+                  - cell "—" [ref=e2754]
+                  - cell "—" [ref=e2755]
+                  - cell "—" [ref=e2756]
+                  - cell "—" [ref=e2757]
+                  - cell "K. Barman" [ref=e2758]:
+                    - button "K. Barman" [ref=e2759]
+                  - cell "Complete View" [ref=e2760]:
+                    - generic [ref=e2761]:
+                      - button "Complete" [ref=e2762]
+                      - link "View" [ref=e2763]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/3a7019a0-2279-49ea-9137-69733282bcd4
+                  - cell "1P / 1S" [ref=e2764]:
+                    - generic [ref=e2765]:
+                      - generic [ref=e2766]: 1P
+                      - text: /
+                      - generic [ref=e2767]: 1S
+                - row "3.2.6 (ii)a GSB mixing (screened/crucher) 30 40% In Progress — Feb 11, 2025 Mar 13, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2768] [cursor=pointer]:
+                  - cell "3.2.6 (ii)a" [ref=e2769]
+                  - cell "GSB mixing (screened/crucher)" [ref=e2770]
+                  - cell "30" [ref=e2771]
+                  - cell "40%" [ref=e2772]:
+                    - button "40%" [ref=e2773]
+                  - cell "In Progress" [ref=e2774]:
+                    - generic [ref=e2775]: In Progress
+                  - cell "—" [ref=e2776]
+                  - cell "Feb 11, 2025" [ref=e2777]
+                  - cell "Mar 13, 2025" [ref=e2778]
+                  - cell "—" [ref=e2779]
+                  - cell "—" [ref=e2780]
+                  - cell "—" [ref=e2781]
+                  - cell "—" [ref=e2782]
+                  - cell "K. Barman" [ref=e2783]:
+                    - button "K. Barman" [ref=e2784]
+                  - cell "Complete View" [ref=e2785]:
+                    - generic [ref=e2786]:
+                      - button "Complete" [ref=e2787]
+                      - link "View" [ref=e2788]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/c9b96216-c93e-440a-8dca-99e9cc0592c1
+                  - cell "1P / 1S" [ref=e2789]:
+                    - generic [ref=e2790]:
+                      - generic [ref=e2791]: 1P
+                      - text: /
+                      - generic [ref=e2792]: 1S
+                - row "3.3.6 (ii) Aggregate Base Course Class B 30 40% In Progress — Feb 18, 2025 Mar 20, 2025 — — — — Vijaykumar Complete View 1P / 1S" [ref=e2793] [cursor=pointer]:
+                  - cell "3.3.6 (ii)" [ref=e2794]
+                  - cell "Aggregate Base Course Class B" [ref=e2795]
+                  - cell "30" [ref=e2796]
+                  - cell "40%" [ref=e2797]:
+                    - button "40%" [ref=e2798]
+                  - cell "In Progress" [ref=e2799]:
+                    - generic [ref=e2800]: In Progress
+                  - cell "—" [ref=e2801]
+                  - cell "Feb 18, 2025" [ref=e2802]
+                  - cell "Mar 20, 2025" [ref=e2803]
+                  - cell "—" [ref=e2804]
+                  - cell "—" [ref=e2805]
+                  - cell "—" [ref=e2806]
+                  - cell "—" [ref=e2807]
+                  - cell "Vijaykumar" [ref=e2808]:
+                    - button "Vijaykumar" [ref=e2809]
+                  - cell "Complete View" [ref=e2810]:
+                    - generic [ref=e2811]:
+                      - button "Complete" [ref=e2812]
+                      - link "View" [ref=e2813]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/e481738b-7dff-4525-8b14-4f2ac4dbb20a
+                  - cell "1P / 1S" [ref=e2814]:
+                    - generic [ref=e2815]:
+                      - generic [ref=e2816]: 1P
+                      - text: /
+                      - generic [ref=e2817]: 1S
+                - row "3.3.6 (ii)a Aggregate Base Course Class B production 30 40% In Progress — Feb 25, 2025 Mar 27, 2025 — — — — Vijaykumar Complete View 1P / 1S" [ref=e2818] [cursor=pointer]:
+                  - cell "3.3.6 (ii)a" [ref=e2819]
+                  - cell "Aggregate Base Course Class B production" [ref=e2820]
+                  - cell "30" [ref=e2821]
+                  - cell "40%" [ref=e2822]:
+                    - button "40%" [ref=e2823]
+                  - cell "In Progress" [ref=e2824]:
+                    - generic [ref=e2825]: In Progress
+                  - cell "—" [ref=e2826]
+                  - cell "Feb 25, 2025" [ref=e2827]
+                  - cell "Mar 27, 2025" [ref=e2828]
+                  - cell "—" [ref=e2829]
+                  - cell "—" [ref=e2830]
+                  - cell "—" [ref=e2831]
+                  - cell "—" [ref=e2832]
+                  - cell "Vijaykumar" [ref=e2833]:
+                    - button "Vijaykumar" [ref=e2834]
+                  - cell "Complete View" [ref=e2835]:
+                    - generic [ref=e2836]:
+                      - button "Complete" [ref=e2837]
+                      - link "View" [ref=e2838]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/0617475a-12d6-41a4-8341-55ef03a21990
+                  - cell "1P / 1S" [ref=e2839]:
+                    - generic [ref=e2840]:
+                      - generic [ref=e2841]: 1P
+                      - text: /
+                      - generic [ref=e2842]: 1S
+                - row "4.2.8(i) Bituminious Prime Coat 30 40% In Progress — Mar 4, 2025 Apr 3, 2025 — — — — Parvaiz Complete View 1P / 1S" [ref=e2843] [cursor=pointer]:
+                  - cell "4.2.8(i)" [ref=e2844]
+                  - cell "Bituminious Prime Coat" [ref=e2845]
+                  - cell "30" [ref=e2846]
+                  - cell "40%" [ref=e2847]:
+                    - button "40%" [ref=e2848]
+                  - cell "In Progress" [ref=e2849]:
+                    - generic [ref=e2850]: In Progress
+                  - cell "—" [ref=e2851]
+                  - cell "Mar 4, 2025" [ref=e2852]
+                  - cell "Apr 3, 2025" [ref=e2853]
+                  - cell "—" [ref=e2854]
+                  - cell "—" [ref=e2855]
+                  - cell "—" [ref=e2856]
+                  - cell "—" [ref=e2857]
+                  - cell "Parvaiz" [ref=e2858]:
+                    - button "Parvaiz" [ref=e2859]
+                  - cell "Complete View" [ref=e2860]:
+                    - generic [ref=e2861]:
+                      - button "Complete" [ref=e2862]
+                      - link "View" [ref=e2863]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/1525d2d1-2b8c-4e72-98b8-fa1fad2ae1fe
+                  - cell "1P / 1S" [ref=e2864]:
+                    - generic [ref=e2865]:
+                      - generic [ref=e2866]: 1P
+                      - text: /
+                      - generic [ref=e2867]: 1S
+                - row "4.2.8(ii) BituminiousTack coat 30 40% In Progress — Mar 11, 2025 Apr 10, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2868] [cursor=pointer]:
+                  - cell "4.2.8(ii)" [ref=e2869]
+                  - cell "BituminiousTack coat" [ref=e2870]
+                  - cell "30" [ref=e2871]
+                  - cell "40%" [ref=e2872]:
+                    - button "40%" [ref=e2873]
+                  - cell "In Progress" [ref=e2874]:
+                    - generic [ref=e2875]: In Progress
+                  - cell "—" [ref=e2876]
+                  - cell "Mar 11, 2025" [ref=e2877]
+                  - cell "Apr 10, 2025" [ref=e2878]
+                  - cell "—" [ref=e2879]
+                  - cell "—" [ref=e2880]
+                  - cell "—" [ref=e2881]
+                  - cell "—" [ref=e2882]
+                  - cell "K. Barman" [ref=e2883]:
+                    - button "K. Barman" [ref=e2884]
+                  - cell "Complete View" [ref=e2885]:
+                    - generic [ref=e2886]:
+                      - button "Complete" [ref=e2887]
+                      - link "View" [ref=e2888]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/96dea96c-11dd-4751-8955-16d0d7196845
+                  - cell "1P / 1S" [ref=e2889]:
+                    - generic [ref=e2890]:
+                      - generic [ref=e2891]: 1P
+                      - text: /
+                      - generic [ref=e2892]: 1S
+                - row "4.4.14 (ii) Bituminious Base Course Class B 30 40% In Progress — Mar 18, 2025 Apr 17, 2025 — — — — Vijaykumar Complete View 1P / 1S" [ref=e2893] [cursor=pointer]:
+                  - cell "4.4.14 (ii)" [ref=e2894]
+                  - cell "Bituminious Base Course Class B" [ref=e2895]
+                  - cell "30" [ref=e2896]
+                  - cell "40%" [ref=e2897]:
+                    - button "40%" [ref=e2898]
+                  - cell "In Progress" [ref=e2899]:
+                    - generic [ref=e2900]: In Progress
+                  - cell "—" [ref=e2901]
+                  - cell "Mar 18, 2025" [ref=e2902]
+                  - cell "Apr 17, 2025" [ref=e2903]
+                  - cell "—" [ref=e2904]
+                  - cell "—" [ref=e2905]
+                  - cell "—" [ref=e2906]
+                  - cell "—" [ref=e2907]
+                  - cell "Vijaykumar" [ref=e2908]:
+                    - button "Vijaykumar" [ref=e2909]
+                  - cell "Complete View" [ref=e2910]:
+                    - generic [ref=e2911]:
+                      - button "Complete" [ref=e2912]
+                      - link "View" [ref=e2913]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/c65a5b6e-761b-449f-a621-6875b9b6d95b
+                  - cell "1P / 1S" [ref=e2914]:
+                    - generic [ref=e2915]:
+                      - generic [ref=e2916]: 1P
+                      - text: /
+                      - generic [ref=e2917]: 1S
+                - row "4.5.14 (ii) Bituminious Wearing Course Class A 30 40% In Progress — Mar 25, 2025 Apr 24, 2025 — — — — Sanjar Alam Complete View 1P / 1S" [ref=e2918] [cursor=pointer]:
+                  - cell "4.5.14 (ii)" [ref=e2919]
+                  - cell "Bituminious Wearing Course Class A" [ref=e2920]
+                  - cell "30" [ref=e2921]
+                  - cell "40%" [ref=e2922]:
+                    - button "40%" [ref=e2923]
+                  - cell "In Progress" [ref=e2924]:
+                    - generic [ref=e2925]: In Progress
+                  - cell "—" [ref=e2926]
+                  - cell "Mar 25, 2025" [ref=e2927]
+                  - cell "Apr 24, 2025" [ref=e2928]
+                  - cell "—" [ref=e2929]
+                  - cell "—" [ref=e2930]
+                  - cell "—" [ref=e2931]
+                  - cell "—" [ref=e2932]
+                  - cell "Sanjar Alam" [ref=e2933]:
+                    - button "Sanjar Alam" [ref=e2934]
+                  - cell "Complete View" [ref=e2935]:
+                    - generic [ref=e2936]:
+                      - button "Complete" [ref=e2937]
+                      - link "View" [ref=e2938]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/153c96c9-a400-43e9-a71f-3084eb53af70
+                  - cell "1P / 1S" [ref=e2939]:
+                    - generic [ref=e2940]:
+                      - generic [ref=e2941]: 1P
+                      - text: /
+                      - generic [ref=e2942]: 1S
+                - row "5.1.7 (i) Concrete (Class 15) in Culvert blindings & Retaining walls 30 40% In Progress — Apr 1, 2025 May 1, 2025 — — — — Sohail Complete View 1P / 1S" [ref=e2943] [cursor=pointer]:
+                  - cell "5.1.7 (i)" [ref=e2944]
+                  - cell "Concrete (Class 15) in Culvert blindings & Retaining walls" [ref=e2945]
+                  - cell "30" [ref=e2946]
+                  - cell "40%" [ref=e2947]:
+                    - button "40%" [ref=e2948]
+                  - cell "In Progress" [ref=e2949]:
+                    - generic [ref=e2950]: In Progress
+                  - cell "—" [ref=e2951]
+                  - cell "Apr 1, 2025" [ref=e2952]
+                  - cell "May 1, 2025" [ref=e2953]
+                  - cell "—" [ref=e2954]
+                  - cell "—" [ref=e2955]
+                  - cell "—" [ref=e2956]
+                  - cell "—" [ref=e2957]
+                  - cell "Sohail" [ref=e2958]:
+                    - button "Sohail" [ref=e2959]
+                  - cell "Complete View" [ref=e2960]:
+                    - generic [ref=e2961]:
+                      - button "Complete" [ref=e2962]
+                      - link "View" [ref=e2963]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/29d43a35-5eb3-4775-95af-b86644bbc9b5
+                  - cell "1P / 1S" [ref=e2964]:
+                    - generic [ref=e2965]:
+                      - generic [ref=e2966]: 1P
+                      - text: /
+                      - generic [ref=e2967]: 1S
+                - row "5.1.7 (ii) Concrete (Class 25) - Barriers 30 40% In Progress — Apr 8, 2025 May 8, 2025 — — — — Manzar Complete View 1P / 1S" [ref=e2968] [cursor=pointer]:
+                  - cell "5.1.7 (ii)" [ref=e2969]
+                  - cell "Concrete (Class 25) - Barriers" [ref=e2970]
+                  - cell "30" [ref=e2971]
+                  - cell "40%" [ref=e2972]:
+                    - button "40%" [ref=e2973]
+                  - cell "In Progress" [ref=e2974]:
+                    - generic [ref=e2975]: In Progress
+                  - cell "—" [ref=e2976]
+                  - cell "Apr 8, 2025" [ref=e2977]
+                  - cell "May 8, 2025" [ref=e2978]
+                  - cell "—" [ref=e2979]
+                  - cell "—" [ref=e2980]
+                  - cell "—" [ref=e2981]
+                  - cell "—" [ref=e2982]
+                  - cell "Manzar" [ref=e2983]:
+                    - button "Manzar" [ref=e2984]
+                  - cell "Complete View" [ref=e2985]:
+                    - generic [ref=e2986]:
+                      - button "Complete" [ref=e2987]
+                      - link "View" [ref=e2988]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/0e24a1ee-50cc-4e2d-8246-72fbb1aaf081
+                  - cell "1P / 1S" [ref=e2989]:
+                    - generic [ref=e2990]:
+                      - generic [ref=e2991]: 1P
+                      - text: /
+                      - generic [ref=e2992]: 1S
+                - row "5.1.7 (iii) Concrete (Class 30) in Culvert structures & Retaining walls-Concrete Placing 30 40% In Progress — Apr 15, 2025 May 15, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e2993] [cursor=pointer]:
+                  - cell "5.1.7 (iii)" [ref=e2994]
+                  - cell "Concrete (Class 30) in Culvert structures & Retaining walls-Concrete Placing" [ref=e2995]
+                  - cell "30" [ref=e2996]
+                  - cell "40%" [ref=e2997]:
+                    - button "40%" [ref=e2998]
+                  - cell "In Progress" [ref=e2999]:
+                    - generic [ref=e3000]: In Progress
+                  - cell "—" [ref=e3001]
+                  - cell "Apr 15, 2025" [ref=e3002]
+                  - cell "May 15, 2025" [ref=e3003]
+                  - cell "—" [ref=e3004]
+                  - cell "—" [ref=e3005]
+                  - cell "—" [ref=e3006]
+                  - cell "—" [ref=e3007]
+                  - cell "K. Barman" [ref=e3008]:
+                    - button "K. Barman" [ref=e3009]
+                  - cell "Complete View" [ref=e3010]:
+                    - generic [ref=e3011]:
+                      - button "Complete" [ref=e3012]
+                      - link "View" [ref=e3013]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/28c53570-c443-45b0-8ab5-4784eec95f37
+                  - cell "1P / 1S" [ref=e3014]:
+                    - generic [ref=e3015]:
+                      - generic [ref=e3016]: 1P
+                      - text: /
+                      - generic [ref=e3017]: 1S
+                - row "5.1.7 (iii)a Culvert & Retaining wall Shuttering & De-Shuttering 30 40% In Progress — Apr 22, 2025 May 22, 2025 — — — — Illayaraja Complete View 1P / 1S" [ref=e3018] [cursor=pointer]:
+                  - cell "5.1.7 (iii)a" [ref=e3019]
+                  - cell "Culvert & Retaining wall Shuttering & De-Shuttering" [ref=e3020]
+                  - cell "30" [ref=e3021]
+                  - cell "40%" [ref=e3022]:
+                    - button "40%" [ref=e3023]
+                  - cell "In Progress" [ref=e3024]:
+                    - generic [ref=e3025]: In Progress
+                  - cell "—" [ref=e3026]
+                  - cell "Apr 22, 2025" [ref=e3027]
+                  - cell "May 22, 2025" [ref=e3028]
+                  - cell "—" [ref=e3029]
+                  - cell "—" [ref=e3030]
+                  - cell "—" [ref=e3031]
+                  - cell "—" [ref=e3032]
+                  - cell "Illayaraja" [ref=e3033]:
+                    - button "Illayaraja" [ref=e3034]
+                  - cell "Complete View" [ref=e3035]:
+                    - generic [ref=e3036]:
+                      - button "Complete" [ref=e3037]
+                      - link "View" [ref=e3038]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/b6f6fad8-b894-461f-bcab-52662fec9433
+                  - cell "1P / 1S" [ref=e3039]:
+                    - generic [ref=e3040]:
+                      - generic [ref=e3041]: 1P
+                      - text: /
+                      - generic [ref=e3042]: 1S
+                - row "5.2.6 (ii) High tensile steel bar reinforcement of any diameter-Cut & Bend 30 40% In Progress — Apr 29, 2025 May 29, 2025 — — — — Sohail Complete View 1P / 1S" [ref=e3043] [cursor=pointer]:
+                  - cell "5.2.6 (ii)" [ref=e3044]
+                  - cell "High tensile steel bar reinforcement of any diameter-Cut & Bend" [ref=e3045]
+                  - cell "30" [ref=e3046]
+                  - cell "40%" [ref=e3047]:
+                    - button "40%" [ref=e3048]
+                  - cell "In Progress" [ref=e3049]:
+                    - generic [ref=e3050]: In Progress
+                  - cell "—" [ref=e3051]
+                  - cell "Apr 29, 2025" [ref=e3052]
+                  - cell "May 29, 2025" [ref=e3053]
+                  - cell "—" [ref=e3054]
+                  - cell "—" [ref=e3055]
+                  - cell "—" [ref=e3056]
+                  - cell "—" [ref=e3057]
+                  - cell "Sohail" [ref=e3058]:
+                    - button "Sohail" [ref=e3059]
+                  - cell "Complete View" [ref=e3060]:
+                    - generic [ref=e3061]:
+                      - button "Complete" [ref=e3062]
+                      - link "View" [ref=e3063]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/639d3527-aae0-4f67-bbcf-c81d1c66c6c8
+                  - cell "1P / 1S" [ref=e3064]:
+                    - generic [ref=e3065]:
+                      - generic [ref=e3066]: 1P
+                      - text: /
+                      - generic [ref=e3067]: 1S
+                - row "5.2.6 (ii)a High tensile steel bar reinforcement of any diameter-Fixing 30 40% In Progress — May 6, 2025 Jun 5, 2025 — — — — Sohail Complete View 1P / 1S" [ref=e3068] [cursor=pointer]:
+                  - cell "5.2.6 (ii)a" [ref=e3069]
+                  - cell "High tensile steel bar reinforcement of any diameter-Fixing" [ref=e3070]
+                  - cell "30" [ref=e3071]
+                  - cell "40%" [ref=e3072]:
+                    - button "40%" [ref=e3073]
+                  - cell "In Progress" [ref=e3074]:
+                    - generic [ref=e3075]: In Progress
+                  - cell "—" [ref=e3076]
+                  - cell "May 6, 2025" [ref=e3077]
+                  - cell "Jun 5, 2025" [ref=e3078]
+                  - cell "—" [ref=e3079]
+                  - cell "—" [ref=e3080]
+                  - cell "—" [ref=e3081]
+                  - cell "—" [ref=e3082]
+                  - cell "Sohail" [ref=e3083]:
+                    - button "Sohail" [ref=e3084]
+                  - cell "Complete View" [ref=e3085]:
+                    - generic [ref=e3086]:
+                      - button "Complete" [ref=e3087]
+                      - link "View" [ref=e3088]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/e8e0483c-aa20-4f8a-96a5-9e222c468201
+                  - cell "1P / 1S" [ref=e3089]:
+                    - generic [ref=e3090]:
+                      - generic [ref=e3091]: 1P
+                      - text: /
+                      - generic [ref=e3092]: 1S
+                - row "5.10.6 (i) Applying Bituminious paint 02 coats for structures 30 40% In Progress — May 13, 2025 Jun 12, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e3093] [cursor=pointer]:
+                  - cell "5.10.6 (i)" [ref=e3094]
+                  - cell "Applying Bituminious paint 02 coats for structures" [ref=e3095]
+                  - cell "30" [ref=e3096]
+                  - cell "40%" [ref=e3097]:
+                    - button "40%" [ref=e3098]
+                  - cell "In Progress" [ref=e3099]:
+                    - generic [ref=e3100]: In Progress
+                  - cell "—" [ref=e3101]
+                  - cell "May 13, 2025" [ref=e3102]
+                  - cell "Jun 12, 2025" [ref=e3103]
+                  - cell "—" [ref=e3104]
+                  - cell "—" [ref=e3105]
+                  - cell "—" [ref=e3106]
+                  - cell "—" [ref=e3107]
+                  - cell "K. Barman" [ref=e3108]:
+                    - button "K. Barman" [ref=e3109]
+                  - cell "Complete View" [ref=e3110]:
+                    - generic [ref=e3111]:
+                      - button "Complete" [ref=e3112]
+                      - link "View" [ref=e3113]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/381926b6-c9e2-41dd-a74d-d781d2ed3c8c
+                  - cell "1P / 1S" [ref=e3114]:
+                    - generic [ref=e3115]:
+                      - generic [ref=e3116]: 1P
+                      - text: /
+                      - generic [ref=e3117]: 1S
+                - row "8.1.6 (vii)a Cast in-situ concrete pipe (01 Cell 1.5m dia) 30 40% In Progress — May 20, 2025 Jun 19, 2025 — — — — Anirban Datta Complete View 1P / 1S" [ref=e3118] [cursor=pointer]:
+                  - cell "8.1.6 (vii)a" [ref=e3119]
+                  - cell "Cast in-situ concrete pipe (01 Cell 1.5m dia)" [ref=e3120]
+                  - cell "30" [ref=e3121]
+                  - cell "40%" [ref=e3122]:
+                    - button "40%" [ref=e3123]
+                  - cell "In Progress" [ref=e3124]:
+                    - generic [ref=e3125]: In Progress
+                  - cell "—" [ref=e3126]
+                  - cell "May 20, 2025" [ref=e3127]
+                  - cell "Jun 19, 2025" [ref=e3128]
+                  - cell "—" [ref=e3129]
+                  - cell "—" [ref=e3130]
+                  - cell "—" [ref=e3131]
+                  - cell "—" [ref=e3132]
+                  - cell "Anirban Datta" [ref=e3133]:
+                    - button "Anirban Datta" [ref=e3134]
+                  - cell "Complete View" [ref=e3135]:
+                    - generic [ref=e3136]:
+                      - button "Complete" [ref=e3137]
+                      - link "View" [ref=e3138]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/cf28ddfc-89a1-4bca-851b-21c25e49d36e
+                  - cell "1P / 1S" [ref=e3139]:
+                    - generic [ref=e3140]:
+                      - generic [ref=e3141]: 1P
+                      - text: /
+                      - generic [ref=e3142]: 1S
+                - row "8.1.6 (vii)c Cast in-situ concrete pipe (02 Cell 1.5m dia) 30 40% In Progress — May 27, 2025 Jun 26, 2025 — — — — Mohd Ismaila Complete View 1P / 1S" [ref=e3143] [cursor=pointer]:
+                  - cell "8.1.6 (vii)c" [ref=e3144]
+                  - cell "Cast in-situ concrete pipe (02 Cell 1.5m dia)" [ref=e3145]
+                  - cell "30" [ref=e3146]
+                  - cell "40%" [ref=e3147]:
+                    - button "40%" [ref=e3148]
+                  - cell "In Progress" [ref=e3149]:
+                    - generic [ref=e3150]: In Progress
+                  - cell "—" [ref=e3151]
+                  - cell "May 27, 2025" [ref=e3152]
+                  - cell "Jun 26, 2025" [ref=e3153]
+                  - cell "—" [ref=e3154]
+                  - cell "—" [ref=e3155]
+                  - cell "—" [ref=e3156]
+                  - cell "—" [ref=e3157]
+                  - cell "Mohd Ismaila" [ref=e3158]:
+                    - button "Mohd Ismaila" [ref=e3159]
+                  - cell "Complete View" [ref=e3160]:
+                    - generic [ref=e3161]:
+                      - button "Complete" [ref=e3162]
+                      - link "View" [ref=e3163]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/cbd1c15f-a37c-4b82-85c1-e69cedc9094b
+                  - cell "1P / 1S" [ref=e3164]:
+                    - generic [ref=e3165]:
+                      - generic [ref=e3166]: 1P
+                      - text: /
+                      - generic [ref=e3167]: 1S
+                - row "8.1.6 (vii)b Cast in-situ concrete pipe (03 Cell 1.5m dia) 30 40% In Progress — Jun 3, 2025 Jul 3, 2025 — — — — Md Saiffuddin Complete View 1P / 1S" [ref=e3168] [cursor=pointer]:
+                  - cell "8.1.6 (vii)b" [ref=e3169]
+                  - cell "Cast in-situ concrete pipe (03 Cell 1.5m dia)" [ref=e3170]
+                  - cell "30" [ref=e3171]
+                  - cell "40%" [ref=e3172]:
+                    - button "40%" [ref=e3173]
+                  - cell "In Progress" [ref=e3174]:
+                    - generic [ref=e3175]: In Progress
+                  - cell "—" [ref=e3176]
+                  - cell "Jun 3, 2025" [ref=e3177]
+                  - cell "Jul 3, 2025" [ref=e3178]
+                  - cell "—" [ref=e3179]
+                  - cell "—" [ref=e3180]
+                  - cell "—" [ref=e3181]
+                  - cell "—" [ref=e3182]
+                  - cell "Md Saiffuddin" [ref=e3183]:
+                    - button "Md Saiffuddin" [ref=e3184]
+                  - cell "Complete View" [ref=e3185]:
+                    - generic [ref=e3186]:
+                      - button "Complete" [ref=e3187]
+                      - link "View" [ref=e3188]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/27bef1a7-4b64-4019-b351-4d4381e0cd85
+                  - cell "1P / 1S" [ref=e3189]:
+                    - generic [ref=e3190]:
+                      - generic [ref=e3191]: 1P
+                      - text: /
+                      - generic [ref=e3192]: 1S
+                - row "8.1.6 (vii)d Cast in-situ concrete pipe (04 Cell 1.5m dia) 30 40% In Progress — Jun 10, 2025 Jul 10, 2025 — — — — A.K.mishra Complete View 1P / 1S" [ref=e3193] [cursor=pointer]:
+                  - cell "8.1.6 (vii)d" [ref=e3194]
+                  - cell "Cast in-situ concrete pipe (04 Cell 1.5m dia)" [ref=e3195]
+                  - cell "30" [ref=e3196]
+                  - cell "40%" [ref=e3197]:
+                    - button "40%" [ref=e3198]
+                  - cell "In Progress" [ref=e3199]:
+                    - generic [ref=e3200]: In Progress
+                  - cell "—" [ref=e3201]
+                  - cell "Jun 10, 2025" [ref=e3202]
+                  - cell "Jul 10, 2025" [ref=e3203]
+                  - cell "—" [ref=e3204]
+                  - cell "—" [ref=e3205]
+                  - cell "—" [ref=e3206]
+                  - cell "—" [ref=e3207]
+                  - cell "A.K.mishra" [ref=e3208]:
+                    - button "A.K.mishra" [ref=e3209]
+                  - cell "Complete View" [ref=e3210]:
+                    - generic [ref=e3211]:
+                      - button "Complete" [ref=e3212]
+                      - link "View" [ref=e3213]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/6986e450-0d4d-48b6-ba5f-734b3041ee2b
+                  - cell "1P / 1S" [ref=e3214]:
+                    - generic [ref=e3215]:
+                      - generic [ref=e3216]: 1P
+                      - text: /
+                      - generic [ref=e3217]: 1S
+                - row "9.1.6(i) Loose Stone RipRap 30 40% In Progress — Jun 17, 2025 Jul 17, 2025 — — — — Illayaraja Complete View 1P / 1S" [ref=e3218] [cursor=pointer]:
+                  - cell "9.1.6(i)" [ref=e3219]
+                  - cell "Loose Stone RipRap" [ref=e3220]
+                  - cell "30" [ref=e3221]
+                  - cell "40%" [ref=e3222]:
+                    - button "40%" [ref=e3223]
+                  - cell "In Progress" [ref=e3224]:
+                    - generic [ref=e3225]: In Progress
+                  - cell "—" [ref=e3226]
+                  - cell "Jun 17, 2025" [ref=e3227]
+                  - cell "Jul 17, 2025" [ref=e3228]
+                  - cell "—" [ref=e3229]
+                  - cell "—" [ref=e3230]
+                  - cell "—" [ref=e3231]
+                  - cell "—" [ref=e3232]
+                  - cell "Illayaraja" [ref=e3233]:
+                    - button "Illayaraja" [ref=e3234]
+                  - cell "Complete View" [ref=e3235]:
+                    - generic [ref=e3236]:
+                      - button "Complete" [ref=e3237]
+                      - link "View" [ref=e3238]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/d4e9f317-c52c-42d8-8548-b713c4e37bbc
+                  - cell "1P / 1S" [ref=e3239]:
+                    - generic [ref=e3240]:
+                      - generic [ref=e3241]: 1P
+                      - text: /
+                      - generic [ref=e3242]: 1S
+                - row "9.1.6(ii) Mortared stone RipRap 30 40% In Progress — Jun 24, 2025 Jul 24, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e3243] [cursor=pointer]:
+                  - cell "9.1.6(ii)" [ref=e3244]
+                  - cell "Mortared stone RipRap" [ref=e3245]
+                  - cell "30" [ref=e3246]
+                  - cell "40%" [ref=e3247]:
+                    - button "40%" [ref=e3248]
+                  - cell "In Progress" [ref=e3249]:
+                    - generic [ref=e3250]: In Progress
+                  - cell "—" [ref=e3251]
+                  - cell "Jun 24, 2025" [ref=e3252]
+                  - cell "Jul 24, 2025" [ref=e3253]
+                  - cell "—" [ref=e3254]
+                  - cell "—" [ref=e3255]
+                  - cell "—" [ref=e3256]
+                  - cell "—" [ref=e3257]
+                  - cell "K. Barman" [ref=e3258]:
+                    - button "K. Barman" [ref=e3259]
+                  - cell "Complete View" [ref=e3260]:
+                    - generic [ref=e3261]:
+                      - button "Complete" [ref=e3262]
+                      - link "View" [ref=e3263]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/6181817e-e525-48ef-acc3-747d923eefff
+                  - cell "1P / 1S" [ref=e3264]:
+                    - generic [ref=e3265]:
+                      - generic [ref=e3266]: 1P
+                      - text: /
+                      - generic [ref=e3267]: 1S
+                - row "9.1.6 (iii) Filter material (550mm thick) 30 40% In Progress — Jul 1, 2025 Jul 31, 2025 — — — — Manzar Complete View 1P / 1S" [ref=e3268] [cursor=pointer]:
+                  - cell "9.1.6 (iii)" [ref=e3269]
+                  - cell "Filter material (550mm thick)" [ref=e3270]
+                  - cell "30" [ref=e3271]
+                  - cell "40%" [ref=e3272]:
+                    - button "40%" [ref=e3273]
+                  - cell "In Progress" [ref=e3274]:
+                    - generic [ref=e3275]: In Progress
+                  - cell "—" [ref=e3276]
+                  - cell "Jul 1, 2025" [ref=e3277]
+                  - cell "Jul 31, 2025" [ref=e3278]
+                  - cell "—" [ref=e3279]
+                  - cell "—" [ref=e3280]
+                  - cell "—" [ref=e3281]
+                  - cell "—" [ref=e3282]
+                  - cell "Manzar" [ref=e3283]:
+                    - button "Manzar" [ref=e3284]
+                  - cell "Complete View" [ref=e3285]:
+                    - generic [ref=e3286]:
+                      - button "Complete" [ref=e3287]
+                      - link "View" [ref=e3288]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/1e69ba92-abc5-446f-9b49-bfbe6015bfef
+                  - cell "1P / 1S" [ref=e3289]:
+                    - generic [ref=e3290]:
+                      - generic [ref=e3291]: 1P
+                      - text: /
+                      - generic [ref=e3292]: 1S
+                - row "9.1.6 (iv) Filter membrane (Geotextile) 30 40% In Progress — Jul 8, 2025 Aug 7, 2025 — — — — V.P. Gupta Complete View 1P / 1S" [ref=e3293] [cursor=pointer]:
+                  - cell "9.1.6 (iv)" [ref=e3294]
+                  - cell "Filter membrane (Geotextile)" [ref=e3295]
+                  - cell "30" [ref=e3296]
+                  - cell "40%" [ref=e3297]:
+                    - button "40%" [ref=e3298]
+                  - cell "In Progress" [ref=e3299]:
+                    - generic [ref=e3300]: In Progress
+                  - cell "—" [ref=e3301]
+                  - cell "Jul 8, 2025" [ref=e3302]
+                  - cell "Aug 7, 2025" [ref=e3303]
+                  - cell "—" [ref=e3304]
+                  - cell "—" [ref=e3305]
+                  - cell "—" [ref=e3306]
+                  - cell "—" [ref=e3307]
+                  - cell "V.P. Gupta" [ref=e3308]:
+                    - button "V.P. Gupta" [ref=e3309]
+                  - cell "Complete View" [ref=e3310]:
+                    - generic [ref=e3311]:
+                      - button "Complete" [ref=e3312]
+                      - link "View" [ref=e3313]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/de6f985d-0cc5-4917-a22b-39f1fbf7a320
+                  - cell "1P / 1S" [ref=e3314]:
+                    - generic [ref=e3315]:
+                      - generic [ref=e3316]: 1P
+                      - text: /
+                      - generic [ref=e3317]: 1S
+                - row "9.2.6(i) Gabions 30 40% In Progress — Jul 15, 2025 Aug 14, 2025 — — — — Parvaiz Complete View 1P / 1S" [ref=e3318] [cursor=pointer]:
+                  - cell "9.2.6(i)" [ref=e3319]
+                  - cell "Gabions" [ref=e3320]
+                  - cell "30" [ref=e3321]
+                  - cell "40%" [ref=e3322]:
+                    - button "40%" [ref=e3323]
+                  - cell "In Progress" [ref=e3324]:
+                    - generic [ref=e3325]: In Progress
+                  - cell "—" [ref=e3326]
+                  - cell "Jul 15, 2025" [ref=e3327]
+                  - cell "Aug 14, 2025" [ref=e3328]
+                  - cell "—" [ref=e3329]
+                  - cell "—" [ref=e3330]
+                  - cell "—" [ref=e3331]
+                  - cell "—" [ref=e3332]
+                  - cell "Parvaiz" [ref=e3333]:
+                    - button "Parvaiz" [ref=e3334]
+                  - cell "Complete View" [ref=e3335]:
+                    - generic [ref=e3336]:
+                      - button "Complete" [ref=e3337]
+                      - link "View" [ref=e3338]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/370b960f-726b-422f-b96c-781da8b8dd90
+                  - cell "1P / 1S" [ref=e3339]:
+                    - generic [ref=e3340]:
+                      - generic [ref=e3341]: 1P
+                      - text: /
+                      - generic [ref=e3342]: 1S
+                - row "9.3.6(i) Wire netting slope protection 30 40% In Progress — Jul 22, 2025 Aug 21, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e3343] [cursor=pointer]:
+                  - cell "9.3.6(i)" [ref=e3344]
+                  - cell "Wire netting slope protection" [ref=e3345]
+                  - cell "30" [ref=e3346]
+                  - cell "40%" [ref=e3347]:
+                    - button "40%" [ref=e3348]
+                  - cell "In Progress" [ref=e3349]:
+                    - generic [ref=e3350]: In Progress
+                  - cell "—" [ref=e3351]
+                  - cell "Jul 22, 2025" [ref=e3352]
+                  - cell "Aug 21, 2025" [ref=e3353]
+                  - cell "—" [ref=e3354]
+                  - cell "—" [ref=e3355]
+                  - cell "—" [ref=e3356]
+                  - cell "—" [ref=e3357]
+                  - cell "K. Barman" [ref=e3358]:
+                    - button "K. Barman" [ref=e3359]
+                  - cell "Complete View" [ref=e3360]:
+                    - generic [ref=e3361]:
+                      - button "Complete" [ref=e3362]
+                      - link "View" [ref=e3363]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/f10a42aa-f184-4095-abb3-64a879ef9e8c
+                  - cell "1P / 1S" [ref=e3364]:
+                    - generic [ref=e3365]:
+                      - generic [ref=e3366]: 1P
+                      - text: /
+                      - generic [ref=e3367]: 1S
+                - row "9.4.6 (ii)a Rockfall Barrier 30 40% In Progress — Jul 29, 2025 Aug 28, 2025 — — — — Vijaykumar Complete View 1P / 1S" [ref=e3368] [cursor=pointer]:
+                  - cell "9.4.6 (ii)a" [ref=e3369]
+                  - cell "Rockfall Barrier" [ref=e3370]
+                  - cell "30" [ref=e3371]
+                  - cell "40%" [ref=e3372]:
+                    - button "40%" [ref=e3373]
+                  - cell "In Progress" [ref=e3374]:
+                    - generic [ref=e3375]: In Progress
+                  - cell "—" [ref=e3376]
+                  - cell "Jul 29, 2025" [ref=e3377]
+                  - cell "Aug 28, 2025" [ref=e3378]
+                  - cell "—" [ref=e3379]
+                  - cell "—" [ref=e3380]
+                  - cell "—" [ref=e3381]
+                  - cell "—" [ref=e3382]
+                  - cell "Vijaykumar" [ref=e3383]:
+                    - button "Vijaykumar" [ref=e3384]
+                  - cell "Complete View" [ref=e3385]:
+                    - generic [ref=e3386]:
+                      - button "Complete" [ref=e3387]
+                      - link "View" [ref=e3388]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/bdd09557-82b2-4bca-8696-b618f2368239
+                  - cell "1P / 1S" [ref=e3389]:
+                    - generic [ref=e3390]:
+                      - generic [ref=e3391]: 1P
+                      - text: /
+                      - generic [ref=e3392]: 1S
+                - row "9.4.6 (iii) Sprayed Concrete (Shotcrete) with mesh reinforcement 30 40% In Progress — Aug 5, 2025 Sep 4, 2025 — — — — Sanjar Alam Complete View 1P / 1S" [ref=e3393] [cursor=pointer]:
+                  - cell "9.4.6 (iii)" [ref=e3394]
+                  - cell "Sprayed Concrete (Shotcrete) with mesh reinforcement" [ref=e3395]
+                  - cell "30" [ref=e3396]
+                  - cell "40%" [ref=e3397]:
+                    - button "40%" [ref=e3398]
+                  - cell "In Progress" [ref=e3399]:
+                    - generic [ref=e3400]: In Progress
+                  - cell "—" [ref=e3401]
+                  - cell "Aug 5, 2025" [ref=e3402]
+                  - cell "Sep 4, 2025" [ref=e3403]
+                  - cell "—" [ref=e3404]
+                  - cell "—" [ref=e3405]
+                  - cell "—" [ref=e3406]
+                  - cell "—" [ref=e3407]
+                  - cell "Sanjar Alam" [ref=e3408]:
+                    - button "Sanjar Alam" [ref=e3409]
+                  - cell "Complete View" [ref=e3410]:
+                    - generic [ref=e3411]:
+                      - button "Complete" [ref=e3412]
+                      - link "View" [ref=e3413]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/6b6d4961-8905-4cec-a3e9-0cb637a567eb
+                  - cell "1P / 1S" [ref=e3414]:
+                    - generic [ref=e3415]:
+                      - generic [ref=e3416]: 1P
+                      - text: /
+                      - generic [ref=e3417]: 1S
+                - row "9.9.6(i)a Concrete Ditch Lining thick 30 40% In Progress — Aug 12, 2025 Sep 11, 2025 — — — — Sohail Complete View 1P / 1S" [ref=e3418] [cursor=pointer]:
+                  - cell "9.9.6(i)a" [ref=e3419]
+                  - cell "Concrete Ditch Lining thick" [ref=e3420]
+                  - cell "30" [ref=e3421]
+                  - cell "40%" [ref=e3422]:
+                    - button "40%" [ref=e3423]
+                  - cell "In Progress" [ref=e3424]:
+                    - generic [ref=e3425]: In Progress
+                  - cell "—" [ref=e3426]
+                  - cell "Aug 12, 2025" [ref=e3427]
+                  - cell "Sep 11, 2025" [ref=e3428]
+                  - cell "—" [ref=e3429]
+                  - cell "—" [ref=e3430]
+                  - cell "—" [ref=e3431]
+                  - cell "—" [ref=e3432]
+                  - cell "Sohail" [ref=e3433]:
+                    - button "Sohail" [ref=e3434]
+                  - cell "Complete View" [ref=e3435]:
+                    - generic [ref=e3436]:
+                      - button "Complete" [ref=e3437]
+                      - link "View" [ref=e3438]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/d78f09ef-fcbc-4bd8-9b96-c71226142b88
+                  - cell "1P / 1S" [ref=e3439]:
+                    - generic [ref=e3440]:
+                      - generic [ref=e3441]: 1P
+                      - text: /
+                      - generic [ref=e3442]: 1S
+                - row "12.1.7(i) Precast Concrete Tile Paving 30 40% In Progress — Aug 19, 2025 Sep 18, 2025 — — — — Manzar Complete View 1P / 1S" [ref=e3443] [cursor=pointer]:
+                  - cell "12.1.7(i)" [ref=e3444]
+                  - cell "Precast Concrete Tile Paving" [ref=e3445]
+                  - cell "30" [ref=e3446]
+                  - cell "40%" [ref=e3447]:
+                    - button "40%" [ref=e3448]
+                  - cell "In Progress" [ref=e3449]:
+                    - generic [ref=e3450]: In Progress
+                  - cell "—" [ref=e3451]
+                  - cell "Aug 19, 2025" [ref=e3452]
+                  - cell "Sep 18, 2025" [ref=e3453]
+                  - cell "—" [ref=e3454]
+                  - cell "—" [ref=e3455]
+                  - cell "—" [ref=e3456]
+                  - cell "—" [ref=e3457]
+                  - cell "Manzar" [ref=e3458]:
+                    - button "Manzar" [ref=e3459]
+                  - cell "Complete View" [ref=e3460]:
+                    - generic [ref=e3461]:
+                      - button "Complete" [ref=e3462]
+                      - link "View" [ref=e3463]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/8a73d470-d9f8-4463-9e01-0673cc830f8e
+                  - cell "1P / 1S" [ref=e3464]:
+                    - generic [ref=e3465]:
+                      - generic [ref=e3466]: 1P
+                      - text: /
+                      - generic [ref=e3467]: 1S
+                - row "12.1.7 (v) Precast concrete curb 30 40% In Progress — Aug 26, 2025 Sep 25, 2025 — — — — Anirban Datta Complete View 1P / 1S" [ref=e3468] [cursor=pointer]:
+                  - cell "12.1.7 (v)" [ref=e3469]
+                  - cell "Precast concrete curb" [ref=e3470]
+                  - cell "30" [ref=e3471]
+                  - cell "40%" [ref=e3472]:
+                    - button "40%" [ref=e3473]
+                  - cell "In Progress" [ref=e3474]:
+                    - generic [ref=e3475]: In Progress
+                  - cell "—" [ref=e3476]
+                  - cell "Aug 26, 2025" [ref=e3477]
+                  - cell "Sep 25, 2025" [ref=e3478]
+                  - cell "—" [ref=e3479]
+                  - cell "—" [ref=e3480]
+                  - cell "—" [ref=e3481]
+                  - cell "—" [ref=e3482]
+                  - cell "Anirban Datta" [ref=e3483]:
+                    - button "Anirban Datta" [ref=e3484]
+                  - cell "Complete View" [ref=e3485]:
+                    - generic [ref=e3486]:
+                      - button "Complete" [ref=e3487]
+                      - link "View" [ref=e3488]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/f5b6ae06-bcdb-4e4d-8694-b0f684a6f5cd
+                  - cell "1P / 1S" [ref=e3489]:
+                    - generic [ref=e3490]:
+                      - generic [ref=e3491]: 1P
+                      - text: /
+                      - generic [ref=e3492]: 1S
+                - row "13.1.7(i) W-Beam Guardrail standard section 30 40% In Progress — Sep 2, 2025 Oct 2, 2025 — — — — Mohd Ismaila Complete View 1P / 1S" [ref=e3493] [cursor=pointer]:
+                  - cell "13.1.7(i)" [ref=e3494]
+                  - cell "W-Beam Guardrail standard section" [ref=e3495]
+                  - cell "30" [ref=e3496]
+                  - cell "40%" [ref=e3497]:
+                    - button "40%" [ref=e3498]
+                  - cell "In Progress" [ref=e3499]:
+                    - generic [ref=e3500]: In Progress
+                  - cell "—" [ref=e3501]
+                  - cell "Sep 2, 2025" [ref=e3502]
+                  - cell "Oct 2, 2025" [ref=e3503]
+                  - cell "—" [ref=e3504]
+                  - cell "—" [ref=e3505]
+                  - cell "—" [ref=e3506]
+                  - cell "—" [ref=e3507]
+                  - cell "Mohd Ismaila" [ref=e3508]:
+                    - button "Mohd Ismaila" [ref=e3509]
+                  - cell "Complete View" [ref=e3510]:
+                    - generic [ref=e3511]:
+                      - button "Complete" [ref=e3512]
+                      - link "View" [ref=e3513]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/d58a662c-4522-489f-81bf-f8020997d4df
+                  - cell "1P / 1S" [ref=e3514]:
+                    - generic [ref=e3515]:
+                      - generic [ref=e3516]: 1P
+                      - text: /
+                      - generic [ref=e3517]: 1S
+                - row "13.1.7(ix)a Concrete Barrier, Single face, Type B.-shuttering & De-shuttering 30 40% In Progress — Sep 9, 2025 Oct 9, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e3518] [cursor=pointer]:
+                  - cell "13.1.7(ix)a" [ref=e3519]
+                  - cell "Concrete Barrier, Single face, Type B.-shuttering & De-shuttering" [ref=e3520]
+                  - cell "30" [ref=e3521]
+                  - cell "40%" [ref=e3522]:
+                    - button "40%" [ref=e3523]
+                  - cell "In Progress" [ref=e3524]:
+                    - generic [ref=e3525]: In Progress
+                  - cell "—" [ref=e3526]
+                  - cell "Sep 9, 2025" [ref=e3527]
+                  - cell "Oct 9, 2025" [ref=e3528]
+                  - cell "—" [ref=e3529]
+                  - cell "—" [ref=e3530]
+                  - cell "—" [ref=e3531]
+                  - cell "—" [ref=e3532]
+                  - cell "K. Barman" [ref=e3533]:
+                    - button "K. Barman" [ref=e3534]
+                  - cell "Complete View" [ref=e3535]:
+                    - generic [ref=e3536]:
+                      - button "Complete" [ref=e3537]
+                      - link "View" [ref=e3538]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/f7b81367-a5a2-4fb5-a38f-f1e7b0994d7d
+                  - cell "1P / 1S" [ref=e3539]:
+                    - generic [ref=e3540]:
+                      - generic [ref=e3541]: 1P
+                      - text: /
+                      - generic [ref=e3542]: 1S
+                - row "13.1.7(ix)a1 Concrete Barrier, Single face, Type B.-Steel Fixing 30 40% In Progress — Sep 16, 2025 Oct 16, 2025 — — — — Md Saiffuddin Complete View 1P / 1S" [ref=e3543] [cursor=pointer]:
+                  - cell "13.1.7(ix)a1" [ref=e3544]
+                  - cell "Concrete Barrier, Single face, Type B.-Steel Fixing" [ref=e3545]
+                  - cell "30" [ref=e3546]
+                  - cell "40%" [ref=e3547]:
+                    - button "40%" [ref=e3548]
+                  - cell "In Progress" [ref=e3549]:
+                    - generic [ref=e3550]: In Progress
+                  - cell "—" [ref=e3551]
+                  - cell "Sep 16, 2025" [ref=e3552]
+                  - cell "Oct 16, 2025" [ref=e3553]
+                  - cell "—" [ref=e3554]
+                  - cell "—" [ref=e3555]
+                  - cell "—" [ref=e3556]
+                  - cell "—" [ref=e3557]
+                  - cell "Md Saiffuddin" [ref=e3558]:
+                    - button "Md Saiffuddin" [ref=e3559]
+                  - cell "Complete View" [ref=e3560]:
+                    - generic [ref=e3561]:
+                      - button "Complete" [ref=e3562]
+                      - link "View" [ref=e3563]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/3a89c418-dba8-4c60-858f-ffa185aad932
+                  - cell "1P / 1S" [ref=e3564]:
+                    - generic [ref=e3565]:
+                      - generic [ref=e3566]: 1P
+                      - text: /
+                      - generic [ref=e3567]: 1S
+                - row "13.1.7(ix)a2 Concrete Barrier, Single face, Type B.-Concreting 30 40% In Progress — Sep 23, 2025 Oct 23, 2025 — — — — A.K.mishra Complete View 1P / 1S" [ref=e3568] [cursor=pointer]:
+                  - cell "13.1.7(ix)a2" [ref=e3569]
+                  - cell "Concrete Barrier, Single face, Type B.-Concreting" [ref=e3570]
+                  - cell "30" [ref=e3571]
+                  - cell "40%" [ref=e3572]:
+                    - button "40%" [ref=e3573]
+                  - cell "In Progress" [ref=e3574]:
+                    - generic [ref=e3575]: In Progress
+                  - cell "—" [ref=e3576]
+                  - cell "Sep 23, 2025" [ref=e3577]
+                  - cell "Oct 23, 2025" [ref=e3578]
+                  - cell "—" [ref=e3579]
+                  - cell "—" [ref=e3580]
+                  - cell "—" [ref=e3581]
+                  - cell "—" [ref=e3582]
+                  - cell "A.K.mishra" [ref=e3583]:
+                    - button "A.K.mishra" [ref=e3584]
+                  - cell "Complete View" [ref=e3585]:
+                    - generic [ref=e3586]:
+                      - button "Complete" [ref=e3587]
+                      - link "View" [ref=e3588]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/93a3fc29-c3e3-4bb4-bd20-4f85d8917267
+                  - cell "1P / 1S" [ref=e3589]:
+                    - generic [ref=e3590]:
+                      - generic [ref=e3591]: 1P
+                      - text: /
+                      - generic [ref=e3592]: 1S
+                - row "13.1.7(ix)b Concrete Barrier, Single face, Type E.-shuttering & De-shuttering 30 40% In Progress — Sep 30, 2025 Oct 30, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e3593] [cursor=pointer]:
+                  - cell "13.1.7(ix)b" [ref=e3594]
+                  - cell "Concrete Barrier, Single face, Type E.-shuttering & De-shuttering" [ref=e3595]
+                  - cell "30" [ref=e3596]
+                  - cell "40%" [ref=e3597]:
+                    - button "40%" [ref=e3598]
+                  - cell "In Progress" [ref=e3599]:
+                    - generic [ref=e3600]: In Progress
+                  - cell "—" [ref=e3601]
+                  - cell "Sep 30, 2025" [ref=e3602]
+                  - cell "Oct 30, 2025" [ref=e3603]
+                  - cell "—" [ref=e3604]
+                  - cell "—" [ref=e3605]
+                  - cell "—" [ref=e3606]
+                  - cell "—" [ref=e3607]
+                  - cell "K. Barman" [ref=e3608]:
+                    - button "K. Barman" [ref=e3609]
+                  - cell "Complete View" [ref=e3610]:
+                    - generic [ref=e3611]:
+                      - button "Complete" [ref=e3612]
+                      - link "View" [ref=e3613]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/40ed9b43-8431-40bd-a041-625f8d8ff9a6
+                  - cell "1P / 1S" [ref=e3614]:
+                    - generic [ref=e3615]:
+                      - generic [ref=e3616]: 1P
+                      - text: /
+                      - generic [ref=e3617]: 1S
+                - row "13.1.7(ix)b1 Concrete Barrier, Single face, Type E..-Steel Fixing 30 40% In Progress — Oct 7, 2025 Nov 6, 2025 — — — — Anirban Datta Complete View 1P / 1S" [ref=e3618] [cursor=pointer]:
+                  - cell "13.1.7(ix)b1" [ref=e3619]
+                  - cell "Concrete Barrier, Single face, Type E..-Steel Fixing" [ref=e3620]
+                  - cell "30" [ref=e3621]
+                  - cell "40%" [ref=e3622]:
+                    - button "40%" [ref=e3623]
+                  - cell "In Progress" [ref=e3624]:
+                    - generic [ref=e3625]: In Progress
+                  - cell "—" [ref=e3626]
+                  - cell "Oct 7, 2025" [ref=e3627]
+                  - cell "Nov 6, 2025" [ref=e3628]
+                  - cell "—" [ref=e3629]
+                  - cell "—" [ref=e3630]
+                  - cell "—" [ref=e3631]
+                  - cell "—" [ref=e3632]
+                  - cell "Anirban Datta" [ref=e3633]:
+                    - button "Anirban Datta" [ref=e3634]
+                  - cell "Complete View" [ref=e3635]:
+                    - generic [ref=e3636]:
+                      - button "Complete" [ref=e3637]
+                      - link "View" [ref=e3638]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/d94dd1b6-0e13-471c-a0c3-0149aa2a64eb
+                  - cell "1P / 1S" [ref=e3639]:
+                    - generic [ref=e3640]:
+                      - generic [ref=e3641]: 1P
+                      - text: /
+                      - generic [ref=e3642]: 1S
+                - row "13.1.7(ix)b2 Concrete Barrier, Single face, Type E.-Concreting 30 40% In Progress — Oct 14, 2025 Nov 13, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e3643] [cursor=pointer]:
+                  - cell "13.1.7(ix)b2" [ref=e3644]
+                  - cell "Concrete Barrier, Single face, Type E.-Concreting" [ref=e3645]
+                  - cell "30" [ref=e3646]
+                  - cell "40%" [ref=e3647]:
+                    - button "40%" [ref=e3648]
+                  - cell "In Progress" [ref=e3649]:
+                    - generic [ref=e3650]: In Progress
+                  - cell "—" [ref=e3651]
+                  - cell "Oct 14, 2025" [ref=e3652]
+                  - cell "Nov 13, 2025" [ref=e3653]
+                  - cell "—" [ref=e3654]
+                  - cell "—" [ref=e3655]
+                  - cell "—" [ref=e3656]
+                  - cell "—" [ref=e3657]
+                  - cell "K. Barman" [ref=e3658]:
+                    - button "K. Barman" [ref=e3659]
+                  - cell "Complete View" [ref=e3660]:
+                    - generic [ref=e3661]:
+                      - button "Complete" [ref=e3662]
+                      - link "View" [ref=e3663]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/47d0991f-58ca-4205-a562-120b363c1cbe
+                  - cell "1P / 1S" [ref=e3664]:
+                    - generic [ref=e3665]:
+                      - generic [ref=e3666]: 1P
+                      - text: /
+                      - generic [ref=e3667]: 1S
+                - row "14.1.7 (i) Highway sign, triangular 30 40% In Progress — Oct 21, 2025 Nov 20, 2025 — — — — Illayaraja Complete View 1P / 1S" [ref=e3668] [cursor=pointer]:
+                  - cell "14.1.7 (i)" [ref=e3669]
+                  - cell "Highway sign, triangular" [ref=e3670]
+                  - cell "30" [ref=e3671]
+                  - cell "40%" [ref=e3672]:
+                    - button "40%" [ref=e3673]
+                  - cell "In Progress" [ref=e3674]:
+                    - generic [ref=e3675]: In Progress
+                  - cell "—" [ref=e3676]
+                  - cell "Oct 21, 2025" [ref=e3677]
+                  - cell "Nov 20, 2025" [ref=e3678]
+                  - cell "—" [ref=e3679]
+                  - cell "—" [ref=e3680]
+                  - cell "—" [ref=e3681]
+                  - cell "—" [ref=e3682]
+                  - cell "Illayaraja" [ref=e3683]:
+                    - button "Illayaraja" [ref=e3684]
+                  - cell "Complete View" [ref=e3685]:
+                    - generic [ref=e3686]:
+                      - button "Complete" [ref=e3687]
+                      - link "View" [ref=e3688]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/6edc8627-856f-4c88-b9e3-fa5815caf17d
+                  - cell "1P / 1S" [ref=e3689]:
+                    - generic [ref=e3690]:
+                      - generic [ref=e3691]: 1P
+                      - text: /
+                      - generic [ref=e3692]: 1S
+                - row "14.1.7 (ii) Highway sign, circular 30 40% In Progress — Oct 28, 2025 Nov 27, 2025 — — — — V.P. Gupta Complete View 1P / 1S" [ref=e3693] [cursor=pointer]:
+                  - cell "14.1.7 (ii)" [ref=e3694]
+                  - cell "Highway sign, circular" [ref=e3695]
+                  - cell "30" [ref=e3696]
+                  - cell "40%" [ref=e3697]:
+                    - button "40%" [ref=e3698]
+                  - cell "In Progress" [ref=e3699]:
+                    - generic [ref=e3700]: In Progress
+                  - cell "—" [ref=e3701]
+                  - cell "Oct 28, 2025" [ref=e3702]
+                  - cell "Nov 27, 2025" [ref=e3703]
+                  - cell "—" [ref=e3704]
+                  - cell "—" [ref=e3705]
+                  - cell "—" [ref=e3706]
+                  - cell "—" [ref=e3707]
+                  - cell "V.P. Gupta" [ref=e3708]:
+                    - button "V.P. Gupta" [ref=e3709]
+                  - cell "Complete View" [ref=e3710]:
+                    - generic [ref=e3711]:
+                      - button "Complete" [ref=e3712]
+                      - link "View" [ref=e3713]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/af440646-11de-4f98-ab78-db30b48fbce0
+                  - cell "1P / 1S" [ref=e3714]:
+                    - generic [ref=e3715]:
+                      - generic [ref=e3716]: 1P
+                      - text: /
+                      - generic [ref=e3717]: 1S
+                - row "14.1.7 (iii) Highway sign, rectangular 30 40% In Progress — Nov 4, 2025 Dec 4, 2025 — — — — Parvaiz Complete View 1P / 1S" [ref=e3718] [cursor=pointer]:
+                  - cell "14.1.7 (iii)" [ref=e3719]
+                  - cell "Highway sign, rectangular" [ref=e3720]
+                  - cell "30" [ref=e3721]
+                  - cell "40%" [ref=e3722]:
+                    - button "40%" [ref=e3723]
+                  - cell "In Progress" [ref=e3724]:
+                    - generic [ref=e3725]: In Progress
+                  - cell "—" [ref=e3726]
+                  - cell "Nov 4, 2025" [ref=e3727]
+                  - cell "Dec 4, 2025" [ref=e3728]
+                  - cell "—" [ref=e3729]
+                  - cell "—" [ref=e3730]
+                  - cell "—" [ref=e3731]
+                  - cell "—" [ref=e3732]
+                  - cell "Parvaiz" [ref=e3733]:
+                    - button "Parvaiz" [ref=e3734]
+                  - cell "Complete View" [ref=e3735]:
+                    - generic [ref=e3736]:
+                      - button "Complete" [ref=e3737]
+                      - link "View" [ref=e3738]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/7de9395b-071b-4cf9-a0f1-5d6c73b20aae
+                  - cell "1P / 1S" [ref=e3739]:
+                    - generic [ref=e3740]:
+                      - generic [ref=e3741]: 1P
+                      - text: /
+                      - generic [ref=e3742]: 1S
+                - row "14.1.7 (iv) Highway sign, octgagonal 30 40% In Progress — Nov 11, 2025 Dec 11, 2025 — — — — K. Barman Complete View 1P / 1S" [ref=e3743] [cursor=pointer]:
+                  - cell "14.1.7 (iv)" [ref=e3744]
+                  - cell "Highway sign, octgagonal" [ref=e3745]
+                  - cell "30" [ref=e3746]
+                  - cell "40%" [ref=e3747]:
+                    - button "40%" [ref=e3748]
+                  - cell "In Progress" [ref=e3749]:
+                    - generic [ref=e3750]: In Progress
+                  - cell "—" [ref=e3751]
+                  - cell "Nov 11, 2025" [ref=e3752]
+                  - cell "Dec 11, 2025" [ref=e3753]
+                  - cell "—" [ref=e3754]
+                  - cell "—" [ref=e3755]
+                  - cell "—" [ref=e3756]
+                  - cell "—" [ref=e3757]
+                  - cell "K. Barman" [ref=e3758]:
+                    - button "K. Barman" [ref=e3759]
+                  - cell "Complete View" [ref=e3760]:
+                    - generic [ref=e3761]:
+                      - button "Complete" [ref=e3762]
+                      - link "View" [ref=e3763]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/4f1e055b-cb49-4d71-9156-cff6d46bf15e
+                  - cell "1P / 1S" [ref=e3764]:
+                    - generic [ref=e3765]:
+                      - generic [ref=e3766]: 1P
+                      - text: /
+                      - generic [ref=e3767]: 1S
+                - row "14.1.7 (v) Sign post support assembly including foundation 30 40% In Progress — Nov 18, 2025 Dec 18, 2025 — — — — Vijaykumar Complete View 1P / 1S" [ref=e3768] [cursor=pointer]:
+                  - cell "14.1.7 (v)" [ref=e3769]
+                  - cell "Sign post support assembly including foundation" [ref=e3770]
+                  - cell "30" [ref=e3771]
+                  - cell "40%" [ref=e3772]:
+                    - button "40%" [ref=e3773]
+                  - cell "In Progress" [ref=e3774]:
+                    - generic [ref=e3775]: In Progress
+                  - cell "—" [ref=e3776]
+                  - cell "Nov 18, 2025" [ref=e3777]
+                  - cell "Dec 18, 2025" [ref=e3778]
+                  - cell "—" [ref=e3779]
+                  - cell "—" [ref=e3780]
+                  - cell "—" [ref=e3781]
+                  - cell "—" [ref=e3782]
+                  - cell "Vijaykumar" [ref=e3783]:
+                    - button "Vijaykumar" [ref=e3784]
+                  - cell "Complete View" [ref=e3785]:
+                    - generic [ref=e3786]:
+                      - button "Complete" [ref=e3787]
+                      - link "View" [ref=e3788]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/01fe5c34-1603-4947-8155-65e64eeec60a
+                  - cell "1P / 1S" [ref=e3789]:
+                    - generic [ref=e3790]:
+                      - generic [ref=e3791]: 1P
+                      - text: /
+                      - generic [ref=e3792]: 1S
+                - row "14.1.7 (viii) Depth and marker posts for floodways 30 40% In Progress — Nov 25, 2025 Dec 25, 2025 — — — — Sanjar Alam Complete View 1P / 1S" [ref=e3793] [cursor=pointer]:
+                  - cell "14.1.7 (viii)" [ref=e3794]
+                  - cell "Depth and marker posts for floodways" [ref=e3795]
+                  - cell "30" [ref=e3796]
+                  - cell "40%" [ref=e3797]:
+                    - button "40%" [ref=e3798]
+                  - cell "In Progress" [ref=e3799]:
+                    - generic [ref=e3800]: In Progress
+                  - cell "—" [ref=e3801]
+                  - cell "Nov 25, 2025" [ref=e3802]
+                  - cell "Dec 25, 2025" [ref=e3803]
+                  - cell "—" [ref=e3804]
+                  - cell "—" [ref=e3805]
+                  - cell "—" [ref=e3806]
+                  - cell "—" [ref=e3807]
+                  - cell "Sanjar Alam" [ref=e3808]:
+                    - button "Sanjar Alam" [ref=e3809]
+                  - cell "Complete View" [ref=e3810]:
+                    - generic [ref=e3811]:
+                      - button "Complete" [ref=e3812]
+                      - link "View" [ref=e3813]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/986e2b9a-8a7e-42a1-9cbb-a2b1781f4006
+                  - cell "1P / 1S" [ref=e3814]:
+                    - generic [ref=e3815]:
+                      - generic [ref=e3816]: 1P
+                      - text: /
+                      - generic [ref=e3817]: 1S
+                - row "14.2.6 (i) Traffic lines machanically applied 30 40% In Progress — Dec 2, 2025 Jan 1, 2026 — — — — Sohail Complete View 1P / 1S" [ref=e3818] [cursor=pointer]:
+                  - cell "14.2.6 (i)" [ref=e3819]
+                  - cell "Traffic lines machanically applied" [ref=e3820]
+                  - cell "30" [ref=e3821]
+                  - cell "40%" [ref=e3822]:
+                    - button "40%" [ref=e3823]
+                  - cell "In Progress" [ref=e3824]:
+                    - generic [ref=e3825]: In Progress
+                  - cell "—" [ref=e3826]
+                  - cell "Dec 2, 2025" [ref=e3827]
+                  - cell "Jan 1, 2026" [ref=e3828]
+                  - cell "—" [ref=e3829]
+                  - cell "—" [ref=e3830]
+                  - cell "—" [ref=e3831]
+                  - cell "—" [ref=e3832]
+                  - cell "Sohail" [ref=e3833]:
+                    - button "Sohail" [ref=e3834]
+                  - cell "Complete View" [ref=e3835]:
+                    - generic [ref=e3836]:
+                      - button "Complete" [ref=e3837]
+                      - link "View" [ref=e3838]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/9949bb48-4328-4642-a304-daa588db1161
+                  - cell "1P / 1S" [ref=e3839]:
+                    - generic [ref=e3840]:
+                      - generic [ref=e3841]: 1P
+                      - text: /
+                      - generic [ref=e3842]: 1S
+                - row "14.2.6 (iii) Special road markings hand applied 30 40% In Progress — Dec 9, 2025 Jan 8, 2026 — — — — Manzar Complete View 1P / 1S" [ref=e3843] [cursor=pointer]:
+                  - cell "14.2.6 (iii)" [ref=e3844]
+                  - cell "Special road markings hand applied" [ref=e3845]
+                  - cell "30" [ref=e3846]
+                  - cell "40%" [ref=e3847]:
+                    - button "40%" [ref=e3848]
+                  - cell "In Progress" [ref=e3849]:
+                    - generic [ref=e3850]: In Progress
+                  - cell "—" [ref=e3851]
+                  - cell "Dec 9, 2025" [ref=e3852]
+                  - cell "Jan 8, 2026" [ref=e3853]
+                  - cell "—" [ref=e3854]
+                  - cell "—" [ref=e3855]
+                  - cell "—" [ref=e3856]
+                  - cell "—" [ref=e3857]
+                  - cell "Manzar" [ref=e3858]:
+                    - button "Manzar" [ref=e3859]
+                  - cell "Complete View" [ref=e3860]:
+                    - generic [ref=e3861]:
+                      - button "Complete" [ref=e3862]
+                      - link "View" [ref=e3863]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/2375dcc8-ef98-4e69-8be3-ae1bacd87e21
+                  - cell "1P / 1S" [ref=e3864]:
+                    - generic [ref=e3865]:
+                      - generic [ref=e3866]: 1P
+                      - text: /
+                      - generic [ref=e3867]: 1S
+                - row "14.2.6 (iv) Curb painting 30 40% In Progress — Dec 16, 2025 Jan 15, 2026 — — — — Anirban Datta Complete View 1P / 1S" [ref=e3868] [cursor=pointer]:
+                  - cell "14.2.6 (iv)" [ref=e3869]
+                  - cell "Curb painting" [ref=e3870]
+                  - cell "30" [ref=e3871]
+                  - cell "40%" [ref=e3872]:
+                    - button "40%" [ref=e3873]
+                  - cell "In Progress" [ref=e3874]:
+                    - generic [ref=e3875]: In Progress
+                  - cell "—" [ref=e3876]
+                  - cell "Dec 16, 2025" [ref=e3877]
+                  - cell "Jan 15, 2026" [ref=e3878]
+                  - cell "—" [ref=e3879]
+                  - cell "—" [ref=e3880]
+                  - cell "—" [ref=e3881]
+                  - cell "—" [ref=e3882]
+                  - cell "Anirban Datta" [ref=e3883]:
+                    - button "Anirban Datta" [ref=e3884]
+                  - cell "Complete View" [ref=e3885]:
+                    - generic [ref=e3886]:
+                      - button "Complete" [ref=e3887]
+                      - link "View" [ref=e3888]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/326b9ba9-2615-4209-bdfb-210af604d20a
+                  - cell "1P / 1S" [ref=e3889]:
+                    - generic [ref=e3890]:
+                      - generic [ref=e3891]: 1P
+                      - text: /
+                      - generic [ref=e3892]: 1S
+                - row "14.3.6 (i) Reflecting road studs 30 40% In Progress — Dec 23, 2025 Jan 22, 2026 — — — — Mohd Ismaila Complete View 1P / 1S" [ref=e3893] [cursor=pointer]:
+                  - cell "14.3.6 (i)" [ref=e3894]
+                  - cell "Reflecting road studs" [ref=e3895]
+                  - cell "30" [ref=e3896]
+                  - cell "40%" [ref=e3897]:
+                    - button "40%" [ref=e3898]
+                  - cell "In Progress" [ref=e3899]:
+                    - generic [ref=e3900]: In Progress
+                  - cell "—" [ref=e3901]
+                  - cell "Dec 23, 2025" [ref=e3902]
+                  - cell "Jan 22, 2026" [ref=e3903]
+                  - cell "—" [ref=e3904]
+                  - cell "—" [ref=e3905]
+                  - cell "—" [ref=e3906]
+                  - cell "—" [ref=e3907]
+                  - cell "Mohd Ismaila" [ref=e3908]:
+                    - button "Mohd Ismaila" [ref=e3909]
+                  - cell "Complete View" [ref=e3910]:
+                    - generic [ref=e3911]:
+                      - button "Complete" [ref=e3912]
+                      - link "View" [ref=e3913]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/eac70e0e-7d76-426f-a81d-08ba568d94ca
+                  - cell "1P / 1S" [ref=e3914]:
+                    - generic [ref=e3915]:
+                      - generic [ref=e3916]: 1P
+                      - text: /
+                      - generic [ref=e3917]: 1S
+                - row "14.3.6 (ii) Non-reflecting road studs. 30 40% In Progress — Dec 30, 2025 Jan 29, 2026 — — — — Md Saiffuddin Complete View 1P / 1S" [ref=e3918] [cursor=pointer]:
+                  - cell "14.3.6 (ii)" [ref=e3919]
+                  - cell "Non-reflecting road studs." [ref=e3920]
+                  - cell "30" [ref=e3921]
+                  - cell "40%" [ref=e3922]:
+                    - button "40%" [ref=e3923]
+                  - cell "In Progress" [ref=e3924]:
+                    - generic [ref=e3925]: In Progress
+                  - cell "—" [ref=e3926]
+                  - cell "Dec 30, 2025" [ref=e3927]
+                  - cell "Jan 29, 2026" [ref=e3928]
+                  - cell "—" [ref=e3929]
+                  - cell "—" [ref=e3930]
+                  - cell "—" [ref=e3931]
+                  - cell "—" [ref=e3932]
+                  - cell "Md Saiffuddin" [ref=e3933]:
+                    - button "Md Saiffuddin" [ref=e3934]
+                  - cell "Complete View" [ref=e3935]:
+                    - generic [ref=e3936]:
+                      - button "Complete" [ref=e3937]
+                      - link "View" [ref=e3938]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/3179930b-16cc-44c1-b6e8-cb7def2a0928
+                  - cell "1P / 1S" [ref=e3939]:
+                    - generic [ref=e3940]:
+                      - generic [ref=e3941]: 1P
+                      - text: /
+                      - generic [ref=e3942]: 1S
+                - row "18.1.6 (i) Upvc split pipe 30 40% In Progress — Jan 6, 2026 Feb 5, 2026 — — — — A.K.mishra Complete View 1P / 1S" [ref=e3943] [cursor=pointer]:
+                  - cell "18.1.6 (i)" [ref=e3944]
+                  - cell "Upvc split pipe" [ref=e3945]
+                  - cell "30" [ref=e3946]
+                  - cell "40%" [ref=e3947]:
+                    - button "40%" [ref=e3948]
+                  - cell "In Progress" [ref=e3949]:
+                    - generic [ref=e3950]: In Progress
+                  - cell "—" [ref=e3951]
+                  - cell "Jan 6, 2026" [ref=e3952]
+                  - cell "Feb 5, 2026" [ref=e3953]
+                  - cell "—" [ref=e3954]
+                  - cell "—" [ref=e3955]
+                  - cell "—" [ref=e3956]
+                  - cell "—" [ref=e3957]
+                  - cell "A.K.mishra" [ref=e3958]:
+                    - button "A.K.mishra" [ref=e3959]
+                  - cell "Complete View" [ref=e3960]:
+                    - generic [ref=e3961]:
+                      - button "Complete" [ref=e3962]
+                      - link "View" [ref=e3963]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/975536e0-6f02-43b6-a933-68a304e9fe23
+                  - cell "1P / 1S" [ref=e3964]:
+                    - generic [ref=e3965]:
+                      - generic [ref=e3966]: 1P
+                      - text: /
+                      - generic [ref=e3967]: 1S
+                - row "18.2 Remove and relocate of Existing Utilities (Electrical line, water line) 30 40% In Progress — Jan 13, 2026 Feb 12, 2026 — — — — Illayaraja Complete View 1P / 1S" [ref=e3968] [cursor=pointer]:
+                  - cell "18.2" [ref=e3969]
+                  - cell "Remove and relocate of Existing Utilities (Electrical line, water line)" [ref=e3970]
+                  - cell "30" [ref=e3971]
+                  - cell "40%" [ref=e3972]:
+                    - button "40%" [ref=e3973]
+                  - cell "In Progress" [ref=e3974]:
+                    - generic [ref=e3975]: In Progress
+                  - cell "—" [ref=e3976]
+                  - cell "Jan 13, 2026" [ref=e3977]
+                  - cell "Feb 12, 2026" [ref=e3978]
+                  - cell "—" [ref=e3979]
+                  - cell "—" [ref=e3980]
+                  - cell "—" [ref=e3981]
+                  - cell "—" [ref=e3982]
+                  - cell "Illayaraja" [ref=e3983]:
+                    - button "Illayaraja" [ref=e3984]
+                  - cell "Complete View" [ref=e3985]:
+                    - generic [ref=e3986]:
+                      - button "Complete" [ref=e3987]
+                      - link "View" [ref=e3988]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/4bc6ff02-d856-4d82-a8ca-74e07632391f
+                  - cell "1P / 1S" [ref=e3989]:
+                    - generic [ref=e3990]:
+                      - generic [ref=e3991]: 1P
+                      - text: /
+                      - generic [ref=e3992]: 1S
+                - row "18.2.1 Relocation of existing 11KV electrical poles 30 40% In Progress — Jan 20, 2026 Feb 19, 2026 — — — — V.P. Gupta Complete View 1P / 1S" [ref=e3993] [cursor=pointer]:
+                  - cell "18.2.1" [ref=e3994]
+                  - cell "Relocation of existing 11KV electrical poles" [ref=e3995]
+                  - cell "30" [ref=e3996]
+                  - cell "40%" [ref=e3997]:
+                    - button "40%" [ref=e3998]
+                  - cell "In Progress" [ref=e3999]:
+                    - generic [ref=e4000]: In Progress
+                  - cell "—" [ref=e4001]
+                  - cell "Jan 20, 2026" [ref=e4002]
+                  - cell "Feb 19, 2026" [ref=e4003]
+                  - cell "—" [ref=e4004]
+                  - cell "—" [ref=e4005]
+                  - cell "—" [ref=e4006]
+                  - cell "—" [ref=e4007]
+                  - cell "V.P. Gupta" [ref=e4008]:
+                    - button "V.P. Gupta" [ref=e4009]
+                  - cell "Complete View" [ref=e4010]:
+                    - generic [ref=e4011]:
+                      - button "Complete" [ref=e4012]
+                      - link "View" [ref=e4013]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/f1825cd8-739e-461b-bbed-c834bacb71bf
+                  - cell "1P / 1S" [ref=e4014]:
+                    - generic [ref=e4015]:
+                      - generic [ref=e4016]: 1P
+                      - text: /
+                      - generic [ref=e4017]: 1S
+                - row "18.3 Future Utility Crossing 30 40% In Progress — Jan 27, 2026 Feb 26, 2026 — — — — Illayaraja Complete View 1P / 1S" [ref=e4018] [cursor=pointer]:
+                  - cell "18.3" [ref=e4019]
+                  - cell "Future Utility Crossing" [ref=e4020]
+                  - cell "30" [ref=e4021]
+                  - cell "40%" [ref=e4022]:
+                    - button "40%" [ref=e4023]
+                  - cell "In Progress" [ref=e4024]:
+                    - generic [ref=e4025]: In Progress
+                  - cell "—" [ref=e4026]
+                  - cell "Jan 27, 2026" [ref=e4027]
+                  - cell "Feb 26, 2026" [ref=e4028]
+                  - cell "—" [ref=e4029]
+                  - cell "—" [ref=e4030]
+                  - cell "—" [ref=e4031]
+                  - cell "—" [ref=e4032]
+                  - cell "Illayaraja" [ref=e4033]:
+                    - button "Illayaraja" [ref=e4034]
+                  - cell "Complete View" [ref=e4035]:
+                    - generic [ref=e4036]:
+                      - button "Complete" [ref=e4037]
+                      - link "View" [ref=e4038]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/11203b9f-c12b-4ece-b042-809c60664ffb
+                  - cell "1P / 1S" [ref=e4039]:
+                    - generic [ref=e4040]:
+                      - generic [ref=e4041]: 1P
+                      - text: /
+                      - generic [ref=e4042]: 1S
+                - row "18.3.6 Upvc Future Ducts 30 40% In Progress — Feb 3, 2026 Mar 5, 2026 — — — — K. Barman Complete View 1P / 1S" [ref=e4043] [cursor=pointer]:
+                  - cell "18.3.6" [ref=e4044]
+                  - cell "Upvc Future Ducts" [ref=e4045]
+                  - cell "30" [ref=e4046]
+                  - cell "40%" [ref=e4047]:
+                    - button "40%" [ref=e4048]
+                  - cell "In Progress" [ref=e4049]:
+                    - generic [ref=e4050]: In Progress
+                  - cell "—" [ref=e4051]
+                  - cell "Feb 3, 2026" [ref=e4052]
+                  - cell "Mar 5, 2026" [ref=e4053]
+                  - cell "—" [ref=e4054]
+                  - cell "—" [ref=e4055]
+                  - cell "—" [ref=e4056]
+                  - cell "—" [ref=e4057]
+                  - cell "K. Barman" [ref=e4058]:
+                    - button "K. Barman" [ref=e4059]
+                  - cell "Complete View" [ref=e4060]:
+                    - generic [ref=e4061]:
+                      - button "Complete" [ref=e4062]
+                      - link "View" [ref=e4063]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/979ae20c-8a18-4dbf-87d2-b84dcaeaab3e
+                  - cell "1P / 1S" [ref=e4064]:
+                    - generic [ref=e4065]:
+                      - generic [ref=e4066]: 1P
+                      - text: /
+                      - generic [ref=e4067]: 1S
+                - row "18.3.6(i) 05 way 32mm HDPE Silicore Straight / Spiral RIP Duct for Broadband Ducts 30 40% In Progress — Feb 10, 2026 Mar 12, 2026 — — — — K. Barman Complete View 1P / 1S" [ref=e4068] [cursor=pointer]:
+                  - cell "18.3.6(i)" [ref=e4069]
+                  - cell "05 way 32mm HDPE Silicore Straight / Spiral RIP Duct for Broadband Ducts" [ref=e4070]
+                  - cell "30" [ref=e4071]
+                  - cell "40%" [ref=e4072]:
+                    - button "40%" [ref=e4073]
+                  - cell "In Progress" [ref=e4074]:
+                    - generic [ref=e4075]: In Progress
+                  - cell "—" [ref=e4076]
+                  - cell "Feb 10, 2026" [ref=e4077]
+                  - cell "Mar 12, 2026" [ref=e4078]
+                  - cell "—" [ref=e4079]
+                  - cell "—" [ref=e4080]
+                  - cell "—" [ref=e4081]
+                  - cell "—" [ref=e4082]
+                  - cell "K. Barman" [ref=e4083]:
+                    - button "K. Barman" [ref=e4084]
+                  - cell "Complete View" [ref=e4085]:
+                    - generic [ref=e4086]:
+                      - button "Complete" [ref=e4087]
+                      - link "View" [ref=e4088]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/45ccec26-192a-463d-a3ca-353b1a0af1a8
+                  - cell "1P / 1S" [ref=e4089]:
+                    - generic [ref=e4090]:
+                      - generic [ref=e4091]: 1P
+                      - text: /
+                      - generic [ref=e4092]: 1S
+                - row "18.3.6(i)a Supply & installation of Type 04 Chamber with all necessary fittings 30 40% In Progress — Feb 17, 2026 Mar 19, 2026 — — — — Parvaiz Complete View 1P / 1S" [ref=e4093] [cursor=pointer]:
+                  - cell "18.3.6(i)a" [ref=e4094]
+                  - cell "Supply & installation of Type 04 Chamber with all necessary fittings" [ref=e4095]
+                  - cell "30" [ref=e4096]
+                  - cell "40%" [ref=e4097]:
+                    - button "40%" [ref=e4098]
+                  - cell "In Progress" [ref=e4099]:
+                    - generic [ref=e4100]: In Progress
+                  - cell "—" [ref=e4101]
+                  - cell "Feb 17, 2026" [ref=e4102]
+                  - cell "Mar 19, 2026" [ref=e4103]
+                  - cell "—" [ref=e4104]
+                  - cell "—" [ref=e4105]
+                  - cell "—" [ref=e4106]
+                  - cell "—" [ref=e4107]
+                  - cell "Parvaiz" [ref=e4108]:
+                    - button "Parvaiz" [ref=e4109]
+                  - cell "Complete View" [ref=e4110]:
+                    - generic [ref=e4111]:
+                      - button "Complete" [ref=e4112]
+                      - link "View" [ref=e4113]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/0ea3d5db-3210-4541-b71b-f326872980b7
+                  - cell "1P / 1S" [ref=e4114]:
+                    - generic [ref=e4115]:
+                      - generic [ref=e4116]: 1P
+                      - text: /
+                      - generic [ref=e4117]: 1S
+                - row "18.3.6(i)b Supply & installation of Type 06 Chamber with all necessary fittings 30 40% In Progress — Feb 24, 2026 Mar 26, 2026 — — — — K. Barman Complete View 1P / 1S" [ref=e4118] [cursor=pointer]:
+                  - cell "18.3.6(i)b" [ref=e4119]
+                  - cell "Supply & installation of Type 06 Chamber with all necessary fittings" [ref=e4120]
+                  - cell "30" [ref=e4121]
+                  - cell "40%" [ref=e4122]:
+                    - button "40%" [ref=e4123]
+                  - cell "In Progress" [ref=e4124]:
+                    - generic [ref=e4125]: In Progress
+                  - cell "—" [ref=e4126]
+                  - cell "Feb 24, 2026" [ref=e4127]
+                  - cell "Mar 26, 2026" [ref=e4128]
+                  - cell "—" [ref=e4129]
+                  - cell "—" [ref=e4130]
+                  - cell "—" [ref=e4131]
+                  - cell "—" [ref=e4132]
+                  - cell "K. Barman" [ref=e4133]:
+                    - button "K. Barman" [ref=e4134]
+                  - cell "Complete View" [ref=e4135]:
+                    - generic [ref=e4136]:
+                      - button "Complete" [ref=e4137]
+                      - link "View" [ref=e4138]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/ce448942-d70e-40eb-aea7-c386c89e7969
+                  - cell "1P / 1S" [ref=e4139]:
+                    - generic [ref=e4140]:
+                      - generic [ref=e4141]: 1P
+                      - text: /
+                      - generic [ref=e4142]: 1S
+                - row "18.3.6(ii) 2way 200mm dia & 2way 50mm dia Upvc Future Ducts 30 40% In Progress — Mar 3, 2026 Apr 2, 2026 — — — — K. Barman Complete View 1P / 1S" [ref=e4143] [cursor=pointer]:
+                  - cell "18.3.6(ii)" [ref=e4144]
+                  - cell "2way 200mm dia & 2way 50mm dia Upvc Future Ducts" [ref=e4145]
+                  - cell "30" [ref=e4146]
+                  - cell "40%" [ref=e4147]:
+                    - button "40%" [ref=e4148]
+                  - cell "In Progress" [ref=e4149]:
+                    - generic [ref=e4150]: In Progress
+                  - cell "—" [ref=e4151]
+                  - cell "Mar 3, 2026" [ref=e4152]
+                  - cell "Apr 2, 2026" [ref=e4153]
+                  - cell "—" [ref=e4154]
+                  - cell "—" [ref=e4155]
+                  - cell "—" [ref=e4156]
+                  - cell "—" [ref=e4157]
+                  - cell "K. Barman" [ref=e4158]:
+                    - button "K. Barman" [ref=e4159]
+                  - cell "Complete View" [ref=e4160]:
+                    - generic [ref=e4161]:
+                      - button "Complete" [ref=e4162]
+                      - link "View" [ref=e4163]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/522911c6-8097-4787-8667-0a8a0dad2738
+                  - cell "1P / 1S" [ref=e4164]:
+                    - generic [ref=e4165]:
+                      - generic [ref=e4166]: 1P
+                      - text: /
+                      - generic [ref=e4167]: 1S
+                - row "18.3.6(iii) 2way 150mm dia Upvc Future Ducts 30 40% In Progress — Mar 10, 2026 Apr 9, 2026 — — — — Vijaykumar Complete View 1P / 1S" [ref=e4168] [cursor=pointer]:
+                  - cell "18.3.6(iii)" [ref=e4169]
+                  - cell "2way 150mm dia Upvc Future Ducts" [ref=e4170]
+                  - cell "30" [ref=e4171]
+                  - cell "40%" [ref=e4172]:
+                    - button "40%" [ref=e4173]
+                  - cell "In Progress" [ref=e4174]:
+                    - generic [ref=e4175]: In Progress
+                  - cell "—" [ref=e4176]
+                  - cell "Mar 10, 2026" [ref=e4177]
+                  - cell "Apr 9, 2026" [ref=e4178]
+                  - cell "—" [ref=e4179]
+                  - cell "—" [ref=e4180]
+                  - cell "—" [ref=e4181]
+                  - cell "—" [ref=e4182]
+                  - cell "Vijaykumar" [ref=e4183]:
+                    - button "Vijaykumar" [ref=e4184]
+                  - cell "Complete View" [ref=e4185]:
+                    - generic [ref=e4186]:
+                      - button "Complete" [ref=e4187]
+                      - link "View" [ref=e4188]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/a8500a3e-23c1-4258-b5f1-d72a70233969
+                  - cell "1P / 1S" [ref=e4189]:
+                    - generic [ref=e4190]:
+                      - generic [ref=e4191]: 1P
+                      - text: /
+                      - generic [ref=e4192]: 1S
+                - row "SMOKE-TEST-001 Smoke Test Activity 5 0% Not Started — May 20, 2026 May 25, 2026 — — — — — Set — Start Complete View 1P" [ref=e4193] [cursor=pointer]:
+                  - cell "SMOKE-TEST-001" [ref=e4194]
+                  - cell "Smoke Test Activity" [ref=e4195]
+                  - cell "5" [ref=e4196]
+                  - cell "0%" [ref=e4197]:
+                    - button "0%" [ref=e4198]
+                  - cell "Not Started" [ref=e4199]:
+                    - generic [ref=e4200]: Not Started
+                  - cell "—" [ref=e4201]
+                  - cell "May 20, 2026" [ref=e4202]
+                  - cell "May 25, 2026" [ref=e4203]
+                  - cell "—" [ref=e4204]
+                  - cell "—" [ref=e4205]
+                  - cell "—" [ref=e4206]
+                  - cell "—" [ref=e4207]
+                  - cell "— Set —" [ref=e4208]:
+                    - button "— Set —" [ref=e4209]
+                  - cell "Start Complete View" [ref=e4210]:
+                    - generic [ref=e4211]:
+                      - button "Start" [ref=e4212]
+                      - button "Complete" [ref=e4213]
+                      - link "View" [ref=e4214]:
+                        - /url: /projects/35ba1e9e-ca0e-4f04-bc10-890496752e11/activities/fd258099-d053-44d7-8149-f4b7039325c7
+                  - cell "1P" [ref=e4215]:
+                    - generic [ref=e4217]: 1P
+            - generic [ref=e4219]:
+              - button "Close" [ref=e4220]:
+                - img [ref=e4221]
+              - generic [ref=e4224]:
+                - heading "Set supervisor" [level=2] [ref=e4225]
+                - paragraph [ref=e4226]: 2.3.6(i)b — Blasting
+              - generic [ref=e4227]:
+                - generic [ref=e4228]: Supervisor
+                - button "Search supervisor candidates…" [ref=e4231] [cursor=pointer]:
+                  - generic [ref=e4232]: Search supervisor candidates…
+                  - img [ref=e4233]
+              - generic [ref=e4235]:
+                - button "Cancel" [ref=e4236]
+                - button "Save" [disabled] [ref=e4237]
+    - button "Ask AI" [ref=e189]:
+      - img [ref=e190]
+      - generic [ref=e193]: Ask AI
+  - alert [ref=e194]

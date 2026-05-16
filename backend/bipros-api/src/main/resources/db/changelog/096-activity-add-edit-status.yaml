@@ -1,0 +1,59 @@
+databaseChangeLog:
+  # Adds activity.activities.edit_status — a per-activity lock flag used by the AI scope
+  # tools and the frontend edit-guard. DRAFT means the activity is open for AI/auto-edits;
+  # LOCKED (default) means edits must go through the manual workflow. Dev picks this up via
+  # Hibernate ddl-auto: update (Activity.java has @Column(columnDefinition = ...));
+  # prod uses validate, so this changeset is the source of truth.
+
+  - changeSet:
+      id: 096-1-activity-edit-status-column
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: activities
+            schemaName: activity
+            columns:
+              - column:
+                  name: edit_status
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+                  defaultValue: 'LOCKED'
+      rollback:
+        - dropColumn:
+            tableName: activities
+            schemaName: activity
+            columnName: edit_status
+
+  - changeSet:
+      id: 096-2-activity-edit-status-check
+      author: bipros
+      changes:
+        - sql:
+            comment: Restrict edit_status to the two valid values (DRAFT, LOCKED).
+            sql: >-
+              ALTER TABLE activity.activities
+              ADD CONSTRAINT activities_edit_status_check
+              CHECK (edit_status IN ('DRAFT','LOCKED'))
+      rollback:
+        - sql:
+            sql: ALTER TABLE activity.activities DROP CONSTRAINT IF EXISTS activities_edit_status_check
+
+  - changeSet:
+      id: 096-3-activity-edit-status-index
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: activities
+            schemaName: activity
+            indexName: idx_activities_project_edit_status
+            columns:
+              - column:
+                  name: project_id
+              - column:
+                  name: edit_status
+      rollback:
+        - dropIndex:
+            tableName: activities
+            schemaName: activity
+            indexName: idx_activities_project_edit_status

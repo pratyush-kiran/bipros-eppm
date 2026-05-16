@@ -30,10 +30,13 @@ import { useAuthStore } from "@/lib/state/store";
 import type { ActivityStepResponse, CreateActivityStepRequest } from "@/lib/api/activityStepApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { ActivityAssignmentsByRole } from "@/components/activity/ActivityAssignmentsByRole";
+import { ActivityEditStatusBadge } from "@/components/activity/ActivityEditStatusBadge";
 import { ResourceAssignmentForm } from "@/components/resource/ResourceAssignmentForm";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
 import type { ExpenseResponse } from "@/lib/types";
+import { AlertTriangle, Lock, Unlock } from "lucide-react";
 
 // Heavy children deferred so the initial paint of the detail page is cheap —
 // when arriving here from /activities (especially WBS Tree view) the router
@@ -82,9 +85,16 @@ export default function ActivityDetailPage() {
   const activityId = params.activityId as string;
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canEditActivity = hasPermission("ACTIVITY.UPDATE");
+  const canLockActivity = hasPermission("ACTIVITY.LOCK");
+  const canUnlockActivity = hasPermission("ACTIVITY.UNLOCK");
 
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState("");
+  /**
+   * Confirm dialog for the lock / unlock action. Single piece of state because the two
+   * actions are mutually exclusive (you can only lock something that's DRAFT and vice versa).
+   */
+  const [lockConfirm, setLockConfirm] = useState<"lock" | "unlock" | null>(null);
 
   const [editData, setEditData] = useState<EditData>({
     name: "",
@@ -167,6 +177,42 @@ export default function ActivityDetailPage() {
       const msg = getErrorMessage(err, "Failed to update activity");
       setError(msg);
       notificationHelpers.handleApiError(err, "Failed to update activity");
+    },
+  });
+
+  /**
+   * Edit-lifecycle toggles. Lock makes inputs read-only and unblocks DPR submission; unlock
+   * does the reverse. The backend rejects {@code UpdateActivityRequest} against a LOCKED row
+   * with {@code ACTIVITY_LOCKED}, so we mirror that gate on the client by disabling inputs.
+   */
+  const lockMutation = useMutation({
+    mutationFn: () => activityApi.lock(projectId, activityId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["activity", projectId, activityId] });
+      queryClient.invalidateQueries({ queryKey: ["activities", projectId] });
+      setLockConfirm(null);
+      setIsEditing(false);
+      setError("");
+    },
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to lock activity"));
+      notificationHelpers.handleApiError(err, "Failed to lock activity");
+      setLockConfirm(null);
+    },
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: () => activityApi.unlock(projectId, activityId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["activity", projectId, activityId] });
+      queryClient.invalidateQueries({ queryKey: ["activities", projectId] });
+      setLockConfirm(null);
+      setError("");
+    },
+    onError: (err: unknown) => {
+      setError(getErrorMessage(err, "Failed to unlock activity"));
+      notificationHelpers.handleApiError(err, "Failed to unlock activity");
+      setLockConfirm(null);
     },
   });
 
@@ -299,6 +345,11 @@ export default function ActivityDetailPage() {
     return <div className="text-center text-red-500">Activity not found</div>;
   }
 
+  // LOCKED activities accept DPRs but reject manual edits. We mirror that backend rule by
+  // disabling all input fields and the Save button below. The auth-level {@code canEditActivity}
+  // gate still applies — a viewer never gets to edit regardless of lock state.
+  const isLocked = activity.editStatus === "LOCKED";
+
   return (
     <div>
       <PageHeader
@@ -306,6 +357,7 @@ export default function ActivityDetailPage() {
         description={activity.name}
         actions={
           <div className="flex items-center gap-2">
+            <ActivityEditStatusBadge editStatus={activity.editStatus} />
             <button
               type="button"
               onClick={() =>
@@ -316,11 +368,36 @@ export default function ActivityDetailPage() {
             >
               Create DPR
             </button>
+            {isLocked && canUnlockActivity && (
+              <button
+                type="button"
+                onClick={() => setLockConfirm("unlock")}
+                disabled={unlockMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-text-primary hover:bg-surface-hover disabled:opacity-60"
+                title="Unlock this activity to re-enable manual edits"
+              >
+                <Unlock size={14} />
+                {unlockMutation.isPending ? "Unlocking…" : "Unlock"}
+              </button>
+            )}
+            {!isLocked && canLockActivity && (
+              <button
+                type="button"
+                onClick={() => setLockConfirm("lock")}
+                disabled={lockMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md bg-warning px-3 py-2 text-sm font-medium text-text-primary hover:bg-warning/80 disabled:opacity-60"
+                title="Lock this activity so DPRs can be submitted against it"
+              >
+                <Lock size={14} />
+                {lockMutation.isPending ? "Locking…" : "Lock"}
+              </button>
+            )}
             {canEditActivity && (
               <button
                 onClick={handleStartEdit}
-                disabled={isEditing}
-                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-border"
+                disabled={isEditing || isLocked}
+                title={isLocked ? "Unlock the activity to edit fields" : undefined}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-border disabled:cursor-not-allowed"
               >
                 {isEditing ? "Editing..." : "Edit"}
               </button>
@@ -329,9 +406,48 @@ export default function ActivityDetailPage() {
         }
       />
 
+      {isLocked && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-border bg-surface-hover/30 px-4 py-3 text-sm text-text-secondary">
+          <Lock size={16} className="shrink-0 text-text-muted" />
+          <span>
+            <strong className="text-text-primary">This activity is locked.</strong> Click Unlock to
+            edit.
+          </span>
+        </div>
+      )}
+
+      {!isLocked && (
+        <div className="mb-4 flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span>
+            <strong>Draft</strong> — inputs are editable but DPRs can&apos;t be submitted until you
+            lock this activity.
+          </span>
+        </div>
+      )}
+
       {error && (
         <div className="mb-6 rounded-md bg-danger/10 p-4 text-sm text-danger">{error}</div>
       )}
+
+      <ConfirmDialog
+        open={lockConfirm === "lock"}
+        title="Lock this activity?"
+        message="Lock this activity? Manual edits will be disabled until you unlock it. DPRs can be submitted against locked activities."
+        confirmLabel={lockMutation.isPending ? "Locking…" : "Lock"}
+        variant="warning"
+        onConfirm={() => lockMutation.mutate()}
+        onCancel={() => setLockConfirm(null)}
+      />
+      <ConfirmDialog
+        open={lockConfirm === "unlock"}
+        title="Unlock this activity?"
+        message="Unlock this activity? Inputs will become editable again, but DPRs can't be submitted while it's in Draft."
+        confirmLabel={unlockMutation.isPending ? "Unlocking…" : "Unlock"}
+        variant="info"
+        onConfirm={() => unlockMutation.mutate()}
+        onCancel={() => setLockConfirm(null)}
+      />
 
       {isEditing ? (
         <EditForm
@@ -340,6 +456,11 @@ export default function ActivityDetailPage() {
           onSubmit={handleSaveEdit}
           onCancel={() => setIsEditing(false)}
           isSubmitting={updateMutation.isPending}
+          // Defense-in-depth: even though the Edit button is disabled while locked, if the
+          // activity flips to LOCKED while this form is open we still want every input to
+          // refuse keystrokes — otherwise the user will spend a minute typing and then have
+          // the server reject the save with {@code ACTIVITY_LOCKED}.
+          disabled={!canEditActivity || isLocked}
           usePert={usePert}
           onTogglePert={() => setUsePert(!usePert)}
           pertData={pertData}
@@ -1072,6 +1193,12 @@ interface EditFormProps {
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
   isSubmitting: boolean;
+  /**
+   * Master disable switch. Set when the activity is LOCKED (DPR-flow stage) or the user
+   * lacks {@code ACTIVITY.UPDATE}. Disables every input + the Save button so the form
+   * matches the server-side {@code ACTIVITY_LOCKED} rejection behaviour.
+   */
+  disabled?: boolean;
   usePert: boolean;
   onTogglePert: () => void;
   pertData: {
@@ -1100,6 +1227,7 @@ function EditForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  disabled = false,
   usePert,
   onTogglePert,
   pertData,
@@ -1118,6 +1246,11 @@ function EditForm({
   return (
     <div className="rounded-lg border border-border bg-surface/50 p-6 shadow-sm">
       <form onSubmit={onSubmit} className="space-y-6">
+        {/* Wrapping every input in a single <fieldset disabled> is the cheapest way to cascade
+            the lock-state read-only mode through this large form. Native form controls (input,
+            select, button) inherit the disabled attribute automatically; SearchableSelect calls
+            below OR their existing disabled props with this same flag for the non-native picker. */}
+        <fieldset disabled={disabled} className="space-y-6 disabled:opacity-70">
         <div>
           <label className="block text-sm font-medium text-text-secondary">Name *</label>
           <input
@@ -1317,6 +1450,7 @@ function EditForm({
                 label: wa.defaultUnit ? `${wa.name} (${wa.defaultUnit})` : wa.name,
               })),
             ]}
+            disabled={disabled}
           />
           <p className="mt-1 text-xs text-text-muted">
             Links this project activity to its master library entry. Optional — leave blank for
@@ -1394,7 +1528,7 @@ function EditForm({
                   : "No users with supervisor roles"
             }
             options={[{ value: "", label: "— none —" }, ...supervisorOptions]}
-            disabled={isLoadingSupervisorPool || supervisorOptions.length === 0}
+            disabled={disabled || isLoadingSupervisorPool || supervisorOptions.length === 0}
           />
           <p className="mt-1 text-xs text-text-muted">
             Field-accountable supervisor. Picker lists users carrying SUPERVISOR /
@@ -1489,11 +1623,16 @@ function EditForm({
           </div>
         )}
 
+        </fieldset>
+
+        {/* Action row sits OUTSIDE the fieldset so Cancel is always clickable — even when the
+            activity has been locked mid-edit, the user must be able to back out of the form. */}
         <div className="flex gap-3 pt-6">
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-border"
+            disabled={isSubmitting || disabled}
+            title={disabled ? "Unlock the activity to save edits" : undefined}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-border disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Saving..." : "Save Changes"}
           </button>

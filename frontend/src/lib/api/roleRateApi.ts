@@ -143,6 +143,11 @@ export const roleRateApi = {
     apiClient
       .get<ApiResponse<ManpowerRoleRate[]>>(`/v1/roles/${roleId}/manpower-rates`)
       .then((r) => r.data),
+  // Flat rate-book listing across every manpower role — DPR Add dropdown source.
+  listAllManpower: () =>
+    apiClient
+      .get<ApiResponse<ManpowerRoleRate[]>>(`/v1/role-rates/manpower`)
+      .then((r) => r.data),
   createManpowerRate: (roleId: string, req: ManpowerRoleRateRequest) =>
     apiClient
       .post<ApiResponse<ManpowerRoleRate>>(`/v1/roles/${roleId}/manpower-rates`, req)
@@ -158,6 +163,10 @@ export const roleRateApi = {
     apiClient
       .get<ApiResponse<EquipmentRoleVariant[]>>(`/v1/roles/${roleId}/equipment-variants`)
       .then((r) => r.data),
+  listAllEquipment: () =>
+    apiClient
+      .get<ApiResponse<EquipmentRoleVariant[]>>(`/v1/role-rates/equipment`)
+      .then((r) => r.data),
   createEquipmentVariant: (roleId: string, req: EquipmentRoleVariantRequest) =>
     apiClient
       .post<ApiResponse<EquipmentRoleVariant>>(`/v1/roles/${roleId}/equipment-variants`, req)
@@ -172,6 +181,10 @@ export const roleRateApi = {
   listMaterialForRole: (roleId: string) =>
     apiClient
       .get<ApiResponse<MaterialRoleVariant[]>>(`/v1/roles/${roleId}/material-variants`)
+      .then((r) => r.data),
+  listAllMaterial: () =>
+    apiClient
+      .get<ApiResponse<MaterialRoleVariant[]>>(`/v1/role-rates/material`)
       .then((r) => r.data),
   createMaterialVariant: (roleId: string, req: MaterialRoleVariantRequest) =>
     apiClient

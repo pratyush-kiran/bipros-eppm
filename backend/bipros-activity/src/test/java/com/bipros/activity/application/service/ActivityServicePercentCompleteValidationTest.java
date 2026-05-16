@@ -8,6 +8,7 @@ import com.bipros.activity.domain.model.PercentCompleteType;
 import com.bipros.activity.domain.repository.ActivityRelationshipRepository;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.activity.domain.repository.ActivityStepRepository;
+import com.bipros.activity.domain.repository.ActivitySupervisorRepository;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.security.ProjectAccessGuard;
 import com.bipros.common.util.AuditService;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.when;
 class ActivityServicePercentCompleteValidationTest {
 
   @Mock private ActivityRepository activityRepository;
+  @Mock private ActivitySupervisorRepository activitySupervisorRepository;
   @Mock private ActivityRelationshipRepository relationshipRepository;
   @Mock private AuditService auditService;
   @Mock private ProjectAccessGuard projectAccess;
@@ -48,8 +50,9 @@ class ActivityServicePercentCompleteValidationTest {
 
   @BeforeEach
   void setUp() {
-    service = new ActivityService(activityRepository, relationshipRepository, auditService,
-        projectAccess, projectRepository, percentCompleteCalculator, stepRepository,
+    service = new ActivityService(activityRepository, activitySupervisorRepository,
+        relationshipRepository, auditService, projectAccess, projectRepository,
+        percentCompleteCalculator, stepRepository,
         org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
 
     activityId = UUID.randomUUID();

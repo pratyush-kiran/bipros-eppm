@@ -70,6 +70,7 @@ public final class RolePermissionMatrix {
         m.put("PROJECT_MANAGER", Set.of(
                 "PROJECT.CREATE", "PROJECT.READ", "PROJECT.UPDATE", "PROJECT.DELETE", "PROJECT.EXPORT",
                 "ACTIVITY.CREATE", "ACTIVITY.READ", "ACTIVITY.UPDATE", "ACTIVITY.DELETE",
+                "ACTIVITY.LOCK", "ACTIVITY.UNLOCK",
                 "SCHEDULE.READ", "SCHEDULE.UPDATE",
                 "BASELINE.CREATE", "BASELINE.READ", "BASELINE.UPDATE",
                 "RESOURCE.READ", "RESOURCE.UPDATE",
@@ -99,6 +100,7 @@ public final class RolePermissionMatrix {
         m.put("SCHEDULER", Set.of(
                 "PROJECT.READ",
                 "ACTIVITY.CREATE", "ACTIVITY.READ", "ACTIVITY.UPDATE", "ACTIVITY.DELETE",
+                "ACTIVITY.LOCK", "ACTIVITY.UNLOCK",
                 "SCHEDULE.READ", "SCHEDULE.UPDATE",
                 "BASELINE.CREATE", "BASELINE.READ", "BASELINE.UPDATE", "BASELINE.DELETE",
                 "RESOURCE.READ",
@@ -111,6 +113,7 @@ public final class RolePermissionMatrix {
         m.put("PLANNING_ENGINEER", Set.of(
                 "PROJECT.READ",
                 "ACTIVITY.CREATE", "ACTIVITY.READ", "ACTIVITY.UPDATE",
+                "ACTIVITY.LOCK", "ACTIVITY.UNLOCK",
                 "SCHEDULE.READ", "SCHEDULE.UPDATE",
                 "BASELINE.CREATE", "BASELINE.READ",
                 "RESOURCE.READ",

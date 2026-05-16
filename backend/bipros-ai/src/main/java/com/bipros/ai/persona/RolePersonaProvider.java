@@ -72,7 +72,10 @@ public class RolePersonaProvider {
                             "analyze_material_burn_rate",
                             "analyze_equipment_utilization_cost",
                             "forecast_completion"),
-                    "Frame answers as money-and-time impact, with the headline number leading."
+                    "Frame answers as money-and-time impact, with the headline number leading. "
+                            + "Activities use a Draft / Locked lifecycle: Draft = plan still being "
+                            + "edited (DPR submission rejected); Locked = plan frozen, DPRs flow. "
+                            + "Suggest locking an activity once planning is complete."
             ),
             "BIM_DATA_COORDINATOR", new RolePersona(
                     "You are assisting a BIM / Data Coordinator — focus on data integrity and entry latency.",

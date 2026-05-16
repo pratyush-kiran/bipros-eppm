@@ -296,6 +296,12 @@ export interface ActivityResponse {
   projectId: string;
   wbsNodeId: string;
   status: string;
+  /**
+   * Two-stage edit lifecycle. {@code DRAFT} = inputs editable, DPRs blocked;
+   * {@code LOCKED} = inputs read-only, DPRs flow. Mirror of the field on the
+   * canonical {@link import("@/lib/api/activityApi").ActivityResponse}.
+   */
+  editStatus: "DRAFT" | "LOCKED";
   plannedStartDate: string | null;
   plannedFinishDate: string | null;
   earlyStartDate?: string | null;
@@ -1108,13 +1114,19 @@ export interface WbsAiJobView {
 
 // === AI Activity Generation ===
 
+export interface AiPredecessor {
+  code: string;
+  lagDays: number;
+  type?: string | null;
+}
+
 export interface ActivityAiNode {
   code: string;
   name: string;
   description?: string | null;
   wbsNodeCode: string;
   originalDurationDays: number;
-  predecessorCodes: string[];
+  predecessors: AiPredecessor[];
 }
 
 export interface ActivityAiGenerateRequest {

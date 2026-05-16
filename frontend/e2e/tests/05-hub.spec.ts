@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from '../fixtures/auth.fixture';
 
 test.describe('Home hub', () => {
-  test('admin lands on the hub with greeting, hero, and Configure column', async ({ page }) => {
+  test('admin lands on the hub with greeting and launchpad tiles', async ({ page }) => {
     await login(page);
     await expect(page).toHaveURL('/');
 
@@ -14,13 +14,17 @@ test.describe('Home hub', () => {
     const h1 = page.locator('[data-testid="hub-greeting"] h1');
     await expect(h1).toContainText(/Good (morning|afternoon|evening)/i);
 
-    // Hero strip should have multiple role-tailored cards.
+    // Hub is a launchpad — the question framing replaces the previous "For you" caption.
+    await expect(
+      page.getByRole('heading', { name: /What would you like to do\?/i })
+    ).toBeVisible();
+
+    // 4 action-oriented hero tiles for admin (start project / dashboard / users / settings).
     const heroCards = page.getByTestId('hub-hero-card');
     await expect(heroCards.first()).toBeVisible();
     expect(await heroCards.count()).toBeGreaterThanOrEqual(3);
-
-    // Admins see the Configure lifecycle column (gated by adminOnly in hubConfig).
-    await expect(page.getByTestId('hub-tool-column').filter({ has: page.getByText('Configure', { exact: true }) })).toBeVisible();
+    await expect(heroCards.filter({ hasText: 'Start a New Project' })).toBeVisible();
+    await expect(heroCards.filter({ hasText: 'Add Users' })).toBeVisible();
   });
 
   test('clicking the dashboard link loads the moved analytics page', async ({ page }) => {

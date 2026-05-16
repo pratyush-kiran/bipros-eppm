@@ -208,8 +208,14 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND m.role_id IS NOT NULL "
+                // Multi-supervisor: filter on activity_supervisors join via EXISTS so a
+                // co-supervisor sees all DPRs under activities they supervise, regardless
+                // of who personally filed each DPR. EXISTS does not fan out rows.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "       OR EXISTS ( "
+                + "            SELECT 1 FROM activity.activity_supervisors s "
+                + "             WHERE s.activity_id = a.id "
+                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
                 + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
                 + "         a.work_activity_id, a.code, a.name, d.unit, m.role_id")
         .setParameter("projectId", projectId)
@@ -263,8 +269,12 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND e.role_id IS NOT NULL "
+                // Same multi-supervisor swap as the manpower query above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "       OR EXISTS ( "
+                + "            SELECT 1 FROM activity.activity_supervisors s "
+                + "             WHERE s.activity_id = a.id "
+                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
                 + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
                 + "         a.work_activity_id, a.code, a.name, d.unit, e.role_id")
         .setParameter("projectId", projectId)
@@ -301,8 +311,13 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND d.activity_id IS NOT NULL "
+                // Same multi-supervisor swap. d.activity_id is guaranteed non-null by the
+                // preceding clause, so it is safe to use as the join target.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "       OR EXISTS ( "
+                + "            SELECT 1 FROM activity.activity_supervisors s "
+                + "             WHERE s.activity_id = d.activity_id "
+                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
                 + "GROUP BY d.activity_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)

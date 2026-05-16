@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -26,25 +27,43 @@ public interface ActivityRepository extends JpaRepository<Activity, UUID>, JpaSp
   List<Activity> findByProjectIdAndIsCritical(UUID projectId, Boolean isCritical);
 
   /**
-   * Phase 4.5: the legacy {@code responsible_resource_id} column was dropped by Liquibase 094.
-   * Old AI/graph callers still ask "what activities does this resource supervise?" with a
-   * Resource id, so this query bridges via {@code resource.resources.user_id} → the canonical
-   * {@code activities.supervisor_user_id}. When the Resource has no linked user (or the user
-   * supervises no activities) the result is empty — matches the legacy semantics.
+   * Multi-supervisor era: bridge a Resource id to the activities supervised by the
+   * Resource's linked user. Joins {@code activity.activity_supervisors} so that an
+   * activity is returned if the bridged user is ANY of its supervisors (not only the
+   * legacy single {@code supervisor_user_id} cache).
    *
-   * @deprecated New callers should look up by {@code supervisorUserId} directly.
+   * @deprecated New callers should resolve to a User id and use
+   *     {@link com.bipros.activity.domain.repository.ActivitySupervisorRepository#findByUserId}
+   *     scoped to the project.
    */
   @Deprecated(forRemoval = true)
   @Query(value = """
-      SELECT a.* FROM activity.activities a
+      SELECT DISTINCT a.* FROM activity.activities a
+      JOIN activity.activity_supervisors s ON s.activity_id = a.id
       WHERE a.project_id = :projectId
-        AND a.supervisor_user_id = (
+        AND s.user_id = (
           SELECT r.user_id FROM resource.resources r WHERE r.id = :responsibleResourceId
         )
       """, nativeQuery = true)
   List<Activity> findByProjectIdAndResponsibleResourceId(
       @Param("projectId") UUID projectId,
       @Param("responsibleResourceId") UUID responsibleResourceId);
+
+  /**
+   * Distinct project ids of activities this user supervises. Used by the AI
+   * EntityResolver to attach a {@code projects} array to supervisor candidates
+   * resolved from the User table — so portfolio-mode chat queries like
+   * "performance of Vijaykumar" can auto-adopt the right project. Multi-supervisor
+   * era: joins {@code ActivitySupervisor} so co-supervised activities are also
+   * counted.
+   */
+  @Query("""
+      SELECT DISTINCT a.projectId
+      FROM Activity a, com.bipros.activity.domain.model.ActivitySupervisor s
+      WHERE s.activityId = a.id
+        AND s.userId = :supervisorUserId
+      """)
+  List<UUID> findDistinctProjectIdsBySupervisorUserId(@Param("supervisorUserId") UUID supervisorUserId);
 
   long countByProjectId(UUID projectId);
 
@@ -61,4 +80,10 @@ public interface ActivityRepository extends JpaRepository<Activity, UUID>, JpaSp
   boolean existsByProjectIdAndCode(UUID projectId, String code);
 
   Optional<Activity> findByProjectIdAndCode(UUID projectId, String code);
+
+  /** Clear the legacy single-supervisor cache when the underlying user is deleted. */
+  @Modifying
+  @Query("UPDATE Activity a SET a.supervisorUserId = null, a.supervisorUserName = null "
+      + "WHERE a.supervisorUserId = :userId")
+  int detachSupervisor(@Param("userId") UUID userId);
 }

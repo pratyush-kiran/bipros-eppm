@@ -87,7 +87,17 @@ export function RoleDemandOverview({ projectId, activityId, title = "Resource Pl
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-b border-border/40">
-                <td className={pad}>{r.roleName ?? "—"}</td>
+                <td className={pad}>
+                  {r.roleName ?? "—"}
+                  {r.unplanned && (
+                    <span
+                      className="ml-2 inline-flex items-center rounded-full bg-surface-hover px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
+                      title="Field-added by a DPR — not in the original plan"
+                    >
+                      Unplanned
+                    </span>
+                  )}
+                </td>
                 <td className={pad}>{r.variantLabel ?? "—"}</td>
                 <td className={`${pad} text-right`}>{fmtNum(r.plannedUnits)}</td>
                 <td className={`${pad} text-right`}>{fmtNum(r.actualUnits)}</td>

@@ -1,10 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Award, Banknote, BarChart3, Briefcase, Building2, Calendar,
-  CircleDollarSign, Contact, FileText, FolderTree, Gauge,
+  Award, Banknote, BarChart3, Briefcase, Calculator, Calendar,
+  ClipboardCheck, Contact, FileText, FolderTree, Gauge,
   Grid, HardHat, Home, LayoutGrid, Layers, Library, ListChecks,
   Network, Plug, Settings, ShieldCheck, SlidersHorizontal, Sparkles,
-  Tag, UserCog, Users, UsersRound, Workflow, Bot, PanelLeft, SunMoon,
+  Tag, Users, UsersRound, Workflow, Bot, PanelLeft, SunMoon,
 } from "lucide-react";
 import type { IcpmsModule } from "@/lib/types";
 
@@ -19,6 +19,8 @@ export interface Command {
   adminOnly?: boolean;
   requireRoles?: readonly string[];
   module?: IcpmsModule;
+  /** Fine-grained permission code (e.g. "PROJECT.READ"). Mirrors Sidebar gating; ADMIN bypasses. */
+  permission?: string;
 }
 
 export const COMMAND_GROUPS = [
@@ -26,10 +28,9 @@ export const COMMAND_GROUPS = [
   "Plan",
   "Execute",
   "Control",
-  "HSE & Permits",
+  "Admin",
   "Resources",
   "Master Data",
-  "Admin",
   "Current Project",
   "Actions",
 ] as const;
@@ -41,12 +42,11 @@ const GROUP_ORDER: Record<string, number> = {
   Plan: 1,
   Execute: 2,
   Control: 3,
-  "HSE & Permits": 4,
+  Admin: 4,
   Resources: 5,
   "Master Data": 6,
-  Admin: 7,
-  "Current Project": 8,
-  Actions: 9,
+  "Current Project": 7,
+  Actions: 8,
 };
 
 export function groupRank(group: string): number {
@@ -79,57 +79,54 @@ function action(
  * Static registry of all commands. Navigation commands mirror the sidebar;
  * action commands provide quick toggles.
  */
+/**
+ * Mirrors {@code Sidebar.tsx} exactly — when a sidebar entry is added/removed/gated, mirror
+ * the change here so Cmd+K and the sidebar always agree on what's reachable.
+ */
 export const commands: Command[] = [
   // Plan
   nav("home", "Home", "/", Home, "Plan"),
-  nav("portfolios", "Portfolios", "/portfolios", Briefcase, "Plan"),
-  nav("projects", "Projects", "/projects", FolderTree, "Plan", { module: "M1_WBS_GIS" }),
-  nav("eps", "EPS", "/eps", Layers, "Plan", { module: "M1_WBS_GIS" }),
-  nav("dashboards", "Dashboards", "/dashboards", LayoutGrid, "Plan", { module: "M9_REPORTS" }),
+  nav("portfolios", "Portfolios", "/portfolios", Briefcase, "Plan", { permission: "PORTFOLIO.READ" }),
+  nav("projects", "Projects", "/projects", FolderTree, "Plan", { module: "M1_WBS_GIS", permission: "PROJECT.READ" }),
+  nav("eps", "EPS", "/eps", Layers, "Plan", { module: "M1_WBS_GIS", permission: "PROJECT.READ" }),
+  nav("obs", "OBS", "/obs", Network, "Plan", { module: "M1_WBS_GIS", permission: "PROJECT.READ" }),
+  nav("qc", "QC", "/qc", ClipboardCheck, "Plan", { module: "M1_WBS_GIS", permission: "NCR.READ" }),
+  nav("dashboards", "Dashboards", "/dashboards", LayoutGrid, "Plan", { module: "M9_REPORTS", permission: "REPORT.READ" }),
 
   // Execute
-  nav("calendars", "Calendars", "/admin/calendars", Calendar, "Execute", { module: "M2_SCHEDULE_EVM" }),
+  nav("calendars", "Calendars", "/admin/calendars", Calendar, "Execute", { module: "M2_SCHEDULE_EVM", permission: "SCHEDULE.READ" }),
 
   // Control
-  nav("reports", "Reports", "/reports", BarChart3, "Control", { module: "M9_REPORTS" }),
-  nav("obs", "OBS", "/obs", Network, "Control", { module: "M1_WBS_GIS" }),
-  nav("analytics", "Analytics", "/analytics", Sparkles, "Control", { module: "M9_REPORTS" }),
-
-  // HSE & Permits
-  nav("permits", "Permits", "/permits", ShieldCheck, "HSE & Permits", {
-    requireRoles: ["FOREMAN", "SITE_ENGINEER", "HSE_OFFICER", "PROJECT_MANAGER", "ADMIN"],
-  }),
-  nav("permits-workflow", "Workflow Reference", "/permits/workflow", Workflow, "HSE & Permits"),
-
-  // Resources
-  nav("resource-types", "Resource Types", "/admin/resource-types", ListChecks, "Resources", { adminOnly: true }),
-  nav("resource-roles", "Resource Roles", "/admin/resource-roles", Contact, "Resources", { adminOnly: true }),
-  nav("resources", "Resources", "/resources", Users, "Resources", { adminOnly: true }),
-  nav("labour-master", "Labour Master", "/labour-master", HardHat, "Resources", { adminOnly: true }),
-
-  // Master Data
-  nav("manpower-categories", "Categories", "/admin/manpower-categories", FolderTree, "Master Data", { adminOnly: true }),
-  nav("employment-types", "Employment Types", "/admin/employment-types", Briefcase, "Master Data", { adminOnly: true }),
-  nav("skills", "Skills", "/admin/skills", Sparkles, "Master Data", { adminOnly: true }),
-  nav("skill-levels", "Skill Levels", "/admin/skill-levels", Award, "Master Data", { adminOnly: true }),
-  nav("risk-library", "Risk Library", "/admin/risk-library", Library, "Master Data", { adminOnly: true }),
-  nav("risk-categories", "Risk Categories", "/admin/risk-categories", Layers, "Master Data", { adminOnly: true }),
-  nav("work-activities", "Work Activities", "/admin/work-activities", ListChecks, "Master Data", { adminOnly: true }),
-  nav("productivity-norms", "Productivity Norms", "/admin/productivity-norms", Gauge, "Master Data", { adminOnly: true }),
-  nav("project-categories", "Project Categories", "/admin/project-categories", Tag, "Master Data", { adminOnly: true }),
+  nav("reports", "Reports", "/reports", BarChart3, "Control", { module: "M9_REPORTS", permission: "REPORT.READ" }),
 
   // Admin
-  nav("users", "Users", "/admin/users", UsersRound, "Admin", { adminOnly: true }),
-  nav("profiles", "Profiles", "/admin/profiles", ShieldCheck, "Admin", { adminOnly: true }),
-  nav("organisations", "Organisations", "/admin/organisations", Building2, "Admin", { adminOnly: true }),
-  nav("user-access", "User Access", "/admin/user-access", UserCog, "Admin", { adminOnly: true }),
-  nav("risk-scoring-matrix", "Risk Scoring Matrix", "/admin/risk-scoring-matrix", Grid, "Admin", { adminOnly: true }),
-  nav("wbs-templates", "WBS Templates", "/admin/wbs-templates", FileText, "Admin", { adminOnly: true }),
-  nav("unit-rate-master", "Unit Rate Master", "/admin/unit-rate-master", Banknote, "Admin", { adminOnly: true }),
-  nav("cost-accounts", "Cost Accounts", "/admin/cost-accounts", CircleDollarSign, "Admin", { adminOnly: true }),
-  nav("integrations", "Integrations", "/admin/integrations", Plug, "Admin", { adminOnly: true }),
-  nav("udf", "User Defined Fields", "/admin/udf", SlidersHorizontal, "Admin", { adminOnly: true }),
-  nav("settings", "Settings", "/admin/settings", Settings, "Admin", { adminOnly: true }),
+  nav("users", "Users", "/admin/users", UsersRound, "Admin", { adminOnly: true, permission: "ADMIN_USER.READ" }),
+  nav("profiles", "Profiles", "/admin/profiles", ShieldCheck, "Admin", { adminOnly: true, permission: "ADMIN_PROFILE.READ" }),
+  nav("risk-scoring-matrix", "Risk Scoring Matrix", "/admin/risk-scoring-matrix", Grid, "Admin", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("integrations", "Integrations", "/admin/integrations", Plug, "Admin", { adminOnly: true, permission: "ADMIN_SETTINGS.READ" }),
+  nav("settings", "Settings", "/admin/settings", Settings, "Admin", { adminOnly: true, permission: "ADMIN_SETTINGS.READ" }),
+
+  // Resources (Admin subgroup in sidebar)
+  nav("resource-types", "Resource Types", "/admin/resource-types", ListChecks, "Resources", { adminOnly: true, permission: "RESOURCE.READ" }),
+  nav("resource-roles", "Resource Roles", "/admin/resource-roles", Contact, "Resources", { adminOnly: true, permission: "RESOURCE.READ" }),
+
+  // Master Data (Admin subgroup in sidebar)
+  nav("formulas", "Formulas", "/admin/formulas", Calculator, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("productivity-norms", "Productivity Norms", "/admin/productivity-norms", Gauge, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("work-activities", "Work Activities", "/admin/work-activities", ListChecks, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("risk-library", "Risk Library", "/admin/risk-library", Library, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("risk-categories", "Risk Categories", "/admin/risk-categories", Layers, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("employment-types", "Employment Types", "/admin/employment-types", Briefcase, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("skills", "Skills", "/admin/skills", Sparkles, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("skill-levels", "Skill Levels", "/admin/skill-levels", Award, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("grades", "Grades", "/admin/grades", Award, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("material-categories", "Material Categories", "/admin/material-categories", FolderTree, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("project-categories", "Project Categories", "/admin/project-categories", Tag, "Master Data", { adminOnly: true, permission: "ADMIN_MASTER.READ" }),
+  nav("permits", "Permits", "/permits", ShieldCheck, "Master Data", {
+    requireRoles: ["FOREMAN", "SITE_ENGINEER", "HSE_OFFICER", "PROJECT_MANAGER", "ADMIN"],
+    permission: "PERMIT.READ",
+  }),
+  nav("permits-workflow", "Workflow Reference", "/permits/workflow", Workflow, "Master Data", { permission: "PERMIT.READ" }),
 
   // Actions (placeholders — actual functions injected at runtime)
   action("toggle-sidebar", "Toggle Sidebar", PanelLeft, "Actions", () => {}, { keywords: ["collapse", "expand", "nav"] }),

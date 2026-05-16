@@ -26,6 +26,9 @@ export interface RoleAssignmentResponse {
   rateType?: string | null;
   plannedStartDate?: string | null;
   plannedFinishDate?: string | null;
+  // True when this row was auto-created by a DPR for a (role, variant) the planner never
+  // added — planned/budgeted are zero, only actual* / remaining* carry meaning.
+  unplanned?: boolean;
 }
 
 export interface RoleAssignmentRequest {

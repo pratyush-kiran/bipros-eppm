@@ -13,6 +13,11 @@ import org.springframework.stereotype.Component;
  * UUID", etc.), the local ClickHouse instance is stale relative to
  * {@code docker/clickhouse-init.sql}. The fix is one drop-and-replay — see
  * {@code docs/ai/local-clickhouse-reinit.md}.
+ *
+ * <p>The role-owned rate book (2026-05-13) lives in OLTP only for now. Role,
+ * variant, rate-override, work-activity, productivity-norm, and user dimensions
+ * are mirrored to ClickHouse in Phase 2; until then, route role/rate/supervisor/
+ * work-activity/capacity-utilization questions to the JPA tools listed below.
  */
 @Component
 public class SchemaCatalog {
@@ -23,33 +28,21 @@ public class SchemaCatalog {
             project or `IN ('<uuid1>','<uuid2>',...)` for cross-project. Quote UUIDs.
 
             PK column convention (READ THIS): every dim/fact has an explicit
-            `<entity>_id` column — `dim_resource.resource_id`,
-            `dim_activity.activity_id`, `dim_wbs.wbs_id`, `fact_dpr_logs.dpr_id`,
-            etc. There is NO plain `id` column on any analytics table. When
-            aliasing (e.g. `FROM bipros_analytics.dim_resource r`), still write
-            `r.resource_id`, never `r.id`. The first column of each table listed
-            below IS that PK. Don't carry `id` over from the OLTP catalog.
+            `<entity>_id` column — `dim_activity.activity_id`, `dim_wbs.wbs_id`,
+            `fact_dpr_logs.dpr_id`, etc. There is NO plain `id` column on any
+            analytics table. When aliasing (e.g. `FROM bipros_analytics.dim_activity a`),
+            still write `a.activity_id`, never `a.id`. The first column of each table
+            listed below IS that PK.
 
             Dimensions:
             - dim_project(project_id, code, name, status, portfolio_id, org_id, start_date, finish_date, currency, obs_node_id, updated_at)
             - dim_wbs(wbs_id, project_id, parent_wbs_id, code, name, level, weight, path)
             - dim_activity(activity_id, project_id, wbs_id, code, name, activity_type, uom, bq_quantity, planned_start, planned_finish, chainage_from_m, chainage_to_m, is_critical, responsible_resource_id, responsible_resource_name)
-              -- responsible_resource_id = supervisor (Labor Resource) managing the activity. Soft FK to dim_resource.resource_id.
-            - dim_resource(resource_id, project_id, resource_type, code, name, uom, unit_rate, is_subcontractor)
-              -- CRITICAL: this table is ORG-WIDE, not project-scoped. The project_id column is
-              -- always NULL because resources are defined globally and reused across projects.
-              -- NEVER write `WHERE project_id = '<uuid>'` against dim_resource — it returns zero
-              -- rows. To answer "which resources are on project X", join the project-scoped facts:
-              --   SELECT DISTINCT r.* FROM bipros_analytics.fact_resource_usage_daily f
-              --   LEFT JOIN bipros_analytics.dim_resource r ON r.resource_id = f.resource_id
-              --   WHERE f.project_id = '<uuid>'
-              -- BUT FOR THIS KIND OF QUESTION you should call the live JPA tool
-              -- find_resource_deployment, NOT query_clickhouse — it queries the OLTP
-              -- resource_assignments table directly and is override-aware.
-              -- unit_rate is the resource's BASE rate (rate-master snapshot at last ETL sync) and
-              -- does NOT reflect ProjectResource.rateOverride. Per-project rate questions →
-              -- live tools (find_resource_deployment / get_resource_profile / list_activity_resources)
-              -- which emit effective_rate, unit_basis, rate_source, override_applied.
+              -- responsible_resource_id is LEGACY (Resource-based supervisor) and is null on rows
+              -- created after 2026-05-13. The new supervisor field is supervisor_user_id (FK to
+              -- public.users) and lives in OLTP only — the dim_user dimension arrives in Phase 2.
+              -- For "who supervises activity X" use the live tool list_supervisors or query the
+              -- OLTP table activity.activities.supervisor_user_id via JPA.
             - dim_cost_account(cost_account_id, project_id, code, name, parent_id, category)
             - dim_calendar(date, year, quarter, month, week, iso_week, day_of_week, is_business_day, fiscal_period)
             - dim_risk(risk_id, project_id, code, title, risk_type, category_id, category_name, owner_id, owner_name, status, rag, trend, response_type, identified_date, identified_by_id, closed_date)
@@ -57,19 +50,40 @@ public class SchemaCatalog {
             - dim_permit(permit_id, project_id, permit_code, permit_type_template_id, parent_permit_id, status, risk_level, shift, contractor_org_id, location_zone, chainage_marker, supervisor_name, start_at, end_at, valid_from, valid_to, declaration_accepted_at, closed_at, closed_by, revoked_at, revoked_by, expired_at, suspended_at, total_approvals_required, approvals_completed)
             - dim_labour_designation(designation_id, code, designation, category, trade, grade, nationality, experience_years_min, default_daily_rate, skills, certifications, status)
 
+            Legacy (frozen — DO NOT cite in answers):
+            - dim_resource(resource_id, project_id, resource_type, code, name, uom, unit_rate, is_subcontractor)
+              -- Soft-archived 2026-05-13. The new role-owned rate book lives in OLTP under
+              -- resource.resource_roles / manpower_role_rates / equipment_role_variants /
+              -- material_role_variants with project overrides. dim_resource.unit_rate is the
+              -- LEGACY rate-master snapshot and is NOT reliable for any project rate question.
+              -- ALWAYS route role / rate / variant questions to the JPA tools:
+              --   query_role_rates              — resolve effective rate via project override → variant.
+              --   find_resource_deployment     — "where is role X deployed" / per-activity demand.
+              --   list_activity_resources      — what role+variant rows feed one activity.
+              -- Phase 2 will add dim_resource_role, dim_manpower_role_rate,
+              -- dim_equipment_role_variant, dim_material_role_variant, dim_project_rate_override,
+              -- dim_work_activity, dim_productivity_norm, dim_user to this warehouse — until
+              -- then, the JPA tools are the only correct source for role-based questions.
+
             Facts (date-partitioned, ReplacingMergeTree):
             - fact_activity_progress_daily(project_id, activity_id, date, pct_complete_physical, pct_complete_duration, qty_executed, cumulative_qty, chainage_from_m, chainage_to_m, source, event_ts)
             - fact_resource_usage_daily(project_id, activity_id, resource_id, resource_type, date, hours_worked, days_worked, qty_executed, productivity_actual, productivity_norm, cost, event_ts)
-              -- NOTE: cost is the value computed at ETL time using the resource's base rate snapshot
-              -- (dim_resource.unit_rate). It does NOT carry unit_basis or a rate_override_applied
-              -- flag, so SQL cannot distinguish rows whose cost reflected a per-project pool override
-              -- from rows that used the base rate. For cost-precise per-resource questions on a single
-              -- project, prefer list_activity_resources or find_resource_deployment (live tools).
+              -- LEGACY shape: resource_id is the old Resource FK. Cost was computed at ETL time
+              -- using dim_resource.unit_rate (also legacy). For any rate-precise / role-aware
+              -- question prefer list_activity_resources or find_resource_deployment.
+              -- Phase 2 adds role_id / variant FK columns; until then this fact is project-
+              -- trend-only, never authoritative for current state.
             - fact_cost_daily(project_id, wbs_id, activity_id, date, cost_account_id, labor_cost, material_cost, equipment_cost, expense_cost, total_actual, total_planned, total_earned, event_ts)
             - fact_evm_daily(project_id, wbs_id, activity_id, date, bac, pv, ev, ac, cv, sv, cpi, spi, tcpi, eac, etc_cost, vac, period_source, interpolation, event_ts)
             - fact_dpr_logs(project_id, activity_id, dpr_id, report_date, supervisor_user_id, supervisor_name, chainage_from_m, chainage_to_m, qty_executed, cumulative_qty, weather, temperature_c, remarks_text, event_ts)
-              -- WARNING: column name supervisor_user_id is legacy; the value is the supervisor's RESOURCE id (FK to dim_resource.resource_id). Filter by it for "DPRs filed by supervisor X". Equality compare to a UUID literal.
+              -- supervisor_user_id is the legacy Resource FK on rows pre-2026-05-13; on newer
+              -- rows it carries the User FK (FK target diverged). Until Phase 2 backfills the
+              -- column unambiguously, prefer the OLTP daily_progress_reports.supervisor_user_id
+              -- via query_dpr for any supervisor-attributed cost or activity question.
             - fact_dpr_manpower_daily(project_id, activity_id, dpr_id, manpower_row_id, report_date, trade, category, contractor_name, nos, working_hours, ot_hours, event_ts)
+              -- Phase 2 adds role_id / manpower_role_rate_id / effective_rate / line_cost /
+              -- supervisor_user_id. Until then, line_cost lives only in OLTP — prefer
+              -- get_activity_cost or query_dpr for any DPR cost question.
             - fact_dpr_equipment_daily(project_id, activity_id, dpr_id, equipment_row_id, report_date, equipment_type, fleet_no, ownership, nos, working_hours, idle_hours, breakdown_hours, fuel_litres, operator_name, availability_status, event_ts)
             - fact_dpr_material_daily(project_id, activity_id, dpr_id, material_row_id, report_date, material_name, unit, quantity, source, vendor_name, batch_no, event_ts)
             - fact_risk_snapshot_daily(project_id, risk_id, date, probability, impact_cost, impact_days, rag, status, monte_carlo_p50, monte_carlo_p80, monte_carlo_p95, risk_score, residual_risk_score, risk_type, owner_id, category_id, post_response_probability, post_response_impact_cost, post_response_impact_schedule, pre_response_exposure_cost, post_response_exposure_cost, exposure_start_date, exposure_finish_date, response_type, trend, identified_date, identified_by_id, event_ts)
@@ -80,6 +94,17 @@ public class SchemaCatalog {
             - mv_project_kpi_daily(project_id, date, ac, pv, ev, rows)
             - mv_portfolio_scurve_weekly(portfolio_id, week_start, pv_state, ev_state, ac_state)
             - mv_activity_weekly(project_id, activity_id, week_start, pct_state, qty_state)
+
+            When the warehouse is not enough:
+            For any question about ROLE rates, variant rates, project rate overrides,
+            currently-assigned supervisors, work-activity-driven productivity norms,
+            or capacity utilization across roles, the warehouse is INSUFFICIENT.
+            Route to the JPA tools instead:
+              - get_activity_cost            — planned / actual / remaining + breakdown by role|day|supervisor
+              - get_capacity_utilization     — manpower & equipment util % by role for a date window
+              - query_role_rates             — effective rate via project override → variant chain
+              - query_productivity_norm      — variant → role → unscoped chain
+              - get_supervisor_workload      — activities + DPRs + cost under one supervisor (User)
             """;
 
     public String full() {

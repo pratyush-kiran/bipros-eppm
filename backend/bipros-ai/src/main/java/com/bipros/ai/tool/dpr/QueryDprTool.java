@@ -69,7 +69,11 @@ public class QueryDprTool implements Tool {
         + "NOTE: this tool returns DPR headline rows (qty, chainage, weather, supervisor). "
         + "For per-resource cost questions (\"why does this equipment row cost ₹47.55?\") use "
         + "get_dpr_details, which exposes unit_rate, unit_rate_basis, line_cost, cost_formula, "
-        + "and rate-drift flags on every manpower/equipment/material child row.";
+        + "and rate-drift flags on every manpower/equipment/material child row. "
+        + "LIFECYCLE NOTE: activities in DRAFT edit_status reject DPR submissions, so they "
+        + "have zero DPRs by definition — don't waste a call querying DPRs for an activity "
+        + "you already know is Draft; check edit_status via list_activities / "
+        + "get_activity_full_context first.";
   }
 
   @Override

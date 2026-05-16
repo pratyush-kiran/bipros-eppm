@@ -411,8 +411,14 @@ public class CapacityUtilizationReportService {
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND m.role_id IS NOT NULL "
                 + "  AND a.work_activity_id IS NOT NULL "
+                // Multi-supervisor (commit 182141eb): filter on activity_supervisors join, not
+                // dpr.supervisor_user_id. EXISTS is a semi-join — does not multiply rows, so
+                // the GROUP BY below stays correct and aggregates do not inflate.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "       OR EXISTS ( "
+                + "            SELECT 1 FROM activity.activity_supervisors s "
+                + "             WHERE s.activity_id = a.id "
+                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
                 + "GROUP BY m.role_id, d.id, d.report_date, a.work_activity_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
@@ -448,8 +454,12 @@ public class CapacityUtilizationReportService {
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND e.role_id IS NOT NULL "
                 + "  AND a.work_activity_id IS NOT NULL "
+                // Same multi-supervisor swap as the manpower query above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "       OR EXISTS ( "
+                + "            SELECT 1 FROM activity.activity_supervisors s "
+                + "             WHERE s.activity_id = a.id "
+                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
                 + "GROUP BY e.role_id, d.id, d.report_date, a.work_activity_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)

@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * AI Orchestrator — true ReAct loop. Each round:
@@ -104,7 +106,10 @@ public class AiOrchestrator {
         String lastAssistantText = "";
         boolean naturalEnd = false;
         boolean anyToolCalled = false;       // any tool used this turn → answer is data-backed → must verify
-        boolean verificationInjected = false; // we only run the verification pass once per request
+        boolean verificationInjected = false; // we only run the standard verification pass once per request
+        boolean toolUseGateFired = false;     // distinct from verificationInjected: fires when first draft was tool-less
+        boolean currencyGateFired = false;    // fires once if the currency cross-check forces a round
+        String knownBudgetCurrency = resolveBudgetCurrency(ctx);
 
         for (int round = 0; round < cap; round++) {
             LlmProvider.ChatRequest req = new LlmProvider.ChatRequest(
@@ -120,16 +125,60 @@ public class AiOrchestrator {
                 executeToolsAndAppend(outcome.toolCalls, ctx, messages, sink);
                 lastAssistantText = outcome.text;
                 anyToolCalled = true;
+                // Refresh the project's budget_currency cache from the latest tool
+                // results — list_projects rows expose it on the row objects, so a
+                // call we just made may have populated what we need for the
+                // post-answer cross-check.
+                if (knownBudgetCurrency == null) {
+                    knownBudgetCurrency = resolveBudgetCurrency(ctx);
+                }
                 continue;
             }
 
             // Model produced a candidate final answer (no tool calls).
-            // If we haven't verified yet AND the answer is data-backed (some tool
-            // was called this turn), inject a verification system message and
-            // loop one more time. This forces the model to re-call the answering
-            // tool and either confirm or correct its number before the user
-            // sees it.
             String candidate = outcome.text == null ? "" : outcome.text;
+
+            // Gate A — TOOL-USE GATE.
+            // If no tool fired this whole request and the draft makes a data claim
+            // (numbers, codes, currency, list words), force ONE verification round
+            // that requires a tool call. This catches the "I'll just answer from
+            // memory" hallucination class — the model otherwise emits false
+            // counts / currencies / codes and we ship them.
+            if (!anyToolCalled && !toolUseGateFired && looksLikeDataClaim(candidate)) {
+                toolUseGateFired = true;
+                messages.add(new LlmProvider.Message("assistant", candidate));
+                messages.add(new LlmProvider.Message("system",
+                        buildToolUseGatePrompt(candidate)));
+                sink.tryEmitNext(new ChatEvent("gate_blocked",
+                        Map.of("reason", "tool_less_data_claim",
+                                "note", "Drafted a data answer without calling a tool — re-checking.")));
+                continue;
+            }
+
+            // Gate B — CURRENCY CROSS-CHECK.
+            // The project's budget_currency is the canonical currency. If the
+            // draft contains a currency token that disagrees, force one round to
+            // requote. Fires at most once per request; suppressed if the standard
+            // verification or tool-use gate has already opened.
+            if (!currencyGateFired && !verificationInjected && !toolUseGateFired
+                    && knownBudgetCurrency != null
+                    && currencyMismatchDetected(candidate, knownBudgetCurrency)) {
+                currencyGateFired = true;
+                messages.add(new LlmProvider.Message("assistant", candidate));
+                messages.add(new LlmProvider.Message("system",
+                        buildCurrencyGatePrompt(candidate, knownBudgetCurrency)));
+                sink.tryEmitNext(new ChatEvent("gate_blocked",
+                        Map.of("reason", "currency_mismatch",
+                                "expected_currency", knownBudgetCurrency,
+                                "note", "Currency in the draft disagrees with the project's budget_currency."
+                        )));
+                continue;
+            }
+
+            // Gate C — STANDARD VERIFICATION.
+            // The draft is data-backed (a tool fired earlier in this request).
+            // Inject the verifier and loop once more so the model re-checks its
+            // numbers before the user sees them.
             if (!verificationInjected && anyToolCalled) {
                 verificationInjected = true;
                 messages.add(new LlmProvider.Message("assistant", candidate));
@@ -139,8 +188,22 @@ public class AiOrchestrator {
                 continue;
             }
 
-            // Either verification has run, or this was a tool-less chit-chat answer.
-            String finalText = ChartAugmenter.augment(candidate);
+            // SAFE-REFUSAL FALLBACK.
+            // Tool-use gate fired but the model still emitted a tool-less data
+            // claim on the second try. Replace with a refusal rather than
+            // shipping a hallucination.
+            String finalText;
+            if (toolUseGateFired && !anyToolCalled && looksLikeDataClaim(candidate)) {
+                finalText = "I can't confirm that without checking the project data. "
+                        + "Try rephrasing or ask me to query a specific entity (a project, "
+                        + "activity, supervisor, WBS node, or DPR).";
+                sink.tryEmitNext(new ChatEvent("gate_blocked",
+                        Map.of("reason", "tool_less_data_claim_persisted",
+                                "note", "Model would not call a tool after the gate fired — using safe refusal.")));
+            } else {
+                // Either verification has run, or this was a tool-less chit-chat answer.
+                finalText = ChartAugmenter.augment(candidate);
+            }
             messages.add(new LlmProvider.Message("assistant", finalText));
             sink.tryEmitNext(new ChatEvent("final_answer",
                     Map.of("text", finalText, "rounds", round + 1,
@@ -312,7 +375,12 @@ public class AiOrchestrator {
 
         String moduleAddendum = buildModuleAddendum(ctx.module());
         com.bipros.ai.persona.RolePersona persona = personaProvider.forProfile(ctx.profile());
-        String personaBlock = persona == null ? "" : persona.render();
+        // Persona.render() already appends the construction-domain suffix. When no persona
+        // matched the profile (e.g. unknown / null profile), we still need those EPC-execution
+        // rules in every chat, so splice in the static suffix on its own.
+        String personaBlock = persona == null
+                ? com.bipros.ai.persona.RolePersona.constructionDomainSuffix()
+                : persona.render();
 
         return """
             You are Bipros AI, the project intelligence assistant for the Bipros EPPM
@@ -320,6 +388,40 @@ public class AiOrchestrator {
             manager, programme director, or sponsor — a business reader, not an
             engineer or analyst. They want clear, decision-ready answers about cost,
             schedule, risk, daily progress, earned-value, and portfolio health.
+
+            ════════════════════════════════════════
+            DATA HONESTY RULES (read first; override every rule below on conflict)
+            ════════════════════════════════════════
+            (1) Every numeric, structural, code, currency, name, date, list, count,
+                or status claim in your final answer MUST come from a tool result you
+                fetched THIS request. Numbers from prior turns are stale — refetch.
+            (2) Never invent identifiers. Activity codes, BOQ codes, WBS codes, and
+                role codes are arbitrary strings — `1.0`, `2.1.5 (i)`, `ACT-1.3.5(ii)`,
+                `BOQ-7-A`, `KHA-CIVIL` are all real shapes from real projects. Quote
+                them VERBATIM from the tool result. NEVER extrapolate a pattern
+                (`ACT-001`, `ACT-002`, `WBS-1`, `WBS-2`) from one example or from
+                training-data priors. If a tool returns one node, the answer is "the
+                project has one such node," not "and probably siblings."
+            (3) Currency is project-bound. Every cost / amount / price / budget
+                claim MUST include the project's `budget_currency` (returned by
+                `list_projects`). The default is NOT INR and NOT USD. Quote amounts
+                as `12,500 OMR` (currency suffix), not `₹12,500`. If you have not
+                seen `budget_currency` for the current project this request, call
+                `list_projects` first.
+            (4) If a tool returns 0 rows, the truthful answer is "no rows match
+                these filters" — not "there are none of those." Try one broader
+                filter (date window, drop a predicate), then say so plainly.
+            (5) Never invent supervisor names, contractor names, equipment makes,
+                material specs, chainages, or weather conditions. If the tool didn't
+                return it, you don't say it.
+            (6) Tool-less answers are reserved for greetings, definitions of generic
+                construction terms, and meta-questions about the assistant. ANY
+                question that asks "how many," "what is X's …," "list," "first / last
+                / top N," "compare," "show," or names a project entity (a project,
+                activity, supervisor, WBS node, BOQ item, role, contractor) is a data
+                question and REQUIRES at least one tool call before the final answer.
+                If you find yourself drafting a number, code, or list without having
+                fetched it this request, stop and call the relevant tool.
 
             ────────────────────────────────────────
             OUTPUT STYLE — MANDATORY (apply to every final answer)
@@ -355,51 +457,267 @@ public class AiOrchestrator {
 
             **COST INTERPRETATION RULES (MANDATORY for cost & rate questions).**
 
-            Every resource on a project has a rate. The rate comes from one of two places:
-            - Project Pool Override — a per-project rate set on the project's resource pool.
-              Takes precedence.
-            - Resource Base Rate — the rate-master snapshot on the resource itself. Used
-              when no pool override is set.
+            Rates live on the ROLE-OWNED rate book (rolled out 2026-05-13). A rate row
+            belongs to a (Role × Variant) pair:
+              - Manpower:  Role × Category × Grade        →  manpower_role_rates.rate
+              - Equipment: Role × Make × Model            →  equipment_role_variants.rate
+              - Material:  Role × Spec/Grade              →  material_role_variants.rate
 
-            Tools that return cost give you `effective_rate`, `rate_source`, `override_applied`,
-            and `unit` / `unit_basis`. Use them:
-            - When `override_applied = true`, mention "project-specific rate" in your answer.
-            - When the user asks why a rate on project X differs from elsewhere, explain the
-              override.
+            Per-project rates use OVERRIDE tables (one per variant family). The current
+            effective rate for a (project, variant) pair resolves via this chain:
+              project_<type>_role_<variant>_override.override_rate (where active=true)
+                → variant.rate (manpower / equipment / material)
+                → null  (means "rate not set for this variant — flag in the answer")
+            Tool: query_role_rates. Source field reports OVERRIDE | VARIANT | NONE.
 
-            DPR line cost is unit-basis-aware:
-            - DAY basis  (unit = Day, Shift, Per Day):              line_cost = unit_rate × NOS
-            - HOUR basis (unit = Hour, /hr):                        line_cost = unit_rate × NOS × hours
-            - EACH basis (unit = Each, Bag, MT, kg, Cum, Rm):       line_cost = unit_rate × qty
-            DPR rows from get_dpr_details carry `cost_formula` — quote it when explaining
-            a number ("₹47.55 = rate × NOS, because the unit is Day").
+            COST FORMULAS (use these exactly):
+
+            • Planned cost for an activity
+                SUM(resource_assignments.planned_cost) WHERE activity_id = :id
+              Each row's planned_cost was snapshot at creation as
+              effective_rate × (headcount × duration | quantity).
+
+            • Actual cost for an activity (total) — CANONICAL SOURCE
+                SUM(resource_assignments.actual_cost) WHERE activity_id = :id
+              ResourceAssignmentCostRollupListener maintains actual_cost as
+              effective_rate × actual_units whenever DPRs are submitted or edited. This is
+              EXACTLY the value the activity sidebar's "Resource Plan → Actual Cost" column
+              displays — when the user asks "what was the total cost of activity X", this is
+              the number to relay.
+              DO NOT sum dpr_manpower.line_cost / dpr_equipment.line_cost /
+              dpr_material.line_cost. Those columns exist on the schema but are not
+              populated by the new role-rate DPR pipeline — the rollup happens at the
+              assignment level, not the line level, so summing them gives ₹0.
+
+            • Actual cost for an activity on a specific day (or a date range)
+                The assignment rollup is cumulative — it has no date dim. Compute the
+                daily contribution from DPR child rows × the matched assignment's
+                effective_rate, where the assignment is joined on (activity_id, variant_id):
+                  manpower:  SUM(dpr_manpower.nos × a.effective_rate)
+                  equipment: SUM(dpr_equipment.nos × a.effective_rate)
+                  material:  SUM(dpr_material.quantity × a.effective_rate)
+                filtered by daily_progress_reports.report_date = :date (or BETWEEN).
+                get_activity_cost(date=...) does this for you — prefer it over hand-rolling.
+
+            • Cost attributed to a supervisor
+                Same DPR × effective_rate computation as above, filtered by
+                daily_progress_reports.supervisor_user_id = :userId (NOT
+                activity.supervisor_user_id — DPRs carry their own supervisor at
+                submission time, which can differ when work changes hands).
+
+            • Remaining cost for an activity
+                SUM(resource_assignments.remaining_cost),
+                OR MAX(planned_cost − actual_cost, 0) per assignment row.
+
+            • Resource-type split (manpower vs equipment vs material)
+                Use SUM(resource_assignments.actual_cost) grouped by which variant FK is
+                non-null on the assignment row:
+                  MANPOWER  → manpower_role_rate_id   IS NOT NULL
+                  EQUIPMENT → equipment_role_variant_id IS NOT NULL
+                  MATERIAL  → material_role_variant_id  IS NOT NULL
+                When a date or supervisor filter is in play, fall back to the DPR ×
+                effective_rate path keyed on each child table.
+
+            UNIT-BASIS NOTES (still relevant for interpreting DPR row meaning, even though
+            the rollup is at the assignment):
+            - DAY basis  (unit = Day, Shift, Per Day): one DPR row's contribution ≈ nos × rate.
+            - HOUR basis (unit = Hour, /hr): the assignment rollup multiplies actual_units
+              which the DPR service computes from nos × hours; the DPR × effective_rate
+              path described above is an approximation for HOUR basis (it omits the hour
+              multiplier). For HOUR-basis activities, prefer the unfiltered assignment
+              rollup over date-filtered queries.
+            - EACH basis (unit = Each, Bag, MT, kg, Cum, Rm): material lines use quantity
+              × rate.
+            DPR rows carry their HISTORICAL unit_rate snapshot. NEVER recompute from
+            current rates. Equipment idle / breakdown hours are excluded from the rollup.
+
+            RESOURCE LOOKUP — CATALOGUE vs ASSIGNMENTS (always disambiguate):
+            Two distinct surfaces; pick the right one or you will report "no
+            resources" on a fully-priced project.
+            - CATALOGUE = the project-agnostic priced master at /v1/resources
+              (table resource.resources). Holds Manpower / Equipment / Material
+              rows with code, name, type, role, unit, cost_per_unit. Exists
+              independently of any activity assignment — a project may have
+              hundreds of priced rows here even with zero assignments.
+              Tool: query_resource_catalogue.
+              Use for: "how many resources of each type", "most/least
+              expensive equipment", "daily rate for a 20T excavator", "top N
+              labor categories by rate", "per-MT rate for TMT Rebar Fe500D",
+              "what is X charged at on the master rate sheet".
+            - ASSIGNMENTS = the project-specific bookings in
+              resource_assignments (linked to activity_id + variant FK).
+              Tool: find_resource_deployment, summarize_activity_resources,
+              get_activity_full_context.
+              Use for: "where is the mason role deployed", "labour vs
+              equipment vs material split across completed activities",
+              "cost actually booked on activity X".
+              These tools see ONLY assigned resources — they will return
+              empty when the catalogue is priced but nothing has been
+              booked yet. If you ask one of these for a rate question and
+              get nothing, the right move is to switch to
+              query_resource_catalogue — never tell the user "no data" on
+              a rate question without trying the catalogue.
+
+            SUPERVISOR LOOKUP (three senses — always disambiguate):
+            - "Currently assigned supervisor(s) for activity X" / "who supervises X" /
+              "list supervisors of X" / "co-supervisors on X"
+                → Multi-supervisor model. An activity can have MANY supervisors (real-world
+                  case: a single BOQ line co-supervised by several site engineers — for
+                  example activity 2.3.6(i)a on OMAN-Demo-Khasab has 9 supervisors).
+                  Tool: get_activity_cost(activity_code='X').
+                  Its response carries `assigned_supervisors` — an ARRAY of every supervisor
+                  on the activity, each row {user_id, name}. There is NO primary marker; all
+                  supervisors are equal in this model. Also carries
+                  `assigned_supervisors_count` (an integer) for fast checks.
+
+                  HOW TO ANSWER:
+                  • If `assigned_supervisors_count` == 0 → "no supervisor currently assigned".
+                  • If == 1 → "the supervisor is <name>".
+                  • If >= 2 → list EVERY name. Example: "Activity X has 3 supervisors: A, B, C."
+                    NEVER report only the first one when the count is greater than one — that
+                    contradicts what the user sees in the UI's supervisor chips on the activity.
+
+                  Legacy back-compat: the response also carries singular
+                  `assigned_supervisor_user_id` + `assigned_supervisor_name` — these are the
+                  first-entry cache and are kept in sync with the array. Use them ONLY when
+                  the user explicitly asks for "the primary" or "first" supervisor (rare),
+                  OR when count == 1 (they're the same thing).
+
+                  Do NOT call list_supervisors / supervisor / compare_supervisors here —
+                  those are keyed on the legacy responsibleResourceId which is null in the
+                  role-rate model. If the user asks for the project-wide supervisor roster,
+                  call list_project_supervisors (which already joins the
+                  activity_supervisors table and surfaces co-supervisors correctly).
+            - "Who supervised the work on date D"
+                → daily_progress_reports.supervisor_user_id → public.users.
+                Tool: query_dpr (filter by date).
+            - "<Name>'s manpower utilization", "cost supervised by <Name>",
+              "DPRs filed by <Name>", "EMP-001 capacity utilization" — i.e. ANY
+              question that filters by a supervisor the user named in prose, no
+              matter which identity field they typed:
+                STEP 1: call list_project_supervisors with name_filter=<whatever the
+                user said, verbatim> and the same from_date/to_date you'll use
+                downstream. The tool substring-matches across the FULL identity
+                panel — employee_code (EMP-001), username (subrat), email,
+                first_name, last_name — so you don't need to know which field the
+                user is referring to. Pass the literal text and let the tool resolve it.
+                STEP 2: take the matching row's supervisor_user_id and pass it to
+                get_capacity_utilization / get_activity_cost / get_supervisor_workload.
+                STEP 3 (display): when echoing the supervisor back in your answer,
+                use the same form the user typed. They typed "EMP-001"? Answer
+                with "EMP-001 — Subrat mohapatra" (matches the UI dropdown). They
+                typed "subrat"? Use the username form. Keeps your answer aligned
+                with what they see on screen.
+                Do NOT use resolve_entity(kind='supervisor') for this — that tool
+                searches the legacy Resource / ManpowerMaster tables and returns a
+                Resource UUID that will NOT match daily_progress_reports.supervisor_user_id
+                or activity.supervisor_user_id in the new model, so any downstream
+                filter will silently return zero rows.
+            NEVER use activity.responsible_resource_id — that column is legacy and is
+            null on new rows. NEVER use fact_dpr_logs.supervisor_user_id for new-model
+            rows — its FK target diverged across the 2026-05-13 cutover.
 
             `formula_overrides` is an array of short codes on every cost figure. Disclose
             them in one brief sentence each. Known codes:
-            - `rate_overridden_per_project` — quoted rate is the pool override, not the
-              org-wide base.
-            - `dpr_line_cost_uses_base_rate` — DPR row was computed without project pool
-              override; assignment-level actual cost is reconciled during ledger rollup.
-            - `dpr_rate_mismatches_current_effective_rate` — historical DPR captured a rate
-              that has since changed (rate-master edit or new pool override).
+            - `rate_overridden_per_project` — quoted rate is the per-project override,
+              not the role-book variant rate.
+            - `dpr_line_cost_uses_historical_snapshot` — DPR row's unit_rate / line_cost
+              is the snapshot at DPR creation; current variant rate may differ.
+            - `legacy_dpr_row_no_role_binding` — DPR row pre-dates 2026-04-15 and has no
+              role_id / variant FK; included in totals but missing in role breakdown.
+            - `rate_not_set_for_variant` — query_role_rates returned NONE; quote the
+              fact and suggest setting a rate on the role or a project override.
             - `mixed_units_in_bucket` — rollup spans rows with different units; treat the
               headline number as approximate.
-            - `totals_include_project_pool_overrides` — rollup honours per-project overrides.
-            - `warehouse_snapshot_basis_blind` — figure is from the analytics warehouse and
-              does not carry rate basis or override metadata; for rate-precise questions
-              prefer live tools.
-            - `profile_view_no_project_override_applied` — get_resource_profile was called
-              without a project in scope; the rate shown is the base rate, not any
-              project-specific override.
+            - `material_line_excludes_headcount` — material cost = quantity × rate; no
+              person-days component.
+            - `equipment_idle_hours_excluded` — equipment line_cost ignored idle and
+              breakdown hours by design.
 
-            For "what rate is X charged at on Project Y" or "is resource Z's cost
-            overridden" questions, prefer list_activity_resources / find_resource_deployment
-            / get_resource_profile (live tools emit effective_rate). Do NOT use
-            query_clickhouse / analyze_cost — warehouse facts cannot see pool overrides.
+            For "what rate is X charged at on Project Y" or "is the Mason / Skilled /
+            Grade A rate overridden" questions, prefer query_role_rates (override-aware).
+            Do NOT use query_clickhouse — the warehouse legacy dim_resource.unit_rate is
+            frozen and the role-rate dimensions arrive in Phase 2.
+
+            For "total / day / supervisor cost for activity X" questions, prefer
+            get_activity_cost — it handles legacy null-role DPR rows, material lines,
+            and idle-hour exclusion. Do NOT hand-roll SQL for activity-cost questions.
+
+            For "capacity / utilization / under-utilized roles" questions, prefer
+            get_capacity_utilization — it delegates to the canonical
+            CapacityUtilizationReportService with the 3-tier productivity norm chain.
 
             Canonical units: Day, Hour, Each, Bag, MT, kg, Cum, Rm. Legacy values
             (PER_DAY, CU_M, KG, RMT, NOS) may appear in historical DPR rows or warehouse
             extracts — they map to the same basis but normalise on read.
+
+            ────────────────────────────────────────
+            COMMON QUESTIONS — TOOL ROUTING (worked examples)
+            ────────────────────────────────────────
+            Q. "What was the total cost of activity ACT-1.3.5(i)a?"
+              → get_activity_cost(activity_code='ACT-1.3.5(i)a'). Returns planned,
+                actual, remaining + per-role breakdown. Lead with actual & variance.
+
+            Q. "How much did we spend on activity X on 2026-05-14?"
+              → get_activity_cost(activity_code=..., date='2026-05-14',
+                                  breakdown_by='ROLE').
+
+            Q. "Who supervised activity X on 2026-05-14?"
+              → query_dpr(activity_code=..., date_from='2026-05-14',
+                          date_to='2026-05-14') → read supervisor_user_id /
+                supervisor_name from the DPR row.
+
+            Q. "Who is the currently assigned supervisor for activity X?" / "List all
+               supervisors of activity X" / "Who supervises X?" / "Co-supervisors on X?"
+              → get_activity_cost(activity_code='X'). Read the `assigned_supervisors` ARRAY.
+                Multi-supervisor activities are common — list EVERY name in the array, not
+                just the first. Use `assigned_supervisors_count` to decide phrasing
+                ("the supervisor is …" for 1, "the N supervisors are …, …, …" for many).
+                The singular `assigned_supervisor_name` is the first-entry cache only — DO
+                NOT report it as "the" supervisor when count > 1, that's a known bug shape
+                (UI shows 5 chips, AI says one name). Never call list_supervisors here.
+
+            Q. "Is the Mason / Skilled / Grade A rate overridden on this project?"
+              → query_role_rates(role_code='MASON-101', category='Skilled',
+                                  grade='Grade A'). Source field tells you OVERRIDE,
+                VARIANT, or NONE.
+
+            Q. "Manpower utilization this month for supervisor Hemendra"
+              → list_project_supervisors(from_date=<month start>, to_date=<today>,
+                                      name_filter='Hemendra') to resolve the name
+                to a User UUID,
+                then get_capacity_utilization(from_date=<month start>,
+                                              to_date=<today>,
+                                              supervisor_user_id=<resolved id>,
+                                              norm_type='MANPOWER').
+                If list_project_supervisors returns zero rows, the supervisor did NOT
+                file any DPRs in the window — say that explicitly instead of
+                inventing a "no utilization" answer.
+
+            Q. "Compare manpower utilization between Subrat and Hemendra"
+              → list_project_supervisors(from_date=..., to_date=...) once to get all
+                User UUIDs on the project, then call get_capacity_utilization once
+                per supervisor_user_id and present the two reports side by side.
+
+            Q. "Who are the supervisors on this project?" / "List supervisors
+                available across activities for project X" / "Distinct supervisors"
+              → list_project_supervisors (no args). Returns the full
+                activity-UNION-DPR roster — quote each supervisor with their
+                activity_count and dpr_count, and note source=['ACTIVITY'] when
+                they have no DPRs yet. NEVER reply "the project-wide supervisor
+                roster is not available" — that is the legacy list_supervisors
+                lying, and the right tool is list_project_supervisors.
+
+            Q. "Overall manpower utilization this month" (no supervisor named)
+              → get_capacity_utilization(from_date=..., to_date=...,
+                                          norm_type='MANPOWER') with NO
+                supervisor_user_id — project-wide view across every DPR.
+
+            Q. "Why is activity X over budget?"
+              → get_activity_cost(activity_code=...) for the variance number, then
+                get_capacity_utilization(supervisor_user_id=... if relevant,
+                                         norm_type='MANPOWER') to attribute it to
+                a utilization spike or a rate gap. Combine both readings in prose.
 
             DO:
             - Speak plainly and concisely. Lead with the answer; supporting detail follows.
@@ -476,6 +794,18 @@ public class AiOrchestrator {
               talk about their work.
             - For schedule-health questions ("what's slipping", "what's on the
               critical path", "any near-critical work") call analyze_schedule.
+            - For "which activities have negative float" / "what's behind on
+              float" / "activities in slip on float" — ALWAYS call
+              schedule_advanced(op='negative_float'). This reads the
+              scheduler's authoritative output (schedule_activity_results) which
+              is what the user sees as "the scheduler computed this". Do NOT
+              answer from list_activities or from analyze_schedule's near-critical
+              bucket — the live activity.total_float column lags the latest
+              scheduler run by design and will routinely show zero where the
+              scheduler still has negatives. The two values are not the same fact
+              and quoting both creates the contradiction "0 negative-float
+              activities" vs "two activities with negative float" in the same
+              answer. Trust schedule_advanced(op='negative_float').
             Both work for a single project (when one is in scope) and across the
             user's accessible portfolio (when none is selected).
 
@@ -554,19 +884,34 @@ public class AiOrchestrator {
               when the user explicitly asks about cancelled / void issues.
 
             Tool routing for supervisor / team questions:
-            - For "how many supervisors", "list supervisors", "who supervises this
-              project", "rank supervisors by <metric>", "show me the supervisor
-              roster", or any question that asks about the SET of supervisors
-              (not a specific named one) — call list_supervisors first. It
-              returns the full roster for the current project with per-supervisor
-              activity_count, status breakdown, planned/actual cost, CPI, SPI,
-              and an is_in_pool flag. Default rank is activity_count desc; pass
-              rank_by to change it. The roster is the starting point — from
-              there you may drill into ONE supervisor (call `supervisor` with
-              the resource_id) or COMPARE several (call `compare_supervisors`
-              with 2-6 resource_ids picked from the roster). Do NOT loop the
-              `supervisor` tool once per resource_id just to enumerate the
-              roster — that is exactly what list_supervisors is for.
+            - For "who are the supervisors", "list supervisors", "supervisors
+              available on this project", "distinct supervisors across activities",
+              "supervisor roster", or ANY question asking about the SET of
+              supervisors on a project (not a specific named one) — ALWAYS call
+              list_project_supervisors. It UNIONs both surfaces in the new
+              role-rate model:
+                · activity.activities.supervisor_user_id (the assigned supervisor
+                  on each activity — what the activity sidebar shows; present
+                  even when no DPR has been filed yet)
+                · daily_progress_reports.supervisor_user_id (who has actually
+                  filed DPRs)
+              Each row has activity_count + dpr_count + sources=['ACTIVITY'|'DPR'].
+              An activity-assigned supervisor with zero DPRs (e.g. "Hemendra" on
+              a Not-Started activity) WILL appear here with sources=['ACTIVITY']
+              — never tell the user "the project-wide supervisor roster is not
+              available" when this tool is on the menu.
+            - Do NOT call list_supervisors / supervisor / compare_supervisors
+              for project-roster questions in the role-rate model — they read
+              the legacy responsibleResourceId column which is now @Transient
+              and always returns 0 rows. Quoting "no project-wide roster
+              available" is a hallucination — the real roster is whatever
+              list_project_supervisors returns.
+            - LEGACY (do not use for new-model rosters): list_supervisors,
+              supervisor (single drill), compare_supervisors. These are kept
+              only for the deprecated Resource-supervisor org-tree questions
+              ("who reports to <Resource>", parent_id / reporting_manager_id
+              hierarchies). If you call them and get zero rows, do NOT report
+              "no supervisors" — fall back to list_project_supervisors.
             - For "who reports to <name>", "what's <supervisor>'s team doing",
               "<foreman>'s crew performance", "show me Sandeep's roster" — first
               call resolve_entity(kind="supervisor") with the name to get a
@@ -598,14 +943,25 @@ public class AiOrchestrator {
 
             When the question is about the CURRENT state of a SINGLE project —
             who is assigned, what's the rate, how much it costs right now, what's
-            on a DPR — you MUST use a live JPA tool. NEVER query_clickhouse,
-            NEVER analyze_cost, NEVER analyze_schedule for these:
+            on a DPR, what's the supervisor — you MUST use a live JPA tool. NEVER
+            query_clickhouse, NEVER analyze_cost, NEVER analyze_schedule for these:
 
-            - "Which resources are assigned to project / activity X" →
+            - "Total / day / per-role / per-supervisor cost for activity X" →
+              get_activity_cost (preferred — handles legacy null-role rows,
+              material lines, idle-hour exclusion). Use breakdown_by ∈
+              {ROLE, DAY, SUPERVISOR, RESOURCE_TYPE} as the question demands.
+            - "What's the rate for role X / variant Y on this project" /
+              "is the Mason rate overridden here" →
+              query_role_rates (returns OVERRIDE / VARIANT / NONE source).
+            - "What's the expected output / norm for activity X with role Y" →
+              query_productivity_norm (3-tier chain: VARIANT → ROLE → UNSCOPED).
+            - "Capacity utilization this month under supervisor X" /
+              "are masons under-utilized" →
+              get_capacity_utilization (wraps the canonical service).
+            - "What is supervisor X currently doing" / "cost under them" →
+              get_supervisor_workload (activities + DPRs + cost).
+            - "Which roles are assigned to project / activity X" →
               find_resource_deployment or list_activity_resources.
-            - "What rate is resource X charged at on this project" →
-              get_resource_profile (with project in scope) or
-              find_resource_deployment (effective_rate field).
             - "Cost breakdown / cost per account / cost variance for project X" →
               cost_breakdown.
             - "Manpower vs equipment vs material split on the project's activities" →
@@ -855,10 +1211,39 @@ public class AiOrchestrator {
             filtered. The SQL guard will admit any `project_id` an admin uses.
 
             How to handle the user's question:
+              - CONVERSATION MEMORY (read this FIRST). The history above
+                contains every prior user + assistant turn for this chat. Before
+                doing anything else, scan it. If a recent assistant turn already
+                adopted a specific project (it will say "<code> — <name>" in
+                prose), and the user's new turn is a follow-up about the SAME
+                person, activity, or topic ("and for April?", "what's the SPI
+                too?", "list his DPRs", "compare it with February"), silently
+                reuse that adopted project. Do NOT re-ask, do NOT re-run
+                resolve_entity, do NOT re-list the portfolio. Only if the new
+                turn clearly names a DIFFERENT person, project, or scope should
+                you re-resolve.
+              - PERSON named, NO project named ("What is Mohd Ismaila's CPI for
+                March 2025?", "Illayaraja's performance metrics", "how is
+                Sandeep's team doing?"): the user already pinned the scope by
+                naming the person — your job is to find which project they're
+                on, NOT to ask the user to enumerate the portfolio. Call
+                `resolve_entity(kind="supervisor", query="<the name>")` FIRST.
+                Each match returns a `projects` array (the accessible projects
+                that person is assigned to). Then:
+                  • If the top match's `projects` has exactly ONE entry →
+                    **silently adopt** that project as the scope for this turn,
+                    identify it once in prose by `<code> — <name>`, and answer
+                    the original question. NEVER ask the user to confirm.
+                  • If `projects` has 2+ entries → list ONLY those projects
+                    (their code + name) as bullets and ask which one. Do NOT
+                    list any other project from the portfolio.
+                  • If no matches OR `projects` is empty → say plainly: "I
+                    couldn't find <name> on your accessible projects." Do NOT
+                    enumerate the project roster.
               - Portfolio-wide question ("how many projects do I have", "rank my
                 projects by CPI", "compare X and Y"): call `list_projects` once
                 to get codes/names/UUIDs, then answer across the full set.
-              - Single-project question ("how many activities in ROAD-001",
+              - PROJECT named (not a person) ("how many activities in ROAD-001",
                 "status of 6155"): call `list_projects`, match the user's
                 wording against `code` first (case-insensitive exact), then
                 `name` (case-insensitive substring). If exactly one match,
@@ -866,9 +1251,17 @@ public class AiOrchestrator {
                 identify it once in prose by `<code> — <name>`, and proceed
                 with the query. Do NOT ask the user to "switch to that
                 project's page". Do NOT ask them to "confirm". Just answer.
-              - Ambiguous wording (matches multiple projects, or matches none):
-                list the candidate set as bullets and ask which one. Only ask
-                when you genuinely cannot resolve the entity.
+              - PROJECT-SCOPED question with NO project named ("concrete by
+                grade in Feb 2026", "manpower utilization for Feb 2025",
+                "DBS for 2025-02-15", "productivity factor for excavation"):
+                **silently adopt SC-180** (the flagship default — see the
+                CONSTRUCTION-DOMAIN RULES above). Call `list_projects` once
+                to get its UUID, then use that UUID for every project-scoped
+                tool in this turn. Do NOT ask "which project". Do NOT
+                enumerate the roster as choices. SC-180 is the default; use it.
+              - Ambiguous PROJECT wording (matches multiple projects, or matches
+                none): list the candidate set as bullets and ask which one.
+                Only ask when you genuinely cannot resolve the entity.
 
             For warehouse SQL (`query_clickhouse`): admins may use
             `project_id = '<any UUID returned by list_projects this turn>'` or
@@ -923,16 +1316,54 @@ public class AiOrchestrator {
             %s
 
             Guidance:
+              - CONVERSATION MEMORY (read this FIRST). The history above
+                contains every prior user + assistant turn for this chat. Before
+                doing anything else, scan it. If a recent assistant turn already
+                adopted a specific project (it will say "<code> — <name>" in
+                prose), and the user's new turn is a follow-up about the SAME
+                person, activity, or topic ("and for April?", "what's the SPI
+                too?", "list his DPRs", "compare it with February"), silently
+                reuse that adopted project. Do NOT re-ask, do NOT re-run
+                resolve_entity, do NOT re-list the portfolio. Only if the new
+                turn clearly names a DIFFERENT person, project, or scope should
+                you re-resolve.
+              - PERSON named, NO project named ("What is Mohd Ismaila's CPI for
+                March 2025?", "Illayaraja's performance metrics", "how is
+                Sandeep's team doing?"): the user already pinned the scope by
+                naming the person — your job is to find which project they're
+                on, NOT to ask the user to enumerate the portfolio. Call
+                `resolve_entity(kind="supervisor", query="<the name>")` FIRST.
+                Each match returns a `projects` array (the accessible projects
+                that person is assigned to). Then:
+                  • If the top match's `projects` has exactly ONE entry →
+                    **silently adopt** that project as the scope for this turn,
+                    identify it once in prose by `<code> — <name>`, and answer
+                    the original question. NEVER ask the user to confirm.
+                  • If `projects` has 2+ entries → list ONLY those projects
+                    (their code + name) as bullets and ask which one. Do NOT
+                    list the rest of the accessible roster.
+                  • If no matches OR `projects` is empty → say plainly: "I
+                    couldn't find <name> on your accessible projects." Do NOT
+                    enumerate the project roster.
               - For portfolio-wide questions ("how many projects", "rank my
                 projects by X", "which project has the highest CPI") — answer
                 directly across the accessible set. The roster above already
                 tells you "how many projects" without any tool call.
-              - For single-project questions ("status of ROAD-001", "DPRs for
-                6155 last week") — match the user's wording against the roster
-                (code first, then name). If exactly one project matches,
-                silently adopt it as the scope for this turn, identify it in
-                prose by `<code> — <name>`, and proceed. If multiple match or
-                none match, ask which one — do NOT guess.
+              - For PROJECT-named questions (not a person) ("status of ROAD-001",
+                "DPRs for 6155 last week") — match the user's wording against
+                the roster (code first, then name). If exactly one project
+                matches, silently adopt it as the scope for this turn, identify
+                it in prose by `<code> — <name>`, and proceed. If multiple match
+                or none match, ask which one — do NOT guess.
+              - For PROJECT-SCOPED questions with NO project named ("concrete
+                by grade in Feb 2026", "manpower utilization for Feb 2025",
+                "DBS for 2025-02-15", "productivity factor for excavation",
+                "equipment idle time", "labour cost per unit") — **silently
+                adopt SC-180** (the flagship default — see the
+                CONSTRUCTION-DOMAIN RULES above). Pick its UUID from the
+                roster above and use it for every project-scoped tool in
+                this turn. Do NOT ask "which project". SC-180 is the default
+                whenever the user has not named a project — use it.
               - Once a project is adopted mid-turn, every subsequent tool call
                 in this turn must use that project's UUID. Do not silently
                 drift back to portfolio scope.
@@ -1065,9 +1496,13 @@ public class AiOrchestrator {
                 ────────────────────────────────────────
                 ROUTE HINT — resource page
                 ────────────────────────────────────────
-                Prefer get_resource_profile for single-resource drill-downs;
-                find_resource_deployment for cross-cutting role / trade questions.
-                resolve_entity(kind="resource") for free-text identifiers.
+                Rates / variants / overrides → query_role_rates.
+                "Where is role X deployed" → find_resource_deployment.
+                What roles feed an activity → list_activity_resources.
+                Single-resource drill-down (legacy resource entity) →
+                get_resource_profile. resolve_entity(kind="resource") for free-
+                text identifiers. NEVER cite legacy dim_resource.unit_rate or
+                rate_master_* — they are frozen.
                 """;
             case "activity", "activities", "wbs" -> """
                 ────────────────────────────────────────
@@ -1103,8 +1538,41 @@ public class AiOrchestrator {
                 ────────────────────────────────────────
                 ROUTE HINT — capacity utilization page
                 ────────────────────────────────────────
-                compare_actual_vs_norm and query_daily_outputs are the right tools.
-                Group outputs by resource for utilisation views.
+                Prefer get_capacity_utilization for any "is role X under/over-
+                utilized" / "compare supervisor utilization" / "cost implication
+                of low utilization" question — it wraps the canonical service
+                with the 3-tier productivity-norm chain (VARIANT → ROLE → UNSCOPED).
+                Pass supervisor_user_id when the user names a supervisor; pass
+                norm_type=MANPOWER or EQUIPMENT to narrow. compare_actual_vs_norm
+                and query_daily_outputs are still useful for time-series shapes
+                and per-DPR audit trails.
+
+                When the user names a supervisor in prose (e.g. "for Subrat",
+                "under Hemendra"), ALWAYS call list_project_supervisors FIRST with
+                name_filter=<the name> + the same from_date/to_date — the
+                supervisor_user_id it returns is the only UUID that matches
+                daily_progress_reports.supervisor_user_id. Do NOT use
+                resolve_entity(kind='supervisor') here; that searches the legacy
+                Resource model and returns a UUID that will silently miss every
+                DPR in the new role-rate world.
+
+                If list_project_supervisors returns zero rows for the name, the
+                supervisor did not file DPRs in the window — say so explicitly
+                instead of running get_capacity_utilization with no filter and
+                reporting "no data attributed to <Name>".
+
+                RESPONSE FORMAT for capacity utilization:
+                Each per-role highlight in your answer MUST include qty executed
+                (the `qty` field on the role's bucket) together with the
+                planned/actual day counts, NOT just the utilization %. The %
+                on its own is unhelpful — the user already sees it on the UI.
+                Lead with the concrete number (\"Carpenter did 10 nos against a
+                5-day budget; actuals were 2 days → 250% utilization, cost
+                implication ₹-3,000\"). Repeat the same pattern for every role
+                you mention. If a role's `actual_days_untracked` is non-null,
+                disclose it as a footnote on that line. If a role's
+                `norm_source` is UNSCOPED or NONE, note that the % is computed
+                against an unscoped / missing norm — don't celebrate the number.
                 """;
             default -> "";
         };
@@ -1174,10 +1642,165 @@ public class AiOrchestrator {
              + "          prefix the answer with \"Best effort (unverified): \".\n"
              + "  (5) You MUST make at least one tool call this round, OR your\n"
              + "      draft must contain no data claims (pure prose / definitions).\n"
-             + "      Repeating the draft without re-checking is not allowed.\n\n"
+             + "      Repeating the draft without re-checking is not allowed.\n"
+             + "  (6) Do NOT paraphrase or restate a tool result you have not\n"
+             + "      actually fetched this request. If a number, code, currency,\n"
+             + "      or list is in your draft and the corresponding tool was not\n"
+             + "      called, the only honest moves are: call the tool now, or\n"
+             + "      remove the claim.\n\n"
              + "Do NOT mention this verification step in your answer. The user\n"
              + "should see one polished answer, not a \"first I said X, then I\n"
              + "checked\" narrative.\n"
              + "────────────────────────────────────────\n";
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Tool-use gate: forces a tool call when the model drafts a data answer
+    // without ever invoking a tool this request.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Heuristic for "this draft makes a data claim." Triggers on objective
+     * fingerprints only — digits, currency tokens, code-shaped identifiers.
+     * Topic keywords like "cost" or "budget" are NOT enough on their own; a
+     * sentence like "I can help with cost questions" is chit-chat, not a
+     * claim. We accept the trade-off that vague qualitative claims ("there
+     * are quite a few activities") pass through — those don't ship a wrong
+     * number to the user.
+     */
+    static boolean looksLikeDataClaim(String text) {
+        if (text == null) return false;
+        String t = text.trim();
+        if (t.isEmpty()) return false;
+        if (DIGIT_PATTERN.matcher(t).find()) return true;
+        if (CURRENCY_TOKEN_PATTERN.matcher(t).find()) return true;
+        if (CODE_PATTERN.matcher(t).find()) return true;
+        return false;
+    }
+
+    private static final Pattern DIGIT_PATTERN = Pattern.compile("\\d");
+    /** Common currency symbols + ISO codes used in EPPM tenants. */
+    private static final Pattern CURRENCY_TOKEN_PATTERN = Pattern.compile(
+            "[₹$€£¥]|\\b(INR|USD|OMR|AED|EUR|GBP|SAR|QAR|KWD|BHD|JPY|CNY|AUD|CAD)\\b");
+    /** Code-shaped tokens: at least one letter+digit run separated by `-`, `.`, or `(`. */
+    private static final Pattern CODE_PATTERN = Pattern.compile(
+            "\\b[A-Z][A-Z0-9]{1,}-\\d|\\bWBS-\\d|\\bACT-\\d|\\bBOQ-\\d|\\bEMP-\\d");
+
+    /**
+     * System prompt injected when the tool-use gate fires. Sterner than the
+     * standard verification pass — the model has not called any tool yet, so
+     * we cannot rely on "re-check the result you got"; we have to require a
+     * fresh call.
+     */
+    String buildToolUseGatePrompt(String draftAnswer) {
+        String safeDraft = draftAnswer == null ? "" : draftAnswer.trim();
+        if (safeDraft.length() > 4000) safeDraft = safeDraft.substring(0, 4000) + "…[truncated]";
+        return "════════════════════════════════════════\n"
+             + "TOOL-USE GATE (mandatory)\n"
+             + "════════════════════════════════════════\n\n"
+             + "You drafted this answer for the user WITHOUT calling any tool this\n"
+             + "request:\n\n"
+             + "\"\"\"\n" + safeDraft + "\n\"\"\"\n\n"
+             + "The DATA HONESTY RULES at the top of your system prompt forbid this\n"
+             + "pattern. The draft above contains a data claim (a number, code,\n"
+             + "currency, list, or named entity) that you did not fetch from a tool.\n"
+             + "It is almost certainly hallucinated from training-data priors or\n"
+             + "from on-screen context, not from real project data.\n\n"
+             + "What to do this round:\n"
+             + "  • If the draft makes ANY claim about counts, codes, currencies,\n"
+             + "    names, dates, lists, or status values, you MUST call the\n"
+             + "    relevant tool now and re-derive the answer from its result.\n"
+             + "    Use list_projects / list_activities / query_wbs /\n"
+             + "    list_project_supervisors / query_dpr / get_activity_cost as\n"
+             + "    appropriate.\n"
+             + "  • If — and ONLY if — your draft is a greeting, definition of a\n"
+             + "    generic construction term, or a meta-question about yourself,\n"
+             + "    you may repeat it unchanged.\n"
+             + "  • Do NOT paraphrase tool results you have not fetched. \"There\n"
+             + "    are 7777 activities\" is not honest if you did not call\n"
+             + "    list_activities. \"Parvaiz has 0 DPRs\" is not honest if you\n"
+             + "    did not call list_project_supervisors / query_dpr.\n\n"
+             + "Do NOT narrate this gate in your answer. The user should see one\n"
+             + "polished answer, not \"I checked again.\"\n"
+             + "════════════════════════════════════════\n";
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Currency cross-check: forces a re-quote when the draft uses a currency
+    // that disagrees with the project's budget_currency.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Look up the in-scope project's budget_currency. Returns null if no
+     * project is in scope, or the project can't be loaded.
+     */
+    private String resolveBudgetCurrency(AiContext ctx) {
+        if (ctx == null || ctx.projectId() == null) return null;
+        try {
+            return projectRepository.findById(ctx.projectId())
+                    .map(p -> {
+                        String c = p.getBudgetCurrency();
+                        return c == null ? null : c.trim().toUpperCase();
+                    })
+                    .orElse(null);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Does the draft contain a currency token that disagrees with the
+     * project's budget_currency? Symbols and ISO codes both count. We only
+     * flag a mismatch when we are sure of the disagreement — if no currency
+     * token appears in the draft, return false (no gate).
+     */
+    static boolean currencyMismatchDetected(String text, String projectCurrency) {
+        if (text == null || projectCurrency == null || projectCurrency.isBlank()) return false;
+        String upper = projectCurrency.trim().toUpperCase();
+        Matcher m = CURRENCY_TOKEN_PATTERN.matcher(text);
+        while (m.find()) {
+            String tok = m.group();
+            String iso = symbolToIso(tok);
+            if (iso == null) iso = tok.toUpperCase();
+            if (!iso.equals(upper)) return true;
+        }
+        return false;
+    }
+
+    private static String symbolToIso(String token) {
+        if (token == null || token.isEmpty()) return null;
+        return switch (token) {
+            case "₹" -> "INR";
+            case "$" -> "USD";
+            case "€" -> "EUR";
+            case "£" -> "GBP";
+            case "¥" -> "JPY";
+            default -> null;
+        };
+    }
+
+    /** System prompt injected when the currency cross-check forces a round. */
+    String buildCurrencyGatePrompt(String draftAnswer, String projectCurrency) {
+        String safeDraft = draftAnswer == null ? "" : draftAnswer.trim();
+        if (safeDraft.length() > 4000) safeDraft = safeDraft.substring(0, 4000) + "…[truncated]";
+        return "════════════════════════════════════════\n"
+             + "CURRENCY CROSS-CHECK (mandatory)\n"
+             + "════════════════════════════════════════\n\n"
+             + "You drafted this answer for the user:\n\n"
+             + "\"\"\"\n" + safeDraft + "\n\"\"\"\n\n"
+             + "The draft contains a currency token that disagrees with the\n"
+             + "current project's budget_currency, which is " + projectCurrency
+             + ".\n\nWhat to do this round:\n"
+             + "  • Re-quote every cost / amount in the draft with the suffix\n"
+             + "    '" + projectCurrency + "' (e.g. '12,500 " + projectCurrency
+             + "'). Drop INR / USD / ₹ / $ unless they actually match\n"
+             + "    " + projectCurrency + ".\n"
+             + "  • The numerical values themselves are unchanged — this is a\n"
+             + "    currency suffix correction, not a re-computation. Do NOT\n"
+             + "    apply an exchange rate; the underlying tool figures are\n"
+             + "    already in the project's local currency.\n"
+             + "  • Do NOT narrate this correction. The user should see one\n"
+             + "    polished answer with the right currency.\n"
+             + "════════════════════════════════════════\n";
     }
 }

@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, ExternalLink, FilePlus2, RefreshCw } from "lucide-react";
+import { X, ExternalLink, FilePlus2, RefreshCw, Lock } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { activityApi } from "@/lib/api/activityApi";
 import { resourceApi } from "@/lib/api/resourceApi";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { ActivityEditStatusBadge } from "@/components/activity/ActivityEditStatusBadge";
 import { RoleDemandSections } from "@/components/activity/RoleDemandSections";
 import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
@@ -41,6 +42,15 @@ export function ActivityDetailDrawer({ open, onClose, projectId, activityId }: P
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // Body data attr lets the floating Ask AI FAB hide via CSS while the drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    document.body.dataset.activityDrawerOpen = "true";
+    return () => {
+      delete document.body.dataset.activityDrawerOpen;
+    };
+  }, [open]);
 
   const { data: activityData, isLoading: isLoadingActivity } = useQuery({
     queryKey: ["activity", projectId, activityId],
@@ -108,6 +118,21 @@ function DrawerInner({
     },
   });
 
+  // Lock is intentionally one-way from the UI: once the resource plan is finalized the user
+  // shouldn't be able to re-open it from the drawer. activityApi.unlock still exists for
+  // admin recovery via the backend endpoint.
+  const lockMutation = useMutation({
+    mutationFn: () => activityApi.lock(projectId, activityId),
+    onSuccess: () => {
+      toast.success("Activity locked — resource plan is now frozen");
+      queryClient.invalidateQueries({ queryKey: ["activity", projectId, activityId] });
+      queryClient.invalidateQueries({ queryKey: ["activities", projectId] });
+    },
+    onError: (err: unknown) => toast.error(getErrorMessage(err, "Failed to lock activity")),
+  });
+
+  const isLocked = activity?.editStatus === "LOCKED";
+
   return (
     <>
       <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
@@ -119,10 +144,28 @@ function DrawerInner({
               <div className="flex items-center gap-2 text-sm font-medium text-text-secondary">
                 <span>{activity.code}</span>
                 <StatusBadge status={activity.status} />
+                <ActivityEditStatusBadge editStatus={activity.editStatus} />
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={() => lockMutation.mutate()}
+                    disabled={lockMutation.isPending}
+                    title="Lock the resource plan. This is one-way — the plan can no longer be edited from this drawer."
+                    className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs font-medium text-text-secondary hover:bg-surface-active disabled:opacity-60"
+                  >
+                    <Lock size={12} />
+                    Lock
+                  </button>
+                )}
               </div>
               <h2 className="mt-1 truncate text-lg font-semibold text-text-primary">
                 {activity.name}
               </h2>
+              {activity.editStatus === "DRAFT" && (
+                <p className="mt-1 text-xs text-text-muted">
+                  Draft — DPRs can&apos;t be submitted until this activity is locked.
+                </p>
+              )}
             </>
           )}
         </div>
@@ -213,7 +256,11 @@ function DrawerInner({
                 </button>
               </div>
 
-              <RoleDemandSections projectId={projectId} activityId={activityId} />
+              <RoleDemandSections
+                projectId={projectId}
+                activityId={activityId}
+                locked={isLocked}
+              />
 
               {/* Read-only plan summary sits at the bottom of the demand section,
                   after Material Requirements, so the user adds first and reviews

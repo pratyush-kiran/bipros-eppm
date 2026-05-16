@@ -2,6 +2,7 @@ package com.bipros.project.domain.repository;
 
 import com.bipros.project.domain.model.DailyProgressReport;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -52,4 +53,13 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
       @Param("projectId") UUID projectId,
       @Param("activityName") String activityName,
       @Param("reportDate") LocalDate reportDate);
+
+  /**
+   * Null out the supervisor FK when the underlying user is deleted. {@code supervisorName}
+   * stays put because the column is NOT NULL and the display snapshot is still valid history.
+   */
+  @Modifying
+  @Query("UPDATE DailyProgressReport d SET d.supervisorUserId = null "
+      + "WHERE d.supervisorUserId = :userId")
+  int detachSupervisor(@Param("userId") UUID userId);
 }

@@ -99,6 +99,10 @@ public class DailyProgressReportService {
   public DailyProgressReportResponse create(UUID projectId, CreateDailyProgressReportRequest request) {
     ensureProjectExists(projectId);
 
+    // Reject DPRs against a DRAFT activity — the activity is still being planned, so
+    // execution data against it is meaningless. Lock the activity to start accepting DPRs.
+    rejectIfActivityDraft(request.activityId());
+
     // Reject duplicate DPRs for the same (project, day, activity). The ledger
     // (daily_activity_resource_outputs) has a unique key on (project, date, activity, resource);
     // two DPRs that overlap on resources for the same activity on the same day collide on save.
@@ -152,15 +156,16 @@ public class DailyProgressReportService {
     SnapshottedChildren snap = snapshotChildren(saved, request.manpower(), request.equipment(), request.materials(), warnings);
     addUnitMismatchWarning(saved, warnings);
 
-    // Hard-block on planned-unit overrun: cumulative actual + this DPR's contribution
-    // must not exceed planned for any (role, variant) on this activity.
-    assertNoOverrun(saved.getActivityId(), snap.manpower, snap.equipment, snap.material, /*excludeDprId*/ null);
-
     List<DprManpower> savedManpower = snap.manpower.isEmpty() ? List.of() : manpowerRepository.saveAll(snap.manpower);
     List<DprEquipment> savedEquipment = snap.equipment.isEmpty() ? List.of() : equipmentRepository.saveAll(snap.equipment);
     List<DprMaterial> savedMaterial = snap.material.isEmpty() ? List.of() : materialRepository.saveAll(snap.material);
 
     reconcileLedger(saved, savedManpower, savedEquipment, savedMaterial);
+    // Insert phantom ResourceAssignment rows for any (role, variant) the planner never added.
+    // Must run BEFORE rollup so the rollup's UPDATE finds them and writes actuals.
+    ensureAssignmentsExist(saved.getActivityId(), saved.getProjectId(), warnings);
+    // Compute soft-overrun warnings (no longer throws — supervisor's save is never blocked).
+    computeOverrunWarnings(saved.getActivityId(), snap.manpower, snap.equipment, snap.material, warnings);
     rollupRoleAssignmentActuals(saved.getActivityId());
 
     // Issues on create are all inserts — stamp parent context. Empty / null list means none.
@@ -189,6 +194,12 @@ public class DailyProgressReportService {
 
   public DailyProgressReportResponse update(UUID projectId, UUID id, UpdateDailyProgressReportRequest request) {
     DailyProgressReport dpr = find(projectId, id);
+
+    // Reject DPR updates against a DRAFT activity (same rule as create). Check the activity the
+    // DPR will reference AFTER the update — request.activityId() if it changed the link, else
+    // the existing DPR's activityId. Either being DRAFT blocks the write.
+    UUID targetActivityId = request.activityId() != null ? request.activityId() : dpr.getActivityId();
+    rejectIfActivityDraft(targetActivityId);
 
     String oldBoqItemNo = dpr.getBoqItemNo();
     BigDecimal oldQty = dpr.getQtyExecuted();
@@ -221,30 +232,49 @@ public class DailyProgressReportService {
 
     DailyProgressReport saved = dprRepository.save(dpr);
 
-    // Replace children: delete then re-insert. Flush between to avoid PK collisions on the
-    // unique constraint inside one TX (Hibernate batches the delete with the insert otherwise).
-    manpowerRepository.deleteByDprId(saved.getId());
-    equipmentRepository.deleteByDprId(saved.getId());
-    materialRepository.deleteByDprId(saved.getId());
-    manpowerRepository.flush();
-    equipmentRepository.flush();
-    materialRepository.flush();
+    // Edit detection: if the supervisor changed nothing in the resource section, skip the entire
+    // delete-and-replace + ensureAssignmentsExist + reconcileLedger + rollupRoleAssignmentActuals
+    // chain. The activity's Resource Plan therefore won't be touched (no perceived "cumulation"
+    // even if the user re-saves the same DPR repeatedly), and we save a few SQL round-trips.
+    List<DprManpower> existingManpower = manpowerRepository.findByDprIdOrderByTradeAsc(saved.getId());
+    List<DprEquipment> existingEquipment = equipmentRepository.findByDprIdOrderByEquipmentTypeAsc(saved.getId());
+    List<DprMaterial> existingMaterial = materialRepository.findByDprIdOrderByMaterialNameAsc(saved.getId());
+    boolean resourcesUnchanged = resourceRowsEqual(
+        request.manpower(), request.equipment(), request.materials(),
+        existingManpower, existingEquipment, existingMaterial);
 
     List<String> warnings = new ArrayList<>();
-    SnapshottedChildren snap = snapshotChildren(saved, request.manpower(), request.equipment(), request.materials(), warnings);
     addUnitMismatchWarning(saved, warnings);
 
-    // Hard-block overrun (mirrors the create path). For an update, the old children have just been
-    // deleted but the assignment.actualUnits has NOT yet been rolled back; we therefore exclude
-    // this DPR's old contributions from the existing-actual baseline.
-    assertNoOverrun(saved.getActivityId(), snap.manpower, snap.equipment, snap.material, saved.getId());
+    List<DprManpower> savedManpower;
+    List<DprEquipment> savedEquipment;
+    List<DprMaterial> savedMaterial;
+    if (resourcesUnchanged) {
+      // Nothing in the resource arrays changed — leave the rows + the activity rollup alone.
+      savedManpower = existingManpower;
+      savedEquipment = existingEquipment;
+      savedMaterial = existingMaterial;
+    } else {
+      // Replace children: delete then re-insert. Flush between to avoid PK collisions on the
+      // unique constraint inside one TX (Hibernate batches the delete with the insert otherwise).
+      manpowerRepository.deleteByDprId(saved.getId());
+      equipmentRepository.deleteByDprId(saved.getId());
+      materialRepository.deleteByDprId(saved.getId());
+      manpowerRepository.flush();
+      equipmentRepository.flush();
+      materialRepository.flush();
 
-    List<DprManpower> savedManpower = snap.manpower.isEmpty() ? List.of() : manpowerRepository.saveAll(snap.manpower);
-    List<DprEquipment> savedEquipment = snap.equipment.isEmpty() ? List.of() : equipmentRepository.saveAll(snap.equipment);
-    List<DprMaterial> savedMaterial = snap.material.isEmpty() ? List.of() : materialRepository.saveAll(snap.material);
+      SnapshottedChildren snap = snapshotChildren(saved, request.manpower(), request.equipment(), request.materials(), warnings);
 
-    reconcileLedger(saved, savedManpower, savedEquipment, savedMaterial);
-    rollupRoleAssignmentActuals(saved.getActivityId());
+      savedManpower = snap.manpower.isEmpty() ? List.of() : manpowerRepository.saveAll(snap.manpower);
+      savedEquipment = snap.equipment.isEmpty() ? List.of() : equipmentRepository.saveAll(snap.equipment);
+      savedMaterial = snap.material.isEmpty() ? List.of() : materialRepository.saveAll(snap.material);
+
+      reconcileLedger(saved, savedManpower, savedEquipment, savedMaterial);
+      ensureAssignmentsExist(saved.getActivityId(), saved.getProjectId(), warnings);
+      computeOverrunWarnings(saved.getActivityId(), snap.manpower, snap.equipment, snap.material, warnings);
+      rollupRoleAssignmentActuals(saved.getActivityId());
+    }
 
     // Issues use merge-by-id (diverges from full-replace) so lifecycle (status, resolvedAt,
     // opened_at, version) survives a DPR re-save. See DprIssue javadoc.
@@ -384,31 +414,38 @@ public class DailyProgressReportService {
   }
 
   /**
-   * Distinct supervisors who actually filed a DPR in the optional date window. Used by the
-   * Capacity Utilization page's supervisor filter so the dropdown only shows people with data.
+   * Supervisors of activities that have at least one DPR in the date window. Powers the
+   * Capacity Utilization / Supervisor Performance dropdown.
+   *
+   * <p>Multi-supervisor (commit 182141eb): the source is now
+   * {@code activity.activity_supervisors} — a user appears in the dropdown when they
+   * supervise any activity that has a DPR in range, regardless of whether they personally
+   * filed any of those DPRs. The {@code dprCount} field reads as "DPRs under activities
+   * they supervise in range" to match the new filter semantics on the report side.
    */
   @Transactional(readOnly = true)
   public List<com.bipros.project.application.dto.SupervisorOption> listSupervisorsUsed(
       UUID projectId, LocalDate fromDate, LocalDate toDate) {
     ensureProjectExists(projectId);
 
-    // Phase 4.4 cutover: pivots off the new supervisor_user_id column (DPR carries it directly
-    // post Phase 091 OLTP migration). The Phase-10 dual-source UNION I had on
-    // feat/capacity-utilization is obsolete — supervisor_resource_id was dropped from the DPR
-    // table, so the only valid lookup is via the User FK.
     @SuppressWarnings("unchecked")
     List<Object[]> raw = em.createNativeQuery(
-            "SELECT d.supervisor_user_id, "
-                + "       COALESCE(u.username, '')                            AS supervisor_code, "
-                + "       MAX(d.supervisor_name)                              AS supervisor_name, "
-                + "       COUNT(*)                                            AS dpr_count "
-                + "FROM project.daily_progress_reports d "
-                + "LEFT JOIN public.users u ON u.id = d.supervisor_user_id "
-                + "WHERE d.project_id = :projectId "
-                + "  AND d.supervisor_user_id IS NOT NULL "
+            "SELECT s.user_id, "
+                + "       COALESCE(u.username, '')                                              AS supervisor_code, "
+                + "       COALESCE( "
+                + "         NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), "
+                + "         u.username, "
+                + "         MAX(s.user_name_snapshot)) "
+                + "                                                                             AS supervisor_name, "
+                + "       COUNT(DISTINCT d.id)                                                  AS dpr_count "
+                + "FROM activity.activity_supervisors s "
+                + "JOIN activity.activities a            ON a.id = s.activity_id "
+                + "JOIN project.daily_progress_reports d ON d.activity_id = a.id "
+                + "LEFT JOIN public.users u              ON u.id = s.user_id "
+                + "WHERE a.project_id = :projectId "
                 + "  AND (CAST(:fromDate AS date) IS NULL OR d.report_date >= CAST(:fromDate AS date)) "
-                + "  AND (CAST(:toDate AS date) IS NULL OR d.report_date <= CAST(:toDate AS date)) "
-                + "GROUP BY d.supervisor_user_id, u.username "
+                + "  AND (CAST(:toDate   AS date) IS NULL OR d.report_date <= CAST(:toDate   AS date)) "
+                + "GROUP BY s.user_id, u.username, u.first_name, u.last_name "
                 + "ORDER BY dpr_count DESC, supervisor_name")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
@@ -640,10 +677,13 @@ public class DailyProgressReportService {
     if (manpowerRows != null) {
       for (DprManpowerRow row : manpowerRows) {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
-        if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MANPOWER", activityId, warnings);
+        if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MANPOWER", activityId);
         BigDecimal unitRate = pickUnitRate(row.unitRate(), snap);
         String basis = pickBasis(row.unitRateBasis(), snap);
-        if (unitRate == null) warnings.add("rate-missing:manpower:" + safeName(snap, row.trade()));
+        // Legacy "rate-missing:" warning removed: in the role-only model the rate flows from
+        // manpower_role_rates via RoleRateResolver/ensureAssignmentsExist, which emits its own
+        // MISSING_RATE: ... warning only when truly absent. The legacy resource_id chain that
+        // populated `snap.unitRate` is null for role-only rows and produced false positives.
         DprManpower entity = row.toEntity(dprId);
         entity.setResourceId(pickResourceId(row.resourceId(), snap));
         entity.setUnitRate(unitRate);
@@ -657,7 +697,7 @@ public class DailyProgressReportService {
     if (equipmentRows != null) {
       for (DprEquipmentRow row : equipmentRows) {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
-        if (canValidate) requireKind(row.resourceAssignmentId(), snap, "EQUIPMENT", activityId, warnings);
+        if (canValidate) requireKind(row.resourceAssignmentId(), snap, "EQUIPMENT", activityId);
         BigDecimal unitRate = pickUnitRate(row.unitRate(), snap);
         // Equipment defaults to HOUR — most equipment is hourly-billed. The snapshot's basis
         // (derived from resource.unit) is intentionally NOT used here: resource.unit is often
@@ -666,7 +706,6 @@ public class DailyProgressReportService {
         String basis = row.unitRateBasis() != null && !row.unitRateBasis().isBlank()
             ? row.unitRateBasis()
             : "HOUR";
-        if (unitRate == null) warnings.add("rate-missing:equipment:" + safeName(snap, row.equipmentType()));
         DprEquipment entity = row.toEntity(dprId);
         entity.setResourceId(pickResourceId(row.resourceId(), snap));
         entity.setUnitRate(unitRate);
@@ -680,9 +719,8 @@ public class DailyProgressReportService {
     if (materialRows != null) {
       for (DprMaterialRow row : materialRows) {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
-        if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MATERIAL", activityId, warnings);
+        if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MATERIAL", activityId);
         BigDecimal unitRate = pickUnitRate(row.unitRate(), snap);
-        if (unitRate == null) warnings.add("rate-missing:material:" + safeName(snap, row.materialName()));
         DprMaterial entity = row.toEntity(dprId);
         entity.setResourceId(pickResourceId(row.resourceId(), snap));
         entity.setUnitRate(unitRate);
@@ -780,23 +818,15 @@ public class DailyProgressReportService {
     return snap == null ? null : snap.resourceId();
   }
 
-  private static String safeName(AssignmentSnapshot snap, String fallback) {
-    if (snap != null && snap.resourceName() != null) return snap.resourceName();
-    return fallback != null ? fallback : "(unknown)";
-  }
-
   /**
    * Validate the assignment ↔ activity ↔ kind invariant when the lookup succeeded. When
-   * {@code snap} is null (typically: cross-schema query couldn't find the row) we emit a warning
-   * and return — production data always resolves, but unit tests run with a mocked
-   * {@link EntityManager} that returns nothing, and we don't want them rejecting every row.
+   * {@code snap} is null we silently return — that's the normal path for role-only DPR rows
+   * (no resource_id, no ResourceAssignment lookup), and unit tests with a mocked
+   * {@link EntityManager} return nothing here too.
    */
   private void requireKind(UUID assignmentId, AssignmentSnapshot snap, String requiredKind,
-                           UUID expectedActivityId, List<String> warnings) {
-    if (snap == null) {
-      if (warnings != null) warnings.add("assignment-not-found:" + assignmentId);
-      return;
-    }
+                           UUID expectedActivityId) {
+    if (snap == null) return;
     if (expectedActivityId != null && !expectedActivityId.equals(snap.activityId())) {
       throw new BusinessRuleException("INVALID_DPR_RESOURCE",
           "Resource assignment does not belong to this activity: assignmentId=" + assignmentId);
@@ -830,6 +860,41 @@ public class DailyProgressReportService {
     String dprUnit = saved.getUnit().trim();
     if (!activityUnit.trim().equalsIgnoreCase(dprUnit)) {
       warnings.add("unit-mismatch:expected=" + activityUnit.trim() + ":actual=" + dprUnit);
+    }
+  }
+
+  /**
+   * Cross-schema lookup against {@code activity.activities.edit_status}: rejects the DPR write
+   * when the activity is still {@code DRAFT}. We can't import {@code bipros-activity} here —
+   * {@code bipros-activity} already depends on {@code bipros-project}, so a return dep would
+   * cycle (see CLAUDE.md). The native-SQL approach mirrors the existing cross-schema reads in
+   * this service ({@code lookupAssignmentSnapshot}, {@code resolveActivityDefaultUnit}).
+   *
+   * <p>Throws {@code ACTIVITY_NOT_FOUND} if the id doesn't resolve and
+   * {@code ACTIVITY_DRAFT_DPR_REJECTED} if it does but is still DRAFT.
+   */
+  private void rejectIfActivityDraft(UUID activityId) {
+    if (activityId == null || em == null) return;
+    @SuppressWarnings("unchecked")
+    List<Object[]> rows = em.createNativeQuery(
+            "SELECT a.edit_status, a.code "
+                + "FROM activity.activities a "
+                + "WHERE a.id = :activityId")
+        .setParameter("activityId", activityId)
+        .getResultList();
+    if (rows.isEmpty()) {
+      throw new BusinessRuleException(
+          "ACTIVITY_NOT_FOUND",
+          "Activity " + activityId + " not found.");
+    }
+    Object[] row = rows.get(0);
+    String editStatus = row[0] == null ? null : row[0].toString();
+    String code = row[1] == null ? activityId.toString() : row[1].toString();
+    if ("DRAFT".equalsIgnoreCase(editStatus)) {
+      throw new BusinessRuleException(
+          "ACTIVITY_DRAFT_DPR_REJECTED",
+          "Cannot submit DPR against activity '" + code
+              + "' — it is still in Draft. Lock the activity to start accepting DPRs.");
     }
   }
 
@@ -929,13 +994,20 @@ public class DailyProgressReportService {
     String typeCode;
   }
 
-  private void assertNoOverrun(
+  /**
+   * Soft-overrun check: when the cumulative {@code current_actual + this DPR's contribution}
+   * exceeds the planned units for a {@code (role, variant)} on this activity, append a warning
+   * string to {@code warnings}. Never throws — the supervisor can always save. Unplanned
+   * variants are NOT warned about here (they're surfaced visually via the "Unplanned" pill in
+   * the activity Resource Plan once {@link #ensureAssignmentsExist} creates the phantom row).
+   */
+  private void computeOverrunWarnings(
       UUID activityId,
       List<DprManpower> manpower,
       List<DprEquipment> equipment,
       List<DprMaterial> material,
-      UUID excludeDprId) {
-    if (activityId == null) return;
+      List<String> warnings) {
+    if (activityId == null || em == null) return;
 
     Map<OverrunKey, OverrunAgg> agg = new HashMap<>();
     for (DprManpower r : manpower) {
@@ -974,39 +1046,206 @@ public class DailyProgressReportService {
         .setParameter("activityId", activityId)
         .getResultList();
 
-    List<String> overrunMessages = new ArrayList<>();
     for (Map.Entry<OverrunKey, OverrunAgg> e : agg.entrySet()) {
       OverrunKey key = e.getKey();
       OverrunAgg val = e.getValue();
       Object[] match = findAssignmentRow(assignments, key.roleId, key.variantId);
-      if (match == null) {
-        overrunMessages.add(String.format(
-            "Role/variant not planned for this activity (added %s units)",
-            val.added.stripTrailingZeros().toPlainString()));
-        continue;
-      }
+      // Unplanned variants are handled separately (phantom row + pill); skip the warning here.
+      if (match == null) continue;
       BigDecimal planned = match[4] == null ? BigDecimal.ZERO : new BigDecimal(match[4].toString());
+      // A row with planned=0 is itself an unplanned phantom — no overrun to flag.
+      if (planned.signum() <= 0) continue;
       BigDecimal currentActual = match[5] == null ? BigDecimal.ZERO : new BigDecimal(match[5].toString());
       String roleName = match[6] == null ? "(role)" : match[6].toString();
       BigDecimal candidate = currentActual.add(val.added);
       if (candidate.compareTo(planned) > 0) {
         BigDecimal excess = candidate.subtract(planned);
-        overrunMessages.add(String.format(
-            "%s (%s): planned %s, current actual %s, attempting +%s, excess %s",
+        warnings.add(String.format(
+            "OVERRUN: %s (%s) — planned %s, actual %s (+%s), excess %s",
             roleName,
             val.typeCode == null ? "?" : val.typeCode,
             planned.stripTrailingZeros().toPlainString(),
-            currentActual.stripTrailingZeros().toPlainString(),
+            candidate.stripTrailingZeros().toPlainString(),
             val.added.stripTrailingZeros().toPlainString(),
             excess.stripTrailingZeros().toPlainString()));
       }
     }
-    if (!overrunMessages.isEmpty()) {
-      String detail = String.join("; ", overrunMessages);
-      throw new BusinessRuleException(
-          "DPR_OVERRUN",
-          "DPR would exceed planned units for: " + detail);
+  }
+
+  /**
+   * For every (role, variant) referenced by the DPR's child rows on this activity that has no
+   * matching {@link com.bipros.resource.domain.model.ResourceAssignment}, INSERT a phantom row
+   * with {@code planned/budgeted/remaining = 0} and a resolved {@code effective_rate}. The
+   * subsequent {@link #rollupRoleAssignmentActuals} call writes {@code actual_units} /
+   * {@code actual_cost} onto these rows the same way it does for planned ones.
+   *
+   * <p>If the rate book has neither a project override nor a default rate for a variant, a
+   * {@code MISSING_RATE} warning is appended and the phantom is created with
+   * {@code effective_rate = 0} (cost will show as 0 until an admin adds a rate).
+   */
+  private void ensureAssignmentsExist(UUID activityId, UUID projectId, List<String> warnings) {
+    if (activityId == null || projectId == null || em == null) return;
+
+    // ===== Manpower =====
+    @SuppressWarnings("unchecked")
+    List<Object[]> mWarn = em.createNativeQuery(
+        "SELECT DISTINCT m.role_id, m.manpower_role_rate_id, "
+            + "       COALESCE(po.override_rate, mrr.rate) AS resolved_rate, "
+            + "       r.name, cm.name, gm.name "
+            + "FROM project.dpr_manpower m "
+            + "JOIN project.daily_progress_reports d ON d.id = m.dpr_id "
+            + "LEFT JOIN resource.manpower_role_rates mrr ON mrr.id = m.manpower_role_rate_id "
+            + "LEFT JOIN resource.project_manpower_role_rate_override po "
+            + "  ON po.manpower_role_rate_id = m.manpower_role_rate_id AND po.project_id = :projectId "
+            + "LEFT JOIN resource.resource_roles r ON r.id = m.role_id "
+            + "LEFT JOIN resource.manpower_category_master cm ON cm.id = mrr.category_id "
+            + "LEFT JOIN resource.grade_master gm ON gm.id = mrr.grade_id "
+            + "WHERE d.activity_id = :activityId "
+            + "  AND m.role_id IS NOT NULL AND m.manpower_role_rate_id IS NOT NULL "
+            + "  AND NOT EXISTS ( "
+            + "    SELECT 1 FROM resource.resource_assignments ra "
+            + "    WHERE ra.activity_id = :activityId AND ra.role_id = m.role_id "
+            + "      AND ra.manpower_role_rate_id = m.manpower_role_rate_id) ")
+        .setParameter("activityId", activityId)
+        .setParameter("projectId", projectId)
+        .getResultList();
+    for (Object[] row : mWarn) {
+      if (row[2] == null) {
+        String roleName = row[3] == null ? "(role)" : row[3].toString();
+        String label = (row[4] == null ? "?" : row[4].toString()) + "/" + (row[5] == null ? "?" : row[5].toString());
+        warnings.add("MISSING_RATE: " + roleName + " (MANPOWER) — " + label
+            + ": no rate configured. Actual cost shown as 0 until a rate is added.");
+      }
     }
+    em.createNativeQuery(
+        "INSERT INTO resource.resource_assignments "
+            + "(id, activity_id, project_id, role_id, manpower_role_rate_id, "
+            + " planned_units, budgeted_units, remaining_units, actual_units, "
+            + " planned_cost, budgeted_cost, remaining_cost, actual_cost, "
+            + " effective_rate, unit, rate_type, version, created_at, updated_at) "
+            + "SELECT DISTINCT gen_random_uuid(), :activityId, :projectId, m.role_id, m.manpower_role_rate_id, "
+            + "       0, 0, 0, 0, 0, 0, 0, 0, "
+            + "       COALESCE(po.override_rate, mrr.rate, 0), mrr.unit, 'STANDARD', 0, now(), now() "
+            + "FROM project.dpr_manpower m "
+            + "JOIN project.daily_progress_reports d ON d.id = m.dpr_id "
+            + "LEFT JOIN resource.manpower_role_rates mrr ON mrr.id = m.manpower_role_rate_id "
+            + "LEFT JOIN resource.project_manpower_role_rate_override po "
+            + "  ON po.manpower_role_rate_id = m.manpower_role_rate_id AND po.project_id = :projectId "
+            + "WHERE d.activity_id = :activityId "
+            + "  AND m.role_id IS NOT NULL AND m.manpower_role_rate_id IS NOT NULL "
+            + "  AND NOT EXISTS ( "
+            + "    SELECT 1 FROM resource.resource_assignments ra "
+            + "    WHERE ra.activity_id = :activityId AND ra.role_id = m.role_id "
+            + "      AND ra.manpower_role_rate_id = m.manpower_role_rate_id) ")
+        .setParameter("activityId", activityId)
+        .setParameter("projectId", projectId)
+        .executeUpdate();
+
+    // ===== Equipment =====
+    @SuppressWarnings("unchecked")
+    List<Object[]> eWarn = em.createNativeQuery(
+        "SELECT DISTINCT e.role_id, e.equipment_role_variant_id, "
+            + "       COALESCE(po.override_rate, erv.rate) AS resolved_rate, "
+            + "       r.name, erv.make, erv.model "
+            + "FROM project.dpr_equipment e "
+            + "JOIN project.daily_progress_reports d ON d.id = e.dpr_id "
+            + "LEFT JOIN resource.equipment_role_variants erv ON erv.id = e.equipment_role_variant_id "
+            + "LEFT JOIN resource.project_equipment_role_variant_override po "
+            + "  ON po.equipment_role_variant_id = e.equipment_role_variant_id AND po.project_id = :projectId "
+            + "LEFT JOIN resource.resource_roles r ON r.id = e.role_id "
+            + "WHERE d.activity_id = :activityId "
+            + "  AND e.role_id IS NOT NULL AND e.equipment_role_variant_id IS NOT NULL "
+            + "  AND NOT EXISTS ( "
+            + "    SELECT 1 FROM resource.resource_assignments ra "
+            + "    WHERE ra.activity_id = :activityId AND ra.role_id = e.role_id "
+            + "      AND ra.equipment_role_variant_id = e.equipment_role_variant_id) ")
+        .setParameter("activityId", activityId)
+        .setParameter("projectId", projectId)
+        .getResultList();
+    for (Object[] row : eWarn) {
+      if (row[2] == null) {
+        String roleName = row[3] == null ? "(role)" : row[3].toString();
+        String label = (row[4] == null ? "?" : row[4].toString()) + "/" + (row[5] == null ? "?" : row[5].toString());
+        warnings.add("MISSING_RATE: " + roleName + " (EQUIPMENT) — " + label
+            + ": no rate configured. Actual cost shown as 0 until a rate is added.");
+      }
+    }
+    em.createNativeQuery(
+        "INSERT INTO resource.resource_assignments "
+            + "(id, activity_id, project_id, role_id, equipment_role_variant_id, "
+            + " planned_units, budgeted_units, remaining_units, actual_units, "
+            + " planned_cost, budgeted_cost, remaining_cost, actual_cost, "
+            + " effective_rate, unit, rate_type, version, created_at, updated_at) "
+            + "SELECT DISTINCT gen_random_uuid(), :activityId, :projectId, e.role_id, e.equipment_role_variant_id, "
+            + "       0, 0, 0, 0, 0, 0, 0, 0, "
+            + "       COALESCE(po.override_rate, erv.rate, 0), erv.unit, 'STANDARD', 0, now(), now() "
+            + "FROM project.dpr_equipment e "
+            + "JOIN project.daily_progress_reports d ON d.id = e.dpr_id "
+            + "LEFT JOIN resource.equipment_role_variants erv ON erv.id = e.equipment_role_variant_id "
+            + "LEFT JOIN resource.project_equipment_role_variant_override po "
+            + "  ON po.equipment_role_variant_id = e.equipment_role_variant_id AND po.project_id = :projectId "
+            + "WHERE d.activity_id = :activityId "
+            + "  AND e.role_id IS NOT NULL AND e.equipment_role_variant_id IS NOT NULL "
+            + "  AND NOT EXISTS ( "
+            + "    SELECT 1 FROM resource.resource_assignments ra "
+            + "    WHERE ra.activity_id = :activityId AND ra.role_id = e.role_id "
+            + "      AND ra.equipment_role_variant_id = e.equipment_role_variant_id) ")
+        .setParameter("activityId", activityId)
+        .setParameter("projectId", projectId)
+        .executeUpdate();
+
+    // ===== Material =====
+    @SuppressWarnings("unchecked")
+    List<Object[]> matWarn = em.createNativeQuery(
+        "SELECT DISTINCT mt.role_id, mt.material_role_variant_id, "
+            + "       COALESCE(po.override_rate, mrv.rate) AS resolved_rate, "
+            + "       r.name, mrv.spec_grade "
+            + "FROM project.dpr_material mt "
+            + "JOIN project.daily_progress_reports d ON d.id = mt.dpr_id "
+            + "LEFT JOIN resource.material_role_variants mrv ON mrv.id = mt.material_role_variant_id "
+            + "LEFT JOIN resource.project_material_role_variant_override po "
+            + "  ON po.material_role_variant_id = mt.material_role_variant_id AND po.project_id = :projectId "
+            + "LEFT JOIN resource.resource_roles r ON r.id = mt.role_id "
+            + "WHERE d.activity_id = :activityId "
+            + "  AND mt.role_id IS NOT NULL AND mt.material_role_variant_id IS NOT NULL "
+            + "  AND NOT EXISTS ( "
+            + "    SELECT 1 FROM resource.resource_assignments ra "
+            + "    WHERE ra.activity_id = :activityId AND ra.role_id = mt.role_id "
+            + "      AND ra.material_role_variant_id = mt.material_role_variant_id) ")
+        .setParameter("activityId", activityId)
+        .setParameter("projectId", projectId)
+        .getResultList();
+    for (Object[] row : matWarn) {
+      if (row[2] == null) {
+        String roleName = row[3] == null ? "(role)" : row[3].toString();
+        String label = row[4] == null ? "?" : row[4].toString();
+        warnings.add("MISSING_RATE: " + roleName + " (MATERIAL) — " + label
+            + ": no rate configured. Actual cost shown as 0 until a rate is added.");
+      }
+    }
+    em.createNativeQuery(
+        "INSERT INTO resource.resource_assignments "
+            + "(id, activity_id, project_id, role_id, material_role_variant_id, "
+            + " planned_units, budgeted_units, remaining_units, actual_units, "
+            + " planned_cost, budgeted_cost, remaining_cost, actual_cost, "
+            + " effective_rate, unit, rate_type, version, created_at, updated_at) "
+            + "SELECT DISTINCT gen_random_uuid(), :activityId, :projectId, mt.role_id, mt.material_role_variant_id, "
+            + "       0, 0, 0, 0, 0, 0, 0, 0, "
+            + "       COALESCE(po.override_rate, mrv.rate, 0), mrv.unit, 'STANDARD', 0, now(), now() "
+            + "FROM project.dpr_material mt "
+            + "JOIN project.daily_progress_reports d ON d.id = mt.dpr_id "
+            + "LEFT JOIN resource.material_role_variants mrv ON mrv.id = mt.material_role_variant_id "
+            + "LEFT JOIN resource.project_material_role_variant_override po "
+            + "  ON po.material_role_variant_id = mt.material_role_variant_id AND po.project_id = :projectId "
+            + "WHERE d.activity_id = :activityId "
+            + "  AND mt.role_id IS NOT NULL AND mt.material_role_variant_id IS NOT NULL "
+            + "  AND NOT EXISTS ( "
+            + "    SELECT 1 FROM resource.resource_assignments ra "
+            + "    WHERE ra.activity_id = :activityId AND ra.role_id = mt.role_id "
+            + "      AND ra.material_role_variant_id = mt.material_role_variant_id) ")
+        .setParameter("activityId", activityId)
+        .setParameter("projectId", projectId)
+        .executeUpdate();
   }
 
   /**
@@ -1092,6 +1331,21 @@ public class DailyProgressReportService {
                 + "  AND ra.material_role_variant_id = s.material_role_variant_id")
         .setParameter("activityId", activityId)
         .executeUpdate();
+
+    // Sweep orphaned phantom rows: a row created by ensureAssignmentsExist for a DPR that was
+    // later deleted will have planned/budgeted/actual all back to 0. These are noise in the
+    // Resource Plan summary — delete them. A genuine planned row always has planned_units > 0
+    // (the planning UI rejects 0), so this is safe.
+    em.createNativeQuery(
+            "DELETE FROM resource.resource_assignments ra "
+                + "WHERE ra.activity_id = :activityId "
+                + "  AND COALESCE(ra.planned_units, 0) = 0 "
+                + "  AND COALESCE(ra.budgeted_units, 0) = 0 "
+                + "  AND COALESCE(ra.actual_units, 0) = 0 "
+                + "  AND COALESCE(ra.planned_cost, 0) = 0 "
+                + "  AND COALESCE(ra.actual_cost, 0) = 0")
+        .setParameter("activityId", activityId)
+        .executeUpdate();
   }
 
   private static Object[] findAssignmentRow(List<Object[]> rows, UUID roleId, UUID variantId) {
@@ -1105,5 +1359,78 @@ public class DailyProgressReportService {
     }
     return null;
   }
+
+  // ===========================================================================================
+  // Edit detection — used by update() to skip the resource-rollup chain when nothing changed.
+  // Compares the user-editable canonical fields per row (FK + scalar quantities). Server-derived
+  // fields (unitRate, lineCost, unitRateBasis) are excluded so a re-save with the same input is
+  // detected as unchanged even if the rate book has shifted under the row.
+  // ===========================================================================================
+
+  private boolean resourceRowsEqual(
+      List<DprManpowerRow> reqMan, List<DprEquipmentRow> reqEq, List<DprMaterialRow> reqMat,
+      List<DprManpower> existMan, List<DprEquipment> existEq, List<DprMaterial> existMat) {
+    return manpowerRowsEqual(reqMan, existMan)
+        && equipmentRowsEqual(reqEq, existEq)
+        && materialRowsEqual(reqMat, existMat);
+  }
+
+  private static boolean manpowerRowsEqual(List<DprManpowerRow> req, List<DprManpower> existing) {
+    int reqSize = req == null ? 0 : req.size();
+    if (reqSize != existing.size()) return false;
+    if (reqSize == 0) return true;
+    List<String> a = req.stream().map(r ->
+        s(r.roleId()) + "|" + s(r.manpowerRoleRateId()) + "|"
+            + n(r.nos()) + "|" + b(r.workingHours()) + "|" + b(r.otHours()) + "|" + b(r.idleHours())
+            + "|" + nz(r.contractorName()) + "|" + nz(r.remarks())
+    ).sorted().toList();
+    List<String> e = existing.stream().map(r ->
+        s(r.getRoleId()) + "|" + s(r.getManpowerRoleRateId()) + "|"
+            + n(r.getNos()) + "|" + b(r.getWorkingHours()) + "|" + b(r.getOtHours()) + "|" + b(r.getIdleHours())
+            + "|" + nz(r.getContractorName()) + "|" + nz(r.getRemarks())
+    ).sorted().toList();
+    return a.equals(e);
+  }
+
+  private static boolean equipmentRowsEqual(List<DprEquipmentRow> req, List<DprEquipment> existing) {
+    int reqSize = req == null ? 0 : req.size();
+    if (reqSize != existing.size()) return false;
+    if (reqSize == 0) return true;
+    List<String> a = req.stream().map(r ->
+        s(r.roleId()) + "|" + s(r.equipmentRoleVariantId()) + "|" + nz(r.fleetNo()) + "|"
+            + n(r.nos()) + "|" + b(r.workingHours()) + "|" + b(r.idleHours()) + "|"
+            + b(r.breakdownHours()) + "|" + b(r.fuelLitres()) + "|"
+            + nz(r.operatorName()) + "|" + nz(r.remarks())
+    ).sorted().toList();
+    List<String> e = existing.stream().map(r ->
+        s(r.getRoleId()) + "|" + s(r.getEquipmentRoleVariantId()) + "|" + nz(r.getFleetNo()) + "|"
+            + n(r.getNos()) + "|" + b(r.getWorkingHours()) + "|" + b(r.getIdleHours()) + "|"
+            + b(r.getBreakdownHours()) + "|" + b(r.getFuelLitres()) + "|"
+            + nz(r.getOperatorName()) + "|" + nz(r.getRemarks())
+    ).sorted().toList();
+    return a.equals(e);
+  }
+
+  private static boolean materialRowsEqual(List<DprMaterialRow> req, List<DprMaterial> existing) {
+    int reqSize = req == null ? 0 : req.size();
+    if (reqSize != existing.size()) return false;
+    if (reqSize == 0) return true;
+    List<String> a = req.stream().map(r ->
+        s(r.roleId()) + "|" + s(r.materialRoleVariantId()) + "|" + b(r.quantity()) + "|"
+            + nz(r.batchNo()) + "|" + nz(r.vendorName()) + "|" + nz(r.source()) + "|" + nz(r.remarks())
+    ).sorted().toList();
+    List<String> e = existing.stream().map(r ->
+        s(r.getRoleId()) + "|" + s(r.getMaterialRoleVariantId()) + "|" + b(r.getQuantity()) + "|"
+            + nz(r.getBatchNo()) + "|" + nz(r.getVendorName()) + "|" + nz(r.getSource()) + "|" + nz(r.getRemarks())
+    ).sorted().toList();
+    return a.equals(e);
+  }
+
+  private static String s(UUID u) { return u == null ? "" : u.toString(); }
+  private static String n(Integer i) { return i == null ? "" : i.toString(); }
+  private static String b(BigDecimal d) {
+    return d == null ? "" : d.stripTrailingZeros().toPlainString();
+  }
+  private static String nz(String x) { return x == null ? "" : x; }
 
 }

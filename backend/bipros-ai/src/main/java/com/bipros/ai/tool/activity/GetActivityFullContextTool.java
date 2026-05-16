@@ -138,6 +138,7 @@ public class GetActivityFullContextTool implements Tool {
     act.put("activity_code", activity.getCode());
     act.put("activity_name", activity.getName());
     act.put("status", activity.getStatus() == null ? null : activity.getStatus().name());
+    act.put("edit_status", activity.getEditStatus() == null ? null : activity.getEditStatus().name());
     act.put("activity_type", activity.getActivityType() == null ? null : activity.getActivityType().name());
     act.put("planned_start", activity.getPlannedStartDate() == null ? null : activity.getPlannedStartDate().toString());
     act.put("planned_finish", activity.getPlannedFinishDate() == null ? null : activity.getPlannedFinishDate().toString());

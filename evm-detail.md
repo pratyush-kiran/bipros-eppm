@@ -1,0 +1,89 @@
+- generic [ref=e182181]:
+  - generic [ref=e182182]:
+    - generic [ref=e182183]:
+      - generic [ref=e182184]: EVM Technique
+      - combobox [ref=e182185]:
+        - option "Activity % Complete" [selected]
+        - option "0/100"
+        - option "50/50"
+        - option "Weighted Steps"
+        - option "Level of Effort"
+    - generic [ref=e182186]:
+      - generic [ref=e182187]: ETC Method
+      - combobox [ref=e182188]:
+        - option "CPI-Based" [selected]
+        - option "SPI-Based"
+        - option "CPI × SPI Composite"
+        - option "Manual"
+        - option "Management Override"
+    - button "Calculate EVM" [ref=e182189]
+  - generic [ref=e182190]:
+    - button "Summary" [ref=e182191]
+    - button "WBS Drill-Down" [ref=e182192]
+  - generic [ref=e182193]:
+    - heading "Basic Values" [level=3] [ref=e182194]
+    - generic [ref=e182195]:
+      - generic [ref=e182196]:
+        - generic [ref=e182198]: PV (Planned Value)
+        - generic [ref=e182200]: ₹0.00cr
+      - generic [ref=e182201]:
+        - generic [ref=e182203]: EV (Earned Value)
+        - generic [ref=e182205]: ₹0.00cr
+      - generic [ref=e182206]:
+        - generic [ref=e182208]: AC (Actual Cost)
+        - generic [ref=e182210]: ₹0.00cr
+  - generic [ref=e182211]:
+    - heading "Performance Metrics" [level=3] [ref=e182212]
+    - generic [ref=e182213]:
+      - generic [ref=e182214]:
+        - generic [ref=e182216]: SV (Schedule Var.)
+        - generic [ref=e182218]: ₹0.00cr
+      - generic [ref=e182219]:
+        - generic [ref=e182221]: CV (Cost Var.)
+        - generic [ref=e182223]: ₹0.00cr
+      - generic [ref=e182224]:
+        - generic [ref=e182226]: SPI
+        - generic [ref=e182228]: "0.00"
+      - generic [ref=e182229]:
+        - generic [ref=e182231]: CPI
+        - generic [ref=e182233]: "0.00"
+  - generic [ref=e182234]:
+    - heading "Completion Metrics" [level=3] [ref=e182235]
+    - generic [ref=e182236]:
+      - generic [ref=e182237]:
+        - generic [ref=e182239]: EAC
+        - generic [ref=e182241]: ₹0.00cr
+      - generic [ref=e182242]:
+        - generic [ref=e182244]: ETC
+        - generic [ref=e182246]: ₹0.00cr
+      - generic [ref=e182247]:
+        - generic [ref=e182249]: VAC
+        - generic [ref=e182251]: ₹0.00cr
+      - generic [ref=e182252]:
+        - generic [ref=e182254]: TCPI
+        - generic [ref=e182256]: "0.00"
+      - generic [ref=e182257]:
+        - generic [ref=e182259]: Perf. %
+        - generic [ref=e182261]: 0.0%
+  - generic [ref=e182262]:
+    - heading "EVM S-Curve" [level=3] [ref=e182265]
+    - generic [ref=e182267]:
+      - list [ref=e182269]:
+        - listitem [ref=e182270]:
+          - img "Actual Cost (AC) legend icon" [ref=e182271]
+          - text: Actual Cost (AC)
+        - listitem [ref=e182273]:
+          - img "Earned Value (EV) legend icon" [ref=e182274]
+          - text: Earned Value (EV)
+        - listitem [ref=e182276]:
+          - img "Planned Value (PV) legend icon" [ref=e182277]
+          - text: Planned Value (PV)
+      - application [ref=e182279]:
+        - generic [ref=e182296]:
+          - generic [ref=e182299]: 2026-05-15
+          - generic [ref=e182300]:
+            - generic [ref=e182302]: ₹0cr
+            - generic [ref=e182304]: ₹0cr
+            - generic [ref=e182306]: ₹0cr
+            - generic [ref=e182308]: ₹0cr
+            - generic [ref=e182310]: ₹0cr

@@ -1,6 +1,7 @@
 package com.bipros.ai.tool.dpr;
 
 import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.ai.context.AiContext;
 import com.bipros.ai.tool.Tool;
@@ -328,6 +329,12 @@ public class ActivityHealthSnapshotTool implements Tool {
             n.put("code", activity.getCode());
             n.put("name", activity.getName());
             n.put("status", activity.getStatus() != null ? activity.getStatus().name() : null);
+            ActivityEditStatus editStatus = activity.getEditStatus();
+            n.put("edit_status", editStatus != null ? editStatus.name() : null);
+            if (editStatus == ActivityEditStatus.DRAFT) {
+                n.put("draft_flag",
+                        "⚠️ This activity is in Draft and is currently rejecting DPRs.");
+            }
             n.put("percent_complete", activity.getPercentComplete());
             n.put("is_critical", Boolean.TRUE.equals(activity.getIsCritical()));
             n.put("supervisor_resource_id",

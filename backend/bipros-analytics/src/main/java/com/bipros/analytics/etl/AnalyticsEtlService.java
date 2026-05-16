@@ -9,9 +9,12 @@ import com.bipros.cost.domain.entity.CostAccount;
 import com.bipros.project.domain.model.Project;
 import com.bipros.project.domain.model.WbsNode;
 import com.bipros.resource.domain.model.Resource;
+import com.bipros.resource.domain.model.WorkActivity;
+import com.bipros.resource.domain.repository.WorkActivityRepository;
 import com.bipros.scheduling.domain.model.ScheduleResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -33,6 +36,24 @@ import java.util.UUID;
 public class AnalyticsEtlService {
 
     private final ClickHouseTemplate clickHouse;
+
+    /**
+     * Optional dependency — kept nullable so existing test fixtures that wire AnalyticsEtlService
+     * directly via {@code new AnalyticsEtlService(template)} don't have to be updated. Production
+     * Spring wiring injects it via {@link #setWorkActivityRepository(WorkActivityRepository)}.
+     */
+    @Autowired(required = false)
+    private WorkActivityRepository workActivityRepository;
+
+    public void setWorkActivityRepository(WorkActivityRepository repo) {
+        this.workActivityRepository = repo;
+    }
+
+    private String resolveWorkActivityCode(java.util.UUID workActivityId) {
+        if (workActivityId == null || workActivityRepository == null) return null;
+        return workActivityRepository.findById(workActivityId)
+                .map(WorkActivity::getCode).orElse(null);
+    }
 
     /**
      * Visible for tests + per-dim upsert paths in this package. Live writes use this so
@@ -593,9 +614,10 @@ public class AnalyticsEtlService {
     }
 
     public void upsertActivityDimension(Activity a) {
+        String waCode = resolveWorkActivityCode(a.getWorkActivityId());
         clickHouse.execute(
                 AnalyticsDimensionSql.INSERT_ACTIVITY,
-                AnalyticsDimensionSql.activityParams(a, nowVersion()));
+                AnalyticsDimensionSql.activityParams(a, waCode, nowVersion()));
         log.debug("Upserted dim_activity: id={} project={}", a.getId(), a.getProjectId());
     }
 
@@ -613,9 +635,27 @@ public class AnalyticsEtlService {
             return;
         }
         long version = nowVersion();
+        // Resolve work-activity codes once for the batch so dim_activity rows carry the
+        // master library code without N+1 lookups during sweep-style updates.
+        Map<java.util.UUID, String> waCodes = new HashMap<>();
+        if (workActivityRepository != null) {
+            List<java.util.UUID> waIds = activities.stream()
+                    .map(Activity::getWorkActivityId)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (!waIds.isEmpty()) {
+                workActivityRepository.findAllById(waIds)
+                        .forEach(w -> waCodes.put(w.getId(),
+                                w.getCode() != null ? w.getCode() : ""));
+            }
+        }
         List<Map<String, Object>> rows = new ArrayList<>(activities.size());
         for (Activity a : activities) {
-            rows.add(AnalyticsDimensionSql.activityParams(a, version));
+            String waCode = a.getWorkActivityId() != null
+                    ? waCodes.getOrDefault(a.getWorkActivityId(), "")
+                    : "";
+            rows.add(AnalyticsDimensionSql.activityParams(a, waCode, version));
         }
         // Reuse the existing batchInsert hook on ClickHouseTemplate. It takes a table
         // and a list of named-param maps — for ReplacingMergeTree the column order in

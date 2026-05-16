@@ -1,0 +1,103 @@
+- main [ref=e126]:
+  - generic [ref=e128]:
+    - generic [ref=e129]:
+      - generic [ref=e130]:
+        - heading "OMAN-Demo-Khasab — Khasab–Daba Asphalt Road & Link to Lima" [level=1] [ref=e131]
+        - paragraph [ref=e132]: OMAN-DEMO-KHASAB
+      - button "Open dashboards" [ref=e134]:
+        - img [ref=e135]
+        - text: Open dashboards
+        - img [ref=e137]
+    - navigation "Tabs" [ref=e140]:
+      - generic [ref=e141]:
+        - button "Overview" [ref=e142] [cursor=pointer]
+        - button "WBS" [ref=e143] [cursor=pointer]
+        - button "Activities" [ref=e144] [cursor=pointer]
+        - button "Resources" [ref=e145] [cursor=pointer]
+        - button "Gantt" [ref=e146] [cursor=pointer]
+        - button "Network" [ref=e147] [cursor=pointer]
+        - button "DPR" [ref=e148] [cursor=pointer]
+        - button "Capacity Util." [ref=e149] [cursor=pointer]
+        - button "Costs" [ref=e150] [cursor=pointer]
+        - button "EVM" [ref=e151] [cursor=pointer]
+        - button "Baselines" [ref=e152] [cursor=pointer]
+        - button "Insights" [ref=e153] [cursor=pointer]
+        - button "Risks" [ref=e154] [cursor=pointer]
+        - button "Contracts" [ref=e155] [cursor=pointer]
+        - button "GIS" [ref=e156] [cursor=pointer]
+        - button "Workfronts" [ref=e157] [cursor=pointer]
+        - button "Snags" [ref=e158] [cursor=pointer]
+        - button "Handovers" [ref=e159] [cursor=pointer]
+        - button "Attendance" [ref=e160] [cursor=pointer]
+        - button "Checklists" [ref=e161] [cursor=pointer]
+        - button "Indents" [ref=e162] [cursor=pointer]
+        - button "NCRs" [ref=e163] [cursor=pointer]
+      - button "More" [ref=e165] [cursor=pointer]:
+        - text: More
+        - img [ref=e166]
+    - generic [ref=e169]:
+      - generic [ref=e211]:
+        - img [ref=e213]
+        - generic [ref=e215]:
+          - generic [ref=e216]: Tip · Daily Progress Report
+          - paragraph [ref=e217]: Activity-level record of work executed each day — chainage, executed quantity, deployed manpower / equipment / material, weather, and remarks.
+      - generic [ref=e218]:
+        - generic [ref=e219]:
+          - generic [ref=e220]
+          - generic [ref=e224]
+        - generic [ref=e232]:
+          - generic [ref=e233]
+          - generic [ref=e3042]
+          - generic [ref=e6025]
+          - generic [ref=e8838]
+          - generic [ref=e11721]
+          - generic [ref=e14742]
+          - generic [ref=e17849]
+          - generic [ref=e21094]
+          - generic [ref=e24513]
+          - generic [ref=e24632]
+          - generic [ref=e27873]
+          - generic [ref=e31785]
+          - generic [ref=e36314]
+          - generic [ref=e40892]
+          - generic [ref=e45730]
+          - generic [ref=e50048]
+          - generic [ref=e53361]
+          - generic [ref=e58099]
+          - generic [ref=e62331]
+          - generic [ref=e67170]
+          - generic [ref=e71643]
+          - generic [ref=e76196]
+          - generic [ref=e80583]
+          - generic [ref=e83925]
+          - generic [ref=e88388]
+          - generic [ref=e92282]
+          - generic [ref=e96479]
+          - generic [ref=e101038]
+          - generic [ref=e105658]
+          - generic [ref=e109825]
+          - generic [ref=e114353]
+          - generic [ref=e118160]
+          - generic [ref=e122689]
+          - generic [ref=e126010]
+          - generic [ref=e130274]
+          - generic [ref=e134648]
+          - generic [ref=e139131]
+          - generic [ref=e143488]
+          - generic [ref=e148204]
+          - generic [ref=e152971]
+          - generic [ref=e156497]
+          - generic [ref=e160678]
+          - generic [ref=e165512]
+          - generic [ref=e170165]
+          - generic [ref=e174834]
+          - generic [ref=e179344]
+          - generic [ref=e183538]
+          - generic [ref=e187333]
+          - generic [ref=e191418]
+          - generic [ref=e195534]
+          - generic [ref=e199812]
+          - generic [ref=e203680]
+          - generic [ref=e207444]
+          - generic [ref=e211390]
+          - generic [ref=e214055]

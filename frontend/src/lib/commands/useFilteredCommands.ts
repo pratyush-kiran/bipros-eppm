@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { commands, buildProjectCommands, groupRank, type Command } from "./registry";
 import { useAuth } from "@/lib/auth/useAuth";
 import { useAccess } from "@/lib/auth/useAccess";
-import { useAppStore, useCommandPaletteStore, useAiStore } from "@/lib/state/store";
+import { useAppStore, useAuthStore, useCommandPaletteStore, useAiStore } from "@/lib/state/store";
 import { useTheme } from "next-themes";
 
 const PROJECT_PATH_RE = /\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i;
@@ -15,10 +15,17 @@ function inferProjectIdFromPath(pathname: string): string | null {
   return m ? m[1] : null;
 }
 
-function commandVisible(cmd: Command, isAdmin: boolean, hasAnyRole: (rs: readonly string[]) => boolean, canAccessModule: (m: string) => boolean): boolean {
+function commandVisible(
+  cmd: Command,
+  isAdmin: boolean,
+  hasAnyRole: (rs: readonly string[]) => boolean,
+  canAccessModule: (m: string) => boolean,
+  hasPermission: (code: string) => boolean,
+): boolean {
   if (cmd.adminOnly && !isAdmin) return false;
   if (cmd.requireRoles && !hasAnyRole(cmd.requireRoles)) return false;
   if (cmd.module && !canAccessModule(cmd.module)) return false;
+  if (cmd.permission && !hasPermission(cmd.permission)) return false;
   return true;
 }
 
@@ -41,6 +48,7 @@ export function useFilteredCommands() {
   const projectId = storeProjectId ?? inferProjectIdFromPath(pathname);
   const { isAdmin, hasAnyRole } = useAuth();
   const { canAccessModule } = useAccess();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
   const { toggleSidebar } = useAppStore();
   const aiSetOpen = useAiStore((s) => s.setOpen);
   const { setTheme, resolvedTheme } = useTheme();
@@ -68,9 +76,15 @@ export function useFilteredCommands() {
 
   const visible = useMemo(() => {
     return allCommands.filter((cmd) =>
-      commandVisible(cmd, isAdmin, hasAnyRole, (m) => canAccessModule(m as import("@/lib/types").IcpmsModule))
+      commandVisible(
+        cmd,
+        isAdmin,
+        hasAnyRole,
+        (m) => canAccessModule(m as import("@/lib/types").IcpmsModule),
+        hasPermission,
+      )
     );
-  }, [allCommands, isAdmin, hasAnyRole, canAccessModule]);
+  }, [allCommands, isAdmin, hasAnyRole, canAccessModule, hasPermission]);
 
   const filtered = useMemo(() => {
     return visible.filter((cmd) => matchesQuery(cmd, query));

@@ -1,0 +1,80 @@
+- main [ref=e250]:
+  - generic [ref=e475]:
+    - generic [ref=e476]:
+      - generic [ref=e477]:
+        - heading "OMAN-Demo-Khasab — Khasab–Daba Asphalt Road & Link to Lima" [level=1] [ref=e478]
+        - paragraph [ref=e479]: OMAN-DEMO-KHASAB
+      - button "Open dashboards" [ref=e481]:
+        - img [ref=e482]
+        - text: Open dashboards
+        - img [ref=e484]
+    - navigation "Tabs" [ref=e487]:
+      - generic [ref=e488]:
+        - button "Overview" [active] [ref=e489] [cursor=pointer]
+        - button "WBS" [ref=e490] [cursor=pointer]
+        - button "Activities" [ref=e491] [cursor=pointer]
+        - button "Resources" [ref=e492] [cursor=pointer]
+        - button "Gantt" [ref=e493] [cursor=pointer]
+        - button "Network" [ref=e494] [cursor=pointer]
+        - button "DPR" [ref=e495] [cursor=pointer]
+        - button "Capacity Util." [ref=e496] [cursor=pointer]
+        - button "Costs" [ref=e497] [cursor=pointer]
+        - button "EVM" [ref=e498] [cursor=pointer]
+        - button "Baselines" [ref=e499] [cursor=pointer]
+        - button "Insights" [ref=e500] [cursor=pointer]
+        - button "Risks" [ref=e501] [cursor=pointer]
+        - button "Contracts" [ref=e502] [cursor=pointer]
+        - button "GIS" [ref=e503] [cursor=pointer]
+        - button "Workfronts" [ref=e504] [cursor=pointer]
+        - button "Snags" [ref=e505] [cursor=pointer]
+        - button "Handovers" [ref=e506] [cursor=pointer]
+        - button "Attendance" [ref=e507] [cursor=pointer]
+        - button "Checklists" [ref=e508] [cursor=pointer]
+        - button "Indents" [ref=e509] [cursor=pointer]
+        - button "NCRs" [ref=e510] [cursor=pointer]
+      - button "More" [ref=e512] [cursor=pointer]:
+        - text: More
+        - img [ref=e513]
+    - generic [ref=e182014]:
+      - navigation "Breadcrumb" [ref=e182016]:
+        - link "Projects" [ref=e182018] [cursor=pointer]:
+          - /url: /projects
+        - generic [ref=e182019]:
+          - img [ref=e182020]
+          - generic [ref=e182022]: OMAN-Demo-Khasab — Khasab–Daba Asphalt Road & Link to Lima
+      - generic [ref=e182024]:
+        - img [ref=e182026]
+        - generic [ref=e182028]:
+          - generic [ref=e182029]: Tip · Project Overview
+          - paragraph [ref=e182030]: Your project's summary card showing key details. This is where you see status, dates, and priority at a glance.
+      - generic [ref=e182031]:
+        - generic [ref=e182032]:
+          - generic [ref=e182033]
+          - generic [ref=e182041]
+        - generic [ref=e182058]:
+          - generic [ref=e182059]
+          - generic [ref=e182062]
+        - generic [ref=e182069]:
+          - heading "Description" [level=3] [ref=e182070]
+          - paragraph [ref=e182071]: "Production-ready demo project. Sourced from real customer data: Khasab daily progress (Jan–Mar 2025 — workbook headers say 2026 but cell dates are 2025; we honour cells), SC180 historical performance snapshots (Oct-24, Nov-24, Jan-25), DPR template, capacity utilization, and staff master. Contract reference: SC-180 (Khasab–Daba Asphalt Road & Link to Lima)."
+        - generic [ref=e182072]:
+          - generic [ref=e182073]
+          - button "Open Documents" [ref=e182076]
+        - generic [ref=e182080]:
+          - generic [ref=e182081]
+          - generic [ref=e182084]
+        - generic [ref=e182087]:
+          - generic [ref=e182088]
+          - generic [ref=e182091]
+        - generic [ref=e182096]:
+          - heading "Project Team" [level=3] [ref=e182098]
+          - generic [ref=e182099]
+        - generic [ref=e182104]:
+          - generic [ref=e182105]
+          - button "Set Budget" [ref=e182108]
+        - generic [ref=e182109]:
+          - generic [ref=e182110]
+          - generic [ref=e182136]
+        - generic [ref=e182156]:
+          - generic [ref=e182157]
+          - paragraph [ref=e182166]: No KPI data yet. Click "Recalculate" to generate KPI snapshots.

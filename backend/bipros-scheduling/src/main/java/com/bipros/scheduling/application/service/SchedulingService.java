@@ -1,6 +1,7 @@
 package com.bipros.scheduling.application.service;
 
 import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.model.ActivityRelationship;
 import com.bipros.activity.domain.repository.ActivityRelationshipRepository;
 import com.bipros.activity.domain.repository.ActivityRepository;
@@ -218,8 +219,13 @@ public class SchedulingService {
               runOption != null ? runOption.name() : null)
       );
 
-      // Save activity results and update Activity entities
+      // Save activity results and update Activity entities. LOCKED activities still
+      // get a ScheduleActivityResult row (so the CPM output is preserved for reports),
+      // but their Activity entity is NOT mutated — the lock guard rejects cross-module
+      // writes to the activity itself.
       List<ScheduleActivityResult> activityResults = new ArrayList<>();
+      List<Activity> activitiesToSave = new ArrayList<>();
+      int skippedLocked = 0;
       for (ScheduledActivity scheduled : scheduledActivities) {
         // Save schedule result
         ScheduleActivityResult activityResult = ScheduleActivityResult.builder()
@@ -239,6 +245,10 @@ public class SchedulingService {
         // Update Activity entity with calculated values
         Activity activity = activityMap.get(scheduled.getActivityId());
         if (activity != null) {
+          if (activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+            skippedLocked++;
+            continue;
+          }
           activity.setEarlyStartDate(scheduled.getEarlyStart());
           activity.setEarlyFinishDate(scheduled.getEarlyFinish());
           activity.setLateStartDate(scheduled.getLateStart());
@@ -254,12 +264,17 @@ public class SchedulingService {
           if (activity.getPlannedFinishDate() == null) {
             activity.setPlannedFinishDate(scheduled.getEarlyFinish());
           }
+          activitiesToSave.add(activity);
         }
       }
       scheduleActivityResultRepository.saveAll(activityResults);
 
-      // Save updated Activity entities
-      activityRepository.saveAll(activities);
+      // Save updated Activity entities (LOCKED ones excluded)
+      activityRepository.saveAll(activitiesToSave);
+
+      if (skippedLocked > 0) {
+        log.info("Skipped {} LOCKED activities", skippedLocked);
+      }
 
       // Calculate schedule health index
       scheduleHealthService.calculateHealth(saved.getId());

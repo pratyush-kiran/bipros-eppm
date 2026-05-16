@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,6 +33,7 @@ class ProjectLabourDeploymentServiceTest {
     @Mock LabourDesignationRepository designationRepo;
     @Mock ProjectLabourDeploymentRepository deploymentRepo;
     @Mock LabourDesignationService designationService;
+    @Mock ApplicationEventPublisher eventPublisher;
     @InjectMocks ProjectLabourDeploymentService service;
 
     private LabourDesignation pm() {

@@ -55,13 +55,13 @@ public record CreateActivityRequest(
      */
     UUID costAccountId,
 
-    // Deprecated Phase 4.5: ignored by ActivityService.createActivity. The legacy
+    // Deprecated (Phase 4.5): ignored by ActivityService.createActivity. The legacy
     // Activity.responsibleResourceId cache was dropped by Liquibase 094; supervisor
     // identity is now assigned via PUT /v1/activities/{id}/supervisor
     // (Activity.supervisorUserId). Retained on the request to keep older frontends compiling.
     UUID supervisorResourceId,
 
-    // Deprecated Phase 4.5: ignored by ActivityService.createActivity (the display
+    // Deprecated (Phase 4.5): ignored by ActivityService.createActivity (the display
     // cache it fed is gone — see supervisorResourceId).
     String supervisorResourceName
 ) {}

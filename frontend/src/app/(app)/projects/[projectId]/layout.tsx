@@ -1,12 +1,13 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
 import { BarChart3, ChevronDown, Database } from "lucide-react";
 import { projectApi } from "@/lib/api/projectApi";
 import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/state/store";
+import { useRecentProjects } from "@/hooks/useRecentProjects";
 
 function ProjectDetailLayoutInner({
   children,
@@ -39,6 +40,16 @@ function ProjectDetailLayoutInner({
 
   const project = projectData?.data;
   const status = (error as { response?: { status?: number } } | null)?.response?.status;
+
+  // Record this visit in the per-user MRU list so the home hub's "Recent
+  // projects" strip can surface it. Re-running only when the project identity
+  // changes; navigating between sub-tabs of the same project doesn't re-record.
+  const { recordVisit } = useRecentProjects();
+  useEffect(() => {
+    if (project?.id && project?.code && project?.name) {
+      recordVisit({ id: project.id, code: project.code, name: project.name });
+    }
+  }, [project?.id, project?.code, project?.name, recordVisit]);
 
   if (isLoading) {
     return <div className="p-6 text-center text-text-muted">Loading project…</div>;

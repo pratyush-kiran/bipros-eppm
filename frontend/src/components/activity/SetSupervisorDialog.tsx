@@ -11,8 +11,8 @@ import {
   DialogBody,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { SearchableSelect } from "@/components/common/SearchableSelect";
-import { activityApi, type ActivityResponse } from "@/lib/api/activityApi";
+import { MultiSelect } from "@/components/common/MultiSelect";
+import { activityApi, type ActivityResponse, type SupervisorEntry } from "@/lib/api/activityApi";
 import { userApi } from "@/lib/api/userApi";
 import { getErrorMessage } from "@/lib/utils/error";
 
@@ -22,8 +22,6 @@ import { getErrorMessage } from "@/lib/utils/error";
  * DPR page's supervisorOptions source and SupervisorAssignmentTab.
  */
 const SUPERVISOR_ROLES = ["SUPERVISOR", "FOREMAN", "SITE_ENGINEER", "SITE_MANAGER"];
-
-const CLEAR_VALUE = "__clear__";
 
 interface Props {
   open: boolean;
@@ -39,7 +37,7 @@ export function SetSupervisorDialog({ open, onClose, projectId, activity }: Prop
         {activity && (
           <DialogInner
             // Re-mount whenever we point at a different activity so local state initialises
-            // fresh from the activity's current supervisor — no setState-in-effect needed.
+            // fresh from the activity's current supervisor set — no setState-in-effect needed.
             key={activity.id}
             projectId={projectId}
             activity={activity}
@@ -61,10 +59,19 @@ function DialogInner({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [pickedId, setPickedId] = useState<string>(activity.responsibleResourceId ?? "");
 
-  // Phase 4.4 RBAC: supervisor candidates now come from the User pool (filtered by role on
-  // the server), not from the project Resource pool. The picker value is a User UUID.
+  // Initial selection: prefer the new {@code supervisors} list; fall back to the legacy
+  // single-supervisor cache so activities seeded before the multi-supervisor rollout still
+  // show their current assignment.
+  const initialIds = useMemo<string[]>(() => {
+    if (activity.supervisors && activity.supervisors.length > 0) {
+      return activity.supervisors.map((s) => s.userId);
+    }
+    if (activity.supervisorUserId) return [activity.supervisorUserId];
+    return [];
+  }, [activity]);
+  const [pickedIds, setPickedIds] = useState<string[]>(initialIds);
+
   const { data: users, isLoading: isLoadingPool } = useQuery({
     queryKey: ["users", "by-roles", SUPERVISOR_ROLES],
     queryFn: () => userApi.listByRoles(SUPERVISOR_ROLES),
@@ -72,8 +79,6 @@ function DialogInner({
 
   const supervisorOptions = useMemo(() => {
     return (users ?? []).map((u) => {
-      // Prefer the personnel master employeeCode for the row prefix; fall back to username
-      // so admin / legacy users without a code still render something useful.
       const prefix = u.employeeCode || u.username;
       return {
         value: u.id,
@@ -82,49 +87,52 @@ function DialogInner({
     });
   }, [users]);
 
-  const optionsWithClear = useMemo(
-    () => [{ value: CLEAR_VALUE, label: "— Clear supervisor —" }, ...supervisorOptions],
-    [supervisorOptions]
-  );
-
   const mutation = useMutation({
     mutationFn: () => {
-      const isClear = !pickedId || pickedId === CLEAR_VALUE;
-      const matched = users?.find((u) => u.id === pickedId) ?? null;
-      return activityApi.setSupervisor(projectId, activity.id, {
-        supervisorUserId: isClear ? null : pickedId,
-        supervisorName: isClear ? null : (matched?.name ?? null),
+      const supervisors: SupervisorEntry[] = pickedIds.map((id) => {
+        const matched = users?.find((u) => u.id === id);
+        return { userId: id, userName: matched?.name ?? null };
       });
+      return activityApi.setSupervisors(projectId, activity.id, { supervisors });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["activity", projectId, activity.id] });
       queryClient.invalidateQueries({ queryKey: ["activities", projectId] });
       queryClient.invalidateQueries({ queryKey: ["wbs", projectId] });
-      toast.success("Supervisor updated");
+      toast.success(
+        pickedIds.length === 0
+          ? "Supervisors cleared"
+          : pickedIds.length === 1
+            ? "Supervisor updated"
+            : `${pickedIds.length} supervisors saved`,
+      );
       onClose();
     },
     onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to update supervisor"));
+      toast.error(getErrorMessage(err, "Failed to update supervisors"));
     },
   });
 
-  const isClearing = pickedId === CLEAR_VALUE;
-  const currentId = activity.responsibleResourceId ?? "";
-  const isUnchanged = !isClearing && pickedId === currentId;
-  const cantClear = isClearing && !currentId;
+  const isUnchanged =
+    pickedIds.length === initialIds.length &&
+    pickedIds.every((id) => initialIds.includes(id));
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Set supervisor</DialogTitle>
+        <DialogTitle>Set supervisors</DialogTitle>
         <p className="mt-1 text-xs text-slate">
           {activity.code} — {activity.name}
         </p>
       </DialogHeader>
       <DialogBody>
         <label className="block text-sm font-medium text-text-secondary">
-          Supervisor
+          Supervisors
         </label>
+        <p className="mt-0.5 mb-1 text-xs text-text-muted">
+          Add everyone who supervises this activity. All entries are equal — there is no
+          primary.
+        </p>
         {isLoadingPool ? (
           <p className="mt-1 text-xs text-text-muted">Loading users…</p>
         ) : supervisorOptions.length === 0 ? (
@@ -134,11 +142,11 @@ function DialogInner({
           </p>
         ) : (
           <div className="mt-1">
-            <SearchableSelect
-              value={pickedId}
-              onChange={setPickedId}
+            <MultiSelect
+              options={supervisorOptions}
+              value={pickedIds}
+              onChange={setPickedIds}
               placeholder="Search supervisor candidates…"
-              options={optionsWithClear}
             />
           </div>
         )}
@@ -154,10 +162,10 @@ function DialogInner({
         <button
           type="button"
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending || isUnchanged || cantClear}
+          disabled={mutation.isPending || isUnchanged}
           className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
-          {mutation.isPending ? "Saving…" : isClearing ? "Clear" : "Save"}
+          {mutation.isPending ? "Saving…" : "Save"}
         </button>
       </DialogFooter>
     </>

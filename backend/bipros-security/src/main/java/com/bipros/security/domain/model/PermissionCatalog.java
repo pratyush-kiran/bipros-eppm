@@ -40,6 +40,8 @@ public final class PermissionCatalog {
             new Permission("ACTIVITY.READ",   "ACTIVITY", READ,   "View activities and WBS"),
             new Permission("ACTIVITY.UPDATE", "ACTIVITY", UPDATE, "Update activities and progress"),
             new Permission("ACTIVITY.DELETE", "ACTIVITY", DELETE, "Delete activities"),
+            new Permission("ACTIVITY.LOCK",   "ACTIVITY", UPDATE, "Lock an activity (freeze edits, enable DPR submission)"),
+            new Permission("ACTIVITY.UNLOCK", "ACTIVITY", UPDATE, "Unlock an activity (return to Draft for edits)"),
 
             // Schedule
             new Permission("SCHEDULE.READ",    "SCHEDULE", READ,    "View schedules"),

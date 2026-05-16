@@ -73,8 +73,15 @@ public class FindResourceDeploymentTool implements Tool {
 
     @Override
     public String description() {
-        return "Find where a resource role / designation / trade is deployed across the current "
-                + "project. Search by keyword (e.g. \"mason\", \"electrician\", \"helper\", \"crane\", "
+        return "Find where a resource role / designation / trade is DEPLOYED — i.e. assigned "
+                + "to an activity — across the current project. SCOPE: this tool sees ONLY "
+                + "resources that have an active resource_assignments row. For catalogue / "
+                + "rate questions (size of the priced catalogue, daily rate of an excavator, "
+                + "most expensive equipment, top labor categories by rate) use "
+                + "query_resource_catalogue instead — it reads the project-agnostic priced "
+                + "master at /v1/resources, which can hold hundreds of priced rows even when "
+                + "no assignments exist on this project. "
+                + "Search by keyword (e.g. \"mason\", \"electrician\", \"helper\", \"crane\", "
                 + "\"earth moving\", \"steel fixer\") — matches case-insensitively across the "
                 + "resource's code/name AND the role's code/name (so role-level groupings like "
                 + "\"Earth Moving\", \"Paving Equipment\", or \"Carpenter\" are matched even when "

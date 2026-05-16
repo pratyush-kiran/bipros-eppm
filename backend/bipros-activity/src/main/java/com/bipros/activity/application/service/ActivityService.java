@@ -2,16 +2,21 @@ package com.bipros.activity.application.service;
 
 import com.bipros.activity.application.dto.ActivityResponse;
 import com.bipros.activity.application.dto.CreateActivityRequest;
+import com.bipros.activity.application.dto.SetSupervisorsRequest;
+import com.bipros.activity.application.dto.SupervisorEntry;
 import com.bipros.activity.application.dto.UpdateActivityRequest;
 import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.model.ActivityRelationship;
 import com.bipros.activity.domain.model.ActivityStatus;
+import com.bipros.activity.domain.model.ActivitySupervisor;
 import com.bipros.activity.application.percent.ActivityStatusDerivation;
 import com.bipros.activity.application.percent.PercentCompleteCalculator;
 import com.bipros.activity.domain.model.PercentCompleteType;
 import com.bipros.activity.domain.repository.ActivityRelationshipRepository;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.activity.domain.repository.ActivityStepRepository;
+import com.bipros.activity.domain.repository.ActivitySupervisorRepository;
 import com.bipros.common.dto.PagedResponse;
 import com.bipros.common.event.ActivityCreatedEvent;
 import com.bipros.common.event.ActivityUpdatedEvent;
@@ -35,7 +40,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,6 +56,7 @@ import java.util.stream.Collectors;
 public class ActivityService {
 
   private final ActivityRepository activityRepository;
+  private final ActivitySupervisorRepository activitySupervisorRepository;
   private final ActivityRelationshipRepository relationshipRepository;
   private final AuditService auditService;
   private final ProjectAccessGuard projectAccess;
@@ -351,6 +359,9 @@ public class ActivityService {
           "Cannot delete activity with relationships. Remove relationships first.");
     }
 
+    // Clear any supervisor rows first — Activity has no JPA cascade to ActivitySupervisor
+    // (kept as a sibling aggregate to avoid pulling the supervisor list on every Activity load).
+    activitySupervisorRepository.deleteByActivityId(id);
     activityRepository.deleteById(id);
     log.info("Activity deleted successfully: id={}", id);
 
@@ -366,7 +377,9 @@ public class ActivityService {
     java.time.LocalDate statusDate = projectRepository.findById(activity.getProjectId())
         .map(Project::getDataDate)
         .orElse(java.time.LocalDate.now());
-    return ActivityResponse.from(activity, percentCompleteCalculator, statusDate);
+    List<SupervisorEntry> supervisors = loadSupervisorsByActivityId(List.of(id))
+        .getOrDefault(id, List.of());
+    return ActivityResponse.from(activity, percentCompleteCalculator, statusDate, supervisors);
   }
 
   public PagedResponse<ActivityResponse> listActivities(UUID projectId, Pageable pageable) {
@@ -378,16 +391,44 @@ public class ActivityService {
     Page<Activity> page = activityRepository.findByProjectIdOrderBySortOrder(projectId, pageable);
     Map<UUID, String> defaultUnitsByWorkActivity =
         bulkResolveWorkActivityDefaultUnits(page.getContent());
+    Map<UUID, List<SupervisorEntry>> supervisorsByActivityId =
+        loadSupervisorsByActivityId(page.getContent().stream().map(Activity::getId).toList());
     return PagedResponse.of(
         page.getContent().stream()
             .map(a -> ActivityResponse.from(a,
-                a.getWorkActivityId() == null ? null : defaultUnitsByWorkActivity.get(a.getWorkActivityId())))
+                a.getWorkActivityId() == null ? null : defaultUnitsByWorkActivity.get(a.getWorkActivityId()),
+                supervisorsByActivityId.getOrDefault(a.getId(), List.of())))
             .toList(),
         page.getTotalElements(),
         page.getTotalPages(),
         page.getNumber(),
         page.getSize()
     );
+  }
+
+  /**
+   * Bulk fetch supervisor entries for the given activity ids. Preserves insertion order
+   * (createdAt ASC) within each activity so the legacy first-supervisor cache stays stable.
+   * Returns an empty map (not null) when the input is empty.
+   */
+  private Map<UUID, List<SupervisorEntry>> loadSupervisorsByActivityId(List<UUID> activityIds) {
+    if (activityIds == null || activityIds.isEmpty()) return Map.of();
+    // Copy into a mutable list — Spring Data may return an immutable view, and tests mock
+    // with List.of(). Sort by createdAt so "first item" semantics are stable across reads.
+    List<ActivitySupervisor> rows = new ArrayList<>(
+        activitySupervisorRepository.findByActivityIdIn(activityIds));
+    rows.sort((a, b) -> {
+      if (a.getCreatedAt() == null && b.getCreatedAt() == null) return 0;
+      if (a.getCreatedAt() == null) return -1;
+      if (b.getCreatedAt() == null) return 1;
+      return a.getCreatedAt().compareTo(b.getCreatedAt());
+    });
+    Map<UUID, List<SupervisorEntry>> out = new HashMap<>();
+    for (ActivitySupervisor s : rows) {
+      out.computeIfAbsent(s.getActivityId(), k -> new ArrayList<>())
+          .add(new SupervisorEntry(s.getUserId(), s.getUserNameSnapshot()));
+    }
+    return out;
   }
 
   /**
@@ -496,22 +537,82 @@ public class ActivityService {
    * user-based supervisor endpoint.
    */
   /**
-   * Phase 4.5: per-activity supervisor assignment. Writes {@code Activity.supervisor_user_id}
-   * (User FK to {@code public.users.id}). Pass {@code supervisorUserId = null} to clear.
+   * Legacy single-supervisor write — kept for back-compat with older frontends and any
+   * external integrations. Delegates to {@link #setSupervisors} with a one-element list,
+   * which means it now REPLACES the entire supervisor set on the activity. Pass
+   * {@code supervisorUserId = null} to clear.
    */
   public ActivityResponse setSupervisor(UUID activityId,
       com.bipros.activity.application.dto.SetSupervisorRequest request) {
+    UUID userId = request == null ? null : request.supervisorUserId();
+    String snapshot = request == null ? null : request.supervisorName();
+    List<SupervisorEntry> list = userId == null
+        ? List.of()
+        : List.of(new SupervisorEntry(userId, snapshot));
+    return setSupervisors(activityId, new SetSupervisorsRequest(list));
+  }
+
+  /**
+   * Replace the supervisor set on an activity. All entries are equal — no primary.
+   * Duplicate user ids in the request are deduplicated (first wins for the name
+   * snapshot). The legacy single-column cache on {@code activities} is kept in sync
+   * with the first entry for back-compat with consumers still reading
+   * {@code supervisor_user_id} / {@code supervisor_user_name} directly.
+   */
+  public ActivityResponse setSupervisors(UUID activityId, SetSupervisorsRequest request) {
     Activity activity = activityRepository.findById(activityId)
         .orElseThrow(() -> new ResourceNotFoundException("Activity", activityId));
     projectAccess.requireEdit(activity.getProjectId());
-    UUID userId = request == null ? null : request.supervisorUserId();
-    String snapshot = request == null ? null : request.supervisorName();
-    activity.setSupervisorUserId(userId);
-    activity.setSupervisorUserName(userId == null ? null : snapshot);
+
+    List<SupervisorEntry> requested = request == null || request.supervisors() == null
+        ? List.of()
+        : request.supervisors();
+    // Dedup preserving first occurrence; drop null userIds defensively.
+    LinkedHashMap<UUID, String> deduped = new LinkedHashMap<>();
+    for (SupervisorEntry e : requested) {
+      if (e == null || e.userId() == null) continue;
+      deduped.putIfAbsent(e.userId(), e.userName());
+    }
+
+    // Diff existing vs target and apply minimal mutations so createdAt timestamps survive
+    // and the first-entry cache only flips when the first item actually changes.
+    List<ActivitySupervisor> existing = activitySupervisorRepository.findByActivityId(activityId);
+    Map<UUID, ActivitySupervisor> existingByUser = new HashMap<>();
+    for (ActivitySupervisor s : existing) existingByUser.put(s.getUserId(), s);
+
+    for (Map.Entry<UUID, String> entry : deduped.entrySet()) {
+      ActivitySupervisor row = existingByUser.remove(entry.getKey());
+      if (row == null) {
+        ActivitySupervisor fresh = new ActivitySupervisor();
+        fresh.setActivityId(activityId);
+        fresh.setUserId(entry.getKey());
+        fresh.setUserNameSnapshot(entry.getValue());
+        activitySupervisorRepository.save(fresh);
+      } else if (!java.util.Objects.equals(row.getUserNameSnapshot(), entry.getValue())) {
+        row.setUserNameSnapshot(entry.getValue());
+        activitySupervisorRepository.save(row);
+      }
+    }
+    // Anything left in existingByUser was not in the request → remove.
+    for (ActivitySupervisor stale : existingByUser.values()) {
+      activitySupervisorRepository.delete(stale);
+    }
+
+    // Sync the legacy single-column cache. First entry wins; null when empty.
+    if (deduped.isEmpty()) {
+      activity.setSupervisorUserId(null);
+      activity.setSupervisorUserName(null);
+    } else {
+      Map.Entry<UUID, String> first = deduped.entrySet().iterator().next();
+      activity.setSupervisorUserId(first.getKey());
+      activity.setSupervisorUserName(first.getValue());
+    }
     Activity saved = activityRepository.save(activity);
-    log.info("Set supervisor: activityId={}, supervisorUserId={}",
-        activityId, saved.getSupervisorUserId());
-    return ActivityResponse.from(saved);
+    log.info("Set supervisors: activityId={}, count={}", activityId, deduped.size());
+
+    List<SupervisorEntry> attached = loadSupervisorsByActivityId(List.of(activityId))
+        .getOrDefault(activityId, List.of());
+    return ActivityResponse.from(saved, (String) null, attached);
   }
 
   @Deprecated(forRemoval = true)
@@ -529,6 +630,12 @@ public class ActivityService {
     java.util.List<Activity> activities = activityRepository.findByProjectId(projectId);
 
     for (Activity activity : activities) {
+      // Skip LOCKED activities — their plan and actuals are frozen. DPR-driven
+      // cascade writes are the only mutator that bypasses this; the batch apply-actuals
+      // is treated like a manual cascade and respects the lock.
+      if (activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+        continue;
+      }
       boolean updated = false;
 
       // Auto-stamp actuals from the data date — this is what `applyActuals` adds
@@ -576,6 +683,45 @@ public class ActivityService {
     }
 
     log.info("Actuals applied successfully for project: projectId={}", projectId);
+  }
+
+  /**
+   * Flip the activity to LOCKED. Idempotent — locking an already-locked activity
+   * is a no-op success. Requires {@code ACTIVITY.LOCK} on the project (enforced
+   * at the controller boundary).
+   */
+  public ActivityResponse lockActivity(UUID id) {
+    Activity activity = activityRepository.findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Activity", id));
+    if (activity.getEditStatus() == ActivityEditStatus.LOCKED) {
+      return ActivityResponse.from(activity);
+    }
+    ActivityEditStatus prior = activity.getEditStatus();
+    activity.setEditStatus(ActivityEditStatus.LOCKED);
+    Activity saved = activityRepository.save(activity);
+    log.info("Activity locked: id={}", id);
+    auditService.logUpdate("Activity", id, "editStatus", prior, ActivityEditStatus.LOCKED);
+    return ActivityResponse.from(saved);
+  }
+
+  /**
+   * Flip the activity back to DRAFT. Idempotent. Requires {@code ACTIVITY.UNLOCK}
+   * on the project (enforced at the controller boundary). DPRs already submitted
+   * while locked are unaffected; they continue to exist and their cascade history
+   * is preserved.
+   */
+  public ActivityResponse unlockActivity(UUID id) {
+    Activity activity = activityRepository.findById(id)
+        .orElseThrow(() -> new ResourceNotFoundException("Activity", id));
+    if (activity.getEditStatus() == ActivityEditStatus.DRAFT) {
+      return ActivityResponse.from(activity);
+    }
+    ActivityEditStatus prior = activity.getEditStatus();
+    activity.setEditStatus(ActivityEditStatus.DRAFT);
+    Activity saved = activityRepository.save(activity);
+    log.info("Activity unlocked: id={}", id);
+    auditService.logUpdate("Activity", id, "editStatus", prior, ActivityEditStatus.DRAFT);
+    return ActivityResponse.from(saved);
   }
 
   /**
