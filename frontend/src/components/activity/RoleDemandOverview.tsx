@@ -60,61 +60,83 @@ export function RoleDemandOverview({ projectId, activityId, title = "Resource Pl
 
   if (rows.length === 0) {
     return (
-      <section className="rounded-md border border-border bg-surface p-3">
-        <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">{title}</h3>
-        <p className={`${sz} text-text-muted`}>No resources planned yet.</p>
+      <section className="overflow-hidden rounded-md border border-border bg-surface shadow-sm">
+        <div className="border-l-4 border-accent bg-accent/5 px-3 py-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-accent">{title}</h3>
+        </div>
+        <p className={`${sz} px-3 py-3 text-text-muted`}>No resources planned yet.</p>
       </section>
     );
   }
 
+  // Column-group tones: planned = info (steel blue), actual = success (emerald),
+  // remaining = warning (bronze). Headers use the strong tone; cells use a
+  // muted variant so values stay readable without screaming.
+  const headPlanned = "bg-info/10 text-info";
+  const headActual = "bg-success/10 text-success";
+  const headRemaining = "bg-warning/10 text-warning";
+  const cellPlanned = "text-info";
+  const cellActual = "text-success";
+  const cellRemaining = "text-warning";
+
   return (
-    <section className="rounded-md border border-border bg-surface p-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">{title}</h3>
+    <section className="overflow-hidden rounded-md border border-border bg-surface shadow-sm">
+      <div className="flex items-center justify-between border-l-4 border-accent bg-accent/5 px-3 py-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-accent">{title}</h3>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-text-muted">
+          {rows.length} {rows.length === 1 ? "row" : "rows"}
+        </span>
+      </div>
       <div className="overflow-x-auto">
         <table className={`w-full ${sz}`}>
-          <thead className="border-b border-border text-text-muted">
+          <thead className="border-b border-border">
             <tr>
-              <th className={`${pad} text-left font-medium`}>Role</th>
-              <th className={`${pad} text-left font-medium`}>Variant</th>
-              <th className={`${pad} text-right font-medium`}>Planned Units</th>
-              <th className={`${pad} text-right font-medium`}>Actual Units</th>
-              <th className={`${pad} text-right font-medium`}>Remaining Units</th>
-              <th className={`${pad} text-right font-medium`}>Planned Cost</th>
-              <th className={`${pad} text-right font-medium`}>Actual Cost</th>
-              <th className={`${pad} text-right font-medium`}>Remaining Cost</th>
+              <th className={`${pad} text-left font-semibold text-text-secondary`}>Role</th>
+              <th className={`${pad} text-left font-semibold text-text-secondary`}>Variant</th>
+              <th className={`${pad} text-right font-semibold ${headPlanned}`}>Planned Units</th>
+              <th className={`${pad} text-right font-semibold ${headActual}`}>Actual Units</th>
+              <th className={`${pad} text-right font-semibold ${headRemaining}`}>Remaining Units</th>
+              <th className={`${pad} text-right font-semibold ${headPlanned}`}>Planned Cost</th>
+              <th className={`${pad} text-right font-semibold ${headActual}`}>Actual Cost</th>
+              <th className={`${pad} text-right font-semibold ${headRemaining}`}>Remaining Cost</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-b border-border/40">
-                <td className={pad}>
+            {rows.map((r, idx) => (
+              <tr
+                key={r.id}
+                className={`border-b border-border/40 transition-colors hover:bg-accent/5 ${
+                  idx % 2 === 1 ? "bg-surface-hover/40" : ""
+                }`}
+              >
+                <td className={`${pad} font-medium text-text-primary`}>
                   {r.roleName ?? "—"}
                   {r.unplanned && (
                     <span
-                      className="ml-2 inline-flex items-center rounded-full bg-surface-hover px-1.5 py-0.5 text-[10px] font-medium text-text-muted"
+                      className="ml-2 inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
                       title="Field-added by a DPR — not in the original plan"
                     >
                       Unplanned
                     </span>
                   )}
                 </td>
-                <td className={pad}>{r.variantLabel ?? "—"}</td>
-                <td className={`${pad} text-right`}>{fmtNum(r.plannedUnits)}</td>
-                <td className={`${pad} text-right`}>{fmtNum(r.actualUnits)}</td>
-                <td className={`${pad} text-right`}>{fmtNum(r.remainingUnits)}</td>
-                <td className={`${pad} text-right`}>{fmtCost(r.plannedCost)}</td>
-                <td className={`${pad} text-right`}>{fmtCost(r.actualCost)}</td>
-                <td className={`${pad} text-right`}>{fmtCost(r.remainingCost)}</td>
+                <td className={`${pad} text-text-secondary`}>{r.variantLabel ?? "—"}</td>
+                <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtNum(r.plannedUnits)}</td>
+                <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtNum(r.actualUnits)}</td>
+                <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtNum(r.remainingUnits)}</td>
+                <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtCost(r.plannedCost)}</td>
+                <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtCost(r.actualCost)}</td>
+                <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtCost(r.remainingCost)}</td>
               </tr>
             ))}
-            <tr className="border-t-2 border-border font-semibold">
-              <td className={pad} colSpan={2}>Totals</td>
-              <td className={`${pad} text-right`}>{fmtNum(totals.plannedUnits)}</td>
-              <td className={`${pad} text-right`}>{fmtNum(totals.actualUnits)}</td>
-              <td className={`${pad} text-right`}>{fmtNum(totals.remainingUnits)}</td>
-              <td className={`${pad} text-right`}>{fmtCost(totals.plannedCost)}</td>
-              <td className={`${pad} text-right`}>{fmtCost(totals.actualCost)}</td>
-              <td className={`${pad} text-right`}>{fmtCost(totals.remainingCost)}</td>
+            <tr className="border-t-2 border-accent/40 bg-accent/10 font-semibold">
+              <td className={`${pad} text-accent`} colSpan={2}>Totals</td>
+              <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtNum(totals.plannedUnits)}</td>
+              <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtNum(totals.actualUnits)}</td>
+              <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtNum(totals.remainingUnits)}</td>
+              <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtCost(totals.plannedCost)}</td>
+              <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtCost(totals.actualCost)}</td>
+              <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtCost(totals.remainingCost)}</td>
             </tr>
           </tbody>
         </table>

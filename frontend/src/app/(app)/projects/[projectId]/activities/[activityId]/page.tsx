@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { SimpleTable } from "@/components/common/SimpleTable";
 import { getErrorMessage } from "@/lib/utils/error";
+import toast from "react-hot-toast";
 import { activityNotifications, notificationHelpers } from "@/lib/notificationHelpers";
 import { PageHeader } from "@/components/common/PageHeader";
 import { activityApi } from "@/lib/api/activityApi";
@@ -16,6 +17,7 @@ import { calendarApi, type CalendarResponse } from "@/lib/api/calendarApi";
 import { projectApi } from "@/lib/api/projectApi";
 import { resourceApi } from "@/lib/api/resourceApi";
 import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
+import { RoleDemandSections } from "@/components/activity/RoleDemandSections";
 import { WorkActivityCoverageChip } from "@/components/activity/WorkActivityCoverageChip";
 import { LinkOrCreateWorkActivityDialog, type DialogMode } from "@/components/activity/LinkOrCreateWorkActivityDialog";
 import { useActivityMasterStatus } from "@/lib/hooks/useActivityMasterStatus";
@@ -38,7 +40,7 @@ import { ActivityEditStatusBadge } from "@/components/activity/ActivityEditStatu
 import { ResourceAssignmentForm } from "@/components/resource/ResourceAssignmentForm";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
 import type { ExpenseResponse } from "@/lib/types";
-import { AlertTriangle, Lock, Unlock } from "lucide-react";
+import { AlertTriangle, Lock, RefreshCw, Unlock } from "lucide-react";
 
 // Heavy children deferred so the initial paint of the detail page is cheap —
 // when arriving here from /activities (especially WBS Tree view) the router
@@ -546,6 +548,21 @@ function ViewMode({
     }
   }
 
+  const queryClient = useQueryClient();
+  const isLocked = activity.editStatus === "LOCKED";
+
+  const recomputeMutation = useMutation({
+    mutationFn: () => resourceApi.recomputeProjectAssignmentCosts(projectId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["role-assignments", projectId, activity.id] });
+      queryClient.invalidateQueries({ queryKey: ["activity", projectId, activity.id] });
+      toast.success("Resource costs recomputed");
+    },
+    onError: (err) => {
+      notificationHelpers.handleApiError(err, "Failed to recompute costs");
+    },
+  });
+
   const { data: assignmentsData } = useQuery({
     queryKey: ["resource-assignments", "activity", projectId, activity.id],
     queryFn: () => resourceApi.getAssignmentsByActivity(projectId, activity.id),
@@ -755,8 +772,37 @@ function ViewMode({
         </div>
       </div>
 
-      {/* Resource plan overview sits directly under Dates per user feedback. */}
-      <RoleDemandOverview projectId={projectId} activityId={activity.id} title="Resource Plan" />
+      {/* Resource Demand — full editor (Manpower / Equipment / Material) plus read-only rollup,
+          mirroring ActivityDetailDrawer so users can manage demand from either surface. */}
+      <section className="rounded-lg border border-border bg-surface/50 p-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-text-primary">Resource Demand</h3>
+          <button
+            type="button"
+            onClick={() => recomputeMutation.mutate()}
+            disabled={recomputeMutation.isPending}
+            title="Recompute planned costs from current role rates and project overrides."
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-hover px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-surface-active disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={recomputeMutation.isPending ? "animate-spin" : ""} />
+            {recomputeMutation.isPending ? "Recomputing…" : "Recompute"}
+          </button>
+        </div>
+
+        <RoleDemandSections
+          projectId={projectId}
+          activityId={activity.id}
+          locked={isLocked}
+        />
+
+        <div className="mt-4">
+          <RoleDemandOverview
+            projectId={projectId}
+            activityId={activity.id}
+            title="Resource Plan"
+          />
+        </div>
+      </section>
 
       {/* Constraints */}
       {(activity.primaryConstraintType || activity.secondaryConstraintType) && (
