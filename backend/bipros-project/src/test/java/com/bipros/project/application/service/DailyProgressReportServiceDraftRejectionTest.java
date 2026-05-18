@@ -130,10 +130,14 @@ class DailyProgressReportServiceDraftRejectionTest {
   @Test
   @DisplayName("create succeeds when activity is LOCKED (DPR persists)")
   void createSucceedsForLockedActivity() {
-    // SELECT edit_status, code returns LOCKED row. Any later em.getResultList() (none expected on
-    // this path with empty children) would return the same list — harmless.
+    // 1st getResultList() → rejectIfActivityDraft (activity status)
+    // 2nd-4th getResultList() → ensureAssignmentsExist (manpower, equipment, material)
+    // All child lists are empty because no DPR children exist in this test.
     when(query.getResultList())
-        .thenReturn(java.util.Collections.singletonList(new Object[]{"LOCKED", "TEST-002"}));
+        .thenReturn(java.util.Collections.singletonList(new Object[]{"LOCKED", "TEST-002"}))
+        .thenReturn(List.of())
+        .thenReturn(List.of())
+        .thenReturn(List.of());
 
     assertThatCode(() -> service.create(projectId, createRequest()))
         .doesNotThrowAnyException();

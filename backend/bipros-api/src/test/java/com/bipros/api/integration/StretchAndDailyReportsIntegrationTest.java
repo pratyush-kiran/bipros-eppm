@@ -66,7 +66,8 @@ class StretchAndDailyReportsIntegrationTest {
         CreateProjectRequest projReq = new CreateProjectRequest(
                 "PRJ-STR-" + suffix, "Project Stretch " + suffix, "desc",
                 epsId, null, LocalDate.now(), LocalDate.now().plusMonths(12),
-                5, null, null, null, null, null, null, null, null, null);
+                5, null, null, null, null, null, null, null, null, null,
+                null);
         HttpEntity<CreateProjectRequest> projE = new HttpEntity<>(projReq, h);
         ResponseEntity<ApiResponse> projR = restTemplate.exchange("/v1/projects", HttpMethod.POST, projE, ApiResponse.class);
         Map<String, Object> projD = (Map<String, Object>) projR.getBody().data();
@@ -353,8 +354,8 @@ class StretchAndDailyReportsIntegrationTest {
         void createDpr_returns201() {
             CreateDailyProgressReportRequest req = new CreateDailyProgressReportRequest(
                     LocalDate.now(), null, "Supervisor Name", 0L, 500L,
-                    null, "Earthwork", null, null, "M3",
-                    new java.math.BigDecimal("1.0"), null, null,
+                    null, "Earthwork", null, null, null,
+                    "M3", new java.math.BigDecimal("1.0"), null, null,
                     null, null, null, null, null, null, null, null, null, null,
                     null, null, null, null);
             HttpEntity<CreateDailyProgressReportRequest> e = new HttpEntity<>(req, authJsonHeaders());

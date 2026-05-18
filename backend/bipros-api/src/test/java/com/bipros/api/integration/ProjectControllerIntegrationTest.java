@@ -109,7 +109,8 @@ class ProjectControllerIntegrationTest {
             CreateProjectRequest req = new CreateProjectRequest(
                     "PROJ-" + suffix, "Project " + suffix, "Test project",
                     epsNodeId, null, LocalDate.now(), LocalDate.now().plusMonths(12),
-                    5, null, null, null, null, null, null, null, null, null);
+                    5, null, null, null, null, null, null, null, null, null,
+                    null);
 
             HttpEntity<CreateProjectRequest> entity = new HttpEntity<>(req, authJsonHeaders());
             ResponseEntity<ApiResponse> response = restTemplate.exchange(
@@ -126,7 +127,8 @@ class ProjectControllerIntegrationTest {
             CreateProjectRequest req = new CreateProjectRequest(
                     "", "No Code", "desc", epsNodeId, null,
                     LocalDate.now(), LocalDate.now().plusMonths(12), 5,
-                    null, null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, null,
+                    null);
 
             HttpEntity<CreateProjectRequest> entity = new HttpEntity<>(req, authJsonHeaders());
             ResponseEntity<ApiResponse> response = restTemplate.exchange(
@@ -140,7 +142,8 @@ class ProjectControllerIntegrationTest {
             CreateProjectRequest req = new CreateProjectRequest(
                     "PROJ-BN", "", "desc", epsNodeId, null,
                     LocalDate.now(), LocalDate.now().plusMonths(12), 5,
-                    null, null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, null,
+                    null);
 
             HttpEntity<CreateProjectRequest> entity = new HttpEntity<>(req, authJsonHeaders());
             ResponseEntity<ApiResponse> response = restTemplate.exchange(
@@ -154,7 +157,8 @@ class ProjectControllerIntegrationTest {
             CreateProjectRequest req = new CreateProjectRequest(
                     "PROJ-NE", "No EPS", "desc", null, null,
                     LocalDate.now(), LocalDate.now().plusMonths(12), 5,
-                    null, null, null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, null, null,
+                    null);
 
             HttpEntity<CreateProjectRequest> entity = new HttpEntity<>(req, authJsonHeaders());
             ResponseEntity<ApiResponse> response = restTemplate.exchange(
@@ -169,7 +173,8 @@ class ProjectControllerIntegrationTest {
                     "PROJ-FBS-" + System.currentTimeMillis(), "FBS Test", "desc",
                     epsNodeId, null,
                     LocalDate.now().plusMonths(12), LocalDate.now(),
-                    5, null, null, null, null, null, null, null, null, null);
+                    5, null, null, null, null, null, null, null, null, null,
+                    null);
 
             HttpEntity<CreateProjectRequest> entity = new HttpEntity<>(req, authJsonHeaders());
             ResponseEntity<ApiResponse> response = restTemplate.exchange(
@@ -190,7 +195,8 @@ class ProjectControllerIntegrationTest {
             CreateProjectRequest req = new CreateProjectRequest(
                     "PROJ-GP-" + suffix, "Get Project " + suffix, "desc",
                     epsNodeId, null, LocalDate.now(), LocalDate.now().plusMonths(12),
-                    5, null, null, null, null, null, null, null, null, null);
+                    5, null, null, null, null, null, null, null, null, null,
+                    null);
             HttpEntity<CreateProjectRequest> createEntity = new HttpEntity<>(req, headers);
             ResponseEntity<ApiResponse> createResp = restTemplate.exchange(
                     "/v1/projects", HttpMethod.POST, createEntity, ApiResponse.class);
@@ -227,7 +233,8 @@ class ProjectControllerIntegrationTest {
             CreateProjectRequest createReq = new CreateProjectRequest(
                     "PROJ-UP-" + suffix, "Update Project " + suffix, "desc",
                     epsNodeId, null, LocalDate.now(), LocalDate.now().plusMonths(12),
-                    5, null, null, null, null, null, null, null, null, null);
+                    5, null, null, null, null, null, null, null, null, null,
+                    null);
             HttpEntity<CreateProjectRequest> createEntity = new HttpEntity<>(createReq, headers);
             ResponseEntity<ApiResponse> createResp = restTemplate.exchange(
                     "/v1/projects", HttpMethod.POST, createEntity, ApiResponse.class);
@@ -257,7 +264,8 @@ class ProjectControllerIntegrationTest {
             CreateProjectRequest createReq = new CreateProjectRequest(
                     "PROJ-DP-" + suffix, "Delete Project " + suffix, "desc",
                     epsNodeId, null, LocalDate.now(), LocalDate.now().plusMonths(12),
-                    5, null, null, null, null, null, null, null, null, null);
+                    5, null, null, null, null, null, null, null, null, null,
+                    null);
             HttpEntity<CreateProjectRequest> createEntity = new HttpEntity<>(createReq, headers);
             ResponseEntity<ApiResponse> createResp = restTemplate.exchange(
                     "/v1/projects", HttpMethod.POST, createEntity, ApiResponse.class);

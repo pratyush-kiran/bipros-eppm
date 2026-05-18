@@ -71,7 +71,8 @@ class DocumentContractIntegrationTest {
         CreateProjectRequest projReq = new CreateProjectRequest(
                 "PRJ-DOC-" + suffix, "Project Doc " + suffix, "desc",
                 epsId, null, LocalDate.now(), LocalDate.now().plusMonths(12),
-                5, null, null, null, null, null, null, null, null, null);
+                5, null, null, null, null, null, null, null, null, null,
+                null);
         HttpEntity<CreateProjectRequest> projE = new HttpEntity<>(projReq, h);
         ResponseEntity<ApiResponse> projR = restTemplate.exchange("/v1/projects", HttpMethod.POST, projE, ApiResponse.class);
         Map<String, Object> projD = (Map<String, Object>) projR.getBody().data();

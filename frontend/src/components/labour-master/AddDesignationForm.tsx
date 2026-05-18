@@ -65,7 +65,12 @@ export function AddDesignationForm() {
     onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["labour-designations"] });
       qc.invalidateQueries({ queryKey: ["labour-deployments"] });
-      toast.success(`Designation "${res.data.code} – ${res.data.designation}" saved. Deploy it to a project to see it in the Table.`);
+      const d = res.data;
+      if (d) {
+        toast.success(`Designation "${d.code} – ${d.designation}" saved. Deploy it to a project to see it in the Table.`);
+      } else {
+        toast.success("Designation saved.");
+      }
       router.push("/labour-master/cards");
     },
     onError: (e: unknown) => setError(getErrorMessage(e, "Failed to save designation")),

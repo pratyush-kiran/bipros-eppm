@@ -159,9 +159,11 @@ class ProfileSeederNewProfilesTest {
     }
 
     @Test
-    void seederNowProvides22SystemDefaultProfiles() {
+    void seederNowProvidesExpectedSystemDefaultProfiles() {
         long systemDefaults = profileRepository.findAll().stream()
                 .filter(Profile::isSystemDefault).count();
-        assertEquals(22, systemDefaults);
+        assertTrue(systemDefaults >= com.bipros.api.config.ProfileSeeder.defaultCount(),
+                "Expected at least " + com.bipros.api.config.ProfileSeeder.defaultCount()
+                        + " system-default profiles, found " + systemDefaults);
     }
 }

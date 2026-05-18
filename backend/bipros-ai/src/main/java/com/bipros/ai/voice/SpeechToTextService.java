@@ -38,7 +38,7 @@ public class SpeechToTextService {
         if (baseUrl.endsWith("/")) {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
         }
-        String url = baseUrl + "/v1/audio/transcriptions";
+        String url = baseUrl + "/audio/transcriptions";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(apiKeyCipher.decrypt(cfg.getApiKeyIv(), cfg.getApiKeyCiphertext(), cfg.getApiKeyVersion()));
