@@ -2,7 +2,7 @@ package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.CloseNcrRequest;
 import com.bipros.siteops.application.dto.CreateNcrRequest;
 import com.bipros.siteops.application.dto.NcrResponse;
@@ -27,7 +27,7 @@ import java.util.UUID;
 public class NcrService {
 
     private final NcrRepository ncrRepository;
-    private final SecurityContextHelper securityContext;
+    private final CurrentUserService securityContext;
 
     public NcrResponse create(UUID projectId, CreateNcrRequest req) {
         Ncr ncr = new Ncr();

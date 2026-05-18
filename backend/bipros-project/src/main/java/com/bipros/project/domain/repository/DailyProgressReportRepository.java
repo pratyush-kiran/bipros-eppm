@@ -62,4 +62,16 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
   @Query("UPDATE DailyProgressReport d SET d.supervisorUserId = null "
       + "WHERE d.supervisorUserId = :userId")
   int detachSupervisor(@Param("userId") UUID userId);
+
+  /**
+   * Distinct supervisor identities that filed any DPR for {@code (projectId, date)}.
+   * Used by the DBS rollup listener to find which supervisor day-rows need recomputing
+   * after a deployment/material event (those events don't carry the supervisor identity).
+   * Null supervisors are excluded — the caller appends a {@code null} entry when needed.
+   */
+  @Query("SELECT DISTINCT d.supervisorUserId FROM DailyProgressReport d "
+      + "WHERE d.projectId = :projectId AND d.reportDate = :date "
+      + "AND d.supervisorUserId IS NOT NULL")
+  List<UUID> findDistinctSupervisorUserIdsByProjectAndDate(
+      @Param("projectId") UUID projectId, @Param("date") LocalDate date);
 }

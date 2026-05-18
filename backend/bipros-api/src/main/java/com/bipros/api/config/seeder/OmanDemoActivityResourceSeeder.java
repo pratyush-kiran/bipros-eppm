@@ -6,6 +6,7 @@ import com.bipros.api.config.seeder.OmanDemoWorkbookReader.DailyDataRawRow;
 import com.bipros.api.config.seeder.util.SeederResourceFactory;
 import com.bipros.project.domain.model.Project;
 import com.bipros.project.domain.repository.ProjectRepository;
+import com.bipros.resource.domain.model.GradeMaster;
 import com.bipros.resource.domain.model.ProjectResource;
 import com.bipros.resource.domain.model.Resource;
 import com.bipros.resource.domain.model.ResourceAssignment;
@@ -14,11 +15,16 @@ import com.bipros.resource.domain.model.ResourceMaterialDetails;
 import com.bipros.resource.domain.model.ResourceRole;
 import com.bipros.resource.domain.model.ResourceStatus;
 import com.bipros.resource.domain.model.ResourceType;
+import com.bipros.resource.domain.model.master.ManpowerCategoryMaster;
+import com.bipros.resource.domain.model.role.ManpowerRoleRate;
+import com.bipros.resource.domain.repository.GradeMasterRepository;
+import com.bipros.resource.domain.repository.ManpowerCategoryMasterRepository;
 import com.bipros.resource.domain.repository.ProjectResourceRepository;
 import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
 import com.bipros.resource.domain.repository.ResourceEquipmentDetailsRepository;
 import com.bipros.resource.domain.repository.ResourceMaterialDetailsRepository;
 import com.bipros.resource.domain.repository.ResourceRepository;
+import com.bipros.resource.domain.repository.role.ManpowerRoleRateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -75,6 +81,9 @@ public class OmanDemoActivityResourceSeeder implements CommandLineRunner {
     private final ProjectResourceRepository projectResourceRepository;
     private final ResourceEquipmentDetailsRepository equipmentDetailsRepository;
     private final ResourceMaterialDetailsRepository materialDetailsRepository;
+    private final ManpowerRoleRateRepository manpowerRoleRateRepository;
+    private final ManpowerCategoryMasterRepository manpowerCategoryRepository;
+    private final GradeMasterRepository gradeMasterRepository;
     private final SeederResourceFactory resourceFactory;
     private final OmanDemoWorkbookReader reader;
 
@@ -93,8 +102,10 @@ public class OmanDemoActivityResourceSeeder implements CommandLineRunner {
         Project project = projectOpt.get();
 
         if (!assignmentRepository.findByProjectId(project.getId()).isEmpty()) {
-            log.info("[oman-demo resources] resource assignments already seeded for {}, skipping",
+            log.info("[oman-demo resources] resource assignments already seeded for {}, "
+                    + "skipping assignment pass but still back-filling role rate book",
                     project.getCode());
+            seedRoleRateBookForExistingResources(project.getId());
             return;
         }
 
@@ -149,6 +160,8 @@ public class OmanDemoActivityResourceSeeder implements CommandLineRunner {
         // Per-kind Resource cache keyed by canonical code so duplicate trades reuse the same row.
         Map<String, UUID> resourceByCode = new HashMap<>();
         Set<UUID> ensuredPoolResourceIds = new HashSet<>();
+        // Manpower roles actually touched by this seed run — used to back-fill the role rate book.
+        Map<UUID, String> manpowerRolesUsed = new HashMap<>();
 
         int mpAssignments = 0, eqAssignments = 0, matAssignments = 0;
         int resourcesEnsured = 0, poolEntriesEnsured = 0;
@@ -170,12 +183,20 @@ public class OmanDemoActivityResourceSeeder implements CommandLineRunner {
             if (resourceId == null) {
                 Optional<Resource> existing = resourceRepository.findByCode(resourceCode);
                 if (existing.isPresent()) {
-                    resourceId = existing.get().getId();
+                    Resource r = existing.get();
+                    resourceId = r.getId();
+                    if (key.kind() == Kind.MANPOWER && r.getRole() != null) {
+                        manpowerRolesUsed.putIfAbsent(r.getRole().getId(), r.getRole().getCode());
+                    }
                 } else {
                     Resource created = createResource(resourceCode, key, b);
                     if (created == null) continue;
                     resourceId = created.getId();
                     resourcesEnsured++;
+                    if (key.kind() == Kind.MANPOWER && created.getRole() != null) {
+                        manpowerRolesUsed.putIfAbsent(
+                                created.getRole().getId(), created.getRole().getCode());
+                    }
                 }
                 resourceByCode.put(resourceCode, resourceId);
             }
@@ -221,6 +242,114 @@ public class OmanDemoActivityResourceSeeder implements CommandLineRunner {
                 mpAssignments, eqAssignments, matAssignments,
                 activitiesTouched.size(), resourcesEnsured, poolEntriesEnsured,
                 unknownActivity);
+
+        seedRoleRateBook(manpowerRolesUsed);
+    }
+
+    /**
+     * Back-fills {@link ManpowerRoleRate} rows for every manpower {@link ResourceRole} the
+     * OMAN-DEMO-KHASAB seed actually used, so the "Configure Role Rates" panel surfaces a
+     * non-empty rate book per role. One row per (role, classified-category, Grade A) at
+     * unit "Day" with a deterministic OMR/day rate per role code. Idempotent — existing
+     * (role, category, grade) tuples are left untouched.
+     */
+    private void seedRoleRateBook(Map<UUID, String> rolesUsed) {
+        if (rolesUsed.isEmpty()) return;
+
+        ManpowerCategoryMaster skilled = manpowerCategoryRepository.findByCode("MC-SKILLED").orElse(null);
+        ManpowerCategoryMaster unskilled = manpowerCategoryRepository.findByCode("MC-UNSKILLED").orElse(null);
+        ManpowerCategoryMaster staff = manpowerCategoryRepository.findByCode("MC-STAFF").orElse(null);
+        if (skilled == null || unskilled == null || staff == null) {
+            log.warn("[oman-demo role-rates] manpower category masters not seeded yet — "
+                    + "skipping role-rate back-fill (Skilled/Unskilled/Staff required)");
+            return;
+        }
+
+        GradeMaster gradeA = ensureGrade("A", "Grade A", 10);
+        // Ensure B and C exist so the dropdown shows the full A/B/C ladder admins expect.
+        ensureGrade("B", "Grade B", 20);
+        ensureGrade("C", "Grade C", 30);
+
+        int rowsCreated = 0;
+        for (Map.Entry<UUID, String> e : rolesUsed.entrySet()) {
+            UUID roleId = e.getKey();
+            String roleCode = e.getValue();
+            UUID categoryId = categoryFor(roleCode, skilled, unskilled, staff).getId();
+            if (manpowerRoleRateRepository
+                    .findByRoleIdAndCategoryIdAndGradeId(roleId, categoryId, gradeA.getId())
+                    .isPresent()) {
+                continue;
+            }
+            BigDecimal rate = roleDailyRateOmr(roleCode);
+            try {
+                manpowerRoleRateRepository.save(ManpowerRoleRate.builder()
+                        .roleId(roleId)
+                        .categoryId(categoryId)
+                        .gradeId(gradeA.getId())
+                        .unit("Day")
+                        .rate(rate)
+                        .active(true)
+                        .build());
+                rowsCreated++;
+            } catch (Exception ex) {
+                log.warn("[oman-demo role-rates] save failed for role {}: {}",
+                        roleCode, ex.getMessage());
+            }
+        }
+        log.info("[oman-demo role-rates] seeded {} ManpowerRoleRate rows across {} roles",
+                rowsCreated, rolesUsed.size());
+    }
+
+    /**
+     * Re-entry path for already-seeded databases: walk the existing manpower assignments on the
+     * project, harvest the distinct roles, and run the same rate-book back-fill. Skipped if no
+     * manpower resources are linked yet.
+     */
+    private void seedRoleRateBookForExistingResources(UUID projectId) {
+        Map<UUID, String> rolesUsed = new HashMap<>();
+        for (ResourceAssignment ra : assignmentRepository.findByProjectId(projectId)) {
+            if (ra.getResourceId() == null) continue;
+            Optional<Resource> rOpt = resourceRepository.findById(ra.getResourceId());
+            if (rOpt.isEmpty()) continue;
+            Resource r = rOpt.get();
+            if (r.getResourceType() == null || !"MANPOWER".equals(r.getResourceType().getCode())) continue;
+            if (r.getRole() == null) continue;
+            rolesUsed.putIfAbsent(r.getRole().getId(), r.getRole().getCode());
+        }
+        seedRoleRateBook(rolesUsed);
+    }
+
+    private GradeMaster ensureGrade(String code, String name, int sortOrder) {
+        return gradeMasterRepository.findByCode(code).orElseGet(() ->
+                gradeMasterRepository.save(GradeMaster.builder()
+                        .code(code).name(name).sortOrder(sortOrder).active(true).build()));
+    }
+
+    private static ManpowerCategoryMaster categoryFor(String roleCode,
+                                                      ManpowerCategoryMaster skilled,
+                                                      ManpowerCategoryMaster unskilled,
+                                                      ManpowerCategoryMaster staff) {
+        return switch (roleCode) {
+            case "UNSKILLED_LABOUR" -> unskilled;
+            case "SUPERVISOR", "FOREMAN" -> staff;
+            default -> skilled;
+        };
+    }
+
+    /** Deterministic OMR/day rate per role code — credible demo numbers, not arbitrary noise. */
+    private static BigDecimal roleDailyRateOmr(String roleCode) {
+        double daily = switch (roleCode) {
+            case "SUPERVISOR" -> 45.0;
+            case "FOREMAN" -> 32.0;
+            case "OPERATOR" -> 28.0;
+            case "DRIVER" -> 22.0;
+            case "WELDER" -> 24.0;
+            case "ELECTRICIAN" -> 26.0;
+            case "SKILLED_LABOUR" -> 18.0;
+            case "UNSKILLED_LABOUR" -> 9.0;
+            default -> 14.0; // IMPORTED-MANPOWER and any future fallback role
+        };
+        return BigDecimal.valueOf(daily).setScale(4, RoundingMode.HALF_UP);
     }
 
     private void addToBucket(Map<BucketKey, Bucket> agg, String activityCode, Kind kind,

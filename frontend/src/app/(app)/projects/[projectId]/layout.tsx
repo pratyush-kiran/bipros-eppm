@@ -85,6 +85,7 @@ function ProjectDetailLayoutInner({
     { id: "gantt", label: "Gantt", href: null },
     { id: "network", label: "Network", href: null },
     { id: "dpr", label: "DPR", href: `/projects/${projectId}/dpr` },
+    { id: "dbs", label: "DBS", href: `/projects/${projectId}/dbs` },
     { id: "capacity", label: "Capacity Util.", href: `/projects/${projectId}/capacity-utilization` },
     { id: "costs", label: "Costs", href: null, permission: "COST.READ" },
     { id: "evm", label: "EVM", href: null, permission: "EVM.READ" },
@@ -115,10 +116,12 @@ function ProjectDetailLayoutInner({
   ];
 
   const moreLinks = [
+    { label: "Team", href: `/projects/${projectId}/team` },
     { label: "Budget Changes", href: `/projects/${projectId}/budget-changes` },
     { label: "Relationships", href: `/projects/${projectId}/relationships` },
     { label: "Daily Cost Report", href: `/projects/${projectId}/daily-cost-report` },
     { label: "Material Consumption", href: `/projects/${projectId}/material-consumption` },
+    { label: "Material Consumption Report", href: `/projects/${projectId}/reports/material-consumption` },
     { label: "Material Reconciliation", href: `/projects/${projectId}/material-reconciliation` },
     { label: "Resource Deployment", href: `/projects/${projectId}/resource-deployment` },
     { label: "Weather Log", href: `/projects/${projectId}/weather-log` },

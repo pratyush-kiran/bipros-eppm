@@ -172,6 +172,9 @@ export interface DprBaseFields {
   activityId?: string | null;
   activityName: string;
   wbsNodeId?: string | null;
+  /** Workstream B1: new canonical FK to BoqItem.id. Prefer over {@link boqItemNo}. */
+  boqItemId?: string | null;
+  /** Legacy back-link by item-number string. New clients should send {@link boqItemId}. */
   boqItemNo?: string | null;
   unit: string;
   qtyExecuted: number;

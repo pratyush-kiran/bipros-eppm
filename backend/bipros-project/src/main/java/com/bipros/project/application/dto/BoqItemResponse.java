@@ -25,7 +25,8 @@ public record BoqItemResponse(
     BigDecimal costVariance,
     BigDecimal costVariancePercent,
     String chapter,
-    BoqStatus status
+    BoqStatus status,
+    Boolean manualOverride
 ) {
   public static BoqItemResponse from(BoqItem b) {
     return new BoqItemResponse(
@@ -47,7 +48,8 @@ public record BoqItemResponse(
         b.getCostVariance(),
         b.getCostVariancePercent(),
         b.getChapter(),
-        b.getStatus()
+        b.getStatus(),
+        b.getManualOverride()
     );
   }
 }

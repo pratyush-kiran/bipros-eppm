@@ -15,6 +15,7 @@ public record DailyCostReportRow(
     String activity,
     BigDecimal qtyExecuted,
     String unit,
+    UUID boqItemId,
     String boqItemNo,
     BigDecimal budgetedUnitRate,
     BigDecimal actualUnitRate,
@@ -22,5 +23,14 @@ public record DailyCostReportRow(
     BigDecimal actualCost,
     BigDecimal variance,
     BigDecimal variancePercent,
+    /**
+     * Estimate to Complete projected onto this row from the activity's most recent
+     * {@code EvmCalculation}, proportional to the row's share of the activity's total actual
+     * cost. {@code null} when no EvmCalculation exists for the activity or when the share
+     * cannot be computed (zero activity actual).
+     */
+    BigDecimal etc,
+    /** Estimate at Completion projected onto this row — see {@link #etc} for the share math. */
+    BigDecimal eac,
     String supervisor
 ) {}

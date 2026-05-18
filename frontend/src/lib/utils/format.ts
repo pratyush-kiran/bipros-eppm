@@ -1,4 +1,53 @@
 /**
+ * Format a numeric amount as a localised currency string.
+ *
+ * Default currency is INR — historically every caller assumed INR, which broke
+ * the moment Bipros gained its first non-INR project (Oman demo / OMR). Callers
+ * that have a project-specific currency code (see `Project.budgetCurrency` or
+ * the `BudgetSummaryResponse.budgetCurrency` field) should pass it through so
+ * the symbol matches the data.
+ *
+ * Falsy `currencyCode` (null/undefined/"") falls back to INR so existing call
+ * sites keep working.
+ */
+export function formatCurrency(
+  amount: number | null | undefined,
+  currencyCode?: string | null,
+): string {
+  const val = amount ?? 0;
+  const code = currencyCode && currencyCode.trim() ? currencyCode : "INR";
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    }).format(val);
+  } catch {
+    // Unknown ISO code → degrade to "<CODE> 0.00" rather than throw.
+    return `${code} ${val.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+}
+
+/**
+ * Format a percent value (input is the percent itself, not a 0–1 ratio).
+ * Returns "—" for null/undefined/NaN. One decimal place by default.
+ */
+export function formatPercent(
+  value: number | null | undefined,
+  fractionDigits = 1,
+): string {
+  if (value == null || Number.isNaN(value)) return "—";
+  return `${value.toLocaleString(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}%`;
+}
+
+/**
  * Format an ISO date string (e.g. "2026-01-15") to a readable format (e.g. "Jan 15, 2026").
  * Returns "—" for null/undefined/empty values.
  */

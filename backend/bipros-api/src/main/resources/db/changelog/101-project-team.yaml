@@ -1,0 +1,123 @@
+databaseChangeLog:
+  # Project-scoped reporting line: PM → Site Manager → Engineer → Supervisor. Powers the
+  # Daily Balance Sheet (DBS) rollups so an Engineer can SUM their supervisors and the PM
+  # can SUM their engineers. Deliberately project-scoped (not a global users.manager_id)
+  # because the same person can be a supervisor on one project and an engineer on another.
+
+  - changeSet:
+      id: 101-1-project-team-table
+      author: bipros
+      changes:
+        - createTable:
+            tableName: project_team
+            schemaName: project
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: role
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reports_to_user_id
+                  type: UUID
+              - column:
+                  name: active_from
+                  type: DATE
+              - column:
+                  name: active_to
+                  type: DATE
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: version
+                  type: BIGINT
+      rollback:
+        - dropTable:
+            tableName: project_team
+            schemaName: project
+
+  - changeSet:
+      id: 101-2-project-team-unique
+      author: bipros
+      changes:
+        - addUniqueConstraint:
+            tableName: project_team
+            schemaName: project
+            constraintName: uk_project_team_user_role
+            columnNames: project_id, user_id, role
+      rollback:
+        - dropUniqueConstraint:
+            tableName: project_team
+            schemaName: project
+            constraintName: uk_project_team_user_role
+
+  - changeSet:
+      id: 101-3-project-team-indexes
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: project_team
+            schemaName: project
+            indexName: idx_project_team_project
+            columns:
+              - column:
+                  name: project_id
+        - createIndex:
+            tableName: project_team
+            schemaName: project
+            indexName: idx_project_team_user
+            columns:
+              - column:
+                  name: user_id
+        - createIndex:
+            tableName: project_team
+            schemaName: project
+            indexName: idx_project_team_role
+            columns:
+              - column:
+                  name: role
+      rollback:
+        - dropIndex:
+            tableName: project_team
+            schemaName: project
+            indexName: idx_project_team_project
+        - dropIndex:
+            tableName: project_team
+            schemaName: project
+            indexName: idx_project_team_user
+        - dropIndex:
+            tableName: project_team
+            schemaName: project
+            indexName: idx_project_team_role

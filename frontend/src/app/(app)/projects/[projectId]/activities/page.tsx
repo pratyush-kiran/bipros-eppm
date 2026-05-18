@@ -26,6 +26,8 @@ import {
 } from "@/components/activity/QuickAssignResourceDialog";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
 import { AssignSupervisorDrawer } from "@/components/activity/AssignSupervisorDrawer";
+import { ActivityMasterStatusIndicator } from "@/components/activity/ActivityMasterStatusIndicator";
+import { LinkOrCreateWorkActivityDialog } from "@/components/activity/LinkOrCreateWorkActivityDialog";
 import {
   Dialog,
   DialogContent,
@@ -96,6 +98,10 @@ export default function ActivitiesPage() {
   const [deleteTarget, setDeleteTarget] = useState<ActivityResponse | null>(null);
   const [supervisorTarget, setSupervisorTarget] = useState<ActivityResponse | null>(null);
   const [bulkSupervisorOpen, setBulkSupervisorOpen] = useState(false);
+  const [masterDialog, setMasterDialog] = useState<{
+    activity: ActivityResponse;
+    mode: "LINK_OR_CREATE" | "CONFIGURE_NORMS_ONLY";
+  } | null>(null);
 
   // ActivityController gates POST on ACTIVITY.CREATE and DELETE on ACTIVITY.DELETE.
   // Server is source of truth — these checks just hide affordances the user can't act on.
@@ -692,6 +698,24 @@ export default function ActivitiesPage() {
           onCreateDpr={(a) =>
             router.push(`/projects/${projectId}/dpr?new=1&activityId=${a.id}`)
           }
+          onOpenMasterDialog={(a, mode) => setMasterDialog({ activity: a, mode })}
+        />
+      )}
+
+      {masterDialog && (
+        <LinkOrCreateWorkActivityDialog
+          open
+          onClose={() => setMasterDialog(null)}
+          mode={masterDialog.mode}
+          projectId={projectId}
+          activityId={masterDialog.activity.id}
+          defaultCode={masterDialog.activity.code}
+          defaultName={masterDialog.activity.name}
+          existingMasterId={
+            masterDialog.mode === "CONFIGURE_NORMS_ONLY"
+              ? masterDialog.activity.workActivityId ?? undefined
+              : undefined
+          }
         />
       )}
 
@@ -898,7 +922,12 @@ function ActivitiesListTable({
                   }}
                 >
                   <td className="px-4 py-4 text-sm font-medium text-text-primary whitespace-nowrap">{activity.code}</td>
-                  <td className="px-4 py-4 text-sm text-text-primary whitespace-nowrap">{activity.name}</td>
+                  <td className="px-4 py-4 text-sm text-text-primary whitespace-nowrap">
+                    <span className="inline-flex items-center gap-2">
+                      <span>{activity.name}</span>
+                      <ActivityMasterStatusIndicator workActivityId={activity.workActivityId} />
+                    </span>
+                  </td>
                   <td className="px-4 py-4 text-sm text-text-secondary whitespace-nowrap">{activity.originalDuration ?? activity.duration ?? "—"}</td>
                   <td
                     className="px-4 py-4 text-sm text-text-secondary whitespace-nowrap"

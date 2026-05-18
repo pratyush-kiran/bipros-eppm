@@ -62,6 +62,7 @@ class DailyProgressReportServiceDraftRejectionTest {
   @Mock private DailyActivityResourceOutputService ledgerService;
   @Mock private AuditService auditService;
   @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private com.bipros.project.domain.repository.BoqItemRepository boqItemRepository;
 
   @Mock private EntityManager entityManager;
   @Mock private Query query;
@@ -78,7 +79,7 @@ class DailyProgressReportServiceDraftRejectionTest {
     service = new DailyProgressReportService(
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
         attachmentRepository, issueRepository, attachmentStorage,
-        projectRepository, ledgerService, auditService, eventPublisher);
+        projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
 
     // Inject the mocked EntityManager — @PersistenceContext field, can't use @InjectMocks here
     // because the service also has @RequiredArgsConstructor for the other deps.
@@ -176,7 +177,7 @@ class DailyProgressReportServiceDraftRejectionTest {
   private CreateDailyProgressReportRequest createRequest() {
     return new CreateDailyProgressReportRequest(
         LocalDate.of(2026, 5, 1), supervisorId, "Some Supervisor",
-        null, null, activityId, "Test Activity", null, null, "Cum",
+        null, null, activityId, "Test Activity", null, null, null, "Cum",
         new BigDecimal("10.0"), null, null,
         null, null, null, null, null, null, null, null, null, null,
         null, null, null, null);
@@ -185,7 +186,7 @@ class DailyProgressReportServiceDraftRejectionTest {
   private UpdateDailyProgressReportRequest updateRequest() {
     return new UpdateDailyProgressReportRequest(
         LocalDate.of(2026, 5, 1), supervisorId, "Some Supervisor",
-        null, null, activityId, "Test Activity", null, null, "Cum",
+        null, null, activityId, "Test Activity", null, null, null, "Cum",
         new BigDecimal("10.0"), null, null,
         null, null, null, null, null, null, null, null, null, null,
         null, null, null, null);

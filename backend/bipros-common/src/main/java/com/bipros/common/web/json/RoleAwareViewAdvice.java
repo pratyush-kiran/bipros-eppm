@@ -39,7 +39,12 @@ import java.util.stream.Collectors;
  * <p>Note: {@code @JsonView} only filters response serialisation. Write endpoints must still
  * validate that the caller is allowed to set sensitive fields — the advice cannot enforce that.
  */
-@RestControllerAdvice
+// Scoped to our own controllers. springdoc's OpenAPI endpoints (/v3/api-docs, /v3/api-docs.yaml)
+// live in org.springdoc.* and return raw byte[] with content-type application/json. If this
+// advice applies to them, byte[] gets wrapped in a MappingJacksonValue and the converter chain
+// throws ClassCastException at write time. Restricting basePackages to com.bipros side-steps
+// the entire problem without leaning on fragile converter-type sniffing.
+@RestControllerAdvice(basePackages = "com.bipros")
 @RequiredArgsConstructor
 public class RoleAwareViewAdvice implements ResponseBodyAdvice<Object> {
 
@@ -47,6 +52,8 @@ public class RoleAwareViewAdvice implements ResponseBodyAdvice<Object> {
 
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
+        // Belt-and-braces: also gate by converter type so non-Jackson responses (file streams,
+        // raw byte[] downloads) inside our own controllers bypass JsonView wrapping.
         return AbstractJackson2HttpMessageConverter.class.isAssignableFrom(converterType);
     }
 

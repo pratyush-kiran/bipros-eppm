@@ -17,9 +17,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -33,6 +38,10 @@ public class BoqService {
   private final BoqItemRepository boqItemRepository;
   private final ProjectRepository projectRepository;
   private final AuditService auditService;
+
+  /** Cross-schema lookup of {@code activity.activities.name} from {@code activityId}. */
+  @PersistenceContext
+  private EntityManager em;
 
   public BoqItemResponse createItem(UUID projectId, CreateBoqItemRequest request) {
     ensureProjectExists(projectId);
@@ -99,7 +108,12 @@ public class BoqService {
     if (request.boqRate() != null) item.setBoqRate(request.boqRate());
     if (request.budgetedRate() != null) item.setBudgetedRate(request.budgetedRate());
     if (request.qtyExecutedToDate() != null) item.setQtyExecutedToDate(request.qtyExecutedToDate());
-    if (request.actualRate() != null) item.setActualRate(request.actualRate());
+    if (request.actualRate() != null) {
+      item.setActualRate(request.actualRate());
+      // Workstream B2: any explicit PATCH of actualRate is a manual override — the auto-recalc
+      // listener (BoqActualRateRecalcListener) must skip this row from then on.
+      item.setManualOverride(Boolean.TRUE);
+    }
     if (request.chapter() != null) item.setChapter(request.chapter());
     if (request.status() != null) item.setStatus(request.status());
     BoqCalculator.recompute(item);
@@ -340,5 +354,41 @@ public class BoqService {
 
   private static BigDecimal nz(BigDecimal v) {
     return v == null ? BigDecimal.ZERO : v;
+  }
+
+  /**
+   * BOQ candidates for a given activity. Used by the DPR form to pre-select / suggest a BOQ
+   * link when an activity is picked. Heuristic: read the activity's {@code name} via a
+   * cross-schema query, then filter the project's BOQ items by substring/contains match
+   * against {@code description} (same heuristic the legacy
+   * {@code DailyCostReportService.resolveBoqItem} used). Empty list if no activity, no match,
+   * or no BoQ defined yet.
+   */
+  @Transactional(readOnly = true)
+  public List<BoqItemResponse> listForActivity(UUID projectId, UUID activityId) {
+    ensureProjectExists(projectId);
+    if (activityId == null) return List.of();
+
+    @SuppressWarnings("unchecked")
+    List<Object[]> nameRows = em.createNativeQuery(
+            "SELECT name FROM activity.activities WHERE id = :id LIMIT 1")
+        .setParameter("id", activityId)
+        .getResultList();
+    if (nameRows.isEmpty()) return List.of();
+    String activityName = nameRows.get(0)[0] == null ? null : nameRows.get(0)[0].toString();
+    if (activityName == null || activityName.isBlank()) return List.of();
+
+    List<BoqItem> all = boqItemRepository.findByProjectIdOrderByItemNoAsc(projectId);
+    String needle = activityName.toLowerCase(Locale.ROOT);
+    List<BoqItemResponse> matches = new ArrayList<>();
+    for (BoqItem b : all) {
+      if (b.getDescription() == null) continue;
+      String desc = b.getDescription().toLowerCase(Locale.ROOT);
+      if (desc.startsWith(needle) || desc.contains(needle)
+          || needle.contains(desc.split("[(\\-]")[0].trim())) {
+        matches.add(BoqItemResponse.from(b));
+      }
+    }
+    return matches;
   }
 }

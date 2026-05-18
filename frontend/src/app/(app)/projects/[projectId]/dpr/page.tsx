@@ -24,13 +24,15 @@ import { useStickyMeasure } from "@/hooks/useStickyMeasure";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
-// Filter window defaults to "last 6 months" so the demo opens on a populated list even
-// when the most recent customer-data import lands a few months back (e.g. Khasab Jan–Mar).
-// Decoupled from the project's plannedStartDate, which was prone to hiding entries when
-// the project hadn't officially started yet (or had started more than a window ago).
-const defaultFromIso = () => {
+// Fallback window when project dates are not yet loaded: today ± 180 days.
+const fallbackFromIso = () => {
   const d = new Date();
-  d.setMonth(d.getMonth() - 6);
+  d.setDate(d.getDate() - 180);
+  return d.toISOString().split("T")[0];
+};
+const fallbackToIso = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 180);
   return d.toISOString().split("T")[0];
 };
 
@@ -146,14 +148,28 @@ export default function DprPage() {
     [supervisorUsers]
   );
 
-  // Default window: last 30 days through today. Never anchor `to` to the
-  // project's plannedFinishDate — for any project past its planned finish that
-  // would produce a backwards range (from > to) and the list silently empties.
-  // Users can widen the window via the date inputs when they need older rows.
-  const [fromInput, setFromInput] = useState<string>(() => defaultFromIso());
-  const [toInput, setToInput] = useState<string>(() => todayIso());
-  const [from, setFrom] = useState<string>(() => defaultFromIso());
-  const [to, setTo] = useState<string>(() => todayIso());
+  // Default window: project's plannedStartDate → plannedFinishDate so all filed DPRs
+  // are visible on first load regardless of reportDate. Falls back to today ± 180 d
+  // while the project query is still in-flight so the first paint isn't blank.
+  const [fromInput, setFromInput] = useState<string>(() => fallbackFromIso());
+  const [toInput, setToInput] = useState<string>(() => fallbackToIso());
+  const [from, setFrom] = useState<string>(() => fallbackFromIso());
+  const [to, setTo] = useState<string>(() => fallbackToIso());
+
+  // Once project data arrives, re-seed the window to the project's planned range.
+  // We only do this once (guard with a ref) so a manual filter change isn't clobbered.
+  const projectDatesSeeded = useState(false);
+  useEffect(() => {
+    if (!project || projectDatesSeeded[0]) return;
+    const start = project.plannedStartDate ?? fallbackFromIso();
+    const finish = project.plannedFinishDate ?? fallbackToIso();
+    setFromInput(start);
+    setToInput(finish);
+    setFrom(start);
+    setTo(finish);
+    projectDatesSeeded[1](true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project]);
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<DailyProgressReportResponse | null>(null);

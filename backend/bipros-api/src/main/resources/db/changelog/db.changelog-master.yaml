@@ -167,3 +167,15 @@ databaseChangeLog:
       file: db/changelog/096-activity-add-edit-status.yaml
   - include:
       file: db/changelog/097-activity-supervisors-multi.yaml
+  - include:
+      file: db/changelog/098-material-audit-and-cost-fields.yaml
+  - include:
+      file: db/changelog/099-deployment-nos-planned-auto.yaml
+  - include:
+      file: db/changelog/100-dpr-boq-item-id-and-manual-override.yaml
+  - include:
+      file: db/changelog/101-project-team.yaml
+  - include:
+      file: db/changelog/102-material-consumption-user-cols.yaml
+  - include:
+      file: db/changelog/103-dbs-tables.yaml

@@ -34,4 +34,21 @@ public class DailyCostReportController {
     log.info("GET /v1/projects/{}/daily-cost-report from={} to={}", projectId, from, to);
     return ResponseEntity.ok(ApiResponse.ok(service.generate(projectId, from, to)));
   }
+
+  /**
+   * Workstream B3 — drilldown. Returns the DPR rows that contributed to a single BoQ item's
+   * actual cost in the window, in the same shape as the main report so the UI can reuse the
+   * row template.
+   */
+  @GetMapping("/drilldown")
+  @PreAuthorize("@projectAccess.canRead(#projectId)")
+  public ResponseEntity<ApiResponse<DailyCostReportResponse>> drilldown(
+      @PathVariable UUID projectId,
+      @RequestParam UUID boqItemId,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+    log.info("GET /v1/projects/{}/daily-cost-report/drilldown boqItemId={} from={} to={}",
+        projectId, boqItemId, from, to);
+    return ResponseEntity.ok(ApiResponse.ok(service.drilldown(projectId, boqItemId, from, to)));
+  }
 }

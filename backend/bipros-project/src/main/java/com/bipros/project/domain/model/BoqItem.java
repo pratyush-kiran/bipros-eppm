@@ -112,4 +112,13 @@ public class BoqItem extends BaseEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "status", length = 20)
   private BoqStatus status;
+
+  /**
+   * When TRUE, the {@code actualRate} on this item was set explicitly via PATCH and must be
+   * preserved by the {@code BoqActualRateRecalcListener} (Workstream B2). Null/FALSE means the
+   * listener is free to overwrite {@code actualRate} from rolled-up DPR contributions. Nullable
+   * for ddl-auto:update compatibility with pre-Workstream-B rows.
+   */
+  @Column(name = "manual_override")
+  private Boolean manualOverride;
 }

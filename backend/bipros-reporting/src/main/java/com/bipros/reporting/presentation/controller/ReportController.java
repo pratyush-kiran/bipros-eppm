@@ -196,6 +196,24 @@ public class ReportController {
   }
 
   /**
+   * Multi-period aggregate. Slices [fromDate, toDate] into weekly or monthly buckets and returns
+   * the per-role section for each bucket. Frontend renders a pivot table (buckets along the top,
+   * roles down the left).
+   */
+  @GetMapping("/capacity-utilization/aggregate")
+  @PreAuthorize("hasPermission(null, 'REPORT.READ')")
+  public ApiResponse<com.bipros.reporting.application.dto.CapacityUtilizationAggregateReport>
+      getCapacityUtilizationAggregate(
+          @RequestParam UUID projectId,
+          @RequestParam(required = false, defaultValue = "MONTHLY") String periodType,
+          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+          @RequestParam(required = false, defaultValue = "ROLE") String groupBy) {
+    return ApiResponse.ok(
+        capacityUtilizationReportService.aggregate(projectId, periodType, from, to, groupBy));
+  }
+
+  /**
    * Per-supervisor (or project-wide when {@code supervisorUserId} is null) productivity
    * rollup mirroring the SC180 Resource Productivity Report — Manpower Utilization by trade,
    * Equipment Utilization by equipment-type, and a per-activity drill-down with productivity

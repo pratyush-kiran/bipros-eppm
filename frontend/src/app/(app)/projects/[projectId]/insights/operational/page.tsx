@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/lib/api/dashboardApi";
 import { raBillApi } from "@/lib/api/raBillApi";
+import { budgetApi } from "@/lib/api/budgetApi";
 import {
   reportDataApi,
   type ResourceUtilRow,
@@ -16,7 +17,7 @@ import {
   PackageSearch,
   Wrench,
 } from "lucide-react";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { formatMoney } from "@/lib/hooks/useCurrency";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ManpowerKpiSection } from "@/components/dashboards/ManpowerKpiSection";
 import { EquipmentKpiSection } from "@/components/dashboards/EquipmentKpiSection";
@@ -84,6 +85,14 @@ export default function ProjectOperationalInsightsPage() {
     queryKey: ["dashboard-config", "OPERATIONAL"],
     queryFn: () => dashboardApi.getDashboardByTier("OPERATIONAL"),
   });
+
+  const { data: budgetData } = useQuery({
+    queryKey: ["project-budget", projectId],
+    queryFn: () => budgetApi.getBudgetSummary(projectId),
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
 
   const { data: raBillsData, isLoading: isLoadingRaBills } = useQuery({
     queryKey: ["ra-bills", projectId],
@@ -167,7 +176,7 @@ export default function ProjectOperationalInsightsPage() {
         <KpiCard label="RA bills" value={raBills.length} accent="gold" />
         <KpiCard
           label="Bill volume"
-          value={formatDefaultCurrency(totalBillAmount)}
+          value={formatMoney(totalBillAmount, projectCurrency, 0)}
           accent="default"
         />
         <KpiCard label="Paid" value={paidBills} accent="emerald" />
@@ -213,7 +222,7 @@ export default function ProjectOperationalInsightsPage() {
                         {new Date(bill.billPeriodTo).toLocaleDateString()}
                       </td>
                       <td className="px-5 py-3.5 text-right font-medium text-charcoal tabular-nums">
-                        {formatDefaultCurrency(bill.netAmount)}
+                        {formatMoney(bill.netAmount, projectCurrency, 0)}
                       </td>
                       <td className="px-5 py-3.5">
                         <Badge variant={billStatusBadge(bill.status)} withDot>

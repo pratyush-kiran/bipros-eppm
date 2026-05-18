@@ -77,10 +77,12 @@ public class RoleAssignmentService {
     }
     String unit = rateResolver.resolveUnit(typeCode, variantId);
 
-    // Role-only simplification: planning is just headcount (manpower/equipment) or
-    // quantity (material). Duration was dropped to remove "which day each worker arrives"
-    // complexity. plannedUnits = headcount (or quantity), regardless of variant's rate unit.
+    // For manpower/equipment, plannedUnits = headcount × duration so the cost reflects
+    // the full activity, not a single day. Duration defaults to the activity's
+    // originalDuration when not provided on the request. Material keeps quantity-only.
+    Activity activity = activityRepo.findById(req.activityId()).orElse(null);
     BigDecimal plannedUnits;
+    BigDecimal effectiveDuration = null;
     Integer headcount = req.headcount();
     BigDecimal quantity = req.quantity();
     if ("MATERIAL".equals(typeCode)) {
@@ -93,7 +95,8 @@ public class RoleAssignmentService {
       if (headcount == null || headcount <= 0) {
         throw new BusinessRuleException("HEADCOUNT_REQUIRED", "headcount must be > 0");
       }
-      plannedUnits = BigDecimal.valueOf(headcount);
+      effectiveDuration = resolveDuration(req.duration(), activity);
+      plannedUnits = BigDecimal.valueOf(headcount).multiply(effectiveDuration);
       quantity = null;
     }
     BigDecimal plannedCost = plannedUnits.multiply(rate);
@@ -101,7 +104,6 @@ public class RoleAssignmentService {
     LocalDate plannedStart = req.plannedStartDate();
     LocalDate plannedFinish = req.plannedFinishDate();
     if (plannedStart == null || plannedFinish == null) {
-      Activity activity = activityRepo.findById(req.activityId()).orElse(null);
       if (activity != null) {
         if (plannedStart == null) plannedStart = activity.getPlannedStartDate();
         if (plannedFinish == null) plannedFinish = activity.getPlannedFinishDate();
@@ -123,7 +125,8 @@ public class RoleAssignmentService {
         int current = merged.getHeadcount() == null ? 0 : merged.getHeadcount();
         int next = current + headcount;
         merged.setHeadcount(next);
-        mergedUnits = BigDecimal.valueOf(next);
+        merged.setDuration(effectiveDuration);
+        mergedUnits = BigDecimal.valueOf(next).multiply(effectiveDuration);
       }
       BigDecimal mergedCost = mergedUnits.multiply(rate);
       merged.setPlannedUnits(mergedUnits.doubleValue());
@@ -153,7 +156,7 @@ public class RoleAssignmentService {
             .equipmentRoleVariantId("EQUIPMENT".equals(typeCode) ? variantId : null)
             .materialRoleVariantId("MATERIAL".equals(typeCode) ? variantId : null)
             .headcount(headcount)
-            .duration(null)
+            .duration(effectiveDuration)
             .quantity(quantity)
             .plannedUnits(plannedUnits.doubleValue())
             .remainingUnits(plannedUnits.doubleValue())
@@ -200,7 +203,9 @@ public class RoleAssignmentService {
     }
     String unit = rateResolver.resolveUnit(typeCode, variantId);
 
+    Activity activity = activityRepo.findById(a.getActivityId()).orElse(null);
     BigDecimal plannedUnits;
+    BigDecimal effectiveDuration = null;
     Integer headcount = req.headcount();
     BigDecimal quantity = req.quantity();
     if ("MATERIAL".equals(typeCode)) {
@@ -213,7 +218,8 @@ public class RoleAssignmentService {
       if (headcount == null || headcount <= 0) {
         throw new BusinessRuleException("HEADCOUNT_REQUIRED", "headcount must be > 0");
       }
-      plannedUnits = BigDecimal.valueOf(headcount);
+      effectiveDuration = resolveDuration(req.duration(), activity);
+      plannedUnits = BigDecimal.valueOf(headcount).multiply(effectiveDuration);
       quantity = null;
     }
     BigDecimal plannedCost = plannedUnits.multiply(rate);
@@ -224,7 +230,7 @@ public class RoleAssignmentService {
     a.setEquipmentRoleVariantId("EQUIPMENT".equals(typeCode) ? variantId : null);
     a.setMaterialRoleVariantId("MATERIAL".equals(typeCode) ? variantId : null);
     a.setHeadcount(headcount);
-    a.setDuration(null);
+    a.setDuration(effectiveDuration);
     a.setQuantity(quantity);
     a.setPlannedUnits(plannedUnits.doubleValue());
     a.setPlannedCost(plannedCost);
@@ -258,6 +264,20 @@ public class RoleAssignmentService {
   }
 
   // ===== Helpers =====
+
+  // Honor request.duration if present (>0). Else fall back to activity.originalDuration.
+  // Final fallback is 1.0 so we never silently zero-out plannedCost when the activity
+  // has no duration yet (e.g. brand-new draft).
+  private static BigDecimal resolveDuration(BigDecimal requested, Activity activity) {
+    if (requested != null && requested.signum() > 0) {
+      return requested;
+    }
+    if (activity != null && activity.getOriginalDuration() != null
+        && activity.getOriginalDuration() > 0) {
+      return BigDecimal.valueOf(activity.getOriginalDuration());
+    }
+    return BigDecimal.ONE;
+  }
 
   private UUID pickVariantId(String typeCode, RoleAssignmentRequest req) {
     return switch (typeCode) {

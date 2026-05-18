@@ -21,7 +21,8 @@ interface ResourceDeploymentForm {
   logDate: string;
   resourceType: DeploymentResourceType;
   resourceDescription: string;
-  nosPlanned: number;
+  /** Empty string is the "Auto" / "let the backend derive" signal. */
+  nosPlanned: number | "";
   nosDeployed: number;
   hoursWorked: number;
   idleHours: number;
@@ -34,7 +35,7 @@ const initialFormState: ResourceDeploymentForm = {
   logDate: today(),
   resourceType: "MANPOWER",
   resourceDescription: "",
-  nosPlanned: 0,
+  nosPlanned: "",
   nosDeployed: 0,
   hoursWorked: 0,
   idleHours: 0,
@@ -120,7 +121,12 @@ export default function ResourceDeploymentPage() {
         logDate: formData.logDate,
         resourceType: formData.resourceType,
         resourceDescription: formData.resourceDescription,
-        nosPlanned: formData.nosPlanned,
+        // Empty string → null (auto-derive on the backend); 0 also signals "not provided"
+        // for back-compat. Any non-zero value is the user's explicit override.
+        nosPlanned:
+          formData.nosPlanned === "" || formData.nosPlanned === 0
+            ? null
+            : Number(formData.nosPlanned),
         nosDeployed: formData.nosDeployed,
         hoursWorked: formData.hoursWorked,
         idleHours: formData.idleHours,
@@ -132,6 +138,26 @@ export default function ResourceDeploymentPage() {
       invalidate();
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Failed to create resource deployment entry"));
+    }
+  };
+
+  const handleRecalculateNosPlanned = async () => {
+    setError(null);
+    try {
+      const response = await resourceDeploymentApi.suggestNosPlanned(projectId, {
+        logDate: formData.logDate,
+        resourceType: formData.resourceType,
+      });
+      const suggested = response.data ?? null;
+      if (suggested == null) {
+        setError(
+          "No matching ResourceAssignment found for this date — Nos. Planned will stay blank (saved as auto-null).",
+        );
+        return;
+      }
+      setFormData({ ...formData, nosPlanned: suggested });
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Failed to recalculate planned headcount"));
     }
   };
 
@@ -166,7 +192,19 @@ export default function ResourceDeploymentPage() {
     {
       accessorKey: "nosPlanned",
       header: "Nos. Planned",
-      cell: ({ row }) => fmtNum(row.original.nosPlanned),
+      cell: ({ row }) => (
+        <span className="inline-flex items-center gap-1.5">
+          {fmtNum(row.original.nosPlanned)}
+          {row.original.nosPlannedAuto === true && (
+            <span
+              className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-info/15 text-info ring-1 ring-info/30 rounded"
+              title="Derived from ResourceAssignment.plannedUnits"
+            >
+              auto
+            </span>
+          )}
+        </span>
+      ),
     },
     {
       accessorKey: "nosDeployed",
@@ -320,15 +358,34 @@ export default function ResourceDeploymentPage() {
                 <label className="block text-sm font-medium mb-1 text-text-secondary">
                   Nos. Planned
                 </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={formData.nosPlanned}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nosPlanned: parseInt(e.target.value) || 0 })
-                  }
-                  className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={formData.nosPlanned}
+                    placeholder="Auto"
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      setFormData({
+                        ...formData,
+                        nosPlanned: raw === "" ? "" : parseInt(raw, 10) || 0,
+                      });
+                    }}
+                    className="flex-1 px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRecalculateNosPlanned}
+                    className="px-3 py-2 bg-surface-hover text-text-primary border border-border rounded-lg text-sm hover:bg-surface-active"
+                    title="Refetch the planned headcount from ResourceAssignment.plannedUnits"
+                  >
+                    Recalculate from plan
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-text-muted">
+                  Leave blank for "Auto" — the backend will derive nosPlanned from the matching
+                  ResourceAssignment.
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 text-text-secondary">

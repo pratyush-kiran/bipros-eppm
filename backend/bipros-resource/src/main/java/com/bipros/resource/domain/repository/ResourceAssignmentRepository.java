@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -56,4 +57,20 @@ public interface ResourceAssignmentRepository extends JpaRepository<ResourceAssi
 
   @Query("select coalesce(sum(ra.actualUnits), 0) from ResourceAssignment ra where ra.activityId = :activityId")
   Double sumActualUnitsByActivityId(@Param("activityId") UUID activityId);
+
+  /** Sum of {@code plannedCost} across all ResourceAssignments for a project. Mirrors the BAC
+   *  contribution that {@code EvmRollupService.getActivityBac} rolls up per-activity, so Cost
+   *  Summary and EVM BAC agree on the planned-cost component. Returns 0 when none exist. */
+  @Query("select coalesce(sum(ra.plannedCost), 0) from ResourceAssignment ra where ra.projectId = :projectId")
+  BigDecimal sumPlannedCostByProjectId(@Param("projectId") UUID projectId);
+
+  /**
+   * Sum of {@code actualCost} across all ResourceAssignments for a project. Used by
+   * {@code CostService.getCostSummary} to mirror the AC component that EVM already includes via
+   * {@code EvmRollupService.getActivityAc} — without this, Cost totalActual is understated whenever
+   * actuals are recorded on resource assignments rather than ActivityExpense rows. Returns 0 when
+   * none exist.
+   */
+  @Query("select coalesce(sum(ra.actualCost), 0) from ResourceAssignment ra where ra.projectId = :projectId")
+  BigDecimal sumActualCostByProjectId(@Param("projectId") UUID projectId);
 }

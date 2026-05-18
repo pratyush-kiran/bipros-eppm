@@ -2,7 +2,7 @@ package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.CreateWorkfrontRequest;
 import com.bipros.siteops.application.dto.UpdateWorkfrontRequest;
 import com.bipros.siteops.application.dto.WorkfrontResponse;
@@ -23,7 +23,7 @@ import java.util.UUID;
 public class WorkfrontService {
 
     private final WorkfrontRepository workfrontRepository;
-    private final SecurityContextHelper securityContextHelper;
+    private final CurrentUserService securityContextHelper;
 
     public WorkfrontResponse create(UUID projectId, CreateWorkfrontRequest request) {
         Workfront wf = new Workfront();

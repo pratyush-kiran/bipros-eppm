@@ -1,0 +1,58 @@
+databaseChangeLog:
+  # Phase A2 of the DBS plan: surface supervisor / storekeeper identity on
+  # material_consumption_logs as proper User FKs so the DBS rollup can attribute
+  # consumption by user. The legacy free-text issued_by / received_by columns
+  # remain populated for back-compat reads — see CLAUDE.md "Dev schema evolves
+  # additively" note. All columns are nullable; no backfill required.
+
+  - changeSet:
+      id: 102-1-material-consumption-user-cols
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columns:
+              - column:
+                  name: issued_by_user_id
+                  type: UUID
+              - column:
+                  name: received_by_user_id
+                  type: UUID
+      rollback:
+        - dropColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columnName: issued_by_user_id
+        - dropColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columnName: received_by_user_id
+
+  - changeSet:
+      id: 102-2-material-consumption-user-indexes
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: material_consumption_logs
+            schemaName: resource
+            indexName: idx_mcl_issued_by_user
+            columns:
+              - column:
+                  name: issued_by_user_id
+        - createIndex:
+            tableName: material_consumption_logs
+            schemaName: resource
+            indexName: idx_mcl_received_by_user
+            columns:
+              - column:
+                  name: received_by_user_id
+      rollback:
+        - dropIndex:
+            tableName: material_consumption_logs
+            schemaName: resource
+            indexName: idx_mcl_issued_by_user
+        - dropIndex:
+            tableName: material_consumption_logs
+            schemaName: resource
+            indexName: idx_mcl_received_by_user

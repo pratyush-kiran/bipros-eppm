@@ -1,0 +1,26 @@
+databaseChangeLog:
+  # Workstream C4: auto-derive DailyResourceDeployment.nosPlanned from
+  # ResourceAssignment.plannedUnits / headcount when the request omits or zeroes the field.
+  # nos_planned_auto is nullable — null means "user supplied" or "no plan to derive from"
+  # depending on context (see DailyResourceDeploymentService.create for the logic).
+  # Dev picks this up via ddl-auto: update (entity has the @Column annotation);
+  # prod uses validate, so this changeset is the source of truth.
+
+  - changeSet:
+      id: 099-1-drd-nos-planned-auto
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: daily_resource_deployments
+            schemaName: project
+            columns:
+              - column:
+                  name: nos_planned_auto
+                  type: BOOLEAN
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: daily_resource_deployments
+            schemaName: project
+            columnName: nos_planned_auto

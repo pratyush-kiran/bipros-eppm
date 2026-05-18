@@ -2,7 +2,7 @@ package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.CreateShiftHandoverRequest;
 import com.bipros.siteops.application.dto.ShiftHandoverResponse;
 import com.bipros.siteops.domain.model.Shift;
@@ -23,7 +23,7 @@ import java.util.UUID;
 public class ShiftHandoverService {
 
     private final ShiftHandoverRepository handoverRepository;
-    private final SecurityContextHelper securityContextHelper;
+    private final CurrentUserService securityContextHelper;
 
     public ShiftHandoverResponse create(UUID projectId, CreateShiftHandoverRequest request) {
         UUID currentUserId = securityContextHelper.getCurrentUserId();

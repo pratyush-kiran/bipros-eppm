@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -56,6 +57,18 @@ public class BoqController {
   public ResponseEntity<ApiResponse<BoqSummaryResponse>> list(@PathVariable UUID projectId) {
     log.info("GET /v1/projects/{}/boq", projectId);
     return ResponseEntity.ok(ApiResponse.ok(boqService.getProjectBoqSummary(projectId)));
+  }
+
+  /**
+   * BOQ candidates for an activity — used by the DPR form to suggest/pre-select a BOQ when
+   * the supervisor picks an activity. The match is heuristic (activity name vs item description).
+   */
+  @GetMapping("/by-activity")
+  public ResponseEntity<ApiResponse<List<BoqItemResponse>>> listForActivity(
+      @PathVariable UUID projectId,
+      @RequestParam UUID activityId) {
+    log.info("GET /v1/projects/{}/boq/by-activity activityId={}", projectId, activityId);
+    return ResponseEntity.ok(ApiResponse.ok(boqService.listForActivity(projectId, activityId)));
   }
 
   @GetMapping("/{itemId}")

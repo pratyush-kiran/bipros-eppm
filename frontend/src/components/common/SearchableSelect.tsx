@@ -234,6 +234,7 @@ export function SearchableSelect({
         createPortal(
           <ul
             ref={listRef}
+            data-testid="searchable-select-list"
             style={{
               position: "fixed",
               top: dropdownPos.top,
@@ -250,6 +251,7 @@ export function SearchableSelect({
               filtered.map((option, index) => (
                 <li
                   key={option.value}
+                  data-testid="searchable-select-option"
                   onClick={() => handleSelect(option.value)}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   className={cn(

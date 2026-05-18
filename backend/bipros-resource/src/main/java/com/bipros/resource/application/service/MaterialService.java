@@ -5,11 +5,16 @@ import com.bipros.common.exception.ResourceNotFoundException;
 import com.bipros.common.util.AuditService;
 import com.bipros.resource.application.dto.CreateMaterialRequest;
 import com.bipros.resource.application.dto.MaterialResponse;
+import com.bipros.resource.application.dto.MaterialRateMasterResponse;
 import com.bipros.resource.domain.model.Material;
 import com.bipros.resource.domain.model.MaterialBoqLink;
 import com.bipros.resource.domain.model.MaterialCategory;
+import com.bipros.resource.domain.model.MaterialCategoryMaster;
 import com.bipros.resource.domain.model.MaterialStatus;
+import com.bipros.resource.domain.model.rate.MaterialRateMaster;
 import com.bipros.resource.domain.repository.MaterialBoqLinkRepository;
+import com.bipros.resource.domain.repository.MaterialCategoryMasterRepository;
+import com.bipros.resource.domain.repository.MaterialRateMasterRepository;
 import com.bipros.resource.domain.repository.MaterialRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -27,6 +33,8 @@ public class MaterialService {
 
     private final MaterialRepository materialRepository;
     private final MaterialBoqLinkRepository boqLinkRepository;
+    private final MaterialRateMasterRepository materialRateMasterRepository;
+    private final MaterialCategoryMasterRepository materialCategoryMasterRepository;
     private final AuditService auditService;
 
     @Transactional(readOnly = true)
@@ -96,6 +104,30 @@ public class MaterialService {
         boqLinkRepository.deleteByMaterialId(id);
         materialRepository.delete(m);
         auditService.logDelete("Material", id);
+    }
+
+    /**
+     * Look up the active Material Rate Master row that matches this material's
+     * {@code category} + {@code specificationGrade}. Returns {@code null} when the material has
+     * no category, no spec/grade, or no matching master row exists — the caller renders an
+     * "unmapped" hint pointing the user at {@code /admin/rate-master}.
+     */
+    @Transactional(readOnly = true)
+    public MaterialRateMasterResponse getEffectiveRate(UUID materialId) {
+        Material m = findOrThrow(materialId);
+        if (m.getCategory() == null || m.getSpecificationGrade() == null
+            || m.getSpecificationGrade().isBlank()) {
+            return null;
+        }
+        Optional<MaterialCategoryMaster> categoryOpt =
+            materialCategoryMasterRepository.findByCode(m.getCategory().name());
+        if (categoryOpt.isEmpty()) return null;
+        MaterialCategoryMaster category = categoryOpt.get();
+        Optional<MaterialRateMaster> rateOpt = materialRateMasterRepository
+            .findByCategoryIdAndSpecGrade(category.getId(), m.getSpecificationGrade().trim());
+        return rateOpt
+            .map(r -> MaterialRateMasterResponse.of(r, category.getCode(), category.getName()))
+            .orElse(null);
     }
 
     private void replaceBoqLinks(UUID materialId, List<UUID> boqItemIds) {

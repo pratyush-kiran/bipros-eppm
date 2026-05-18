@@ -17,6 +17,8 @@ import { projectApi } from "@/lib/api/projectApi";
 import { resourceApi } from "@/lib/api/resourceApi";
 import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
 import { WorkActivityCoverageChip } from "@/components/activity/WorkActivityCoverageChip";
+import { LinkOrCreateWorkActivityDialog, type DialogMode } from "@/components/activity/LinkOrCreateWorkActivityDialog";
+import { useActivityMasterStatus } from "@/lib/hooks/useActivityMasterStatus";
 import type { ResourceAssignmentResponse } from "@/lib/api/resourceApi";
 import { projectResourceApi } from "@/lib/api/projectResourceApi";
 import type { ProjectResourceResponse } from "@/lib/api/projectResourceApi";
@@ -700,10 +702,25 @@ function ViewMode({
         {stat(
           "Supervisor",
           <span className="flex items-center gap-2">
-            <span className="truncate">
-              {activity.responsibleResourceName ?? (
-                <span className="text-text-muted text-sm font-normal">— not set —</span>
-              )}
+            <span
+              className="truncate"
+              title={
+                activity.supervisors && activity.supervisors.length > 1
+                  ? activity.supervisors.map((s) => s.userName ?? s.userId).join(", ")
+                  : undefined
+              }
+            >
+              {(() => {
+                const svs = activity.supervisors;
+                if (svs && svs.length > 0) {
+                  const first = svs[0].userName ?? svs[0].userId;
+                  if (svs.length === 1) return first;
+                  return `${first} +${svs.length - 1} more`;
+                }
+                return activity.responsibleResourceName ?? (
+                  <span className="text-text-muted text-sm font-normal">— not set —</span>
+                );
+              })()}
             </span>
             <button
               type="button"
@@ -863,30 +880,7 @@ function ViewMode({
       <ActivityStepsPanel activityId={activity.id} projectId={projectId} percentCompleteType={activity.percentCompleteType as string | undefined} />
 
       {/* Master Work Activity link */}
-      <div className="rounded-lg border border-border bg-surface/50 p-4">
-        <h3 className="text-sm font-semibold text-text-primary mb-2">Work Activity (master)</h3>
-        {workActivity ? (
-          <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
-            <span className="font-medium">{workActivity.name}</span>
-            <span className="font-mono text-xs text-text-muted">{workActivity.code}</span>
-            {workActivity.defaultUnit && (
-              <span className="px-2 py-0.5 rounded bg-info/10 text-info ring-1 ring-info/20 text-xs">
-                {workActivity.defaultUnit}
-              </span>
-            )}
-            {workActivity.discipline && (
-              <span className="text-xs text-text-secondary">· {workActivity.discipline}</span>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-text-muted">
-            Not linked. This activity won't appear on Capacity Utilization (no norm to compare
-            actual vs expected). Fine for design / engineering / office work; pick a master entry
-            on the edit screen if you want productivity tracked.
-          </p>
-        )}
-        <WorkActivityCoverageChip workActivityId={activity.workActivityId} />
-      </div>
+      <WorkActivityMasterPanel activity={activity} projectId={projectId} workActivity={workActivity} />
 
       {/* Calendar */}
       <div className="rounded-lg border border-border bg-surface/50 p-4">
@@ -946,6 +940,136 @@ function ViewMode({
         <UdfSection entityId={activity.id} subject="ACTIVITY" projectId={projectId} />
       </Suspense>
     </div>
+  );
+}
+
+function WorkActivityMasterPanel({
+  activity,
+  projectId,
+  workActivity,
+}: {
+  activity: ActivityResponse;
+  projectId: string;
+  workActivity: WorkActivityResponse | null;
+}) {
+  const status = useActivityMasterStatus(activity.workActivityId);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<DialogMode>("LINK_OR_CREATE");
+
+  const openDialog = (m: DialogMode) => {
+    setDialogMode(m);
+    setDialogOpen(true);
+  };
+
+  // The dialog is mounted once at the end and re-used across status transitions; otherwise
+  // a state change from UNLINKED → LINKED_NO_NORMS mid-wizard would swap the parent JSX
+  // branch, unmount the active dialog, and reset the user back to step 1.
+  const dialog = (
+    <LinkOrCreateWorkActivityDialog
+      open={dialogOpen}
+      onClose={() => setDialogOpen(false)}
+      mode={dialogMode}
+      projectId={projectId}
+      activityId={activity.id}
+      defaultCode={activity.code}
+      defaultName={activity.name}
+      existingMasterId={status.master?.id}
+      existingMasterName={status.master?.name ?? undefined}
+      existingMasterDefaultUnit={status.master?.defaultUnit ?? undefined}
+    />
+  );
+
+  if (status.state === "UNLINKED") {
+    return (
+      <>
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-4">
+          <h3 className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
+            <AlertTriangle size={16} className="text-warning" />
+            Work Activity (master) — not mapped
+          </h3>
+          <p className="text-sm text-text-secondary">
+            This activity is not mapped to any Master Work Activity. Productivity Norms are not
+            configured for this activity, therefore Capacity Utilization calculations may be
+            inaccurate.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => openDialog("LINK_OR_CREATE")}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
+            >
+              Link / Create Master
+            </button>
+          </div>
+        </div>
+        {dialog}
+      </>
+    );
+  }
+
+  if (status.state === "LINKED_NO_NORMS") {
+    return (
+      <>
+        <div className="rounded-lg border border-danger/40 bg-danger/5 p-4">
+          <h3 className="text-sm font-semibold text-text-primary mb-2 flex items-center gap-2">
+            <AlertTriangle size={16} className="text-danger" />
+            Work Activity (master) — no Productivity Norms
+          </h3>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
+            <span className="font-medium">{status.master?.name ?? workActivity?.name}</span>
+            {status.master?.code && (
+              <span className="font-mono text-xs text-text-muted">{status.master.code}</span>
+            )}
+            {status.master?.defaultUnit && (
+              <span className="px-2 py-0.5 rounded bg-info/10 text-info ring-1 ring-info/20 text-xs">
+                {status.master.defaultUnit}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-text-secondary">
+            No productivity norms are configured for this master. Capacity Utilization cannot
+            compute expected output until at least one norm exists.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => openDialog("CONFIGURE_NORMS_ONLY")}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
+            >
+              Configure Productivity Norms
+            </button>
+          </div>
+        </div>
+        {dialog}
+      </>
+    );
+  }
+
+  // OK / LOADING — render the original linked summary + coverage chip.
+  return (
+    <>
+      <div className="rounded-lg border border-border bg-surface/50 p-4">
+        <h3 className="text-sm font-semibold text-text-primary mb-2">Work Activity (master)</h3>
+        {workActivity ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
+            <span className="font-medium">{workActivity.name}</span>
+            <span className="font-mono text-xs text-text-muted">{workActivity.code}</span>
+            {workActivity.defaultUnit && (
+              <span className="px-2 py-0.5 rounded bg-info/10 text-info ring-1 ring-info/20 text-xs">
+                {workActivity.defaultUnit}
+              </span>
+            )}
+            {workActivity.discipline && (
+              <span className="text-xs text-text-secondary">· {workActivity.discipline}</span>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-text-muted">Resolving master…</p>
+        )}
+        <WorkActivityCoverageChip workActivityId={activity.workActivityId} />
+      </div>
+      {dialog}
+    </>
   );
 }
 

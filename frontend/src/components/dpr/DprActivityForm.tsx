@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { SearchableSelect, type SelectOption } from "@/components/common/SearchableSelect";
 import { chainageLabel, parseChainage } from "@/lib/format/chainage";
 import { dprApi, type DprVoicePatch } from "@/lib/api/dprApi";
+import { boqApi, type BoqItemResponse } from "@/lib/api/boqApi";
 import type {
   DailyProgressReportResponse,
   DprApprovalStatus,
@@ -130,6 +131,7 @@ const initialState = (
       activityId: editing.activityId ?? null,
       activityName: editing.activityName,
       wbsNodeId: editing.wbsNodeId,
+      boqItemId: editing.boqItemId ?? null,
       boqItemNo: editing.boqItemNo,
       unit: editing.unit,
       qtyExecuted: editing.qtyExecuted,
@@ -172,6 +174,7 @@ const initialState = (
     activityId: prefill?.activityId ?? null,
     activityName: prefill?.activityName ?? "",
     wbsNodeId: null,
+    boqItemId: null,
     boqItemNo: null,
     unit: seedUnit ?? "Cum",
     qtyExecuted: 0,
@@ -295,6 +298,50 @@ export function DprActivityForm({
       clearTimeout(handle);
     };
   }, [previewSignature, projectId, state.activityId]);
+
+  /**
+   * Workstream B1: BOQ candidates for the selected activity. When exactly one match, we
+   * auto-bind to {@code boqItemId} so the supervisor doesn't have to pick. Each candidate
+   * carries the budgeted rate, surfaced inline so the user sees the contractual rate before
+   * saving.
+   */
+  const [activityBoqCandidates, setActivityBoqCandidates] = useState<BoqItemResponse[]>([]);
+  useEffect(() => {
+    if (!state.activityId) {
+      setActivityBoqCandidates([]);
+      return;
+    }
+    let cancelled = false;
+    boqApi
+      .listForActivity(projectId, state.activityId)
+      .then((r) => {
+        if (cancelled) return;
+        const items = r.data ?? [];
+        setActivityBoqCandidates(items);
+        // Auto-select when exactly one match and the form hasn't already pinned a BoQ.
+        if (items.length === 1 && !state.boqItemId) {
+          setState((s) => ({
+            ...s,
+            boqItemId: items[0].id,
+            boqItemNo: items[0].itemNo,
+          }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setActivityBoqCandidates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // state.boqItemId is intentionally NOT in the dep array — re-fetching whenever the user
+    // changes the BoQ would flicker the candidate list and re-trigger the auto-select.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, state.activityId]);
+
+  const selectedBoq = useMemo<BoqItemResponse | null>(() => {
+    if (!state.boqItemId) return null;
+    return activityBoqCandidates.find((b) => b.id === state.boqItemId) ?? null;
+  }, [activityBoqCandidates, state.boqItemId]);
 
   const getVoiceState = useCallback(() => {
     const s = stateRef.current;
@@ -585,6 +632,7 @@ export function DprActivityForm({
       activityId: state.activityId ?? null,
       activityName: state.activityName,
       wbsNodeId: state.wbsNodeId,
+      boqItemId: state.boqItemId ?? null,
       boqItemNo: state.boqItemNo || null,
       unit: state.unit,
       qtyExecuted: state.qtyExecuted,
@@ -827,15 +875,65 @@ export function DprActivityForm({
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           <Field label="BOQ item">
-            <SearchableSelect
-              options={boqOptions}
-              value={state.boqItemNo ?? ""}
-              onChange={(v) => patch({ boqItemNo: v || null })}
-              placeholder={
-                boqOptions.length ? "Optional — link to BOQ" : "No BOQ items defined"
-              }
-              disabled={boqOptions.length === 0}
-            />
+            {(() => {
+              // When the user has picked an activity, prefer the narrowed candidate list. When
+              // no activity (or no candidates), fall back to the full project BoQ list so the
+              // form is never blocked from linking.
+              const useCandidates =
+                state.activityId !== null && activityBoqCandidates.length > 0;
+              const options: SelectOption[] = useCandidates
+                ? activityBoqCandidates.map((b) => ({
+                    value: b.id,
+                    label: `${b.itemNo} — ${b.description}`,
+                  }))
+                : boqOptions;
+              // Candidate mode binds to boqItemId (the new canonical FK); fallback mode keeps
+              // the legacy boqItemNo binding so users can still link projects whose data
+              // pre-dates the activity-BoQ mapping.
+              const currentValue = useCandidates
+                ? state.boqItemId ?? ""
+                : state.boqItemNo ?? "";
+              return (
+                <>
+                  <SearchableSelect
+                    options={options}
+                    value={currentValue}
+                    onChange={(v) => {
+                      if (useCandidates) {
+                        const picked = activityBoqCandidates.find((b) => b.id === v);
+                        patch({
+                          boqItemId: picked?.id ?? null,
+                          boqItemNo: picked?.itemNo ?? null,
+                        });
+                      } else {
+                        patch({ boqItemNo: v || null, boqItemId: null });
+                      }
+                    }}
+                    placeholder={
+                      options.length
+                        ? "Optional — link to BOQ"
+                        : "No BOQ items defined"
+                    }
+                    disabled={options.length === 0}
+                  />
+                  {selectedBoq && (
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {selectedBoq.description}
+                      {selectedBoq.budgetedRate != null && (
+                        <>
+                          {" · "}
+                          <span className="font-medium">
+                            Budgeted rate:{" "}
+                            {selectedBoq.budgetedRate.toLocaleString("en-IN")} /{" "}
+                            {selectedBoq.unit}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  )}
+                </>
+              );
+            })()}
           </Field>
           <Field label="Chainage from">
             <input

@@ -11,10 +11,12 @@ import com.bipros.common.util.AuditService;
 import com.bipros.cost.application.dto.*;
 import com.bipros.cost.domain.entity.*;
 import com.bipros.cost.domain.repository.*;
+import com.bipros.project.application.service.DprActualCostLookup;
 import com.bipros.project.domain.model.Project;
 import com.bipros.project.domain.repository.ProjectRepository;
 import com.bipros.resource.domain.repository.GoodsReceiptNoteRepository;
 import com.bipros.resource.domain.repository.MaterialStockRepository;
+import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
@@ -48,9 +50,15 @@ public class CostService {
     // PMS MasterData wiring — material procurement + on-hand stock enrich the cost summary.
     private final GoodsReceiptNoteRepository goodsReceiptNoteRepository;
     private final MaterialStockRepository materialStockRepository;
+    private final ResourceAssignmentRepository resourceAssignmentRepository;
     private final ProjectAccessGuard projectAccess;
     private final ProjectRepository projectRepository;
     private final ApplicationEventPublisher eventPublisher;
+    // Pulls supervisor-entered DPR persisted line_cost into the rollup. DPR rows compute and
+    // persist a line_cost per child row but nothing was copying that figure into either
+    // ActivityExpense.actualCost or ResourceAssignment.actualCost, leaving Cost summaries at 0
+    // on projects that report cost only via DPRs. See FIX7 / A9–A10.
+    private final DprActualCostLookup dprActualCostLookup;
 
     // Cost Account Operations
     @Transactional
@@ -577,10 +585,25 @@ public class CostService {
         BigDecimal totalBudget = expenses.stream()
                 .map(e -> e.getBudgetedCost() != null ? e.getBudgetedCost() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // FIX-14: match EVM BAC — add ResourceAssignment.plannedCost so the two agree.
+        // EvmRollupService.getActivityBac sums both expense.budgetedCost AND assignment.plannedCost;
+        // previously this method only counted the expense side, yielding totalBudget=0 on projects
+        // that define cost purely through resource assignments (e.g. Oman-Demo Site Clearing ~6500 OMR).
+        BigDecimal raBudget = resourceAssignmentRepository.sumPlannedCostByProjectId(projectId);
+        totalBudget = totalBudget.add(raBudget != null ? raBudget : BigDecimal.ZERO);
 
         BigDecimal totalActual = expenses.stream()
                 .map(e -> e.getActualCost() != null ? e.getActualCost() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Add DPR-sourced actuals so a project that books cost via supervisor DPRs (rather than
+        // via discrete ActivityExpense rows) still shows a non-zero totalActual.
+        BigDecimal dprActual = dprActualCostLookup.sumByProject(projectId);
+        totalActual = totalActual.add(dprActual);
+        // FIX-18: also add ResourceAssignment.actualCost — EVM's getActivityAc includes this
+        // component but getCostSummary was not, causing totalActual (616) to lag EVM AC (1516)
+        // on projects where actuals are tracked on resource assignments (e.g. Oman-Demo: 900 OMR).
+        BigDecimal raActual = resourceAssignmentRepository.sumActualCostByProjectId(projectId);
+        totalActual = totalActual.add(raActual != null ? raActual : BigDecimal.ZERO);
 
         BigDecimal totalRemaining = expenses.stream()
                 .map(e -> e.getRemainingCost() != null ? e.getRemainingCost() : BigDecimal.ZERO)
@@ -602,10 +625,34 @@ public class CostService {
         BigDecimal materialIssued = materialProcurement.subtract(openStock);
         if (materialIssued.signum() < 0) materialIssued = BigDecimal.ZERO;
 
-        // P6-style project-level budget
+        // P6-style project-level budget.
+        // FIX-14: when project.originalBudget is null (not set in the UI) fall back to the
+        // canonical planned-cost total so the field is never null on a project that has
+        // resource assignments. This matches what EVM BAC uses as its baseline.
         Project project = projectRepository.findById(projectId).orElse(null);
+        // OBS-5 unit fix: project.originalBudget / currentBudget are stored in the currency's
+        // "major-scale" unit (crores for INR = 1e7, millions for every other currency = 1e6) —
+        // matches the Set-Budget UI, formatBudget helper, and seeders. The rest of the cost
+        // summary (totalBudget, totalActual, materialProcurement, etc.) is in raw currency units,
+        // so we convert the project budget to raw units here to mirror EvmService (lines 108-128).
+        // Without this, /cost-summary returns projectOriginalBudget=0.02 alongside totals in lakhs.
         BigDecimal projectOriginalBudget = project != null ? project.getOriginalBudget() : null;
         BigDecimal projectCurrentBudget = project != null ? project.getCurrentBudget() : null;
+        if (project != null) {
+            String currency = project.getBudgetCurrency();
+            BigDecimal majorUnitFactor = "INR".equalsIgnoreCase(currency)
+                    ? new BigDecimal("10000000")   // 1 crore = 10^7
+                    : new BigDecimal("1000000");   // 1 million = 10^6 (OMR and all others)
+            if (projectOriginalBudget != null && projectOriginalBudget.signum() > 0) {
+                projectOriginalBudget = projectOriginalBudget.multiply(majorUnitFactor);
+            }
+            if (projectCurrentBudget != null && projectCurrentBudget.signum() > 0) {
+                projectCurrentBudget = projectCurrentBudget.multiply(majorUnitFactor);
+            }
+        }
+        if (projectOriginalBudget == null) {
+            projectOriginalBudget = totalBudget.compareTo(BigDecimal.ZERO) > 0 ? totalBudget : null;
+        }
 
         return CostSummaryDto.of(totalBudget, totalActual, totalRemaining, atCompletion,
             expenses.size(), materialProcurement, openStock, materialIssued,

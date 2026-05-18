@@ -1,0 +1,84 @@
+databaseChangeLog:
+  # Workstream A: enrich the material consumption surfaces with auditing + cost rollup.
+  # All columns are nullable so dev's ddl-auto:update path matches Liquibase exactly and so
+  # legacy rows continue to load without backfill. Cost rollup populates lineCost only when
+  # the linked Resource → MaterialRateMaster lookup yields an active rate.
+
+  - changeSet:
+      id: 098-1-dpr-material-entered-by-role
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: dpr_material
+            schemaName: project
+            columns:
+              - column:
+                  name: entered_by_role
+                  type: VARCHAR(32)
+      rollback:
+        - dropColumn:
+            tableName: dpr_material
+            schemaName: project
+            columnName: entered_by_role
+
+  - changeSet:
+      id: 098-2-mcl-audit-and-cost-columns
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columns:
+              - column:
+                  name: entered_by_role
+                  type: VARCHAR(32)
+              - column:
+                  name: activity_id
+                  type: UUID
+              - column:
+                  name: unit_rate
+                  type: NUMERIC(19,4)
+              - column:
+                  name: line_cost
+                  type: NUMERIC(19,2)
+              - column:
+                  name: material_rate_master_id
+                  type: UUID
+      rollback:
+        - dropColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columnName: entered_by_role
+        - dropColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columnName: activity_id
+        - dropColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columnName: unit_rate
+        - dropColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columnName: line_cost
+        - dropColumn:
+            tableName: material_consumption_logs
+            schemaName: resource
+            columnName: material_rate_master_id
+
+  - changeSet:
+      id: 098-3-mcl-activity-index
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: material_consumption_logs
+            schemaName: resource
+            indexName: idx_mcl_activity
+            columns:
+              - column:
+                  name: activity_id
+      rollback:
+        - dropIndex:
+            tableName: material_consumption_logs
+            schemaName: resource
+            indexName: idx_mcl_activity

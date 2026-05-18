@@ -27,6 +27,8 @@ interface ContractFormProps {
   submitLabel: string;
   onSubmit: (data: CreateContractRequest) => void;
   onCancel: () => void;
+  /** Default ISO 4217 currency code for new contracts. Falls back to "INR". */
+  defaultCurrency?: string;
 }
 
 /** Form-data → typed CreateContractRequest. Empty strings become undefined. */
@@ -84,6 +86,7 @@ export function ContractForm({
   submitLabel,
   onSubmit,
   onCancel,
+  defaultCurrency = "INR",
 }: ContractFormProps) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -168,8 +171,8 @@ export function ContractForm({
             type="text"
             name="currency"
             maxLength={3}
-            defaultValue={v.currency ?? "INR"}
-            placeholder="INR"
+            defaultValue={v.currency ?? defaultCurrency}
+            placeholder={defaultCurrency}
             className={inputClass}
           />
         </div>

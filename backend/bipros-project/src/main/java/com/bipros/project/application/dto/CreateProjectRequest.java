@@ -63,6 +63,9 @@ public record CreateProjectRequest(
     /** Default calendar for the project. Activities inherit this when no explicit calendar is set. */
     UUID calendarId,
 
+    /** ISO 4217 currency code for budget fields (e.g. "USD", "OMR"). Defaults to "INR" when omitted. */
+    @Size(max = 10) String budgetCurrency,
+
     /** Primary contract summary. When supplied the server upserts the project's primary
      *  Contract row with these values. */
     @Valid ContractSummaryInput contract

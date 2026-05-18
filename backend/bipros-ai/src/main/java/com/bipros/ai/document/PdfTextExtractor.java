@@ -2,8 +2,6 @@ package com.bipros.ai.document;
 
 import com.bipros.common.exception.BusinessRuleException;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.io.RandomAccessReadBufferedFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -12,10 +10,12 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Path;
 
 /**
- * Streams a PDF off disk via {@link RandomAccessReadBufferedFile} and walks
- * pages one-at-a-time. PDFBox keeps page-on-demand state instead of holding
- * the entire document in heap, so concurrent uploads scale with the working
- * page rather than total document size.
+ * Streams a PDF off disk via PDFBox and walks pages one-at-a-time. PDFBox keeps
+ * page-on-demand state instead of holding the entire document in heap, so
+ * concurrent uploads scale with the working page rather than total document size.
+ *
+ * <p>Uses the PDFBox 2.x {@code PDDocument.load(File)} entry point — PDFBox is
+ * pinned to 2.0.x repo-wide to keep openhtmltopdf 1.0.10 happy (see DBS Bug 3).
  */
 @Component
 @Slf4j
@@ -31,8 +31,7 @@ public class PdfTextExtractor implements DocumentTextExtractor {
 
     @Override
     public ExtractedText extract(Path file, String mimeType, String originalFileName) {
-        try (RandomAccessReadBufferedFile source = new RandomAccessReadBufferedFile(file.toFile());
-             PDDocument doc = Loader.loadPDF(source)) {
+        try (PDDocument doc = PDDocument.load(file.toFile())) {
 
             if (doc.isEncrypted()) {
                 throw new BusinessRuleException("DOCUMENT_ENCRYPTED",

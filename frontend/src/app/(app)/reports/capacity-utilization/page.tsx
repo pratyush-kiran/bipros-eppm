@@ -1,11 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Download, FileSpreadsheet } from "lucide-react";
 import { projectApi } from "@/lib/api/projectApi";
 import { reportApi } from "@/lib/api/reportApi";
+import {
+  capacityUtilizationApi,
+  type CapacityRoleRow,
+  type CapacitySection,
+} from "@/lib/api/capacityUtilizationApi";
 import toast from "react-hot-toast";
 
 const currentMonth = () => {
@@ -24,6 +29,60 @@ export default function CapacityUtilizationReportPage() {
     queryFn: () => projectApi.listProjects(0, 100),
   });
   const projects = projectsData?.data?.content ?? [];
+
+  // Compute the date range for the month — the same window the Excel writer uses.
+  const monthRange = useMemo(() => {
+    const [y, m] = month.split("-").map(Number);
+    if (!y || !m) return null;
+    const from = `${y}-${String(m).padStart(2, "0")}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    return { from, to };
+  }, [month]);
+
+  // Fetch the capacity utilization JSON so we can surface the untracked-days summary inline.
+  const { data: capacityData } = useQuery({
+    queryKey: ["report-capacity-summary", projectId, monthRange?.from, monthRange?.to],
+    queryFn: () =>
+      capacityUtilizationApi.get({
+        projectId,
+        fromDate: monthRange?.from,
+        toDate: monthRange?.to,
+      }),
+    enabled: !!projectId && !!monthRange,
+  });
+
+  const untrackedRows = useMemo(() => {
+    const out: Array<{
+      kind: "Manpower" | "Equipment";
+      roleId: string;
+      roleLabel: string;
+      untracked: number;
+      actual: number;
+    }> = [];
+    const collect = (kind: "Manpower" | "Equipment", section: CapacitySection | null) => {
+      if (!section) return;
+      for (const r of section.rows as CapacityRoleRow[]) {
+        const u = r.cumulative?.actualDaysUntracked ?? 0;
+        if (u <= 0) continue;
+        out.push({
+          kind,
+          roleId: r.roleId,
+          roleLabel: r.roleName ?? r.roleCode ?? "(role)",
+          untracked: u,
+          actual: r.cumulative?.actualDays ?? 0,
+        });
+      }
+    };
+    collect("Manpower", capacityData?.data?.manpower ?? null);
+    collect("Equipment", capacityData?.data?.equipment ?? null);
+    return out;
+  }, [capacityData]);
+
+  const totalUntracked = useMemo(
+    () => untrackedRows.reduce((s, r) => s + r.untracked, 0),
+    [untrackedRows],
+  );
 
   const handleDownload = async () => {
     if (!projectId) {
@@ -150,8 +209,69 @@ export default function CapacityUtilizationReportPage() {
         </div>
       </div>
 
+      {projectId && monthRange && (
+        <div className="mt-6 rounded-2xl border border-hairline bg-paper p-5 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="font-display text-lg font-semibold text-charcoal">
+              Untracked Actual Days · {month}
+            </h2>
+            <span className="text-xs text-slate">
+              Days deployed on activities with no productivity norm — excluded from % Util.
+            </span>
+          </div>
+          {untrackedRows.length === 0 ? (
+            <p className="text-sm text-slate">
+              No untracked days in this period. Every role&apos;s deployment is on an activity with a
+              productivity norm.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-hairline text-left text-[11px] font-semibold uppercase tracking-wide text-slate">
+                    <th className="py-2">Section</th>
+                    <th className="py-2">Role</th>
+                    <th className="py-2 text-right">Actual Days</th>
+                    <th className="py-2 text-right">Of which Untracked</th>
+                    <th className="py-2 text-right">% Untracked</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {untrackedRows.map((r) => (
+                    <tr key={`${r.kind}-${r.roleId}`} className="border-t border-hairline/50">
+                      <td className="py-2 text-charcoal">{r.kind}</td>
+                      <td className="py-2 text-charcoal">{r.roleLabel}</td>
+                      <td className="py-2 text-right text-charcoal">
+                        {r.actual.toLocaleString("en-IN", { maximumFractionDigits: 1 })}
+                      </td>
+                      <td className="py-2 text-right font-semibold text-charcoal">
+                        {r.untracked.toLocaleString("en-IN", { maximumFractionDigits: 1 })}
+                      </td>
+                      <td className="py-2 text-right text-slate">
+                        {r.actual > 0
+                          ? `${((100 * r.untracked) / r.actual).toFixed(0)}%`
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="border-t border-hairline bg-ivory/60 font-semibold">
+                    <td className="py-2" />
+                    <td className="py-2 text-charcoal">Total</td>
+                    <td />
+                    <td className="py-2 text-right text-charcoal">
+                      {totalUntracked.toLocaleString("en-IN", { maximumFractionDigits: 1 })}
+                    </td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-6 rounded-xl border border-hairline bg-ivory/60 p-4 text-xs leading-relaxed text-slate">
-        <strong className="text-charcoal">What's inside the workbook</strong>
+        <strong className="text-charcoal">What&apos;s inside the workbook</strong>
         <ul className="mt-1.5 list-disc pl-4 space-y-0.5">
           <li>
             <strong>Plant utilization</strong> &amp; <strong>Manpower utilization</strong> —

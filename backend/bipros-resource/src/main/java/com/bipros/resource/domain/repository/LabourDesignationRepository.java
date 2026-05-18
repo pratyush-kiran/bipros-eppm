@@ -29,9 +29,9 @@ public interface LabourDesignationRepository extends JpaRepository<LabourDesigna
         WHERE (:category IS NULL OR d.category = :category)
           AND (:grade    IS NULL OR d.grade    = :grade)
           AND (:status   IS NULL OR d.status   = :status)
-          AND (:q IS NULL OR LOWER(d.code) LIKE LOWER(CONCAT('%', :q, '%'))
-                          OR LOWER(d.designation) LIKE LOWER(CONCAT('%', :q, '%'))
-                          OR LOWER(d.trade) LIKE LOWER(CONCAT('%', :q, '%')))
+          AND (:q = '' OR LOWER(d.code) LIKE LOWER(CONCAT('%', :q, '%'))
+                       OR LOWER(d.designation) LIKE LOWER(CONCAT('%', :q, '%'))
+                       OR LOWER(d.trade) LIKE LOWER(CONCAT('%', :q, '%')))
         """)
     Page<LabourDesignation> search(@Param("category") LabourCategory category,
                                    @Param("grade")    LabourGrade grade,

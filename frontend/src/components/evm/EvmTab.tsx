@@ -23,19 +23,41 @@ import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { KpiTile } from "@/components/common/KpiTile";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
+import { budgetApi } from "@/lib/api/budgetApi";
 
-// EVM endpoints (and the seeded data) carry absolute INR values — e.g. BAC = 4,850,000,000.
-// Display in ₹cr to stay consistent with the Costs tab, which uses the same convention
-// (1 crore = 10,000,000 INR). Indices (SPI / CPI / TCPI) and the percent-complete remain
-// unitless and use their own formatters.
-const INR_PER_CRORE = 10_000_000;
+/**
+ * Smart currency formatter — adapts to the project's budget currency and
+ * picks the most readable scale:
+ *   < 100 000          → "6,500 OMR"     (raw, e.g. small OMR projects)
+ *   100 000 – 9 999 999 → "65k OMR"      (thousands)
+ *   ≥ 10 000 000       → "₹4.85cr"       (INR crores) or "4.85M OMR"
+ */
+function makeFormatter(currency: string) {
+  const code = (currency ?? "INR").toUpperCase();
+  const isInr = code === "INR";
+  const locale = isInr ? "en-IN" : "en-US";
 
-function formatInrAsCrores(inr: number | null | undefined): string {
-  const cr = (inr ?? 0) / INR_PER_CRORE;
-  return `₹${cr.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}cr`;
+  return function formatValue(value: number | null | undefined): string {
+    const v = value ?? 0;
+    const abs = Math.abs(v);
+
+    if (abs < 100_000) {
+      // Raw value with currency code
+      return `${v.toLocaleString(locale, { maximumFractionDigits: 0 })} ${code}`;
+    }
+    if (abs < 10_000_000) {
+      // Thousands
+      const k = v / 1_000;
+      return `${k.toLocaleString(locale, { maximumFractionDigits: 1 })}k ${code}`;
+    }
+    // Crore (INR) or Millions (others)
+    if (isInr) {
+      const cr = v / 10_000_000;
+      return `₹${cr.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}cr`;
+    }
+    const m = v / 1_000_000;
+    return `${m.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M ${code}`;
+  };
 }
 
 const TECHNIQUES: { value: EvmTechnique; label: string }[] = [
@@ -54,7 +76,6 @@ const ETC_METHODS: { value: EtcMethod; label: string }[] = [
   { value: "MANAGEMENT_OVERRIDE", label: "Management Override" },
 ];
 
-const fmt = (v: number | null | undefined) => formatInrAsCrores(v);
 const fmtIdx = (v: number | null | undefined) => (v ?? 0).toFixed(2);
 const fmtPct = (v: number | null | undefined) => `${(v ?? 0).toFixed(1)}%`;
 
@@ -79,6 +100,14 @@ export function EvmTab({ projectId }: { projectId: string }) {
   const [etcMethod, setEtcMethod] = useState<EtcMethod>("CPI_BASED");
   const [activeTab, setActiveTab] = useState<"summary" | "wbs">("summary");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const { data: budgetData } = useQuery({
+    queryKey: ["project-budget", projectId],
+    queryFn: () => budgetApi.getBudgetSummary(projectId),
+  });
+
+  const currency = budgetData?.data?.budgetCurrency ?? "INR";
+  const fmt = makeFormatter(currency);
 
   const { data: metricsData, isLoading: isLoadingMetrics } = useQuery({
     queryKey: ["evm-metrics", projectId],
@@ -400,11 +429,11 @@ export function EvmTab({ projectId }: { projectId: string }) {
                   />
                   <YAxis
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(v: number) => `₹${(v / INR_PER_CRORE).toFixed(0)}cr`}
-                    width={70}
+                    tickFormatter={(v: number) => fmt(v)}
+                    width={80}
                   />
                   <Tooltip
-                    formatter={(value) => formatInrAsCrores(Number(value))}
+                    formatter={(value) => fmt(Number(value))}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
                   <Legend />

@@ -20,5 +20,9 @@ public record CreateMaterialConsumptionLogRequest(
     String issuedBy,
     String receivedBy,
     UUID wbsNodeId,
-    String remarks
+    UUID activityId,
+    String remarks,
+    UUID issuedByUserId,
+    UUID receivedByUserId,
+    String enteredByRole
 ) {}

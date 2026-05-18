@@ -10,15 +10,14 @@ import {
   type CapacityGroupBy,
   type CapacityNormType,
   type CapacityPeriod,
-  type CapacityRoleRow,
   type CapacitySection,
   type CapacityUtilizationRow,
-  type RolePeriod,
 } from "@/lib/api/capacityUtilizationApi";
 import { activityApi } from "@/lib/api/activityApi";
 import { TabTip } from "@/components/common/TabTip";
 import { SupervisorPerformanceSections } from "@/components/capacity-utilization/SupervisorPerformanceSections";
 import { SupervisorComparisonSections } from "@/components/capacity-utilization/SupervisorComparisonSections";
+import { PeriodCell as RolePeriodCellShared } from "@/components/capacity/PeriodCell";
 
 const today = () => new Date().toISOString().split("T")[0];
 const startOfMonth = () => {
@@ -155,50 +154,7 @@ function downloadCsv(
 // One row per Role with three time buckets (Day · Month · Cumulative), each carrying the SC180
 // column set: Budget Days·Nos · Planned Days · Actual Days·Nos · %Util · Cost Implication.
 
-const RolePeriodCell = memo(function RolePeriodCell({ period }: { period: RolePeriod | null }) {
-  if (!period) {
-    return <span className="text-xs text-text-muted">—</span>;
-  }
-  return (
-    <div className="space-y-0.5 text-xs">
-      {period.qty != null && period.qty > 0 && (
-        <div>
-          <span className="text-text-muted">Qty done:</span> {fmt(period.qty, 2)}
-        </div>
-      )}
-      <div>
-        <span className="text-text-muted">Budget:</span> {fmt(period.budgetDays, 1)}
-      </div>
-      {period.plannedDays != null && (
-        <div>
-          <span className="text-text-muted">Planned:</span> {fmt(period.plannedDays, 1)} nos
-        </div>
-      )}
-      <div>
-        <span className="text-text-muted">Actual:</span> {fmt(period.actualDays, 1)}
-      </div>
-      {period.actualDaysUntracked != null && period.actualDaysUntracked > 0 && (
-        <div className="text-text-muted italic">
-          ({fmt(period.actualDaysUntracked, 1)} day{period.actualDaysUntracked === 1 ? "" : "s"} on activities not tracking productivity)
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <span
-          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${utilBand(period.utilizationPct)}`}
-        >
-          {period.utilizationPct == null ? "—" : `${fmt(period.utilizationPct, 1)} %`}
-        </span>
-        {period.costImplication != null && (
-          <span
-            className={`text-xs ${period.costImplication < 0 ? "text-success" : period.costImplication > 0 ? "text-danger" : "text-text-muted"}`}
-          >
-            ₹{fmt(period.costImplication, 0)}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-});
+const RolePeriodCell = RolePeriodCellShared;
 
 const Sc180SectionTable = memo(function Sc180SectionTable({
   title,
@@ -243,8 +199,8 @@ const Sc180SectionTable = memo(function Sc180SectionTable({
             </tr>
           </thead>
           <tbody>
-            {section.rows.map((r) => (
-              <tr key={r.roleId} className="border-t border-border/50 hover:bg-surface/30">
+            {section.rows.map((r, i) => (
+              <tr key={`${r.roleId ?? "no-role"}-${i}`} className="border-t border-border/50 hover:bg-surface/30">
                 <td className="px-4 py-3 align-top">
                   <div className="text-text-primary">{r.roleName ?? "(role)"}</div>
                   {r.roleCode && (

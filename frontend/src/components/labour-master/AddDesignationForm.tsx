@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import {
   labourMasterApi,
   type LabourCategory,
   type LabourGrade,
   type NationalityType,
 } from "@/lib/api/labourMasterApi";
+import { getErrorMessage } from "@/lib/utils/error";
 
 const CATEGORIES: { value: LabourCategory; prefix: string; label: string }[] = [
   { value: "SITE_MANAGEMENT",     prefix: "SM", label: "Site Management" },
@@ -60,11 +62,13 @@ export function AddDesignationForm() {
         skills: skillsCsv.split(",").map((s) => s.trim()).filter(Boolean),
         certifications: certsCsv.split(",").map((s) => s.trim()).filter(Boolean),
       }),
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["labour-designations"] });
+      qc.invalidateQueries({ queryKey: ["labour-deployments"] });
+      toast.success(`Designation "${res.data.code} – ${res.data.designation}" saved. Deploy it to a project to see it in the Table.`);
       router.push("/labour-master/cards");
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: unknown) => setError(getErrorMessage(e, "Failed to save designation")),
   });
 
   return (

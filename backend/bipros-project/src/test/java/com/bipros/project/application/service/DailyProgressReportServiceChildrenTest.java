@@ -69,6 +69,7 @@ class DailyProgressReportServiceChildrenTest {
   @Mock private DailyActivityResourceOutputService ledgerService;
   @Mock private AuditService auditService;
   @Mock private ApplicationEventPublisher eventPublisher;
+  @Mock private com.bipros.project.domain.repository.BoqItemRepository boqItemRepository;
 
   private DailyProgressReportService service;
 
@@ -84,7 +85,7 @@ class DailyProgressReportServiceChildrenTest {
     service = new DailyProgressReportService(
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
         attachmentRepository, issueRepository, attachmentStorage,
-        projectRepository, ledgerService, auditService, eventPublisher);
+        projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
     lenient().when(attachmentRepository.findByDprIdOrderByCreatedAtAsc(any())).thenReturn(java.util.List.of());
     lenient().when(attachmentRepository.findByDprIdIn(any())).thenReturn(java.util.List.of());
     lenient().when(issueRepository.findByDprIdOrderByOpenedAtAsc(any())).thenReturn(java.util.List.of());
@@ -108,7 +109,7 @@ class DailyProgressReportServiceChildrenTest {
   void createWithChildren() {
     CreateDailyProgressReportRequest req = new CreateDailyProgressReportRequest(
         LocalDate.of(2026, 5, 1), null, "Mohd Ismaila",
-        4300L, 4500L, activityId, "Bench Cutting", null, null, "Cum",
+        4300L, 4500L, activityId, "Bench Cutting", null, null, null, "Cum",
         new BigDecimal("80.0"), "Clear", null,
         null, null, null, null, null, null, null, null, null, null,
         List.of(
@@ -161,7 +162,7 @@ class DailyProgressReportServiceChildrenTest {
 
     UpdateDailyProgressReportRequest req = new UpdateDailyProgressReportRequest(
         LocalDate.of(2026, 5, 2), null, "Mohd Ismaila",
-        4300L, 4500L, activityId, "Bench Cutting", null, null, "Cum",
+        4300L, 4500L, activityId, "Bench Cutting", null, null, null, "Cum",
         new BigDecimal("90.0"), null, null,
         null, null, null, null, null, null, null, null, null, null,
         List.of(mp("Operator", ManpowerCategory.SKILLED, 1, 11.0, 0.0)),  // 3 → 1

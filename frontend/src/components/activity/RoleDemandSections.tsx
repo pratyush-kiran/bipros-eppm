@@ -21,6 +21,10 @@ interface Props {
   onChanged?: () => void;
   // When true, every add/edit/delete control is disabled. Backend also rejects with ACTIVITY_LOCKED.
   locked?: boolean;
+  // Default duration (days) pre-filled into Manpower/Equipment Duration inputs. Usually the
+  // parent activity's originalDuration — the backend defaults to the same value when omitted,
+  // so this just makes the implicit default visible/editable to the user.
+  defaultDuration?: number | null;
 }
 
 /**
@@ -33,7 +37,13 @@ interface Props {
  *   POST /v1/projects/{p}/role-assignments
  *   DELETE /v1/role-assignments/{id}
  */
-export function RoleDemandSections({ projectId, activityId, onChanged, locked = false }: Props) {
+export function RoleDemandSections({
+  projectId,
+  activityId,
+  onChanged,
+  locked = false,
+  defaultDuration = null,
+}: Props) {
   const qc = useQueryClient();
 
   const { data: rolesResp } = useQuery({
@@ -97,6 +107,7 @@ export function RoleDemandSections({ projectId, activityId, onChanged, locked = 
         rows={manpowerAssignments}
         onChanged={refresh}
         locked={locked}
+        defaultDuration={defaultDuration}
       />
       <EquipmentSection
         projectId={projectId}
@@ -105,6 +116,7 @@ export function RoleDemandSections({ projectId, activityId, onChanged, locked = 
         rows={equipmentAssignments}
         onChanged={refresh}
         locked={locked}
+        defaultDuration={defaultDuration}
       />
       <MaterialSection
         projectId={projectId}
@@ -129,6 +141,7 @@ interface ManpowerSectionProps {
   rows: RoleAssignmentResponse[];
   onChanged: () => void;
   locked: boolean;
+  defaultDuration: number | null;
 }
 
 function ManpowerSection({
@@ -138,11 +151,21 @@ function ManpowerSection({
   rows,
   onChanged,
   locked,
+  defaultDuration,
 }: ManpowerSectionProps) {
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [headcount, setHeadcount] = useState<number>(1);
+  // Duration in days. Empty string = "let the backend default to activity.originalDuration".
+  const [duration, setDuration] = useState<string>(
+    defaultDuration != null ? String(defaultDuration) : "",
+  );
   const [error, setError] = useState<string | null>(null);
+
+  // Keep input in sync when the parent activity's originalDuration loads after first render.
+  useEffect(() => {
+    setDuration(defaultDuration != null ? String(defaultDuration) : "");
+  }, [defaultDuration]);
 
   const { data: variantsResp } = useQuery({
     queryKey: ["manpower-rates-for-role", roleId],
@@ -156,7 +179,15 @@ function ManpowerSection({
   useEffect(() => setVariantId(""), [roleId]);
 
   const selected = variants.find((v) => v.id === variantId);
-  const plannedUnits = headcount;
+  const parsedDuration = duration.trim() === "" ? null : Number(duration);
+  // Effective duration for the planned-cost preview: explicit input → activity default → 1.
+  const effectiveDuration =
+    parsedDuration != null && !Number.isNaN(parsedDuration) && parsedDuration > 0
+      ? parsedDuration
+      : defaultDuration != null && defaultDuration > 0
+        ? defaultDuration
+        : 1;
+  const plannedUnits = headcount * effectiveDuration;
   const plannedCost = selected ? plannedUnits * selected.rate : 0;
 
   const create = useMutation({
@@ -166,11 +197,16 @@ function ManpowerSection({
         roleId,
         manpowerRoleRateId: variantId,
         headcount,
+        duration:
+          parsedDuration != null && !Number.isNaN(parsedDuration)
+            ? parsedDuration
+            : undefined,
       }),
     onSuccess: () => {
       setRoleId("");
       setVariantId("");
       setHeadcount(1);
+      setDuration(defaultDuration != null ? String(defaultDuration) : "");
       setError(null);
       onChanged();
     },
@@ -185,12 +221,24 @@ function ManpowerSection({
   });
 
   const update = useMutation({
-    mutationFn: ({ row, value }: { row: RoleAssignmentResponse; value: number }) =>
+    mutationFn: ({
+      row,
+      value,
+      durationValue,
+    }: {
+      row: RoleAssignmentResponse;
+      value: number;
+      durationValue?: number | null;
+    }) =>
       roleAssignmentApi.update(row.id, {
         activityId,
         roleId: row.roleId!,
         manpowerRoleRateId: row.variantId ?? undefined,
         headcount: value,
+        duration:
+          durationValue != null && !Number.isNaN(durationValue)
+            ? durationValue
+            : row.duration ?? undefined,
       }),
     onSuccess: () => onChanged(),
     onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
@@ -200,7 +248,7 @@ function ManpowerSection({
     <section className="rounded-md border border-border bg-surface p-3">
       <h4 className="mb-2 text-sm font-semibold">Manpower Requirements</h4>
       {error && <div className="mb-2 text-xs text-danger">{error}</div>}
-      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_auto] gap-2 items-end">
+      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_0.8fr_auto] gap-2 items-end">
         <label className="text-xs">
           <span className="text-text-muted">Role</span>
           <select
@@ -244,6 +292,24 @@ function ManpowerSection({
             className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           />
         </label>
+        <label className="text-xs">
+          <span className="text-text-muted">
+            Duration (days)
+            {defaultDuration != null ? (
+              <span className="ml-1 text-text-muted/70">· default {defaultDuration}</span>
+            ) : null}
+          </span>
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            value={duration}
+            placeholder={defaultDuration != null ? String(defaultDuration) : "auto"}
+            onChange={(e) => setDuration(e.target.value)}
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
+          />
+        </label>
         <button
           disabled={locked || !roleId || !variantId || !headcount || create.isPending}
           onClick={() => create.mutate()}
@@ -255,22 +321,28 @@ function ManpowerSection({
 
       {selected && (
         <div className="mt-2 text-xs text-text-muted">
-          Planned: <b>{plannedUnits}</b> · Cost: <b>₹{plannedCost.toFixed(2)}</b>
+          Planned: <b>{plannedUnits}</b> ({headcount} × {effectiveDuration}d) · Cost:{" "}
+          <b>₹{plannedCost.toFixed(2)}</b>
         </div>
       )}
 
       <DemandTable
-        columns={["Role", "Category / Grade", "Nos", "Planned Cost"]}
+        columns={["Role", "Category / Grade", "Nos", "Duration (d)", "Planned Cost"]}
         rows={rows}
         cells={(a) => [
           a.roleName ?? "—",
           a.variantLabel ?? "—",
           a.headcount ?? a.plannedUnits ?? "—",
+          a.duration ?? "—",
           a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
-        onEditSave={(row, value) => update.mutate({ row, value })}
+        secondaryEditCellIndex={3}
+        secondaryEditValueOf={(a) => Number(a.duration ?? defaultDuration ?? 0)}
+        onEditSave={(row, value, secondaryValue) =>
+          update.mutate({ row, value, durationValue: secondaryValue })
+        }
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />
@@ -289,6 +361,7 @@ interface EquipmentSectionProps {
   rows: RoleAssignmentResponse[];
   onChanged: () => void;
   locked: boolean;
+  defaultDuration: number | null;
 }
 
 function EquipmentSection({
@@ -298,11 +371,19 @@ function EquipmentSection({
   rows,
   onChanged,
   locked,
+  defaultDuration,
 }: EquipmentSectionProps) {
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [headcount, setHeadcount] = useState<number>(1);
+  const [duration, setDuration] = useState<string>(
+    defaultDuration != null ? String(defaultDuration) : "",
+  );
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDuration(defaultDuration != null ? String(defaultDuration) : "");
+  }, [defaultDuration]);
 
   const { data: variantsResp } = useQuery({
     queryKey: ["equipment-variants-for-role", roleId],
@@ -316,7 +397,14 @@ function EquipmentSection({
   useEffect(() => setVariantId(""), [roleId]);
 
   const selected = variants.find((v) => v.id === variantId);
-  const plannedUnits = headcount;
+  const parsedDuration = duration.trim() === "" ? null : Number(duration);
+  const effectiveDuration =
+    parsedDuration != null && !Number.isNaN(parsedDuration) && parsedDuration > 0
+      ? parsedDuration
+      : defaultDuration != null && defaultDuration > 0
+        ? defaultDuration
+        : 1;
+  const plannedUnits = headcount * effectiveDuration;
   const plannedCost = selected ? plannedUnits * selected.rate : 0;
 
   const create = useMutation({
@@ -326,11 +414,16 @@ function EquipmentSection({
         roleId,
         equipmentRoleVariantId: variantId,
         headcount,
+        duration:
+          parsedDuration != null && !Number.isNaN(parsedDuration)
+            ? parsedDuration
+            : undefined,
       }),
     onSuccess: () => {
       setRoleId("");
       setVariantId("");
       setHeadcount(1);
+      setDuration(defaultDuration != null ? String(defaultDuration) : "");
       setError(null);
       onChanged();
     },
@@ -345,12 +438,24 @@ function EquipmentSection({
   });
 
   const update = useMutation({
-    mutationFn: ({ row, value }: { row: RoleAssignmentResponse; value: number }) =>
+    mutationFn: ({
+      row,
+      value,
+      durationValue,
+    }: {
+      row: RoleAssignmentResponse;
+      value: number;
+      durationValue?: number | null;
+    }) =>
       roleAssignmentApi.update(row.id, {
         activityId,
         roleId: row.roleId!,
         equipmentRoleVariantId: row.variantId ?? undefined,
         headcount: value,
+        duration:
+          durationValue != null && !Number.isNaN(durationValue)
+            ? durationValue
+            : row.duration ?? undefined,
       }),
     onSuccess: () => onChanged(),
     onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
@@ -360,7 +465,7 @@ function EquipmentSection({
     <section className="rounded-md border border-border bg-surface p-3">
       <h4 className="mb-2 text-sm font-semibold">Equipment Requirements</h4>
       {error && <div className="mb-2 text-xs text-danger">{error}</div>}
-      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_auto] gap-2 items-end">
+      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_0.8fr_auto] gap-2 items-end">
         <label className="text-xs">
           <span className="text-text-muted">Equipment</span>
           <select
@@ -404,6 +509,24 @@ function EquipmentSection({
             className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           />
         </label>
+        <label className="text-xs">
+          <span className="text-text-muted">
+            Duration (days)
+            {defaultDuration != null ? (
+              <span className="ml-1 text-text-muted/70">· default {defaultDuration}</span>
+            ) : null}
+          </span>
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            value={duration}
+            placeholder={defaultDuration != null ? String(defaultDuration) : "auto"}
+            onChange={(e) => setDuration(e.target.value)}
+            disabled={locked}
+            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
+          />
+        </label>
         <button
           disabled={locked || !roleId || !variantId || !headcount || create.isPending}
           onClick={() => create.mutate()}
@@ -415,22 +538,28 @@ function EquipmentSection({
 
       {selected && (
         <div className="mt-2 text-xs text-text-muted">
-          Planned: <b>{plannedUnits}</b> · Cost: <b>₹{plannedCost.toFixed(2)}</b>
+          Planned: <b>{plannedUnits}</b> ({headcount} × {effectiveDuration}d) · Cost:{" "}
+          <b>₹{plannedCost.toFixed(2)}</b>
         </div>
       )}
 
       <DemandTable
-        columns={["Equipment", "Variant", "Nos", "Planned Cost"]}
+        columns={["Equipment", "Variant", "Nos", "Duration (d)", "Planned Cost"]}
         rows={rows}
         cells={(a) => [
           a.roleName ?? "—",
           a.variantLabel ?? "—",
           a.headcount ?? a.plannedUnits ?? "—",
+          a.duration ?? "—",
           a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
-        onEditSave={(row, value) => update.mutate({ row, value })}
+        secondaryEditCellIndex={3}
+        secondaryEditValueOf={(a) => Number(a.duration ?? defaultDuration ?? 0)}
+        onEditSave={(row, value, secondaryValue) =>
+          update.mutate({ row, value, durationValue: secondaryValue })
+        }
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />
@@ -610,10 +739,19 @@ interface DemandTableProps {
   cells: (row: RoleAssignmentResponse) => (string | number)[];
   onDelete: (id: string) => void;
   // Inline edit: when all three are set, the cell at editCellIndex flips to a number input
-  // when the pencil is clicked. Save calls onEditSave(row, newValue); Cancel restores.
+  // when the pencil is clicked. Save calls onEditSave(row, newValue, secondaryValue?); Cancel restores.
   editCellIndex?: number;
   editValueOf?: (row: RoleAssignmentResponse) => number;
-  onEditSave?: (row: RoleAssignmentResponse, value: number) => void;
+  // Optional second editable cell (e.g. Duration column on Manpower/Equipment rows).
+  // When provided, that cell also flips to a number input during edit mode and its
+  // value is passed as the third arg to onEditSave.
+  secondaryEditCellIndex?: number;
+  secondaryEditValueOf?: (row: RoleAssignmentResponse) => number;
+  onEditSave?: (
+    row: RoleAssignmentResponse,
+    value: number,
+    secondaryValue?: number,
+  ) => void;
   locked?: boolean;
 }
 
@@ -624,13 +762,18 @@ function DemandTable({
   onDelete,
   editCellIndex,
   editValueOf,
+  secondaryEditCellIndex,
+  secondaryEditValueOf,
   onEditSave,
   locked = false,
 }: DemandTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<number>(0);
+  const [secondaryDraft, setSecondaryDraft] = useState<number>(0);
 
   const editable = editCellIndex != null && editValueOf != null && onEditSave != null;
+  const secondaryEditable =
+    editable && secondaryEditCellIndex != null && secondaryEditValueOf != null;
 
   if (rows.length === 0) {
     return (
@@ -668,6 +811,15 @@ function DemandTable({
                         className="w-20 rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs"
                         autoFocus
                       />
+                    ) : isEditing && secondaryEditable && i === secondaryEditCellIndex ? (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min={0}
+                        value={secondaryDraft}
+                        onChange={(e) => setSecondaryDraft(parseFloat(e.target.value) || 0)}
+                        className="w-20 rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs"
+                      />
                     ) : (
                       c
                     )}
@@ -678,7 +830,11 @@ function DemandTable({
                     <span className="inline-flex items-center gap-2">
                       <button
                         onClick={() => {
-                          onEditSave!(r, draft);
+                          onEditSave!(
+                            r,
+                            draft,
+                            secondaryEditable ? secondaryDraft : undefined,
+                          );
                           setEditingId(null);
                         }}
                         className="text-accent hover:opacity-80"
@@ -701,6 +857,9 @@ function DemandTable({
                           onClick={() => {
                             setEditingId(r.id);
                             setDraft(editValueOf!(r));
+                            if (secondaryEditable) {
+                              setSecondaryDraft(secondaryEditValueOf!(r));
+                            }
                           }}
                           disabled={locked}
                           className="text-text-secondary hover:text-text-primary disabled:opacity-40"

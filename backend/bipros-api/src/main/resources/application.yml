@@ -35,6 +35,11 @@ spring:
         default_schema: public
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: false
+        # Issue CREATE SCHEMA for schemas referenced via @Table(schema=...) when ddl-auto
+        # is update/create/create-drop. Lets a first-time dev boot against an empty DB
+        # without pre-running docker/init-schemas.sql.
+        hbm2ddl:
+          create_namespaces: true
         jdbc:
           batch_size: 50
         order_inserts: true

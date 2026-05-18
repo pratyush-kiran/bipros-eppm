@@ -506,18 +506,44 @@ function OverviewTab({ project, projectId }: { project: ProjectResponse; project
 
   const calculateKpisMutation = useMutation({
     mutationFn: () => dashboardApi.calculateProjectKpis(projectId),
-    onSuccess: () => {
+    onSuccess: (resp) => {
+      // POST /kpi-snapshots/calculate returns the freshly computed snapshots in
+      // its ApiResponse envelope. Push them straight into the query cache so the
+      // tile re-renders synchronously instead of waiting for the invalidated
+      // GET to come back (and so that an empty result is rendered as "0 KPIs"
+      // rather than leaving the panel stuck on the "Click Recalculate" prompt
+      // forever — DEFECT-9 from the 20260517-1249 QA run).
+      const computed = resp?.data;
+      if (Array.isArray(computed)) {
+        queryClient.setQueryData(["project-kpis", projectId], resp);
+      }
       queryClient.invalidateQueries({ queryKey: ["project-kpis", projectId] });
-      toast.success("KPIs recalculated");
+      const count = Array.isArray(computed) ? computed.length : 0;
+      if (count === 0) {
+        toast.success("KPI recalculation ran, but no active KPI definitions matched this project");
+      } else {
+        toast.success(`KPIs recalculated (${count})`);
+      }
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Failed to calculate KPIs"));
     },
   });
 
-  const kpiSnapshots = Array.isArray(kpiSnapshotsData?.data) ? kpiSnapshotsData.data : [];
-  const rawKpiDefs = kpiDefsData?.data;
-  const kpiDefs = Array.isArray(rawKpiDefs) ? rawKpiDefs : (rawKpiDefs as unknown as { content?: KpiDefinition[] })?.content ?? [];
+  // axios returns AxiosResponse, so .data is the ApiResponse envelope: {data: KpiSnapshot[]}.
+  // Unwrap one more level (mirror line 535's rawKpiDefs handling).
+  const rawKpiSnapshots = (kpiSnapshotsData as unknown as { data?: { data?: unknown } })?.data?.data;
+  const kpiSnapshots: KpiSnapshot[] = Array.isArray(rawKpiSnapshots)
+    ? (rawKpiSnapshots as KpiSnapshot[])
+    : Array.isArray(kpiSnapshotsData?.data)
+      ? (kpiSnapshotsData.data as unknown as KpiSnapshot[])
+      : [];
+  // Same envelope unwrap as kpiSnapshots above — kpiDefsData is the AxiosResponse,
+  // .data is the ApiResponse envelope, .data.data is the actual array (or {content:[]} for pageable).
+  const rawKpiDefs = (kpiDefsData as unknown as { data?: { data?: unknown } })?.data?.data ?? kpiDefsData?.data;
+  const kpiDefs: KpiDefinition[] = Array.isArray(rawKpiDefs)
+    ? (rawKpiDefs as KpiDefinition[])
+    : (rawKpiDefs as unknown as { content?: KpiDefinition[] })?.content ?? [];
   const kpiDefMap = new Map(kpiDefs.map((d: KpiDefinition) => [d.id, d]));
 
   const statusTransitions: Record<string, { label: string; value: string }[]> = {
@@ -649,7 +675,11 @@ function OverviewTab({ project, projectId }: { project: ProjectResponse; project
           </div>
         ) : kpiSnapshots.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border py-8 text-center">
-            <p className="text-text-secondary text-sm">No KPI data yet. Click &quot;Recalculate&quot; to generate KPI snapshots.</p>
+            <p className="text-text-secondary text-sm">
+              {calculateKpisMutation.isSuccess
+                ? "Recalculation completed but produced no snapshots. Configure active KPI definitions under Admin → KPI Definitions."
+                : "No KPI data yet. Click \"Recalculate\" to generate KPI snapshots."}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

@@ -163,7 +163,7 @@ public class DashboardService {
         Object result = em.createNativeQuery(
                 "SELECT " + column + " FROM evm.evm_calculations " +
                 "WHERE project_id = ?1 ORDER BY data_date DESC LIMIT 1")
-            .setParameter(1, projectId.toString())
+            .setParameter(1, projectId)
             .getSingleResult();
         return result != null ? ((Number) result).doubleValue() : 0.0;
     }
@@ -175,7 +175,7 @@ public class DashboardService {
                         "SELECT CASE WHEN COUNT(*) > 0 THEN " +
                         "ROUND((100.0 * COUNT(CASE WHEN status = 'COMPLETED' THEN 1 END) / COUNT(*))::numeric, 2) " +
                         "ELSE 0 END FROM activity.activities WHERE project_id = ?1")
-                    .setParameter(1, projectId.toString())
+                    .setParameter(1, projectId)
                     .getSingleResult();
                 yield result != null ? ((Number) result).doubleValue() : 0.0;
             }
@@ -183,7 +183,7 @@ public class DashboardService {
                 Object result = em.createNativeQuery(
                         "SELECT COALESCE(SUM(remaining_duration), 0) FROM activity.activities " +
                         "WHERE project_id = ?1 AND is_critical = true")
-                    .setParameter(1, projectId.toString())
+                    .setParameter(1, projectId)
                     .getSingleResult();
                 yield result != null ? ((Number) result).doubleValue() : 0.0;
             }
@@ -198,7 +198,7 @@ public class DashboardService {
                         "SELECT CASE WHEN SUM(budgeted_cost) > 0 THEN " +
                         "ROUND((100.0 * SUM(actual_cost) / SUM(budgeted_cost))::numeric, 2) " +
                         "ELSE 0 END FROM cost.activity_expenses WHERE project_id = ?1")
-                    .setParameter(1, projectId.toString())
+                    .setParameter(1, projectId)
                     .getSingleResult();
                 yield result != null ? ((Number) result).doubleValue() : 0.0;
             }
@@ -212,7 +212,7 @@ public class DashboardService {
                 Object result = em.createNativeQuery(
                         "SELECT COALESCE(AVG(risk_score), 0) FROM risk.risks " +
                         "WHERE project_id = ?1 AND status IN ('OPEN', 'ACTIVE')")
-                    .setParameter(1, projectId.toString())
+                    .setParameter(1, projectId)
                     .getSingleResult();
                 yield result != null ? ((Number) result).doubleValue() : 0.0;
             }

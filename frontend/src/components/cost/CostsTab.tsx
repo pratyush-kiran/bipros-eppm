@@ -13,10 +13,8 @@ import {
   type PeriodCostAggregation,
   type CreateExpenseRequest,
 } from "@/lib/api/costApi";
-import { projectApi } from "@/lib/api/projectApi";
 import { budgetApi } from "@/lib/api/budgetApi";
 import { activityApi } from "@/lib/api/activityApi";
-import type { WbsNodeResponse } from "@/lib/types";
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import { SimpleTable } from "@/components/common/SimpleTable";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -42,51 +40,44 @@ const NO_FINANCE_PLACEHOLDER = (
 );
 
 /**
- * IC-PMS monetary values are budgeted in INR crores (1 crore = 10,000,000 INR).
- * WBS nodes carry `budgetCrores`; cost-summary/expense APIs return absolute INR.
- * We display everything in ₹cr with two-decimal precision for uniformity.
+ * Smart currency formatter — adapts to the project's budget currency and
+ * picks the most readable scale:
+ *   < 100 000          → "6,500 OMR"     (raw, e.g. small OMR projects)
+ *   100 000 – 9 999 999 → "65k OMR"      (thousands)
+ *   ≥ 10 000 000       → "₹4.85cr"       (INR crores) or "4.85M OMR"
  */
-const INR_PER_CRORE = 10_000_000;
+function makeFormatter(currency: string) {
+  const code = (currency ?? "INR").toUpperCase();
+  const isInr = code === "INR";
+  const locale = isInr ? "en-IN" : "en-US";
 
-function formatCrores(crores: number): string {
-  // Use Indian digit grouping (lakh/crore) for readability.
-  const rounded = Number.isFinite(crores) ? Math.round(crores * 100) / 100 : 0;
-  return `₹${rounded.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}cr`;
+  return function formatValue(value: number | null | undefined): string {
+    const v = value ?? 0;
+    const abs = Math.abs(v);
+
+    if (abs < 100_000) {
+      // Raw value with currency code
+      return `${v.toLocaleString(locale, { maximumFractionDigits: 0 })} ${code}`;
+    }
+    if (abs < 10_000_000) {
+      // Thousands
+      const k = v / 1_000;
+      return `${k.toLocaleString(locale, { maximumFractionDigits: 1 })}k ${code}`;
+    }
+    // Crore (INR) or Millions (others)
+    if (isInr) {
+      const cr = v / 10_000_000;
+      return `₹${cr.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}cr`;
+    }
+    const m = v / 1_000_000;
+    return `${m.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M ${code}`;
+  };
 }
 
-function formatInrAsCrores(inr: number): string {
-  return formatCrores((inr || 0) / INR_PER_CRORE);
+function formatAmount(amount: number, currency: string): string {
+  return makeFormatter(currency)(amount);
 }
 
-function formatInr(inr: number): string {
-  return `₹${(inr || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function sumBudgetCrores(nodes: WbsNodeResponse[]): number {
-  // Recursive sum to cover cases where only leaves carry budgetCrores.
-  let total = 0;
-  for (const node of nodes) {
-    if (node.budgetCrores != null) total += Number(node.budgetCrores);
-    if (node.children?.length) total += sumBudgetCrores(node.children);
-  }
-  return total;
-}
-
-function pickTopLevelBudget(nodes: WbsNodeResponse[]): number {
-  // Prefer the declared top-level budget (e.g. DMIC root 150000) and fall back
-  // to summing all levels if no root has budgetCrores.
-  const rootsWithBudget = nodes.filter((n) => n.budgetCrores != null);
-  if (rootsWithBudget.length > 0) {
-    return rootsWithBudget.reduce((s, n) => s + Number(n.budgetCrores ?? 0), 0);
-  }
-  return sumBudgetCrores(nodes);
-}
 
 interface SummaryCard {
   label: string;
@@ -170,6 +161,15 @@ export function CostsTab({ projectId }: { projectId: string }) {
     queryFn: () => activityApi.listActivities(projectId, 0, 200),
   });
 
+  // P6-style project budget — fetched early so we have budgetCurrency before column defs.
+  const { data: projectBudgetData } = useQuery({
+    queryKey: ["project-budget", projectId],
+    queryFn: () => budgetApi.getBudgetSummary(projectId),
+  });
+
+  // Derive project currency early (needed in column definitions below).
+  const projectCurrencyEarly = projectBudgetData?.data?.budgetCurrency ?? baseCurrency.code;
+
   const activities = useMemo(() => activitiesData?.data?.content ?? [], [activitiesData]);
 
   const handleEdit = useCallback((expense: ExpenseRow) => {
@@ -210,9 +210,9 @@ export function CostsTab({ projectId }: { projectId: string }) {
     { accessorKey: "expenseCategory", header: "Category", enableSorting: true },
     {
       accessorKey: "actualCost",
-      header: "Amount (₹)",
+      header: `Amount (${projectCurrencyEarly})`,
       enableSorting: true,
-      cell: (info) => formatInr(Number(info.getValue())),
+      cell: (info) => formatAmount(Number(info.getValue()), projectCurrencyEarly),
     },
     { accessorKey: "actualStartDate", header: "Date", enableSorting: true },
     {
@@ -243,65 +243,69 @@ export function CostsTab({ projectId }: { projectId: string }) {
         );
       },
     },
-  ], [handleEdit, deleteExpenseMutation, activities, projectId]);
+  ], [handleEdit, deleteExpenseMutation, activities, projectId, projectCurrencyEarly]);
 
   const periodColumns = useMemo<ColumnDef<PeriodCostAggregation>[]>(
-    () => [
-      { accessorKey: "periodName", header: "Period" },
-      {
-        accessorKey: "budget",
-        header: "Budget (₹cr)",
-        cell: (info) => (
-          <span className="block text-right text-accent">
-            {formatInrAsCrores(Number(info.getValue()))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "actual",
-        header: "Actual (₹cr)",
-        cell: (info) => (
-          <span className="block text-right text-success">
-            {formatInrAsCrores(Number(info.getValue()))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "variance",
-        header: "Variance (₹cr)",
-        cell: (info) => {
-          const v = Number(info.getValue());
-          return (
-            <span
-              className={`block text-right ${
-                v >= 0 ? "text-success" : "text-danger"
-              }`}
-            >
-              {formatInrAsCrores(v)}
+    () => {
+      const cu = projectCurrencyEarly;
+      const fmtPeriod = makeFormatter(cu);
+      return [
+        { accessorKey: "periodName", header: "Period" },
+        {
+          accessorKey: "budget",
+          header: `Budget (${cu})`,
+          cell: (info) => (
+            <span className="block text-right text-accent">
+              {fmtPeriod(Number(info.getValue()))}
             </span>
-          );
+          ),
         },
-      },
-      {
-        accessorKey: "earnedValue",
-        header: "Earned Value (₹cr)",
-        cell: (info) => (
-          <span className="block text-right text-warning">
-            {formatInrAsCrores(Number(info.getValue()))}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "plannedValue",
-        header: "Planned Value (₹cr)",
-        cell: (info) => (
-          <span className="block text-right text-info">
-            {formatInrAsCrores(Number(info.getValue()))}
-          </span>
-        ),
-      },
-    ],
-    []
+        {
+          accessorKey: "actual",
+          header: `Actual (${cu})`,
+          cell: (info) => (
+            <span className="block text-right text-success">
+              {fmtPeriod(Number(info.getValue()))}
+            </span>
+          ),
+        },
+        {
+          accessorKey: "variance",
+          header: `Variance (${cu})`,
+          cell: (info) => {
+            const v = Number(info.getValue());
+            return (
+              <span
+                className={`block text-right ${
+                  v >= 0 ? "text-success" : "text-danger"
+                }`}
+              >
+                {fmtPeriod(v)}
+              </span>
+            );
+          },
+        },
+        {
+          accessorKey: "earnedValue",
+          header: `Earned Value (${cu})`,
+          cell: (info) => (
+            <span className="block text-right text-warning">
+              {fmtPeriod(Number(info.getValue()))}
+            </span>
+          ),
+        },
+        {
+          accessorKey: "plannedValue",
+          header: `Planned Value (${cu})`,
+          cell: (info) => (
+            <span className="block text-right text-info">
+              {fmtPeriod(Number(info.getValue()))}
+            </span>
+          ),
+        },
+      ];
+    },
+    [projectCurrencyEarly]
   );
 
   const { data: summaryData, isLoading: isLoadingSummary } = useQuery({
@@ -324,38 +328,21 @@ export function CostsTab({ projectId }: { projectId: string }) {
     queryFn: () => costApi.getCostPeriods(projectId),
   });
 
-  // Pull the WBS tree so we can derive the budget from `budgetCrores` on the
-  // project's WBS nodes (the legacy cost-summary endpoint returns 0 when no
-  // expense rows exist even though the WBS has a plan budget).
-  const { data: wbsData } = useQuery({
-    queryKey: ["wbs", projectId],
-    queryFn: () => projectApi.getWbsTree(projectId),
-  });
-
-  // P6-style project budget
-  const { data: projectBudgetData } = useQuery({
-    queryKey: ["project-budget", projectId],
-    queryFn: () => budgetApi.getBudgetSummary(projectId),
-  });
-
   const summary = summaryData?.data;
   const expenses = expensesData?.data?.content ?? [];
   const forecastItems: CashFlowForecastItem[] = forecastData?.data ?? [];
   const periodAggregations: PeriodCostAggregation[] = periodData?.data ?? [];
-  const wbsTree: WbsNodeResponse[] = wbsData?.data ?? [];
 
-  // Budget precedence: (1) WBS nodes' declared `budgetCrores` (the legacy DMIC
-  // planning flow), else (2) cost-summary `totalBudget` (sum of expense
-  // budgetedCost — the flow our seed script uses). Without this fallback, any
-  // project that plans via expenses displays Total Budget ₹0.00cr despite
-  // having real budget data.
-  const wbsBudgetCrores = pickTopLevelBudget(wbsTree);
-  const summaryBudgetCrores = (summary?.totalBudget ?? 0) / INR_PER_CRORE;
-  const budgetCrores = wbsBudgetCrores > 0 ? wbsBudgetCrores : summaryBudgetCrores;
-  // summary amounts are INR; convert to crores for display.
-  const actualCrores = (summary?.totalActual ?? 0) / INR_PER_CRORE;
-  const remainingCrores = Math.max(budgetCrores - actualCrores, 0);
-  const atCompletionCrores = Math.max(budgetCrores, actualCrores);
+  // projectCurrencyEarly is already derived above (before column definitions).
+  // Use it directly here for consistency.
+  const projectCurrency = projectCurrencyEarly;
+  const fmt = makeFormatter(projectCurrency);
+
+  // cost-summary is the source of truth for budget and actual (absolute amounts in project currency).
+  const totalBudget = summary?.totalBudget ?? 0;
+  const totalActual = summary?.totalActual ?? 0;
+  const totalRemaining = Math.max(totalBudget - totalActual, 0);
+  const atCompletion = Math.max(totalBudget, totalActual);
 
   const chartData = forecastItems.map((item) => ({
     period: item.period,
@@ -371,28 +358,32 @@ export function CostsTab({ projectId }: { projectId: string }) {
     {
       label: "Project Budget (P6)",
       value: projectBudgetData?.data?.currentBudget != null
-        ? formatCrores(projectBudgetData.data.currentBudget / INR_PER_CRORE)
+        ? fmt(projectBudgetData.data.currentBudget)
         : "Not set",
       color: "indigo",
     },
     {
       label: "Total Budget (Expenses)",
-      value: formatCrores(budgetCrores),
+      value: summary?.totalBudget != null && summary.totalBudget > 0
+        ? fmt(totalBudget)
+        : "—",
       color: "blue",
     },
     {
       label: "Total Actual",
-      value: formatCrores(actualCrores),
+      value: summary?.totalActual != null && summary.totalActual > 0
+        ? fmt(totalActual)
+        : "—",
       color: "green",
     },
     {
       label: "Total Remaining",
-      value: formatCrores(remainingCrores),
+      value: fmt(totalRemaining),
       color: "yellow",
     },
     {
       label: "At Completion",
-      value: formatCrores(atCompletionCrores),
+      value: fmt(atCompletion),
       color: "purple",
     },
   ];
@@ -401,7 +392,7 @@ export function CostsTab({ projectId }: { projectId: string }) {
     ? [
         {
           label: "Cost Variance (CV)",
-          value: formatInrAsCrores(summary.costVariance),
+          value: fmt(summary.costVariance),
           color: summary.costVariance >= 0 ? "green" : "red",
         },
         {
@@ -428,17 +419,17 @@ export function CostsTab({ projectId }: { projectId: string }) {
     ? [
         {
           label: "Material Procured",
-          value: formatInrAsCrores(summary.materialProcurementCost ?? 0),
+          value: fmt(summary.materialProcurementCost ?? 0),
           color: "blue",
         },
         {
           label: "Open Stock Value",
-          value: formatInrAsCrores(summary.openStockValue ?? 0),
+          value: fmt(summary.openStockValue ?? 0),
           color: "yellow",
         },
         {
           label: "Material Issued",
-          value: formatInrAsCrores(summary.materialIssuedCost ?? 0),
+          value: fmt(summary.materialIssuedCost ?? 0),
           color: "green",
         },
       ]
@@ -563,10 +554,9 @@ export function CostsTab({ projectId }: { projectId: string }) {
               <YAxis
                 stroke="var(--text-muted)"
                 style={{ fontSize: "12px" }}
-                label={{ value: "Amount (₹cr)", angle: -90, position: "insideLeft" }}
-                tickFormatter={(v) =>
-                  typeof v === "number" ? (v / INR_PER_CRORE).toFixed(0) : String(v)
-                }
+                label={{ value: `Amount (${projectCurrency})`, angle: -90, position: "insideLeft" }}
+                tickFormatter={(v) => typeof v === "number" ? fmt(v) : String(v)}
+                width={90}
               />
               <Tooltip
                 contentStyle={{
@@ -576,9 +566,7 @@ export function CostsTab({ projectId }: { projectId: string }) {
                   color: "var(--text-primary)",
                 }}
                 formatter={(value) =>
-                  typeof value === "number"
-                    ? formatInrAsCrores(value)
-                    : String(value ?? "")
+                  typeof value === "number" ? fmt(value) : String(value ?? "")
                 }
               />
               <Legend />

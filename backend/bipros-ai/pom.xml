@@ -116,11 +116,12 @@
         </dependency>
 
         <!-- PDF text extraction for AI document ingestion (e.g. WBS from
-             vendor-supplied PDFs). Pure-Java, no native deps. -->
+             vendor-supplied PDFs). Pure-Java, no native deps.
+             Version managed by parent pom (pinned to PDFBox 2.0.x for
+             openhtmltopdf 1.0.10 compatibility — see DBS Bug 3 fix). -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>3.0.3</version>
         </dependency>
 
         <!-- Excel text extraction for AI document ingestion. poi-ooxml pulls

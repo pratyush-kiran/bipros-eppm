@@ -42,6 +42,9 @@ public record UpdateProjectRequest(
 
     UUID calendarId,
 
+    /** ISO 4217 currency code for budget fields (e.g. "USD", "OMR"). Leave null to keep existing value. */
+    @Size(max = 10) String budgetCurrency,
+
     @Valid CreateProjectRequest.ContractSummaryInput contract
 ) {
 }

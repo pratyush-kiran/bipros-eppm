@@ -81,4 +81,7 @@ public class DprMaterial extends BaseEntity {
 
     @Column(name = "role_id")
     private UUID roleId;
+
+    @Column(name = "entered_by_role", length = 32)
+    private String enteredByRole;
 }

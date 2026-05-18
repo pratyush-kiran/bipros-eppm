@@ -112,6 +112,10 @@
             <groupId>com.bipros</groupId>
             <artifactId>bipros-site-ops</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.bipros</groupId>
+            <artifactId>bipros-dbs</artifactId>
+        </dependency>
 
         <!-- Spring Boot Starters -->
         <dependency>

@@ -94,7 +94,11 @@ public class LabourDesignationService {
     @Transactional(readOnly = true)
     public PagedResponse<LabourDesignationResponse> search(
             LabourCategory category, LabourGrade grade, LabourStatus status, String q, Pageable pageable) {
-        Page<LabourDesignation> page = designationRepo.search(category, grade, status, q, pageable);
+        // Normalise q: null → "" so the JPQL `:q = ''` guard fires correctly.
+        // Passing null causes PostgreSQL to infer LOWER(CONCAT('%', NULL, '%')) as bytea,
+        // which fails with "function lower(bytea) does not exist".
+        String safeQ = (q == null) ? "" : q.strip();
+        Page<LabourDesignation> page = designationRepo.search(category, grade, status, safeQ, pageable);
         List<LabourDesignationResponse> rows = page.getContent().stream().map(this::toResponse).toList();
         return PagedResponse.of(rows, page.getTotalElements(), page.getTotalPages(),
             page.getNumber(), page.getSize());

@@ -1,0 +1,414 @@
+databaseChangeLog:
+  # Daily Balance Sheet (DBS) aggregate tables. Three rollup levels:
+  # - dbs_daily_supervisor: one row per (project, supervisor_user_id, report_date). Carries
+  #   per-section JSON line caches so the UI can render the six accordions without re-querying.
+  # - dbs_daily_engineer: SUM of supervisors reporting to a given engineer for that day.
+  # - dbs_daily_project: SUM of all supervisor rows for that day on the project.
+  # Recomputed by DbsRecomputeListener on DPR / Deployment / Material events (AFTER_COMMIT).
+
+  - changeSet:
+      id: 103-1-dbs-supervisor
+      author: bipros
+      changes:
+        - createTable:
+            tableName: dbs_daily_supervisor
+            schemaName: dbs
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: supervisor_user_id
+                  type: UUID
+              - column:
+                  name: report_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: engineer_user_id
+                  type: UUID
+              - column:
+                  name: material_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: manpower_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: admin_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: machinery_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: fuel_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: subcontract_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_for_the_day_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_planned_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_achieved_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: total_expense
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: total_income
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: contribution
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: contribution_pct
+                  type: NUMERIC(9,4)
+                  defaultValueNumeric: 0
+              - column:
+                  name: material_lines_json
+                  type: TEXT
+              - column:
+                  name: manpower_lines_json
+                  type: TEXT
+              - column:
+                  name: admin_lines_json
+                  type: TEXT
+              - column:
+                  name: machinery_lines_json
+                  type: TEXT
+              - column:
+                  name: fuel_lines_json
+                  type: TEXT
+              - column:
+                  name: boq_lines_json
+                  type: TEXT
+              - column:
+                  name: subcontract_lines_json
+                  type: TEXT
+              - column:
+                  name: recomputed_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: source_hash
+                  type: VARCHAR(64)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: version
+                  type: BIGINT
+      rollback:
+        - dropTable:
+            tableName: dbs_daily_supervisor
+            schemaName: dbs
+
+  - changeSet:
+      id: 103-2-dbs-engineer
+      author: bipros
+      changes:
+        - createTable:
+            tableName: dbs_daily_engineer
+            schemaName: dbs
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: engineer_user_id
+                  type: UUID
+              - column:
+                  name: report_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: supervisor_ids
+                  type: TEXT
+              - column:
+                  name: material_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: manpower_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: admin_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: machinery_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: fuel_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: subcontract_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_for_the_day_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_planned_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_achieved_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: total_expense
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: total_income
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: contribution
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: contribution_pct
+                  type: NUMERIC(9,4)
+                  defaultValueNumeric: 0
+              - column:
+                  name: recomputed_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: version
+                  type: BIGINT
+      rollback:
+        - dropTable:
+            tableName: dbs_daily_engineer
+            schemaName: dbs
+
+  - changeSet:
+      id: 103-3-dbs-project
+      author: bipros
+      changes:
+        - createTable:
+            tableName: dbs_daily_project
+            schemaName: dbs
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: project_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: report_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: engineer_ids
+                  type: TEXT
+              - column:
+                  name: supervisor_count
+                  type: INT
+              - column:
+                  name: dpr_count
+                  type: INT
+              - column:
+                  name: material_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: manpower_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: admin_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: machinery_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: fuel_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: subcontract_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_for_the_day_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_planned_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: boq_achieved_amount
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: total_expense
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: total_income
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: contribution
+                  type: NUMERIC(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: contribution_pct
+                  type: NUMERIC(9,4)
+                  defaultValueNumeric: 0
+              - column:
+                  name: recomputed_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: version
+                  type: BIGINT
+      rollback:
+        - dropTable:
+            tableName: dbs_daily_project
+            schemaName: dbs
+
+  - changeSet:
+      id: 103-4-dbs-indexes
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: dbs_daily_supervisor
+            schemaName: dbs
+            indexName: idx_dbs_sup_project_date_sup
+            columns:
+              - column:
+                  name: project_id
+              - column:
+                  name: report_date
+              - column:
+                  name: supervisor_user_id
+        - createIndex:
+            tableName: dbs_daily_engineer
+            schemaName: dbs
+            indexName: idx_dbs_eng_project_date
+            columns:
+              - column:
+                  name: project_id
+              - column:
+                  name: report_date
+        - createIndex:
+            tableName: dbs_daily_project
+            schemaName: dbs
+            indexName: idx_dbs_proj_project_date
+            columns:
+              - column:
+                  name: project_id
+              - column:
+                  name: report_date
+      rollback:
+        - dropIndex:
+            tableName: dbs_daily_supervisor
+            schemaName: dbs
+            indexName: idx_dbs_sup_project_date_sup
+        - dropIndex:
+            tableName: dbs_daily_engineer
+            schemaName: dbs
+            indexName: idx_dbs_eng_project_date
+        - dropIndex:
+            tableName: dbs_daily_project
+            schemaName: dbs
+            indexName: idx_dbs_proj_project_date

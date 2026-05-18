@@ -24,6 +24,8 @@ export interface BoqItemResponse {
   // PMS MasterData Screen 03
   chapter: string | null;
   status: BoqStatus | null;
+  /** Workstream B2: TRUE when the user has pinned actualRate manually — auto-recalc skips. */
+  manualOverride: boolean | null;
 }
 
 export interface BoqSummaryResponse {
@@ -93,4 +95,16 @@ export const boqApi = {
 
   delete: (projectId: string, itemId: string) =>
     apiClient.delete(`/v1/projects/${projectId}/boq/${itemId}`),
+
+  /**
+   * Workstream B1: BOQ candidates for an activity, so the DPR form can suggest / pre-select
+   * a BOQ link when an activity is picked. Returns an empty array when no matches exist or
+   * when the project has no BOQ defined yet.
+   */
+  listForActivity: (projectId: string, activityId: string) =>
+    apiClient
+      .get<ApiResponse<BoqItemResponse[]>>(
+        `/v1/projects/${projectId}/boq/by-activity?activityId=${activityId}`
+      )
+      .then((r) => r.data),
 };

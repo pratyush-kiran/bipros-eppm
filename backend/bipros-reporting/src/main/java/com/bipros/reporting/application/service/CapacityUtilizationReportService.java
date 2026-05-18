@@ -1,5 +1,7 @@
 package com.bipros.reporting.application.service;
 
+import com.bipros.reporting.application.dto.CapacityUtilizationAggregateReport;
+import com.bipros.reporting.application.dto.CapacityUtilizationAggregateReport.Bucket;
 import com.bipros.reporting.application.dto.CapacityUtilizationReport;
 import com.bipros.reporting.application.dto.CapacityUtilizationReport.RolePeriod;
 import com.bipros.reporting.application.dto.CapacityUtilizationReport.RoleRow;
@@ -105,6 +107,79 @@ public class CapacityUtilizationReportService {
   }
 
   /**
+   * Multi-period aggregate. Slices the {@code [fromDate, toDate]} window into weekly or monthly
+   * buckets and, for each bucket, returns the Manpower / Equipment {@link Section} computed
+   * over just that bucket's window. The frontend renders each bucket as a column with the
+   * per-role rows beneath. Reuses {@link #buildSection} per bucket so accumulator logic stays
+   * single-sourced — the Day/Month/Cumulative triple internally collapses to the bucket window
+   * (we only surface the {@code cumulative} field per RoleRow downstream).
+   */
+  @Transactional(readOnly = true)
+  public CapacityUtilizationAggregateReport aggregate(
+      UUID projectId, String periodType, LocalDate fromDate, LocalDate toDate,
+      String groupBy) {
+    LocalDate today = LocalDate.now();
+    LocalDate effectiveTo = toDate == null ? today : toDate;
+    LocalDate effectiveFrom = fromDate == null ? effectiveTo.withDayOfYear(1) : fromDate;
+    String pt = periodType == null ? "MONTHLY" : periodType.toUpperCase();
+    if (!pt.equals("WEEKLY") && !pt.equals("MONTHLY")) pt = "MONTHLY";
+    String gb = groupBy == null ? "ROLE" : groupBy.toUpperCase();
+
+    List<Bucket> buckets = new ArrayList<>();
+    LocalDate cursor = effectiveFrom;
+    while (!cursor.isAfter(effectiveTo)) {
+      LocalDate bucketEnd;
+      String label;
+      if ("WEEKLY".equals(pt)) {
+        // ISO weeks: start anchored to Monday of the week the cursor falls in.
+        java.time.temporal.WeekFields wf = java.time.temporal.WeekFields.ISO;
+        int weekOfYear = cursor.get(wf.weekOfWeekBasedYear());
+        int weekYear = cursor.get(wf.weekBasedYear());
+        bucketEnd = cursor.with(java.time.DayOfWeek.SUNDAY);
+        if (bucketEnd.isAfter(effectiveTo)) bucketEnd = effectiveTo;
+        label = String.format("%d-W%02d", weekYear, weekOfYear);
+      } else {
+        YearMonth ym = YearMonth.from(cursor);
+        bucketEnd = ym.atEndOfMonth();
+        if (bucketEnd.isAfter(effectiveTo)) bucketEnd = effectiveTo;
+        label = ym.toString();
+      }
+
+      LocalDate bucketStart = cursor;
+      Section manpowerSection = buildSection(projectId, "MANPOWER",
+          bucketStart, bucketEnd,
+          bucketEnd, YearMonth.from(bucketEnd),
+          null, defaultWorkDays());
+      Section equipmentSection = buildSection(projectId, "EQUIPMENT",
+          bucketStart, bucketEnd,
+          bucketEnd, YearMonth.from(bucketEnd),
+          null, defaultWorkDays());
+
+      // Per bucket we only want the cumulative-over-bucket view — strip the Day/Month
+      // fields so the wire payload is tight and the frontend doesn't accidentally render
+      // mid-bucket reference-date data.
+      buckets.add(new Bucket(bucketStart, bucketEnd, label,
+          stripToCumulative(manpowerSection),
+          stripToCumulative(equipmentSection)));
+
+      cursor = bucketEnd.plusDays(1);
+    }
+    return new CapacityUtilizationAggregateReport(
+        projectId, pt, gb, effectiveFrom, effectiveTo, buckets);
+  }
+
+  private Section stripToCumulative(Section src) {
+    if (src == null) return null;
+    List<RoleRow> stripped = new ArrayList<>(src.rows().size());
+    for (RoleRow r : src.rows()) {
+      stripped.add(new RoleRow(
+          r.roleId(), r.roleCode(), r.roleName(), r.ratePerDay(),
+          null, null, r.cumulative(), r.normSource()));
+    }
+    return new Section(stripped, null, null, src.totalCumulative());
+  }
+
+  /**
    * Project the new section/role shape back into the legacy flat-row shape so existing
    * downstream consumers (Excel writer, Insights collector) can keep rendering until they're
    * migrated. One legacy row per (role, period); group key carries the role id.
@@ -141,7 +216,8 @@ public class CapacityUtilizationReportService {
   private CapacityUtilizationReport.Period toLegacyPeriod(RolePeriod p) {
     if (p == null) return null;
     return new CapacityUtilizationReport.Period(
-        p.qty(), p.budgetDays(), p.actualDays(), null, p.utilizationPct());
+        p.qty(), p.budgetDays(), p.actualDays(), null, p.utilizationPct(),
+        p.actualDaysUntracked());
   }
 
   // ─── Per-section build ─────────────────────────────────────────────────────────────────────
@@ -168,11 +244,14 @@ public class CapacityUtilizationReportService {
     java.util.Set<DprRoleKey> seenCum = new java.util.HashSet<>();
 
     for (Contribution c : contributions) {
-      RoleAccumulator acc = byRole.computeIfAbsent(c.roleId,
+      UUID accKey = c.accKey();
+      RoleAccumulator acc = byRole.computeIfAbsent(accKey,
           k -> new RoleAccumulator(c.roleId, c.roleCode, c.roleName));
       // Capture (role, workActivity) → norm cache key. The (role × workActivity × period) qty
       // is summed once per distinct DPR so multiple rows for the same role on the same DPR
       // don't multiply the qty.
+      // Use the real roleId for norm resolution (null-role rows will fall through to the
+      // unscoped norm lookup in resolveNorm).
       WorkActivityRoleKey waRoleKey = new WorkActivityRoleKey(c.workActivityId, c.roleId);
       acc.activityRoles.computeIfAbsent(waRoleKey,
           k -> new ActivityRoleAccumulator(c.workActivityId, c.workActivityName,
@@ -184,7 +263,7 @@ public class CapacityUtilizationReportService {
       ActivityRoleAccumulator ara = acc.activityRoles.get(waRoleKey);
       ara.cumActualDays = ara.cumActualDays.add(c.roleDays);
       acc.cumActualDays = acc.cumActualDays.add(c.roleDays);
-      DprRoleKey drk = new DprRoleKey(c.dprId, c.roleId);
+      DprRoleKey drk = new DprRoleKey(c.dprId, accKey);
       if (seenCum.add(drk)) {
         // First time we see (dpr, role) in cumulative — credit the DPR's qty toward this role/WA.
         ara.cumQty = ara.cumQty.add(c.qtyExecuted == null ? BigDecimal.ZERO : c.qtyExecuted);
@@ -393,7 +472,7 @@ public class CapacityUtilizationReportService {
     List<Object[]> raw = em.createNativeQuery(
             "SELECT m.role_id, "
                 + "       MAX(rr.code) AS role_code, "
-                + "       MAX(rr.name) AS role_name, "
+                + "       COALESCE(MAX(rr.name), m.trade) AS role_name, "
                 + "       d.id AS dpr_id, "
                 + "       d.report_date, "
                 + "       a.work_activity_id, "
@@ -401,7 +480,8 @@ public class CapacityUtilizationReportService {
                 + "       MAX(wa.default_unit) AS wa_default_unit, "
                 + "       MAX(d.qty_executed) AS qty_executed, "
                 + "       SUM(COALESCE(m.nos, 0) * COALESCE(m.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / "
-                + DEFAULT_HOURS_PER_DAY + ") AS role_days "
+                + DEFAULT_HOURS_PER_DAY + ") AS role_days, "
+                + "       m.trade AS trade "
                 + "FROM project.dpr_manpower m "
                 + "JOIN project.daily_progress_reports d ON d.id = m.dpr_id "
                 + "JOIN activity.activities a ON a.id = d.activity_id "
@@ -409,7 +489,6 @@ public class CapacityUtilizationReportService {
                 + "LEFT JOIN resource.resource_roles rr ON rr.id = m.role_id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
-                + "  AND m.role_id IS NOT NULL "
                 + "  AND a.work_activity_id IS NOT NULL "
                 // Multi-supervisor (commit 182141eb): filter on activity_supervisors join, not
                 // dpr.supervisor_user_id. EXISTS is a semi-join — does not multiply rows, so
@@ -419,7 +498,7 @@ public class CapacityUtilizationReportService {
                 + "            SELECT 1 FROM activity.activity_supervisors s "
                 + "             WHERE s.activity_id = a.id "
                 + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
-                + "GROUP BY m.role_id, d.id, d.report_date, a.work_activity_id")
+                + "GROUP BY m.role_id, m.trade, d.id, d.report_date, a.work_activity_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
@@ -436,7 +515,7 @@ public class CapacityUtilizationReportService {
     List<Object[]> raw = em.createNativeQuery(
             "SELECT e.role_id, "
                 + "       MAX(rr.code) AS role_code, "
-                + "       MAX(rr.name) AS role_name, "
+                + "       COALESCE(MAX(rr.name), e.equipment_type) AS role_name, "
                 + "       d.id AS dpr_id, "
                 + "       d.report_date, "
                 + "       a.work_activity_id, "
@@ -444,7 +523,8 @@ public class CapacityUtilizationReportService {
                 + "       MAX(wa.default_unit) AS wa_default_unit, "
                 + "       MAX(d.qty_executed) AS qty_executed, "
                 + "       SUM(COALESCE(e.nos, 0) * COALESCE(e.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / "
-                + DEFAULT_HOURS_PER_DAY + ") AS role_days "
+                + DEFAULT_HOURS_PER_DAY + ") AS role_days, "
+                + "       e.equipment_type AS trade "
                 + "FROM project.dpr_equipment e "
                 + "JOIN project.daily_progress_reports d ON d.id = e.dpr_id "
                 + "JOIN activity.activities a ON a.id = d.activity_id "
@@ -452,7 +532,6 @@ public class CapacityUtilizationReportService {
                 + "LEFT JOIN resource.resource_roles rr ON rr.id = e.role_id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
-                + "  AND e.role_id IS NOT NULL "
                 + "  AND a.work_activity_id IS NOT NULL "
                 // Same multi-supervisor swap as the manpower query above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
@@ -460,7 +539,7 @@ public class CapacityUtilizationReportService {
                 + "            SELECT 1 FROM activity.activity_supervisors s "
                 + "             WHERE s.activity_id = a.id "
                 + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
-                + "GROUP BY e.role_id, d.id, d.report_date, a.work_activity_id")
+                + "GROUP BY e.role_id, e.equipment_type, d.id, d.report_date, a.work_activity_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
@@ -473,6 +552,7 @@ public class CapacityUtilizationReportService {
   private List<Contribution> mapContributions(List<Object[]> raw) {
     List<Contribution> out = new ArrayList<>(raw.size());
     for (Object[] r : raw) {
+      String trade = (String) r[10];
       out.add(new Contribution(
           (UUID) r[0],
           (String) r[1],
@@ -483,7 +563,8 @@ public class CapacityUtilizationReportService {
           (String) r[6],
           (String) r[7],
           toBigDecimal(r[8]),
-          toBigDecimal(r[9])));
+          toBigDecimal(r[9]),
+          trade));
     }
     return out;
   }
@@ -729,7 +810,19 @@ public class CapacityUtilizationReportService {
       UUID roleId, String roleCode, String roleName,
       UUID dprId, LocalDate reportDate,
       UUID workActivityId, String workActivityName, String workActivityDefaultUnit,
-      BigDecimal qtyExecuted, BigDecimal roleDays) {}
+      BigDecimal qtyExecuted, BigDecimal roleDays,
+      String trade) {
+    /**
+     * Stable accumulator key: uses the real roleId when present; otherwise derives a
+     * deterministic UUID from the free-text trade string so distinct trades stay separate
+     * even when both have {@code role_id = NULL}.
+     */
+    UUID accKey() {
+      if (roleId != null) return roleId;
+      return java.util.UUID.nameUUIDFromBytes(
+          ("TRADE:" + (trade == null ? "" : trade.toLowerCase())).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+  }
 
   private record WorkActivityRoleKey(UUID workActivityId, UUID roleId) {}
   private record DprRoleKey(UUID dprId, UUID roleId) {}

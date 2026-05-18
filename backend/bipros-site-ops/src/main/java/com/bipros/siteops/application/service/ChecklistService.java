@@ -2,7 +2,7 @@ package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.ChecklistAnswerDto;
 import com.bipros.siteops.application.dto.ChecklistDecisionRequest;
 import com.bipros.siteops.application.dto.ChecklistInstanceResponse;
@@ -34,7 +34,7 @@ public class ChecklistService {
 
     private final ChecklistTemplateRepository templateRepository;
     private final ChecklistInstanceRepository instanceRepository;
-    private final SecurityContextHelper securityContext;
+    private final CurrentUserService securityContext;
 
     // ── Templates ────────────────────────────────────────────────────────────
 

@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -271,6 +272,36 @@ public class DailyActivityResourceOutputService {
       eventPublisher.publishEvent(new DailyOutputChangedEvent(
           projectId, pair.getKey(), pair.getValue(), reportDate, qty));
     }
+  }
+
+  /**
+   * AFTER_COMMIT-safe variant of {@link #reconcileDprLedger}. Forces a brand-new transaction so
+   * that {@code EntityManager} writes (esp. {@code repository.flush()} at line 266) succeed when
+   * the caller runs inside an AFTER_COMMIT listener — at that point the outer JpaTransactionManager
+   * has already triggered after-completion callbacks and the inherited TX state cannot accept
+   * further writes, even though the inner {@code @Transactional(REQUIRED)} interceptor thinks it
+   * has begun a new TX. {@code REQUIRES_NEW} explicitly suspends the (defunct) outer binding and
+   * starts a fresh EM, which is what {@link DprToDailyOutputListener} needs.
+   *
+   * <p>Inline callers in {@code DailyProgressReportService} keep using
+   * {@link #reconcileDprLedger} so they participate in the parent DPR-write TX (so a rollback of
+   * the DPR also rolls back the ledger write).
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void reconcileDprLedgerInNewTx(UUID projectId,
+                                         UUID dprId,
+                                         LocalDate reportDate,
+                                         List<DprResourceAggregate> aggregates) {
+    reconcileDprLedger(projectId, dprId, reportDate, aggregates);
+  }
+
+  /**
+   * AFTER_COMMIT-safe variant of {@link #deleteDprLedger}. See {@link #reconcileDprLedgerInNewTx}
+   * for rationale.
+   */
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void deleteDprLedgerInNewTx(UUID projectId, UUID dprId, LocalDate reportDate) {
+    deleteDprLedger(projectId, dprId, reportDate);
   }
 
   /**

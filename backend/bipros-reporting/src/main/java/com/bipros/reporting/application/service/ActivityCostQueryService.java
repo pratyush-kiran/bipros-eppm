@@ -36,11 +36,14 @@ import java.util.UUID;
  *
  * <p>When the caller passes a date window or a supervisor filter, the canonical
  * assignment-level rollup cannot be sliced. The service then computes actual cost from DPR
- * child rows × the matched assignment's effective_rate:
+ * child rows × the matched assignment's effective_rate, UNIONed with material-consumption-log
+ * rows that the store keeper logged directly (no DPR) against an activity:
  * <ul>
  *   <li>manpower: {@code SUM(dpr_manpower.nos × a.effective_rate)}
  *   <li>equipment: {@code SUM(dpr_equipment.nos × a.effective_rate)}
- *   <li>material:  {@code SUM(dpr_material.quantity × a.effective_rate)}
+ *   <li>material:  {@code SUM(dpr_material.quantity × a.effective_rate)
+ *                  + SUM(material_consumption_logs.line_cost
+ *                        WHERE activity_id IS NOT NULL AND line_cost IS NOT NULL)}
  * </ul>
  * with {@code a} joined on {@code (activity_id, variant_id)} where {@code variant_id} is
  * whichever of {@code manpower_role_rate_id}/{@code equipment_role_variant_id}/
@@ -49,6 +52,9 @@ import java.util.UUID;
  *
  * <p>DPR {@code line_cost} columns are intentionally not summed — they are unpopulated in the
  * role-rate model (the cost rollup happens at the assignment level, not the DPR-line level).
+ * The {@code resource.material_consumption_logs} feed IS summed via its persisted
+ * {@code line_cost} column — store-keeper entries don't flow through the assignment rollup,
+ * so the only canonical source of their AC is the log row itself.
  */
 @Slf4j
 @Service
@@ -243,23 +249,51 @@ public class ActivityCostQueryService {
                                    UUID supervisorUserId) {
     if (fromDate == null && toDate == null && supervisorUserId == null) {
       // Canonical: assignment-level rollup (effective_rate × actual_units), the same value
-      // the activity sidebar's Resource Plan "Actual Cost" column shows.
+      // the activity sidebar's Resource Plan "Actual Cost" column shows. Store-keeper-only
+      // material consumption logs aren't captured in the assignment rollup, so add their
+      // line_cost directly.
       Query q = em.createNativeQuery(
           "SELECT COALESCE(SUM(actual_cost), 0) FROM resource.resource_assignments "
               + "WHERE activity_id = :activityId");
       q.setParameter("activityId", activityId);
-      return toBigDecimal(q.getSingleResult());
+      BigDecimal assignment = toBigDecimal(q.getSingleResult());
+      BigDecimal logs = sumConsumptionLogContrib(activityId, null, null);
+      return assignment.add(logs);
     }
     // Filtered: compute per-DPR contribution × matched assignment's effective_rate. The
     // assignment provides the rate; the DPR child row provides the quantity (nos for
-    // manpower/equipment, quantity for material).
+    // manpower/equipment, quantity for material). Supervisor-filter excludes the
+    // consumption-log feed (it has no supervisor dimension).
     BigDecimal mp = sumDprContribFiltered("dpr_manpower", "manpower_role_rate_id", "nos",
         activityId, fromDate, toDate, supervisorUserId);
     BigDecimal eq = sumDprContribFiltered("dpr_equipment", "equipment_role_variant_id", "nos",
         activityId, fromDate, toDate, supervisorUserId);
     BigDecimal mt = sumDprContribFiltered("dpr_material", "material_role_variant_id", "quantity",
         activityId, fromDate, toDate, supervisorUserId);
-    return mp.add(eq).add(mt);
+    BigDecimal logs = supervisorUserId == null
+        ? sumConsumptionLogContrib(activityId, fromDate, toDate)
+        : BigDecimal.ZERO;
+    return mp.add(eq).add(mt).add(logs);
+  }
+
+  /**
+   * Store-keeper material consumption logs that were tagged with this activity. Reads the
+   * persisted {@code line_cost} (= consumed × unit_rate stamped at log creation time). Skips
+   * rows with null activity_id (no cost attribution possible) or null line_cost (rate was
+   * missing — those show up as a separate warning on the operations dashboards).
+   */
+  private BigDecimal sumConsumptionLogContrib(UUID activityId, LocalDate fromDate,
+                                              LocalDate toDate) {
+    StringBuilder sql = new StringBuilder(
+        "SELECT COALESCE(SUM(line_cost), 0) FROM resource.material_consumption_logs "
+            + "WHERE activity_id = :activityId AND line_cost IS NOT NULL");
+    if (fromDate != null) sql.append(" AND log_date >= :fromDate");
+    if (toDate != null) sql.append(" AND log_date <= :toDate");
+    Query q = em.createNativeQuery(sql.toString());
+    q.setParameter("activityId", activityId);
+    if (fromDate != null) q.setParameter("fromDate", fromDate);
+    if (toDate != null) q.setParameter("toDate", toDate);
+    return toBigDecimal(q.getSingleResult());
   }
 
   /**
@@ -500,11 +534,15 @@ public class ActivityCostQueryService {
           activityId, fromDate, toDate, supervisorUserId);
       mt = sumDprContribFiltered("dpr_material", "material_role_variant_id", "quantity",
           activityId, fromDate, toDate, supervisorUserId);
+      if (supervisorUserId == null) {
+        mt = mt.add(sumConsumptionLogContrib(activityId, fromDate, toDate));
+      }
     } else {
       // Canonical: split assignment.actual_cost by which variant FK is non-null.
       mp = sumAssignmentActualForVariantFk(activityId, "manpower_role_rate_id");
       eq = sumAssignmentActualForVariantFk(activityId, "equipment_role_variant_id");
-      mt = sumAssignmentActualForVariantFk(activityId, "material_role_variant_id");
+      mt = sumAssignmentActualForVariantFk(activityId, "material_role_variant_id")
+          .add(sumConsumptionLogContrib(activityId, null, null));
     }
     List<ActivityCostRow> out = new ArrayList<>();
     out.add(new ActivityCostRow("resource_type", "MANPOWER", BigDecimal.ZERO, mp, BigDecimal.ZERO, null));

@@ -24,9 +24,26 @@ export default function NewProjectPage() {
     epsNodeId: "",
     plannedStartDate: "",
     plannedFinishDate: "",
-    priority: 5,
+    priority: 50,
+    // Default to INR for back-compat with existing seed data; users on non-INR
+    // projects (e.g. Oman OMR) MUST change this so EVM/cost cards label money
+    // correctly and AI data-honesty gates don't mislabel an OMR audit as INR.
+    budgetCurrency: "INR",
     calendarId: "",
   });
+
+  // ISO-4217 currency choices we support in the create form. Keep this in
+  // sync with the backend Project entity's accepted currencies (currently
+  // free-form String defaulting to INR — see Project.java:177).
+  const CURRENCY_OPTIONS: ReadonlyArray<{ code: string; label: string }> = [
+    { code: "INR", label: "INR - Indian Rupee" },
+    { code: "USD", label: "USD - US Dollar" },
+    { code: "OMR", label: "OMR - Omani Rial" },
+    { code: "AED", label: "AED - UAE Dirham" },
+    { code: "SAR", label: "SAR - Saudi Riyal" },
+    { code: "EUR", label: "EUR - Euro" },
+    { code: "GBP", label: "GBP - British Pound" },
+  ];
 
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -195,7 +212,7 @@ export default function NewProjectPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-text-secondary">Priority</label>
               <select
@@ -210,6 +227,24 @@ export default function NewProjectPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary">Currency *</label>
+              <select
+                name="budgetCurrency"
+                value={formData.budgetCurrency ?? "INR"}
+                onChange={handleChange}
+                className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                {CURRENCY_OPTIONS.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-text-muted">
+                Budget currency for EVM, cost cards, and AI reports. Cannot be changed after creation.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary">Calendar</label>

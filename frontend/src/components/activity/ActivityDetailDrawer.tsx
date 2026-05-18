@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { X, ExternalLink, FilePlus2, RefreshCw, Lock } from "lucide-react";
+import { X, ExternalLink, FilePlus2, RefreshCw, Lock, AlertTriangle } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { activityApi } from "@/lib/api/activityApi";
@@ -13,7 +13,11 @@ import { ActivityEditStatusBadge } from "@/components/activity/ActivityEditStatu
 import { RoleDemandSections } from "@/components/activity/RoleDemandSections";
 import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
+import { LinkOrCreateWorkActivityDialog, type DialogMode } from "@/components/activity/LinkOrCreateWorkActivityDialog";
+import { WorkActivityCoverageChip } from "@/components/activity/WorkActivityCoverageChip";
+import { useActivityMasterStatus } from "@/lib/hooks/useActivityMasterStatus";
 import { getErrorMessage } from "@/lib/utils/error";
+import type { ActivityResponse } from "@/lib/api/activityApi";
 
 interface Props {
   open: boolean;
@@ -228,16 +232,36 @@ function DrawerInner({
                       type="button"
                       onClick={() => setSupervisorOpen(true)}
                       className="rounded-md border border-border px-2 py-0.5 text-sm text-text-primary hover:bg-surface-hover"
-                      title="Click to set or change supervisor"
+                      title={
+                        activity.supervisors && activity.supervisors.length > 1
+                          ? activity.supervisors.map((s) => s.userName ?? s.userId).join(", ")
+                          : "Click to set or change supervisor"
+                      }
                     >
-                      {activity.supervisorUserName ?? activity.responsibleResourceName ?? (
-                        <span className="text-text-muted">— Set —</span>
-                      )}
+                      {(() => {
+                        const svs = activity.supervisors;
+                        if (svs && svs.length > 0) {
+                          const first = svs[0].userName ?? svs[0].userId;
+                          if (svs.length === 1) return first;
+                          return `${first} +${svs.length - 1} more`;
+                        }
+                        return (
+                          activity.supervisorUserName ??
+                          activity.responsibleResourceName ?? (
+                            <span className="text-text-muted">— Set —</span>
+                          )
+                        );
+                      })()}
                     </button>
                   </dd>
                 </div>
               </dl>
             </section>
+
+            <DrawerMasterPanel
+              activity={activity}
+              projectId={projectId}
+            />
 
             <section>
               <div className="mb-2 flex items-center justify-between gap-2">
@@ -260,6 +284,7 @@ function DrawerInner({
                 projectId={projectId}
                 activityId={activityId}
                 locked={isLocked}
+                defaultDuration={activity?.originalDuration ?? activity?.duration ?? null}
               />
 
               {/* Read-only plan summary sits at the bottom of the demand section,
@@ -312,4 +337,139 @@ function DrawerInner({
       />
     </>
   );
+}
+
+/**
+ * Surfaces the Activity → Master Work Activity / Productivity Norm linkage inside the drawer.
+ * Without this the drawer was silently happy with `workActivityId = null`, leaving the planner
+ * no path to remediate from the same view they were inspecting.
+ */
+function DrawerMasterPanel({
+  activity,
+  projectId,
+}: {
+  activity: ActivityResponse;
+  projectId: string;
+}) {
+  const status = useActivityMasterStatus(activity.workActivityId);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<DialogMode>("LINK_OR_CREATE");
+
+  const openDialog = (m: DialogMode) => {
+    setDialogMode(m);
+    setDialogOpen(true);
+  };
+
+  // The dialog is rendered once at the bottom so it stays mounted across status-state
+  // transitions (UNLINKED → LINKED_NO_NORMS after a master is created mid-flow). Otherwise
+  // React would unmount the dialog in the previous branch and mount a fresh one, resetting
+  // the user back to step 1 instead of advancing to the productivity-norm step.
+  const dialog = (
+    <LinkOrCreateWorkActivityDialog
+      open={dialogOpen}
+      onClose={() => setDialogOpen(false)}
+      mode={dialogMode}
+      projectId={projectId}
+      activityId={activity.id}
+      defaultCode={activity.code}
+      defaultName={activity.name}
+      existingMasterId={status.master?.id}
+      existingMasterName={status.master?.name ?? undefined}
+      existingMasterDefaultUnit={status.master?.defaultUnit ?? undefined}
+    />
+  );
+
+  if (status.state === "UNLINKED") {
+    return (
+      <>
+        <section className="rounded-lg border border-warning/40 bg-warning/5 p-4">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <AlertTriangle size={16} className="text-warning" />
+            Work Activity (master) — not mapped
+          </h3>
+          <p className="text-sm text-text-secondary">
+            This activity is not mapped to any Master Work Activity. Productivity Norms are not
+            configured for this activity, therefore Capacity Utilization calculations may be
+            inaccurate.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => openDialog("LINK_OR_CREATE")}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
+            >
+              Link / Create Master
+            </button>
+          </div>
+        </section>
+        {dialog}
+      </>
+    );
+  }
+
+  if (status.state === "LINKED_NO_NORMS") {
+    return (
+      <>
+        <section className="rounded-lg border border-danger/40 bg-danger/5 p-4">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <AlertTriangle size={16} className="text-danger" />
+            Work Activity (master) — no Productivity Norms
+          </h3>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
+            <span className="font-medium">{status.master?.name ?? "—"}</span>
+            {status.master?.code && (
+              <span className="font-mono text-xs text-text-muted">{status.master.code}</span>
+            )}
+            {status.master?.defaultUnit && (
+              <span className="rounded bg-info/10 px-2 py-0.5 text-xs text-info ring-1 ring-info/20">
+                {status.master.defaultUnit}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-text-secondary">
+            No productivity norms are configured for this master. Capacity Utilization cannot
+            compute expected output until at least one norm exists.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => openDialog("CONFIGURE_NORMS_ONLY")}
+              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
+            >
+              Configure Productivity Norms
+            </button>
+          </div>
+        </section>
+        {dialog}
+      </>
+    );
+  }
+
+  if (status.state === "OK" && status.master) {
+    return (
+      <>
+        <section className="rounded-lg border border-border bg-surface/50 p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            Work Activity (master)
+          </h3>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
+            <span className="font-medium">{status.master.name}</span>
+            <span className="font-mono text-xs text-text-muted">{status.master.code}</span>
+            {status.master.defaultUnit && (
+              <span className="rounded bg-info/10 px-2 py-0.5 text-xs text-info ring-1 ring-info/20">
+                {status.master.defaultUnit}
+              </span>
+            )}
+            {status.master.discipline && (
+              <span className="text-xs text-text-secondary">· {status.master.discipline}</span>
+            )}
+          </div>
+          <WorkActivityCoverageChip workActivityId={activity.workActivityId} />
+        </section>
+        {dialog}
+      </>
+    );
+  }
+
+  return dialog;
 }

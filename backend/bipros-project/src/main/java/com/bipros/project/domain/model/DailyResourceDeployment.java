@@ -60,6 +60,14 @@ public class DailyResourceDeployment extends BaseEntity {
   @Column(name = "nos_planned")
   private Integer nosPlanned;
 
+  /**
+   * True when {@link #nosPlanned} was auto-derived from {@code ResourceAssignment.plannedUnits}
+   * because the request omitted (or zeroed) the field. Stays null when the user supplied a
+   * value or when the auto-resolver had no matching assignments to consult.
+   */
+  @Column(name = "nos_planned_auto")
+  private Boolean nosPlannedAuto;
+
   @Column(name = "nos_deployed")
   private Integer nosDeployed;
 

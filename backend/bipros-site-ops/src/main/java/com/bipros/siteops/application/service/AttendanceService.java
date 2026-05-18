@@ -2,7 +2,7 @@ package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.ConcurrencyException;
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.AttendanceResponse;
 import com.bipros.siteops.application.dto.AttendanceSummary;
 import com.bipros.siteops.application.dto.CreateAttendanceRequest;
@@ -28,7 +28,7 @@ import java.util.UUID;
 public class AttendanceService {
 
     private final AttendanceRecordRepository attendanceRepository;
-    private final SecurityContextHelper securityContextHelper;
+    private final CurrentUserService securityContextHelper;
 
     public AttendanceResponse create(UUID projectId, CreateAttendanceRequest request) {
         UUID currentUserId = securityContextHelper.getCurrentUserId();

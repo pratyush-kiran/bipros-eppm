@@ -44,8 +44,8 @@ public class CapacityUtilizationExcelWriter {
 
   private static final String[] CAPACITY_HEADERS = {
       "S.No.", "Description", "Budget Unit", "Prod'vity Norm", "Unit",
-      "Work done Qty", "Budgeted Days", "Actual Days", "% Util",
-      "Cum. Work done", "Budgeted Days", "Actual Days", "% Util"
+      "Work done Qty", "Budgeted Days", "Actual Days", "Act Days (Untracked)", "% Util",
+      "Cum. Work done", "Budgeted Days", "Actual Days", "Act Days (Untracked)", "% Util"
   };
 
   public byte[] generate(
@@ -80,15 +80,19 @@ public class CapacityUtilizationExcelWriter {
     XSSFRow r1 = sh.createRow(0);
     setText(r1, 5, "Work days", s.bold);
     setNumber(r1, 6, workDays, s.workDaysHighlight);
-    setText(r1, 9, "Date :", s.bold);
-    setText(r1, 10, month.toString(), s.plain);
+    setText(r1, 10, "Date :", s.bold);
+    setText(r1, 11, month.toString(), s.plain);
 
     XSSFRow r2 = sh.createRow(1);
     setText(r2, 0, "Resource Capacity Utilization Report — " + month, s.title);
-    setText(r2, 9, "Project Name :", s.bold);
-    setText(r2, 10, projectName == null ? "" : projectName, s.plain);
+    setText(r2, 10, "Project Name :", s.bold);
+    setText(r2, 11, projectName == null ? "" : projectName, s.plain);
 
     // Header band rows 3-4 with merged group cells: Budget / Actual (For the day) / Cumulative (For the month)
+    // Layout (0-based columns):
+    //   0=S.No, 1=Description, 2=Unit, 3=Prod'vity Norm, 4=Unit,
+    //   5-9   = Actual (For the day): Qty / Bud Days / Act Days / Act Days (Untracked) / % Util
+    //   10-14 = Cumulative (For the month): Qty / Bud Days / Act Days / Act Days (Untracked) / % Util
     XSSFRow r3 = sh.createRow(2);
     XSSFRow r4 = sh.createRow(3);
     setText(r3, 0, "S.No.", s.headerCenter);
@@ -96,24 +100,26 @@ public class CapacityUtilizationExcelWriter {
     setText(r3, 2, "Budget", s.headerCenter);
     setText(r3, 4, "Unit", s.headerCenter);
     setText(r3, 5, "Actual (For the day)", s.headerCenter);
-    setText(r3, 9, "Cumulative (For the month)", s.headerCenter);
-    sh.addMergedRegion(new CellRangeAddress(2, 2, 2, 3));   // "Budget" spans Unit + Norm columns
-    sh.addMergedRegion(new CellRangeAddress(2, 2, 5, 8));   // "Actual (For the day)" spans 4 metrics
-    sh.addMergedRegion(new CellRangeAddress(2, 2, 9, 12));  // "Cumulative (For the month)" spans 4 metrics
-    sh.addMergedRegion(new CellRangeAddress(2, 3, 0, 0));   // S.No. vertical
-    sh.addMergedRegion(new CellRangeAddress(2, 3, 1, 1));   // Description vertical
-    sh.addMergedRegion(new CellRangeAddress(2, 3, 4, 4));   // Unit vertical
+    setText(r3, 10, "Cumulative (For the month)", s.headerCenter);
+    sh.addMergedRegion(new CellRangeAddress(2, 2, 2, 3));    // "Budget" spans Unit + Norm columns
+    sh.addMergedRegion(new CellRangeAddress(2, 2, 5, 9));    // "Actual (For the day)" spans 5 metrics
+    sh.addMergedRegion(new CellRangeAddress(2, 2, 10, 14));  // "Cumulative (For the month)" spans 5 metrics
+    sh.addMergedRegion(new CellRangeAddress(2, 3, 0, 0));    // S.No. vertical
+    sh.addMergedRegion(new CellRangeAddress(2, 3, 1, 1));    // Description vertical
+    sh.addMergedRegion(new CellRangeAddress(2, 3, 4, 4));    // Unit vertical
 
     setText(r4, 2, "Unit", s.headerCenter);
     setText(r4, 3, "Prod'vity Norm", s.headerCenter);
     setText(r4, 5, "Work done Qty", s.headerCenter);
     setText(r4, 6, "Budgeted Days", s.headerCenter);
     setText(r4, 7, "Actual Days", s.headerCenter);
-    setText(r4, 8, "% Util", s.headerCenter);
-    setText(r4, 9, "Cum. Work done", s.headerCenter);
-    setText(r4, 10, "Budgeted Days", s.headerCenter);
-    setText(r4, 11, "Actual Days", s.headerCenter);
-    setText(r4, 12, "% Util", s.headerCenter);
+    setText(r4, 8, "Act Days (Untracked)", s.headerCenter);
+    setText(r4, 9, "% Util", s.headerCenter);
+    setText(r4, 10, "Cum. Work done", s.headerCenter);
+    setText(r4, 11, "Budgeted Days", s.headerCenter);
+    setText(r4, 12, "Actual Days", s.headerCenter);
+    setText(r4, 13, "Act Days (Untracked)", s.headerCenter);
+    setText(r4, 14, "% Util", s.headerCenter);
 
     // Body — group Capacity rows by resource type / resource.
     Map<String, List<Row>> grouped = new LinkedHashMap<>();
@@ -134,11 +140,13 @@ public class CapacityUtilizationExcelWriter {
       setBigDecimal(groupRow, 5, dayAgg.qty(), s.numCell);
       setBigDecimal(groupRow, 6, dayAgg.budgetedDays(), s.numCell);
       setBigDecimal(groupRow, 7, dayAgg.actualDays(), s.numCell);
-      setBigDecimal(groupRow, 8, divideToFraction(dayAgg.budgetedDays(), dayAgg.actualDays()), s.pctCell);
-      setBigDecimal(groupRow, 9, monthAgg.qty(), s.numCell);
-      setBigDecimal(groupRow, 10, monthAgg.budgetedDays(), s.numCell);
-      setBigDecimal(groupRow, 11, monthAgg.actualDays(), s.numCell);
-      setBigDecimal(groupRow, 12, divideToFraction(monthAgg.budgetedDays(), monthAgg.actualDays()), s.pctCell);
+      setBigDecimal(groupRow, 8, dayAgg.actualDaysUntracked(), s.numCell);
+      setBigDecimal(groupRow, 9, divideToFraction(dayAgg.budgetedDays(), dayAgg.actualDays()), s.pctCell);
+      setBigDecimal(groupRow, 10, monthAgg.qty(), s.numCell);
+      setBigDecimal(groupRow, 11, monthAgg.budgetedDays(), s.numCell);
+      setBigDecimal(groupRow, 12, monthAgg.actualDays(), s.numCell);
+      setBigDecimal(groupRow, 13, monthAgg.actualDaysUntracked(), s.numCell);
+      setBigDecimal(groupRow, 14, divideToFraction(monthAgg.budgetedDays(), monthAgg.actualDays()), s.pctCell);
       for (int c = 2; c <= 4; c++) {
         groupRow.createCell(c).setCellStyle(s.groupBold);
       }
@@ -152,16 +160,18 @@ public class CapacityUtilizationExcelWriter {
         setBigDecimal(body, 5, row.forTheDay().qty(), s.numCell);
         setBigDecimal(body, 6, row.forTheDay().budgetedDays(), s.numCell);
         setBigDecimal(body, 7, row.forTheDay().actualDays(), s.numCell);
-        setBigDecimal(body, 8, toFraction(row.forTheDay().utilizationPct()), s.pctCell);
-        setBigDecimal(body, 9, row.forTheMonth().qty(), s.numCell);
-        setBigDecimal(body, 10, row.forTheMonth().budgetedDays(), s.numCell);
-        setBigDecimal(body, 11, row.forTheMonth().actualDays(), s.numCell);
-        setBigDecimal(body, 12, toFraction(row.forTheMonth().utilizationPct()), s.pctCell);
+        setBigDecimal(body, 8, row.forTheDay().actualDaysUntracked(), s.numCell);
+        setBigDecimal(body, 9, toFraction(row.forTheDay().utilizationPct()), s.pctCell);
+        setBigDecimal(body, 10, row.forTheMonth().qty(), s.numCell);
+        setBigDecimal(body, 11, row.forTheMonth().budgetedDays(), s.numCell);
+        setBigDecimal(body, 12, row.forTheMonth().actualDays(), s.numCell);
+        setBigDecimal(body, 13, row.forTheMonth().actualDaysUntracked(), s.numCell);
+        setBigDecimal(body, 14, toFraction(row.forTheMonth().utilizationPct()), s.pctCell);
       }
     }
 
     setColumnWidths(sh, new int[] {2200, 12000, 3200, 3200, 2400,
-        3200, 3200, 3200, 2400, 3600, 3200, 3200, 2400});
+        3200, 3200, 3200, 3000, 2400, 3600, 3200, 3200, 3000, 2400});
   }
 
   // ── Sheet 3: SUMMARY ───────────────────────────────────────────────────────────────────────
@@ -378,7 +388,9 @@ public class CapacityUtilizationExcelWriter {
     BigDecimal qty = BigDecimal.ZERO;
     BigDecimal bud = BigDecimal.ZERO;
     BigDecimal act = BigDecimal.ZERO;
+    BigDecimal untracked = BigDecimal.ZERO;
     boolean anyBud = false;
+    boolean anyUntracked = false;
     for (Row row : rows) {
       Period p = dayBucket ? row.forTheDay() : row.forTheMonth();
       if (p.qty() != null) qty = qty.add(p.qty());
@@ -387,8 +399,13 @@ public class CapacityUtilizationExcelWriter {
         anyBud = true;
       }
       if (p.actualDays() != null) act = act.add(p.actualDays());
+      if (p.actualDaysUntracked() != null) {
+        untracked = untracked.add(p.actualDaysUntracked());
+        anyUntracked = true;
+      }
     }
-    return new Period(qty, anyBud ? bud : null, act, null, null);
+    return new Period(qty, anyBud ? bud : null, act, null, null,
+        anyUntracked ? untracked : null);
   }
 
   /** util% as displayed comes back as 0..999 (percent). Convert to 0..1 for Excel's % format. */

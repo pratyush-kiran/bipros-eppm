@@ -1,7 +1,7 @@
 package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.CreateSafetyRecordRequest;
 import com.bipros.siteops.application.dto.SafetyRecordResponse;
 import com.bipros.siteops.application.dto.UpdateSafetyRecordRequest;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class SafetyService {
 
     private final SafetyRecordRepository repository;
-    private final SecurityContextHelper securityContext;
+    private final CurrentUserService securityContext;
 
     public SafetyRecordResponse create(UUID projectId, CreateSafetyRecordRequest req) {
         SafetyRecord record = new SafetyRecord();

@@ -13,9 +13,13 @@ import {
   Trash2,
   UserCheck,
   FilePlus2,
+  Library,
+  Gauge,
 } from "lucide-react";
 import type { ActivityResponse } from "@/lib/api/activityApi";
 import type { ResourceKind } from "./QuickAssignResourceDialog";
+import { useActivityMasterStatus } from "@/lib/hooks/useActivityMasterStatus";
+import type { DialogMode } from "./LinkOrCreateWorkActivityDialog";
 
 export interface ContextMenuPosition {
   x: number;
@@ -37,6 +41,9 @@ interface Props {
   onDelete: (activity: ActivityResponse) => void;
   onSetSupervisor: (activity: ActivityResponse) => void;
   onCreateDpr: (activity: ActivityResponse) => void;
+  /** Opens the LinkOrCreateWorkActivityDialog. Rendered conditionally — only when the
+   *  activity's master/norm setup is incomplete. */
+  onOpenMasterDialog?: (activity: ActivityResponse, mode: DialogMode) => void;
 }
 
 const MENU_WIDTH = 220;
@@ -59,7 +66,9 @@ export function ActivityRowContextMenu({
   onDelete,
   onSetSupervisor,
   onCreateDpr,
+  onOpenMasterDialog,
 }: Props) {
+  const masterStatus = useActivityMasterStatus(activity.workActivityId);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Clamp during render using static estimates (the menu has a fixed item count, so the
@@ -141,6 +150,26 @@ export function ActivityRowContextMenu({
       icon: <FilePlus2 size={14} />,
       onClick: () => onCreateDpr(activity),
     },
+    ...(onOpenMasterDialog && masterStatus.state === "UNLINKED"
+      ? ([
+          {
+            key: "add-master",
+            label: "Add to Master Work Activities",
+            icon: <Library size={14} />,
+            onClick: () => onOpenMasterDialog(activity, "LINK_OR_CREATE"),
+          },
+        ] as Array<Item | Divider>)
+      : []),
+    ...(onOpenMasterDialog && masterStatus.state === "LINKED_NO_NORMS"
+      ? ([
+          {
+            key: "configure-norms",
+            label: "Configure Productivity Norms",
+            icon: <Gauge size={14} />,
+            onClick: () => onOpenMasterDialog(activity, "CONFIGURE_NORMS_ONLY"),
+          },
+        ] as Array<Item | Divider>)
+      : []),
     { key: "d2", divider: true },
     {
       key: "start",

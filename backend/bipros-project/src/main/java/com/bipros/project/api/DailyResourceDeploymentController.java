@@ -76,4 +76,18 @@ public class DailyResourceDeploymentController {
     service.delete(projectId, id);
     return ResponseEntity.ok(ApiResponse.ok(null));
   }
+
+  /**
+   * Preview the auto-derived {@code nosPlanned} for a (project, role, date) triple without
+   * persisting. Backs the "Recalculate from plan" button on the frontend.
+   */
+  @GetMapping("/suggest-nos-planned")
+  public ResponseEntity<ApiResponse<Integer>> suggestNosPlanned(
+      @PathVariable UUID projectId,
+      @RequestParam(required = false) UUID resourceRoleId,
+      @RequestParam(required = false) com.bipros.project.domain.model.DeploymentResourceType resourceType,
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate logDate) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        service.suggestNosPlanned(projectId, resourceRoleId, resourceType, logDate)));
+  }
 }

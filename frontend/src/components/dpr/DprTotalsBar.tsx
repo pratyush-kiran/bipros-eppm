@@ -17,6 +17,8 @@ interface Props {
   materials: DprMaterialRow[];
   qtyExecuted: number;
   unit: string;
+  /** ISO 4217 currency code for cost display. Defaults to "INR". */
+  currency?: string;
 }
 
 const sum = (arr: Array<number | null | undefined>): number =>
@@ -27,7 +29,7 @@ const fmt = (n: number, digits = 2) => {
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
 };
 
-export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit }: Props) {
+export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit, currency = "INR" }: Props) {
   const manpowerCount = sum(manpower.map((m) => m.nos));
   const manpowerHours = sum(manpower.map((m) => m.workingHours)) + sum(manpower.map((m) => m.otHours));
   const equipmentCount = sum(equipment.map((e) => e.nos));
@@ -41,12 +43,15 @@ export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit
   const totalCost = manpowerCost + equipmentCost + materialCost;
   const hasAnyCost = totalCost > 0;
 
+  /** Format a monetary value as "amount CURRENCY" using the project's currency code. */
+  const fmtCost = (amount: number) => `${fmt(amount, 0)} ${currency}`;
+
   return (
     <div className="flex flex-wrap items-stretch gap-3 rounded-lg border border-hairline bg-ivory/60 px-4 py-3 text-sm">
-      <Cell label="Manpower" value={`${manpowerCount} ppl`} hint={`${fmt(manpowerHours, 1)} hrs · ₹${fmt(manpowerCost, 0)}`} />
-      <Cell label="Equipment" value={`${equipmentCount} units`} hint={`${fmt(equipmentHours, 1)} hrs · ₹${fmt(equipmentCost, 0)}`} />
+      <Cell label="Manpower" value={`${manpowerCount} ppl`} hint={`${fmt(manpowerHours, 1)} hrs · ${fmtCost(manpowerCost)}`} />
+      <Cell label="Equipment" value={`${equipmentCount} units`} hint={`${fmt(equipmentHours, 1)} hrs · ${fmtCost(equipmentCost)}`} />
       <Cell label="Fuel" value={`${fmt(fuelLitres, 1)} L`} />
-      <Cell label="Materials" value={`${materials.length} entries`} hint={hasAnyCost ? `₹${fmt(materialCost, 0)}` : undefined} />
+      <Cell label="Materials" value={`${materials.length} entries`} hint={hasAnyCost ? fmtCost(materialCost) : undefined} />
       <Cell
         label="Productivity"
         value={productivity != null ? `${fmt(productivity, 2)} ${unit}/hr` : "—"}
@@ -54,7 +59,7 @@ export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit
       />
       <Cell
         label="Day cost"
-        value={hasAnyCost ? `₹${fmt(totalCost, 0)}` : "—"}
+        value={hasAnyCost ? fmtCost(totalCost) : "—"}
         hint={hasAnyCost ? "manpower + equipment + material" : "set rates to compute"}
       />
     </div>

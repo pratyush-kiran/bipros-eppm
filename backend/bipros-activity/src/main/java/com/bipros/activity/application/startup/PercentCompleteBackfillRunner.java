@@ -69,18 +69,34 @@ public class PercentCompleteBackfillRunner implements CommandLineRunner {
             return;
         }
 
+        // IMPORTANT: do NOT default to LocalDate.now() when the project has no dataDate.
+        // PercentCompleteBackfillRunner runs at every boot; if today is far past the activity's
+        // actualStart + originalDuration, the calculator caps at 99.99 and clobbers a still-young
+        // activity to "99.99% done" — which then becomes EV ≈ BAC in
+        // ACTIVITY_PERCENT_COMPLETE EVM. Skip the activity instead so the (correct) DPR-driven
+        // listener value (or the existing manual value) stays in place until an operator sets a
+        // real project dataDate.
         Map<UUID, LocalDate> dataDateByProject = activities.stream()
                 .map(Activity::getProjectId)
                 .distinct()
-                .collect(Collectors.toMap(
-                        pid -> pid,
-                        pid -> projectRepository.findById(pid)
-                                .map(Project::getDataDate)
-                                .orElse(LocalDate.now())));
+                .filter(pid -> pid != null)
+                .collect(java.util.HashMap::new,
+                        (m, pid) -> {
+                            LocalDate dd = projectRepository.findById(pid)
+                                    .map(Project::getDataDate)
+                                    .orElse(null);
+                            if (dd != null) m.put(pid, dd);
+                        },
+                        java.util.HashMap::putAll);
 
         int updated = 0;
+        int skippedNoDataDate = 0;
         for (Activity activity : activities) {
-            LocalDate dataDate = dataDateByProject.getOrDefault(activity.getProjectId(), LocalDate.now());
+            LocalDate dataDate = dataDateByProject.get(activity.getProjectId());
+            if (dataDate == null) {
+                skippedNoDataDate++;
+                continue;
+            }
             Double oldPercent = activity.getPercentComplete();
 
             PercentCompleteCalculator.Result result = calculator.calculate(
@@ -109,6 +125,7 @@ public class PercentCompleteBackfillRunner implements CommandLineRunner {
             updated++;
         }
 
-        log.info("PercentCompleteBackfillRunner updated {} activities (old values audited)", updated);
+        log.info("PercentCompleteBackfillRunner updated {} activities (old values audited); skipped {} with no project dataDate",
+                updated, skippedNoDataDate);
     }
 }

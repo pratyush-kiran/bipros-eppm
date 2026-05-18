@@ -4,6 +4,8 @@ import { Suspense, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { contractApi } from "@/lib/api/contractApi";
+import { budgetApi } from "@/lib/api/budgetApi";
+import { formatMoney } from "@/lib/hooks/useCurrency";
 import { ContractForm } from "@/components/contracts/ContractForm";
 import { AttachmentList } from "@/components/contracts/AttachmentList";
 import { AttachmentUploadForm } from "@/components/contracts/AttachmentUploadForm";
@@ -22,11 +24,12 @@ import type {
   VariationOrderResponse,
 } from "@/lib/types";
 
-function formatRupees(v: number | null | undefined): string {
+/** Scale-aware monetary formatter for contract values (currency-agnostic). */
+function formatContractValue(v: number | null | undefined, currency = "INR"): string {
   const n = v ?? 0;
-  if (Math.abs(n) >= 10_000_000) return `₹${(n / 10_000_000).toFixed(2)} Cr`;
-  if (Math.abs(n) >= 100_000) return `₹${(n / 100_000).toFixed(2)} L`;
-  return `₹${n.toLocaleString()}`;
+  if (Math.abs(n) >= 10_000_000) return `${(n / 10_000_000).toFixed(2)} M ${currency}`;
+  if (Math.abs(n) >= 100_000) return `${(n / 100_000).toFixed(2)} K ${currency}`;
+  return formatMoney(n, currency, 0);
 }
 
 /** Triggers a save-as for a Blob using a temporary anchor. Mirrors the documents page pattern. */
@@ -64,6 +67,17 @@ function ContractDetailPageInner() {
     queryFn: () => contractApi.getContract(projectId, contractId),
     select: (response) => response.data,
   });
+
+  const { data: budgetData } = useQuery({
+    queryKey: ["project-budget", projectId],
+    queryFn: () => budgetApi.getBudgetSummary(projectId),
+    staleTime: 5 * 60 * 1000,
+  });
+  const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
+
+  /** Format a contract monetary value using the contract's own currency when available. */
+  const formatRupees = (v: number | null | undefined, contractCurrency?: string | null) =>
+    formatContractValue(v, contractCurrency ?? projectCurrency);
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["contract-milestones", contractId],
@@ -207,15 +221,12 @@ function ContractDetailPageInner() {
           <div className="bg-surface/80 rounded-xl p-3 border border-border">
             <p className="text-xs text-text-secondary">Contract Value</p>
             <p className="text-lg font-semibold text-text-primary">
-              {formatRupees(contractData.contractValue)}
-              {contractData.currency && contractData.currency !== "INR"
-                ? ` ${contractData.currency}`
-                : ""}
+              {formatRupees(contractData.contractValue, contractData.currency)}
             </p>
             {contractData.revisedValue != null &&
             contractData.revisedValue !== contractData.contractValue ? (
               <p className="text-xs text-text-secondary mt-0.5">
-                Revised: {formatRupees(contractData.revisedValue)}
+                Revised: {formatRupees(contractData.revisedValue, contractData.currency)}
               </p>
             ) : null}
           </div>
@@ -251,6 +262,7 @@ function ContractDetailPageInner() {
             submitLabel="Save changes"
             onSubmit={(data) => updateContractMutation.mutate(data)}
             onCancel={() => setIsEditing(false)}
+            defaultCurrency={projectCurrency}
           />
           {updateContractMutation.isError ? (
             <p className="text-sm text-danger mt-3">

@@ -10,6 +10,7 @@ import type {
   MaterialResponse,
   MaterialStockRow,
 } from "../types";
+import type { MaterialRateMaster } from "./materialRateMasterApi";
 
 /** PMS MasterData Screen 09a — Material Catalogue CRUD. */
 export const materialCatalogueApi = {
@@ -33,6 +34,17 @@ export const materialCatalogueApi = {
 
   delete: (id: string) =>
     apiClient.delete<ApiResponse<void>>(`/v1/materials/${id}`).then((r) => r.data),
+
+  /**
+   * Resolve the active Material Rate Master row matching this material's category +
+   * specification grade. Backend returns {@code null} (wrapped in ApiResponse) when no
+   * matching master row exists — the UI surfaces an "unmapped" hint that links to the rate
+   * master screen so the user can create one.
+   */
+  getEffectiveRate: (id: string) =>
+    apiClient
+      .get<ApiResponse<MaterialRateMaster | null>>(`/v1/materials/${id}/effective-rate`)
+      .then((r) => r.data),
 };
 
 /** PMS MasterData Screen 09b — Stock Register + GRN + Issue. */

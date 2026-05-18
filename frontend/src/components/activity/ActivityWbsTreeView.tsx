@@ -6,6 +6,7 @@ import { ChevronRight, ChevronDown, FolderOpen } from "lucide-react";
 import type { WbsNodeResponse } from "@/lib/types";
 import type { ActivityResponse } from "@/lib/api/activityApi";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { ActivityMasterStatusIndicator } from "@/components/activity/ActivityMasterStatusIndicator";
 
 interface TreeNode {
   id: string;
@@ -222,7 +223,12 @@ function TreeRow({
           <span className="font-medium text-text-primary">{activity.code}</span>
         </div>
       </td>
-      <td className="px-4 py-4 text-sm text-text-primary whitespace-nowrap">{activity.name}</td>
+      <td className="px-4 py-4 text-sm text-text-primary whitespace-nowrap">
+        <span className="inline-flex items-center gap-2">
+          <span>{activity.name}</span>
+          <ActivityMasterStatusIndicator workActivityId={activity.workActivityId} />
+        </span>
+      </td>
       <td className="px-4 py-4 text-sm text-text-secondary whitespace-nowrap">{activity.originalDuration ?? activity.duration ?? "—"}</td>
       <td
         className="px-4 py-4 text-sm text-text-secondary whitespace-nowrap"

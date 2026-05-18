@@ -2,6 +2,7 @@ package com.bipros.resource.presentation.controller;
 
 import com.bipros.common.dto.ApiResponse;
 import com.bipros.resource.application.dto.CreateMaterialRequest;
+import com.bipros.resource.application.dto.MaterialRateMasterResponse;
 import com.bipros.resource.application.dto.MaterialResponse;
 import com.bipros.resource.application.service.MaterialService;
 import com.bipros.resource.domain.model.MaterialCategory;
@@ -67,5 +68,12 @@ public class MaterialController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/materials/{id}/effective-rate")
+    @PreAuthorize("hasPermission(null, 'RESOURCE.READ')")
+    public ResponseEntity<ApiResponse<MaterialRateMasterResponse>> getEffectiveRate(
+        @PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getEffectiveRate(id)));
     }
 }

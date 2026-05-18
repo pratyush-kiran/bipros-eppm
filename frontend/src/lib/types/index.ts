@@ -247,6 +247,13 @@ export interface CreateProjectRequest {
   plannedStartDate: string;
   plannedFinishDate?: string;
   priority?: number;
+  /**
+   * ISO-4217 currency code for the project budget (e.g. "INR", "OMR", "USD").
+   * Required so AI data-honesty gates can label money correctly. Backend
+   * defaults to "INR" on the entity if absent; payload is forwarded so the
+   * server can honour it once {@code CreateProjectRequest} accepts the field.
+   */
+  budgetCurrency?: string;
   // PMS MasterData Screen 01 enrichment
   category?: ProjectCategory | null;
   morthCode?: string | null;

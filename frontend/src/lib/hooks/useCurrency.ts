@@ -43,3 +43,27 @@ export function formatDefaultCurrency(amount: number | null | undefined, symbol 
     maximumFractionDigits: 2,
   })}`;
 }
+
+/**
+ * Currency-aware money formatter. Uses the currency CODE as a suffix so it works for
+ * any currency without requiring a glyph lookup (e.g. "1,23,456 INR" or "5,000 OMR").
+ * For INR uses en-IN locale (lakh/crore grouping); all others use en-US.
+ *
+ * @param amount   Raw monetary amount in the currency's base unit.
+ * @param currency ISO 4217 code, e.g. "INR", "OMR", "USD". Defaults to "INR".
+ * @param fractionDigits Decimal places (default 0 for clean whole-number display).
+ */
+export function formatMoney(
+  amount: number | null | undefined,
+  currency: string | null | undefined,
+  fractionDigits = 0,
+): string {
+  if (amount == null || !Number.isFinite(amount)) return "\u2014";
+  const code = (currency ?? "INR").toUpperCase();
+  const locale = code === "INR" ? "en-IN" : "en-US";
+  const formatted = amount.toLocaleString(locale, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
+  return `${formatted} ${code}`;
+}

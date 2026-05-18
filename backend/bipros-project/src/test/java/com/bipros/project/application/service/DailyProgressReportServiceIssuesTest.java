@@ -65,6 +65,7 @@ class DailyProgressReportServiceIssuesTest {
     @Mock private DailyActivityResourceOutputService ledgerService;
     @Mock private AuditService auditService;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private com.bipros.project.domain.repository.BoqItemRepository boqItemRepository;
 
     private DailyProgressReportService service;
 
@@ -78,7 +79,7 @@ class DailyProgressReportServiceIssuesTest {
         service = new DailyProgressReportService(
                 dprRepository, manpowerRepository, equipmentRepository, materialRepository,
                 attachmentRepository, issueRepository, attachmentStorage,
-                projectRepository, ledgerService, auditService, eventPublisher);
+                projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
         lenient().when(projectRepository.existsById(projectId)).thenReturn(true);
         lenient().when(dprRepository.findById(dprId)).thenReturn(Optional.of(baseDpr()));
         lenient().when(dprRepository.sumQtyExecutedThroughDate(any(), any(), any())).thenReturn(BigDecimal.ZERO);
@@ -274,7 +275,7 @@ class DailyProgressReportServiceIssuesTest {
     private UpdateDailyProgressReportRequest request(List<DprIssueRow> issues) {
         return new UpdateDailyProgressReportRequest(
                 LocalDate.of(2026, 5, 1), supervisorId, "Mohd Ismaila",
-                null, null, activityId, "Bench Cutting", null, null, "Cum",
+                null, null, activityId, "Bench Cutting", null, null, null, "Cum",
                 new BigDecimal("80.0"), null, null,
                 null, null, null, null, null, null, null, null, null, null,
                 null, null, null,

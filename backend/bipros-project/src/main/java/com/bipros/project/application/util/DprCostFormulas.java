@@ -30,6 +30,10 @@ public final class DprCostFormulas {
   /**
    * Manpower row cost. {@code basis = "HOUR"} → {@code rate × nos × (workingHours + ot × OT_MULT)}.
    * Anything else (DAY / SHIFT / EACH / unknown) → {@code rate × nos}, with hours informational.
+   *
+   * <p>When basis is HOUR but the client omitted {@code workingHours} (and {@code otHours}), we
+   * fall back to {@code rate × nos} rather than collapsing to zero — that lets a sparse DPR row
+   * (rate × headcount only) still produce a sensible per-day cost instead of ₹0.
    */
   public static BigDecimal manpowerLineCost(DprManpower row, BigDecimal unitRate, String basis) {
     if (unitRate == null || row.getNos() == null || row.getNos() <= 0) return null;
@@ -37,6 +41,10 @@ public final class DprCostFormulas {
     if ("HOUR".equalsIgnoreCase(basis)) {
       BigDecimal hours = nz(row.getWorkingHours())
           .add(nz(row.getOtHours()).multiply(DEFAULT_OT_MULTIPLIER));
+      if (hours.signum() == 0) {
+        // No hours posted at all → fall back to per-day so we don't zero out the row.
+        return unitRate.multiply(nos).setScale(2, RoundingMode.HALF_UP);
+      }
       return unitRate.multiply(nos).multiply(hours).setScale(2, RoundingMode.HALF_UP);
     }
     return unitRate.multiply(nos).setScale(2, RoundingMode.HALF_UP);

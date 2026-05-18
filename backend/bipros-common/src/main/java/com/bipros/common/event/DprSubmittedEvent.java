@@ -45,17 +45,48 @@ public record DprSubmittedEvent(
      * feed; the OLTP DPR column it mirrors was renamed in Liquibase 087 (added supervisor_user_id)
      * and Liquibase 091 (drops supervisor_resource_id). Null when the DPR has free-text "Other".
      */
-    UUID supervisorUserId
+    UUID supervisorUserId,
+
+    /**
+     * Soft FK to {@code activity.activities.id}. Used by
+     * {@code ActivityStartOnFirstDprListener} to bootstrap NOT_STARTED → IN_PROGRESS
+     * on the first DPR filed against an activity. Null for legacy DPRs created before
+     * the activity_id column existed.
+     */
+    UUID activityId,
+
+    /**
+     * Soft FK to {@code project.boq_items.id} — the new canonical linkage (Workstream B1).
+     * Replaces the legacy {@code boqItemNo} string-match fallback. Null when the DPR has no
+     * BOQ binding (or legacy rows that pre-date the column).
+     */
+    UUID boqItemId,
+
+    /** Prior {@code boqItemId} on UPDATE events; mirrors the new value on CREATE/DELETE. */
+    UUID oldBoqItemId
 ) {
     /** Back-compat helper for callers that don't have child counts on hand (e.g. DELETE). */
     public static DprSubmittedEvent withoutChildren(
             UUID projectId, UUID dprId, LocalDate reportDate, String activityName,
             String boqItemNo, BigDecimal qtyExecuted, String oldBoqItemNo, BigDecimal oldQty,
-            DprMutationType eventType) {
+            DprMutationType eventType, UUID activityId) {
         return new DprSubmittedEvent(
                 projectId, dprId, reportDate, activityName, boqItemNo, qtyExecuted,
                 oldBoqItemNo, oldQty, eventType,
                 0, 0, 0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
-                null);
+                null, activityId, null, null);
+    }
+
+    /** Variant that includes the new {@code boqItemId} linkage (Workstream B1). */
+    public static DprSubmittedEvent withoutChildren(
+            UUID projectId, UUID dprId, LocalDate reportDate, String activityName,
+            String boqItemNo, BigDecimal qtyExecuted, String oldBoqItemNo, BigDecimal oldQty,
+            DprMutationType eventType, UUID activityId,
+            UUID boqItemId, UUID oldBoqItemId) {
+        return new DprSubmittedEvent(
+                projectId, dprId, reportDate, activityName, boqItemNo, qtyExecuted,
+                oldBoqItemNo, oldQty, eventType,
+                0, 0, 0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                null, activityId, boqItemId, oldBoqItemId);
     }
 }

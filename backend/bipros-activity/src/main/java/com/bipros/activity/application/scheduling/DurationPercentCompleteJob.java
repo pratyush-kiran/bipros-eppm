@@ -60,19 +60,32 @@ public class DurationPercentCompleteJob {
             return;
         }
 
-        // Group by project to batch-load data dates
+        // Group by project to batch-load data dates. Skip projects with a null dataDate — we
+        // must NOT default to LocalDate.now() here because actualStart + originalDuration may
+        // be deep in the past relative to today, which causes the calculator to cap percent
+        // complete at 99.99 and clobber a still-young activity (then EV ≈ BAC in
+        // ACTIVITY_PERCENT_COMPLETE EVM).
         Map<UUID, LocalDate> dataDateByProject = activities.stream()
                 .map(Activity::getProjectId)
                 .distinct()
-                .collect(Collectors.toMap(
-                        pid -> pid,
-                        pid -> projectRepository.findById(pid)
-                                .map(Project::getDataDate)
-                                .orElse(LocalDate.now())));
+                .filter(pid -> pid != null)
+                .collect(java.util.HashMap::new,
+                        (m, pid) -> {
+                            LocalDate dd = projectRepository.findById(pid)
+                                    .map(Project::getDataDate)
+                                    .orElse(null);
+                            if (dd != null) m.put(pid, dd);
+                        },
+                        java.util.HashMap::putAll);
 
         int updated = 0;
+        int skippedNoDataDate = 0;
         for (Activity activity : activities) {
-            LocalDate dataDate = dataDateByProject.getOrDefault(activity.getProjectId(), LocalDate.now());
+            LocalDate dataDate = dataDateByProject.get(activity.getProjectId());
+            if (dataDate == null) {
+                skippedNoDataDate++;
+                continue;
+            }
             Double oldPercent = activity.getPercentComplete();
 
             PercentCompleteCalculator.Result result = calculator.calculate(activity, null, null, dataDate);
@@ -97,8 +110,9 @@ public class DurationPercentCompleteJob {
             updated++;
         }
 
-        if (updated > 0) {
-            log.info("DurationPercentCompleteJob updated {} activities", updated);
+        if (updated > 0 || skippedNoDataDate > 0) {
+            log.info("DurationPercentCompleteJob updated {} activities; skipped {} with no project dataDate",
+                    updated, skippedNoDataDate);
         }
     }
 }

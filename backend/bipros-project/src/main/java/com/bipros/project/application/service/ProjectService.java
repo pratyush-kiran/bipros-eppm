@@ -99,6 +99,9 @@ public class ProjectService {
         project.setTotalLengthKm(deriveTotalLengthKm(
             request.fromChainageM(), request.toChainageM(), request.totalLengthKm()));
         project.setCalendarId(request.calendarId());
+        if (request.budgetCurrency() != null && !request.budgetCurrency().isBlank()) {
+            project.setBudgetCurrency(request.budgetCurrency().strip().toUpperCase());
+        }
         project.setOwnerId(creatorId);
 
         Project saved = projectRepository.save(project);
@@ -195,6 +198,9 @@ public class ProjectService {
         }
         if (request.calendarId() != null) {
             project.setCalendarId(request.calendarId());
+        }
+        if (request.budgetCurrency() != null && !request.budgetCurrency().isBlank()) {
+            project.setBudgetCurrency(request.budgetCurrency().strip().toUpperCase());
         }
         validateChainage(project.getFromChainageM(), project.getToChainageM());
         // Recompute derived length whenever chainages change (respecting an explicit override).

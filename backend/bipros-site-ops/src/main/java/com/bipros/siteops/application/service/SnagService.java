@@ -2,7 +2,7 @@ package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.CloseSnagRequest;
 import com.bipros.siteops.application.dto.CreateSnagRequest;
 import com.bipros.siteops.application.dto.SnagResponse;
@@ -25,7 +25,7 @@ import java.util.UUID;
 public class SnagService {
 
     private final SnagRepository snagRepository;
-    private final SecurityContextHelper securityContextHelper;
+    private final CurrentUserService securityContextHelper;
 
     public SnagResponse create(UUID projectId, CreateSnagRequest request) {
         Snag s = new Snag();

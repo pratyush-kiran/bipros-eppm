@@ -2,7 +2,7 @@ package com.bipros.siteops.application.service;
 
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
-import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.security.application.service.CurrentUserService;
 import com.bipros.siteops.application.dto.CreateMaterialIndentRequest;
 import com.bipros.siteops.application.dto.IndentDecisionRequest;
 import com.bipros.siteops.application.dto.MaterialIndentItemDto;
@@ -27,7 +27,7 @@ import java.util.UUID;
 public class MaterialIndentService {
 
     private final MaterialIndentRepository indentRepository;
-    private final SecurityContextHelper securityContext;
+    private final CurrentUserService securityContext;
 
     public MaterialIndentResponse create(UUID projectId, CreateMaterialIndentRequest req) {
         MaterialIndent indent = new MaterialIndent();

@@ -4,6 +4,7 @@ import com.bipros.common.event.DprMutationType;
 import com.bipros.common.event.DprSubmittedEvent;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
+import com.bipros.common.security.SecurityContextHelper;
 import com.bipros.common.util.AuditService;
 import com.bipros.project.application.dto.CreateDailyProgressReportRequest;
 import com.bipros.project.application.dto.DailyProgressReportResponse;
@@ -21,6 +22,7 @@ import com.bipros.project.domain.model.DprIssue;
 import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.model.DprMaterial;
 import com.bipros.project.domain.model.IssueStatus;
+import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.DprAttachmentRepository;
 import com.bipros.project.domain.repository.DprEquipmentRepository;
@@ -28,6 +30,7 @@ import com.bipros.project.domain.repository.DprIssueRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
 import com.bipros.project.domain.repository.DprMaterialRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
+import com.bipros.project.domain.model.BoqItem;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
@@ -85,6 +88,8 @@ public class DailyProgressReportService {
   private final DailyActivityResourceOutputService ledgerService;
   private final AuditService auditService;
   private final ApplicationEventPublisher eventPublisher;
+  private final SecurityContextHelper securityContextHelper;
+  private final BoqItemRepository boqItemRepository;
 
   /**
    * The DPR write path snapshots rates and validates assignment ↔ activity ↔ kind via tiny
@@ -123,6 +128,8 @@ public class DailyProgressReportService {
     // / design / office work) don't track productivity. The DPR form surfaces a coverage banner
     // so the user knows when productivity won't be measured.
 
+    BoqLinkage linkage = resolveBoqLinkage(projectId, request.boqItemId(), request.boqItemNo());
+
     DailyProgressReport dpr = DailyProgressReport.builder()
         .projectId(projectId)
         .reportDate(request.reportDate())
@@ -133,7 +140,8 @@ public class DailyProgressReportService {
         .activityId(request.activityId())
         .activityName(request.activityName())
         .wbsNodeId(request.wbsNodeId())
-        .boqItemNo(request.boqItemNo())
+        .boqItemId(linkage.boqItemId())
+        .boqItemNo(linkage.boqItemNo())
         .unit(request.unit())
         .qtyExecuted(request.qtyExecuted())
         .weatherCondition(request.weatherCondition())
@@ -182,7 +190,7 @@ public class DailyProgressReportService {
         warnings);
 
     auditService.logCreate("DailyProgressReport", saved.getId(), response);
-    eventPublisher.publishEvent(buildEvent(saved, null, null, DprMutationType.CREATED,
+    eventPublisher.publishEvent(buildEvent(saved, null, null, null, DprMutationType.CREATED,
         savedManpower, savedEquipment, savedMaterial, savedIssues));
     return response;
   }
@@ -202,9 +210,12 @@ public class DailyProgressReportService {
     rejectIfActivityDraft(targetActivityId);
 
     String oldBoqItemNo = dpr.getBoqItemNo();
+    UUID oldBoqItemId = dpr.getBoqItemId();
     BigDecimal oldQty = dpr.getQtyExecuted();
     DailyProgressReportResponse before = DailyProgressReportResponse.from(dpr,
         computeCumulative(dpr.getProjectId(), dpr.getActivityName(), dpr.getReportDate()));
+
+    BoqLinkage linkage = resolveBoqLinkage(projectId, request.boqItemId(), request.boqItemNo());
 
     dpr.setReportDate(request.reportDate());
     dpr.setSupervisorUserId(request.supervisorUserId());
@@ -214,7 +225,8 @@ public class DailyProgressReportService {
     dpr.setActivityId(request.activityId());
     dpr.setActivityName(request.activityName());
     dpr.setWbsNodeId(request.wbsNodeId());
-    dpr.setBoqItemNo(request.boqItemNo());
+    dpr.setBoqItemId(linkage.boqItemId());
+    dpr.setBoqItemNo(linkage.boqItemNo());
     dpr.setUnit(request.unit());
     dpr.setQtyExecuted(request.qtyExecuted());
     dpr.setWeatherCondition(request.weatherCondition());
@@ -294,7 +306,7 @@ public class DailyProgressReportService {
         warnings);
 
     auditService.logUpdate("DailyProgressReport", saved.getId(), "row", before, after);
-    eventPublisher.publishEvent(buildEvent(saved, oldBoqItemNo, oldQty, DprMutationType.UPDATED,
+    eventPublisher.publishEvent(buildEvent(saved, oldBoqItemNo, oldBoqItemId, oldQty, DprMutationType.UPDATED,
         savedManpower, savedEquipment, savedMaterial, savedIssues));
     return after;
   }
@@ -330,6 +342,7 @@ public class DailyProgressReportService {
   public void delete(UUID projectId, UUID id) {
     DailyProgressReport dpr = find(projectId, id);
     String oldBoqItemNo = dpr.getBoqItemNo();
+    UUID oldBoqItemId = dpr.getBoqItemId();
     BigDecimal oldQty = dpr.getQtyExecuted();
     UUID dprId = dpr.getId();
     LocalDate reportDate = dpr.getReportDate();
@@ -354,7 +367,7 @@ public class DailyProgressReportService {
 
     eventPublisher.publishEvent(DprSubmittedEvent.withoutChildren(
         projectId, dprId, reportDate, activityName, null, null, oldBoqItemNo, oldQty,
-        DprMutationType.DELETED));
+        DprMutationType.DELETED, dpr.getActivityId(), null, oldBoqItemId));
   }
 
   /**
@@ -489,6 +502,7 @@ public class DailyProgressReportService {
   private DprSubmittedEvent buildEvent(
       DailyProgressReport saved,
       String oldBoqItemNo,
+      UUID oldBoqItemId,
       BigDecimal oldQty,
       DprMutationType type,
       Collection<DprManpower> manpower,
@@ -524,13 +538,52 @@ public class DailyProgressReportService {
         totalManpowerHours,
         totalEquipmentHours,
         totalFuelLitres,
-        saved.getSupervisorUserId());
+        saved.getSupervisorUserId(),
+        saved.getActivityId(),
+        saved.getBoqItemId(),
+        oldBoqItemId);
   }
 
   private static BigDecimal add(BigDecimal a, BigDecimal b) {
     BigDecimal aa = a != null ? a : BigDecimal.ZERO;
     BigDecimal bb = b != null ? b : BigDecimal.ZERO;
     return aa.add(bb);
+  }
+
+  /** Resolved BOQ linkage on a DPR write: prefers {@code boqItemId}; falls back to itemNo for legacy. */
+  private record BoqLinkage(UUID boqItemId, String boqItemNo) {}
+
+  /**
+   * Resolve the BOQ linkage for a DPR write. The new canonical path is {@code boqItemId};
+   * {@code boqItemNo} is retained only for legacy clients. When {@code boqItemId} is set, we
+   * validate the BoqItem belongs to the project and snapshot its {@code itemNo} into the
+   * legacy column for back-compat (BoQ sync listeners still key on itemNo today). When only
+   * {@code boqItemNo} is supplied, we look the row up and persist both — one-time migration
+   * path so subsequent edits flow through the FK.
+   */
+  private BoqLinkage resolveBoqLinkage(UUID projectId, UUID boqItemId, String boqItemNo) {
+    if (boqItemId != null) {
+      BoqItem item = boqItemRepository.findById(boqItemId)
+          .orElseThrow(() -> new BusinessRuleException(
+              "DPR_BOQ_ITEM_NOT_FOUND",
+              "Referenced BoqItem " + boqItemId + " not found."));
+      if (!item.getProjectId().equals(projectId)) {
+        throw new BusinessRuleException(
+            "DPR_BOQ_ITEM_PROJECT_MISMATCH",
+            "BoqItem " + boqItemId + " belongs to project " + item.getProjectId()
+                + ", not " + projectId + ".");
+      }
+      return new BoqLinkage(item.getId(), item.getItemNo());
+    }
+    if (boqItemNo != null && !boqItemNo.isBlank()) {
+      // Legacy path — caller only had the itemNo string. Resolve to an id when we can so
+      // subsequent edits use the FK; if the lookup fails we still persist the string for
+      // the old substring-match fallback in DailyCostReportService.
+      return boqItemRepository.findByProjectIdAndItemNo(projectId, boqItemNo)
+          .map(item -> new BoqLinkage(item.getId(), item.getItemNo()))
+          .orElse(new BoqLinkage(null, boqItemNo));
+    }
+    return new BoqLinkage(null, null);
   }
 
   // ─── Issue merge-by-id (deliberate divergence from full-replace) ──────────────────
@@ -679,7 +732,13 @@ public class DailyProgressReportService {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
         if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MANPOWER", activityId);
         BigDecimal unitRate = pickUnitRate(row.unitRate(), snap);
-        String basis = pickBasis(row.unitRateBasis(), snap);
+        // Manpower defaults to HOUR — matches equipment and the per-hour math the client posts
+        // (nos × workingHours × unitRate). Snapshot basis derived from resource.unit is often a
+        // productivity unit (e.g. "PER_DAY") that doesn't match the actual rate basis, so we
+        // only honour an explicit client-provided basis; otherwise default to HOUR.
+        String basis = row.unitRateBasis() != null && !row.unitRateBasis().isBlank()
+            ? row.unitRateBasis()
+            : "HOUR";
         // Legacy "rate-missing:" warning removed: in the role-only model the rate flows from
         // manpower_role_rates via RoleRateResolver/ensureAssignmentsExist, which emits its own
         // MISSING_RATE: ... warning only when truly absent. The legacy resource_id chain that
@@ -717,6 +776,7 @@ public class DailyProgressReportService {
 
     List<DprMaterial> material = new ArrayList<>();
     if (materialRows != null) {
+      String enteredByRole = resolveEnteredByRole();
       for (DprMaterialRow row : materialRows) {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
         if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MATERIAL", activityId);
@@ -725,11 +785,27 @@ public class DailyProgressReportService {
         entity.setResourceId(pickResourceId(row.resourceId(), snap));
         entity.setUnitRate(unitRate);
         entity.setLineCost(DprCostFormulas.materialLineCost(entity, unitRate));
+        entity.setEnteredByRole(enteredByRole);
         material.add(entity);
       }
     }
 
     return new SnapshottedChildren(manpower, equipment, material);
+  }
+
+  /**
+   * Stamp which role the caller holds when entering a DPR. SUPERVISOR wins over STORE_MANAGER
+   * (DPR is the supervisor-owned surface). Returns null for system / anonymous writes.
+   */
+  private String resolveEnteredByRole() {
+    if (securityContextHelper == null) return null;
+    try {
+      if (securityContextHelper.hasRole("SUPERVISOR")) return "SUPERVISOR";
+      if (securityContextHelper.hasRole("STORE_MANAGER")) return "STORE_MANAGER";
+    } catch (Exception e) {
+      log.debug("No authenticated user when stamping entered_by_role: {}", e.getMessage());
+    }
+    return null;
   }
 
   /**

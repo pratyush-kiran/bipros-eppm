@@ -125,6 +125,17 @@ public record CapacityUtilizationReport(
       BigDecimal budgetedDays,
       BigDecimal actualDays,
       BigDecimal actualOutputPerDay,
-      BigDecimal utilizationPct
-  ) {}
+      BigDecimal utilizationPct,
+      /**
+       * Portion of actualDays on activities with no productivity norm for the role's type.
+       * Threaded through the legacy shape so the Capacity Utilization Excel writer can render
+       * an "Act Days (Untracked)" sub-column without re-querying.
+       */
+      BigDecimal actualDaysUntracked
+  ) {
+    public Period(BigDecimal qty, BigDecimal budgetedDays, BigDecimal actualDays,
+                  BigDecimal actualOutputPerDay, BigDecimal utilizationPct) {
+      this(qty, budgetedDays, actualDays, actualOutputPerDay, utilizationPct, null);
+    }
+  }
 }

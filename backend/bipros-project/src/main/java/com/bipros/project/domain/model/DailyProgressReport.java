@@ -83,7 +83,18 @@ public class DailyProgressReport extends BaseEntity {
   @Column(name = "wbs_node_id")
   private UUID wbsNodeId;
 
-  /** Optional back-link to the BOQ item — when set, DPR save updates that item's executed qty. */
+  /** Optional FK to {@code project.boq_items.id}. New canonical linkage (Workstream B1) —
+   *  prefer this over the legacy {@link #boqItemNo} string match. Nullable for legacy rows. */
+  @Column(name = "boq_item_id")
+  private UUID boqItemId;
+
+  /**
+   * Legacy back-link to the BOQ item by item-number string. Retained for backwards compatibility
+   * with rows seeded before {@link #boqItemId} existed; new write paths set {@code boqItemId}
+   * and leave this null.
+   * @deprecated use {@link #boqItemId} instead.
+   */
+  @Deprecated
   @Column(name = "boq_item_no", length = 20)
   private String boqItemNo;
 

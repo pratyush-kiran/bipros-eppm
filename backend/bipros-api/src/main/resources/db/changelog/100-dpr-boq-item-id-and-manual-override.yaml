@@ -1,0 +1,62 @@
+databaseChangeLog:
+  # Workstream B1 + B2:
+  #   B1 adds an explicit FK column boq_item_id on daily_progress_reports so DPRs link to a
+  #     specific BoqItem instead of being resolved via the legacy itemNo/description match.
+  #     Existing boq_item_no column is kept for back-compat; new write paths populate both.
+  #   B2 adds a manual_override boolean on boq_items so BoqActualRateRecalcListener (event-
+  #     driven recompute) knows which rows the user has pinned by hand.
+  # Both columns are nullable so dev's ddl-auto:update path matches Liquibase exactly and
+  # legacy rows continue to load without backfill.
+
+  - changeSet:
+      id: 100-1-dpr-boq-item-id
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: daily_progress_reports
+            schemaName: project
+            columns:
+              - column:
+                  name: boq_item_id
+                  type: UUID
+      rollback:
+        - dropColumn:
+            tableName: daily_progress_reports
+            schemaName: project
+            columnName: boq_item_id
+
+  - changeSet:
+      id: 100-2-dpr-boq-item-id-index
+      author: bipros
+      changes:
+        - createIndex:
+            tableName: daily_progress_reports
+            schemaName: project
+            indexName: idx_dpr_boq_item_id
+            columns:
+              - column:
+                  name: boq_item_id
+      rollback:
+        - dropIndex:
+            tableName: daily_progress_reports
+            schemaName: project
+            indexName: idx_dpr_boq_item_id
+
+  - changeSet:
+      id: 100-3-boq-item-manual-override
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: boq_items
+            schemaName: project
+            columns:
+              - column:
+                  name: manual_override
+                  type: BOOLEAN
+                  constraints:
+                    nullable: true
+      rollback:
+        - dropColumn:
+            tableName: boq_items
+            schemaName: project
+            columnName: manual_override

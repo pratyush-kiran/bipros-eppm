@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { evmKpiApi, type WbsEvmNode } from "@/lib/api/evmKpiApi";
+import { budgetApi } from "@/lib/api/budgetApi";
+import { formatMoney } from "@/lib/hooks/useCurrency";
 
 interface Props {
   projectId: string;
@@ -24,12 +26,10 @@ function flattenLeaves(nodes: WbsEvmNode[]): WbsEvmNode[] {
   return out;
 }
 
-function formatRupees(value: number | null | undefined, fractionDigits = 0): string {
-  if (value == null || Number.isNaN(value)) return "—";
-  return `₹${value.toLocaleString("en-IN", {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  })}`;
+/** Build a currency-aware money formatter bound to a specific ISO 4217 code. */
+function makeFormatMoney(currency: string) {
+  return (value: number | null | undefined, fractionDigits = 0): string =>
+    formatMoney(value, currency, fractionDigits);
 }
 
 function formatIndex(value: number | null | undefined): string {
@@ -51,6 +51,15 @@ export function EvmKpiSection({ projectId, density = "compact" }: Props) {
     enabled: !!projectId,
     retry: 1,
   });
+
+  const { data: budgetData } = useQuery({
+    queryKey: ["project-budget", projectId],
+    queryFn: () => budgetApi.getBudgetSummary(projectId),
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
+  const formatRupees = makeFormatMoney(projectCurrency);
 
   if (!projectId) return null;
   if (isLoading) {
@@ -106,7 +115,7 @@ Read it as: "We have permission to spend up to this amount."`}
           caption="KPI 10.1 — BAC × Planned %"
           tooltip={`Planned Value (BCWS) — value of work the schedule says SHOULD be done by today.
 Formula: BAC × planned-percent-complete-as-of-today.
-Read it as: "By this date, we should have produced ₹X worth of deliverables."`}
+Read it as: "By this date, we should have produced X ${projectCurrency} worth of deliverables."`}
         />
         <Kpi
           label="EV"
@@ -114,7 +123,7 @@ Read it as: "By this date, we should have produced ₹X worth of deliverables."`
           caption="KPI 10.2 — BAC × Actual %"
           tooltip={`Earned Value (BCWP) — value of work actually completed.
 Formula: BAC × actual-percent-complete.
-Read it as: "What we've delivered so far is worth ₹X of contract value."`}
+Read it as: "What we've delivered so far is worth X ${projectCurrency} of contract value."`}
         />
         <Kpi
           label="AC"
@@ -131,9 +140,9 @@ Compared to EV: tells you whether the spend bought you matching value.`}
           label="SV"
           value={formatRupees(evm.scheduleVariance)}
           caption="KPI 10.4 — EV − PV"
-          tooltip={`Schedule Variance — schedule slip expressed in ₹.
+          tooltip={`Schedule Variance — schedule slip expressed in ${projectCurrency}.
 Formula: EV − PV.
-Positive = ahead of schedule.   Negative = behind by this rupee value.
+Positive = ahead of schedule.   Negative = behind by this amount.
 Pair with SPI for the "ratio" view of the same gap.`}
           accent={evm.scheduleVariance != null && evm.scheduleVariance < 0 ? "danger" : "default"}
         />
@@ -141,7 +150,7 @@ Pair with SPI for the "ratio" view of the same gap.`}
           label="CV"
           value={formatRupees(evm.costVariance)}
           caption="KPI 10.5 — EV − AC"
-          tooltip={`Cost Variance — budget gap expressed in ₹.
+          tooltip={`Cost Variance — budget gap expressed in ${projectCurrency}.
 Formula: EV − AC.
 Positive = under budget (saving money).   Negative = over budget (overrun).
 Pair with CPI for the "ratio" view of the same gap.`}
@@ -161,9 +170,9 @@ Formula: EV ÷ PV.
           label="CPI"
           value={formatIndex(evm.costPerformanceIndex)}
           caption="KPI 10.7 — EV ÷ AC"
-          tooltip={`Cost Performance Index — "how much value are we getting per rupee spent?"
+          tooltip={`Cost Performance Index — "how much value are we getting per unit of ${projectCurrency} spent?"
 Formula: EV ÷ AC.
-1.0 = on budget.   < 1.0 = over budget (e.g., 0.80 = getting ₹0.80 of work per ₹1 spent).
+1.0 = on budget.   < 1.0 = over budget (e.g., 0.80 = getting 0.80 ${projectCurrency} of work per 1 ${projectCurrency} spent).
 > 1.0 looks favourable but >> 1.5 usually means AC is under-reported (check invoices/DPR cost capture).`}
           accentClass={indexClass(evm.costPerformanceIndex)}
         />
@@ -186,7 +195,7 @@ Compared to BAC: tells you the projected final overrun (or saving).`}
             caption="EAC − AC"
             tooltip={`Estimate to Complete — additional money needed from today to finish.
 Formula: EAC − AC.
-Read it as: "From this point onward, we still need to spend approximately ₹X to deliver the remaining work."`}
+Read it as: "From this point onward, we still need to spend approximately X ${projectCurrency} to deliver the remaining work."`}
           />
           <Kpi
             label="VAC"
@@ -212,7 +221,7 @@ A common guardrail: if TCPI is much greater than CPI, the original budget can no
         </div>
       )}
 
-      {density === "full" && <EvmActivityTable projectId={projectId} />}
+      {density === "full" && <EvmActivityTable projectId={projectId} currency={projectCurrency} />}
     </section>
   );
 }
@@ -222,7 +231,8 @@ A common guardrail: if TCPI is much greater than CPI, the original budget can no
  * PV/EV/AC/SPI/CPI". Sortable client-side; reads /v1/projects/{id}/evm/wbs-tree and
  * flattens the tree to leaves so each row is one trackable activity / WBS bottom node.
  */
-function EvmActivityTable({ projectId }: { projectId: string }) {
+function EvmActivityTable({ projectId, currency = "INR" }: { projectId: string; currency?: string }) {
+  const formatRupees = makeFormatMoney(currency);
   const [sortKey, setSortKey] = useState<SortKey>("spi");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 

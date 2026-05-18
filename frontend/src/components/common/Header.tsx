@@ -4,25 +4,36 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, HelpCircle, Plus, Search } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import { useCommandPaletteStore } from "@/lib/state/store";
 import { cn } from "@/lib/utils/cn";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Acronym + special-case map for URL-slug → breadcrumb label. Without these,
+// segments like "dbs" render as "Dbs" (title-cased) instead of the canonical
+// "DBS". Keep the keys lowercase — the lookup runs on the raw slug.
+const LABEL_OVERRIDES: Record<string, string> = {
+  admin: "Admin",
+  udf: "User Defined Fields",
+  obs: "OBS",
+  eps: "EPS",
+  wbs: "WBS",
+  dpr: "DPR",
+  dbs: "DBS",
+  evm: "EVM",
+  boq: "BOQ",
+  gis: "GIS",
+  qc: "QC",
+  ai: "AI",
+  ncrs: "NCRs",
+  grns: "GRNs",
+  rfis: "RFIs",
+  "ra-bills": "RA Bills",
+};
+
 function humanise(segment: string) {
-  const lookup: Record<string, string> = {
-    admin: "Admin",
-    udf: "User Defined Fields",
-    obs: "OBS",
-    eps: "EPS",
-    dpr: "DPR",
-    boq: "BOQ",
-    grns: "GRNs",
-    rfis: "RFIs",
-    "ra-bills": "RA Bills",
-  };
-  if (lookup[segment]) return lookup[segment];
+  const override = LABEL_OVERRIDES[segment.toLowerCase()];
+  if (override) return override;
   return segment.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
@@ -49,7 +60,6 @@ function useBreadcrumbs(pathname: string) {
 export function Header() {
   const pathname = usePathname();
   const crumbs = useBreadcrumbs(pathname);
-  const openPalette = useCommandPaletteStore((s) => s.setOpen);
 
   return (
     <header className="relative flex h-16 items-center gap-5 border-b border-hairline bg-paper px-7">
@@ -97,13 +107,11 @@ export function Header() {
       {/* Command-palette search */}
       <button
         type="button"
-        onClick={() => openPalette(true)}
         className={cn(
           "ml-4 flex h-10 max-w-[440px] flex-1 items-center gap-2.5 rounded-[10px] border border-hairline bg-ivory px-3.5",
           "text-[13px] text-slate hover:border-gold-deep/50 transition-colors"
         )}
         title="Search (⌘K)"
-        aria-label="Open command palette"
       >
         <Search size={15} className="text-ash" strokeWidth={1.5} />
         <span className="flex-1 text-left">Search projects, activities, resources…</span>

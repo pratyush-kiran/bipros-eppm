@@ -243,6 +243,36 @@ export interface CompareSupervisorPerformanceParams {
   workDays?: number;
 }
 
+// ───────────────── Multi-period aggregate ──────────────────
+
+export type AggregatePeriodType = "WEEKLY" | "MONTHLY";
+export type AggregateGroupBy = "ROLE" | "RESOURCE_TYPE";
+
+export interface CapacityAggregateBucket {
+  from: string;
+  to: string;
+  label: string;
+  manpower: CapacitySection | null;
+  equipment: CapacitySection | null;
+}
+
+export interface CapacityUtilizationAggregateReport {
+  projectId: string;
+  periodType: AggregatePeriodType;
+  groupBy: AggregateGroupBy;
+  fromDate: string;
+  toDate: string;
+  buckets: CapacityAggregateBucket[];
+}
+
+export interface GetCapacityUtilizationAggregateParams {
+  projectId: string;
+  periodType: AggregatePeriodType;
+  from?: string;
+  to?: string;
+  groupBy?: AggregateGroupBy;
+}
+
 export const capacityUtilizationApi = {
   get: (params: GetCapacityUtilizationParams) => {
     const qs: string[] = [`projectId=${params.projectId}`];
@@ -282,6 +312,21 @@ export const capacityUtilizationApi = {
     return apiClient
       .get<ApiResponse<SupervisorPerformanceComparison>>(
         `/v1/reports/supervisor-performance/compare?${qs.join("&")}`,
+      )
+      .then((r) => r.data);
+  },
+
+  getAggregate: (params: GetCapacityUtilizationAggregateParams) => {
+    const qs: string[] = [
+      `projectId=${params.projectId}`,
+      `periodType=${params.periodType}`,
+    ];
+    if (params.from) qs.push(`from=${params.from}`);
+    if (params.to) qs.push(`to=${params.to}`);
+    if (params.groupBy) qs.push(`groupBy=${params.groupBy}`);
+    return apiClient
+      .get<ApiResponse<CapacityUtilizationAggregateReport>>(
+        `/v1/reports/capacity-utilization/aggregate?${qs.join("&")}`,
       )
       .then((r) => r.data);
   },

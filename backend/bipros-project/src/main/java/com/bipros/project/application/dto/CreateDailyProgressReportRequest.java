@@ -37,6 +37,10 @@ public record CreateDailyProgressReportRequest(
 
     UUID wbsNodeId,
 
+    /** New canonical FK to {@code project.boq_items.id}. Preferred over {@code boqItemNo}. */
+    UUID boqItemId,
+
+    /** Legacy string match; supply {@code boqItemId} instead on new clients. */
     String boqItemNo,
 
     @NotBlank String unit,

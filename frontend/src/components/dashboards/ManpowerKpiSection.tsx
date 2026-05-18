@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { manpowerKpiApi } from "@/lib/api/manpowerKpiApi";
+import { budgetApi } from "@/lib/api/budgetApi";
+import { formatMoney } from "@/lib/hooks/useCurrency";
 
 interface Props {
   projectId: string;
@@ -37,12 +39,10 @@ function formatNumber(value: number | null | undefined, fractionDigits = 2): str
   });
 }
 
-function formatRupees(value: number | null | undefined, fractionDigits = 0): string {
-  if (value == null || Number.isNaN(value)) return "—";
-  return `₹${value.toLocaleString("en-IN", {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  })}`;
+/** Currency-aware money formatter. Currency is injected from the component's projectCurrency state. */
+function makeFormatMoney(currency: string) {
+  return (value: number | null | undefined, fractionDigits = 0): string =>
+    formatMoney(value, currency, fractionDigits);
 }
 
 export function ManpowerKpiSection({ projectId, from, to, density = "compact" }: Props) {
@@ -56,6 +56,15 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
     queryFn: () => manpowerKpiApi.getKpis(projectId, range.from, range.to),
     enabled: !!projectId,
   });
+
+  const { data: budgetData } = useQuery({
+    queryKey: ["project-budget", projectId],
+    queryFn: () => budgetApi.getBudgetSummary(projectId),
+    enabled: !!projectId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
+  const formatRupees = makeFormatMoney(projectCurrency);
 
   if (!projectId) return null;
   if (isLoading) {
@@ -408,7 +417,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
                 <tr>
                   <th className="text-left pb-1">BOQ Item</th>
                   <th className="text-right pb-1">Qty</th>
-                  <th className="text-right pb-1">₹ / unit</th>
+                  <th className="text-right pb-1">{projectCurrency} / unit</th>
                 </tr>
               </thead>
               <tbody>
@@ -421,7 +430,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
                   <tr key={row.boqItemId} className="text-text-primary">
                     <td className="py-1 truncate max-w-[200px]">{row.itemNo}</td>
                     <td className="py-1 text-right">{formatNumber(row.qtyExecuted, 3)}</td>
-                    <td className="py-1 text-right">₹{formatNumber(row.costPerUnit, 2)}</td>
+                    <td className="py-1 text-right">{formatRupees(row.costPerUnit, 2)}</td>
                   </tr>
                 ))}
               </tbody>

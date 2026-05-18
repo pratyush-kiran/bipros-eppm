@@ -54,6 +54,8 @@ export function DialogContent({ className = "", children, ...props }: DialogCont
       onClick={() => onOpenChange(false)}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         className={cn(
           "relative w-full max-w-md rounded-2xl bg-paper shadow-[0_20px_40px_rgba(28,28,28,0.08)]",
           className
