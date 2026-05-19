@@ -1,5 +1,6 @@
 package com.bipros.security.application.service;
 
+import com.bipros.project.domain.repository.ProjectTeamRepository;
 import com.bipros.security.domain.model.ProjectMemberRole;
 import com.bipros.security.domain.repository.ProjectMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class ProjectAccessEvaluator {
     private final ProjectAccessService projectAccessService;
     private final CurrentUserService currentUserService;
     private final ProjectMemberRepository projectMemberRepository;
+    private final ProjectTeamRepository projectTeamRepository;
 
     public boolean canRead(UUID projectId) {
         return projectAccessService.canRead(currentUserService.getCurrentUserId(), projectId);
@@ -101,16 +103,23 @@ public class ProjectAccessEvaluator {
     }
 
     /**
-     * True iff the current user has at least one {@code ProjectMember} row for {@code projectId}.
-     * Uses the same membership query as {@link ProjectAccessService#canRead(UUID, UUID)} /
-     * {@link ProjectAccessService#canEdit(UUID, UUID)} so that all evaluator paths agree on the
-     * definition of "project member".
+     * True iff the current user has at least one membership row for {@code projectId} — either
+     * a legacy {@code project_members} row (security-managed) OR a {@code project.project_team}
+     * row (DBS reporting line; how pilot PM/CM/Engineer/Supervisor and the DPR-filing roles are
+     * wired). Either source qualifies the user as a "project member" for permission gating.
+     *
+     * <p>Mirrors the membership union in {@link ProjectAccessService#canRead(UUID, UUID)} so
+     * that {@code @PreAuthorize("@projectAccess.hasProjectPermission(...)")} agrees with the
+     * service-layer {@code requireRead/requireEdit} on who counts as a member.
      */
     private boolean isProjectMember(UUID projectId) {
         UUID userId = currentUserService.getCurrentUserId();
         if (userId == null) {
             return false;
         }
-        return !projectMemberRepository.findByUserIdAndProjectId(userId, projectId).isEmpty();
+        if (!projectMemberRepository.findByUserIdAndProjectId(userId, projectId).isEmpty()) {
+            return true;
+        }
+        return !projectTeamRepository.findAllByProjectIdAndUserId(projectId, userId).isEmpty();
     }
 }

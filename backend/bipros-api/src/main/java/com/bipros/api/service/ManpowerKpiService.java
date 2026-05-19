@@ -200,7 +200,10 @@ public class ManpowerKpiService {
     Map<UUID, List<DprManpower>> manpowerByDpr = manpowerRows.stream()
         .collect(Collectors.groupingBy(DprManpower::getDprId));
 
-    // Resolve resources once for both labour-filter and resource-master lookups.
+    // Resolve resources for the legacy chain (financials / attendance lookup keyed on resource_id).
+    // For role-only DPR rows (resource_id = null, role_id + manpower_role_rate_id set) these
+    // maps stay empty and the cost path falls through to line_cost (populated at DPR save time
+    // from manpower_role_rates with project-override resolution).
     Set<UUID> resourceIds = manpowerRows.stream()
         .map(DprManpower::getResourceId)
         .filter(java.util.Objects::nonNull)
@@ -216,6 +219,15 @@ public class ManpowerKpiService {
         .collect(Collectors.toMap(ManpowerAttendance::getResourceId, a -> a, (a, b) -> a));
     Map<UUID, ManpowerFinancials> financialsById = financialsRepository.findAllById(resourceIds).stream()
         .collect(Collectors.toMap(ManpowerFinancials::getResourceId, f -> f, (a, b) -> a));
+
+    // Role-only identity set: union of (resource_id) and (role_id) across deployed rows. Used
+    // for the headline "X of Y labour active" counter and as the synthetic resource key when
+    // resource_id is null. Treat every dpr_manpower row as labour by definition (the table is
+    // for manpower deployment).
+    Set<UUID> deployedIdentities = manpowerRows.stream()
+        .map(m -> m.getResourceId() != null ? m.getResourceId() : m.getRoleId())
+        .filter(java.util.Objects::nonNull)
+        .collect(Collectors.toSet());
 
     // Pre-compute per-DPR roll-up so each downstream KPI can pull from one place.
     Map<UUID, DprManpowerAgg> aggByDpr = computeAggByDpr(manpowerByDpr, financialsById);
@@ -234,7 +246,7 @@ public class ManpowerKpiService {
 
     // KPI computations
     WorkforceUtilization workforce = computeWorkforceUtilization(
-        dprs, manpowerByDpr, labourResourceIds, attendanceById);
+        dprs, manpowerByDpr, labourResourceIds, attendanceById, deployedIdentities);
     List<ProductivityFactorRow> productivity =
         computeProductivityFactor(aggByActivity, activitiesById);
     double headlineFactor = computeHeadlineProductivityFactor(productivity);
@@ -302,8 +314,15 @@ public class ManpowerKpiService {
         idleHours += nos * ih;
         if (m.getLineCost() != null) {
           cost += m.getLineCost().doubleValue();
+        } else if (m.getUnitRate() != null) {
+          // Role-only fallback: derive from snapshotted unit_rate + basis on the row.
+          boolean hourly = "HOUR".equalsIgnoreCase(m.getUnitRateBasis());
+          double rate = m.getUnitRate().doubleValue();
+          cost += hourly
+              ? nos * (wh + oh * OT_MULTIPLIER) * rate
+              : nos * rate;
         } else {
-          // Fallback when supervisor didn't enter line_cost: regular pay + OT pay at 2.0× premium.
+          // Legacy resource-only fallback when no rate was snapshotted at save time.
           double hourly = effectiveHourlyRate(financialsById.get(m.getResourceId()));
           cost += nos * (wh + oh * OT_MULTIPLIER) * hourly;
         }
@@ -352,43 +371,56 @@ public class ManpowerKpiService {
       List<DailyProgressReport> dprs,
       Map<UUID, List<DprManpower>> manpowerByDpr,
       Set<UUID> labourResourceIds,
-      Map<UUID, ManpowerAttendance> attendanceById) {
+      Map<UUID, ManpowerAttendance> attendanceById,
+      Set<UUID> deployedIdentities) {
 
     // Productive man-hours: Σ nos × working_hours across all dpr_manpower rows. We treat
-    // every dpr_manpower entry as labour (the table is for manpower deployment by trade) —
-    // a row carrying a non-LABOR resource_id is a data-quality issue, not a count adjustment.
+    // every dpr_manpower entry as labour (the table is for manpower deployment by trade).
     double actualHours = 0d;
-    Map<UUID, Set<LocalDate>> daysByResource = new HashMap<>();
-    Map<DailyProgressReport, List<DprManpower>> dprWithManpower = new HashMap<>();
+    Map<UUID, Set<LocalDate>> daysByResource = new HashMap<>();   // legacy resource_id path
+    double roleOnlyAvailableHours = 0d;                            // role-only (nos × 8) path
+    Set<UUID> roleOnlyActiveIdentities = new HashSet<>();
     for (DailyProgressReport d : dprs) {
       List<DprManpower> rows = manpowerByDpr.getOrDefault(d.getId(), List.of());
-      dprWithManpower.put(d, rows);
       for (DprManpower m : rows) {
         int nos = m.getNos() != null ? m.getNos() : 0;
         double wh = m.getWorkingHours() != null ? m.getWorkingHours().doubleValue() : 0d;
         actualHours += nos * wh;
         if (m.getResourceId() != null && labourResourceIds.contains(m.getResourceId())
             && d.getReportDate() != null) {
+          // Legacy per-Resource path: 1 person × attendance.workingHoursPerDay × days seen.
           daysByResource.computeIfAbsent(m.getResourceId(), k -> new HashSet<>())
               .add(d.getReportDate());
+        } else {
+          // Role-only path: each DPR row already aggregates a crew (nos workers for one day).
+          // Available time for that crew = nos × DEFAULT_HOURS_PER_DAY. Compares directly with
+          // actual nos × workingHours, so a half-day shift lands utilisation at 50%.
+          roleOnlyAvailableHours += nos * DEFAULT_HOURS_PER_DAY;
+          UUID identity = m.getRoleId() != null ? m.getRoleId() : m.getResourceId();
+          if (identity != null) roleOnlyActiveIdentities.add(identity);
         }
       }
     }
 
     int missingAttendance = 0;
-    double availableHours = 0d;
+    double legacyAvailableHours = 0d;
     for (Map.Entry<UUID, Set<LocalDate>> e : daysByResource.entrySet()) {
       ManpowerAttendance a = attendanceById.get(e.getKey());
       double hpd = a != null && a.getWorkingHoursPerDay() != null
           ? a.getWorkingHoursPerDay().doubleValue()
           : DEFAULT_HOURS_PER_DAY;
       if (a == null || a.getWorkingHoursPerDay() == null) missingAttendance++;
-      availableHours += hpd * e.getValue().size();
+      legacyAvailableHours += hpd * e.getValue().size();
     }
+    double availableHours = legacyAvailableHours + roleOnlyAvailableHours;
 
     double rawPct = availableHours > 0 ? actualHours / availableHours : 0d;
     boolean overflow = rawPct > 1.0d;
     double cappedPct = Math.min(rawPct, 1.0d);
+
+    int totalIdentities = Math.max(deployedIdentities.size(),
+        labourResourceIds.size() + roleOnlyActiveIdentities.size());
+    int activeIdentities = daysByResource.size() + roleOnlyActiveIdentities.size();
 
     return new WorkforceUtilization(
         roundHours(actualHours),
@@ -396,8 +428,8 @@ public class ManpowerKpiService {
         round4(cappedPct),
         round4(rawPct),
         overflow,
-        labourResourceIds.size(),
-        daysByResource.size(),
+        totalIdentities,
+        activeIdentities,
         missingAttendance);
   }
 
@@ -675,7 +707,6 @@ public class ManpowerKpiService {
       if (ra.getResourceId() == null) continue;
       Resource r = resourcesById.get(ra.getResourceId());
       if (r == null) {
-        // Resource may not be in our deployment-derived map; fetch on-demand for plan side.
         r = resourceRepository.findById(ra.getResourceId()).orElse(null);
         if (r != null) resourcesById.put(r.getId(), r);
       }
@@ -683,7 +714,6 @@ public class ManpowerKpiService {
           || !LABOR_TYPE_CODE.equalsIgnoreCase(r.getResourceType().getCode())) continue;
       labourResourcesNeeded.add(r.getId());
     }
-    // Backfill financials for labour resources that weren't in the deployment set.
     Set<UUID> missingFinIds = labourResourcesNeeded.stream()
         .filter(id -> !financialsById.containsKey(id)).collect(Collectors.toSet());
     if (!missingFinIds.isEmpty()) {
@@ -692,29 +722,35 @@ public class ManpowerKpiService {
     }
 
     for (ResourceAssignment ra : assignments) {
-      if (ra.getResourceId() == null || ra.getPlannedUnits() == null) continue;
-      Resource r = resourcesById.get(ra.getResourceId());
-      if (r == null || r.getResourceType() == null
-          || !LABOR_TYPE_CODE.equalsIgnoreCase(r.getResourceType().getCode())) continue;
+      if (ra.getPlannedUnits() == null) continue;
       Activity activity = activitiesForPlan.get(ra.getActivityId());
       if (activity == null) { missingPlan++; continue; }
       Double duration = activity.getOriginalDuration();
       if (duration == null || duration <= 0d) { missingPlan++; continue; }
-
       LocalDate aStart = ra.getPlannedStartDate() != null
           ? ra.getPlannedStartDate() : activity.getPlannedStartDate();
       LocalDate aFinish = ra.getPlannedFinishDate() != null
           ? ra.getPlannedFinishDate() : activity.getPlannedFinishDate();
       if (aStart == null || aFinish == null) { missingPlan++; continue; }
-
       LocalDate overlapStart = aStart.isAfter(from) ? aStart : from;
       LocalDate overlapEnd = aFinish.isBefore(to) ? aFinish : to;
-      if (overlapEnd.isBefore(overlapStart)) continue; // outside window
+      if (overlapEnd.isBefore(overlapStart)) continue;
       double overlapDays = overlapEnd.toEpochDay() - overlapStart.toEpochDay() + 1;
       double overlapPct = Math.min(1.0d, overlapDays / duration);
 
-      double rate = effectiveHourlyRate(financialsById.get(r.getId()));
-      if (rate <= 0d) continue; // missing-rate banner already covers this
+      double rate = 0d;
+      if (ra.getManpowerRoleRateId() != null) {
+        // Role-only path: assignment carries its own snapshot effective_rate.
+        rate = ra.getEffectiveRate() != null ? ra.getEffectiveRate().doubleValue() : 0d;
+      } else if (ra.getResourceId() != null) {
+        Resource r = resourcesById.get(ra.getResourceId());
+        if (r == null || r.getResourceType() == null
+            || !LABOR_TYPE_CODE.equalsIgnoreCase(r.getResourceType().getCode())) continue;
+        rate = effectiveHourlyRate(financialsById.get(r.getId()));
+      } else {
+        continue;
+      }
+      if (rate <= 0d) continue;
       double assignmentPlc = ra.getPlannedUnits() * rate * overlapPct;
       plc += assignmentPlc;
       activitiesWithPlan++;
@@ -728,14 +764,32 @@ public class ManpowerKpiService {
     double totalWageBill = 0d;
     for (List<DprManpower> rows : manpowerByDpr.values()) {
       for (DprManpower m : rows) {
-        if (m.getResourceId() == null) continue;
-        double rate = effectiveHourlyRate(financialsById.get(m.getResourceId()));
+        // Prefer the row's snapshotted unit_rate (set at DPR save for role-only and legacy
+        // assignments alike). Fall back to manpower_financials lookup for old rows.
+        double rate = 0d;
+        boolean hourlyBasis = false;
+        if (m.getUnitRate() != null) {
+          rate = m.getUnitRate().doubleValue();
+          hourlyBasis = "HOUR".equalsIgnoreCase(m.getUnitRateBasis());
+        } else if (m.getResourceId() != null) {
+          rate = effectiveHourlyRate(financialsById.get(m.getResourceId()));
+          hourlyBasis = true;
+        }
         if (rate <= 0d) continue;
         int nos = m.getNos() != null ? m.getNos() : 0;
         double wh = m.getWorkingHours() != null ? m.getWorkingHours().doubleValue() : 0d;
         double oh = m.getOtHours() != null ? m.getOtHours().doubleValue() : 0d;
-        otPremiumPay += nos * oh * rate * OT_MULTIPLIER;
-        totalWageBill += nos * (wh + oh * OT_MULTIPLIER) * rate;
+        if (hourlyBasis) {
+          otPremiumPay += nos * oh * rate * OT_MULTIPLIER;
+          totalWageBill += nos * (wh + oh * OT_MULTIPLIER) * rate;
+        } else {
+          // DAY-basis rates can't be cleanly split into regular vs OT. Treat working_hours as a
+          // full day and any OT hours as a proportional premium on the day rate.
+          double dayRate = rate;
+          double otPremium = oh > 0 ? (dayRate / DEFAULT_HOURS_PER_DAY) * oh * OT_MULTIPLIER : 0d;
+          otPremiumPay += nos * otPremium;
+          totalWageBill += nos * (dayRate + otPremium);
+        }
       }
     }
     double otCostPct = totalWageBill > 0d ? otPremiumPay / totalWageBill : 0d;

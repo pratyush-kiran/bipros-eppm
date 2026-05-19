@@ -9,6 +9,7 @@ import { TabTip } from "@/components/common/TabTip";
 import { budgetApi } from "@/lib/api/budgetApi";
 import type { DbsPeriodType } from "@/lib/api/dbsApi";
 
+import { CmDbsTab } from "./components/CmDbsTab";
 import { EngineerDbsTab } from "./components/EngineerDbsTab";
 import { PmDbsTab } from "./components/PmDbsTab";
 import { SupervisorDbsTab } from "./components/SupervisorDbsTab";
@@ -35,11 +36,12 @@ import { SupervisorDbsTab } from "./components/SupervisorDbsTab";
  * computed on read so late edits stay consistent without cascade.
  */
 
-const TABS = ["supervisor", "engineer", "pm"] as const;
+const TABS = ["supervisor", "engineer", "cm", "pm"] as const;
 type DbsTab = (typeof TABS)[number];
 const TAB_LABELS: Record<DbsTab, string> = {
   supervisor: "Supervisor",
   engineer: "Engineer / Site Manager",
+  cm: "Construction Manager",
   pm: "Project Manager",
 };
 
@@ -83,6 +85,7 @@ function DbsPageInner() {
 
   const supervisorParam = searchParams.get("supervisor") ?? "";
   const engineerParam = searchParams.get("engineer") ?? "";
+  const cmParam = searchParams.get("cm") ?? "";
 
   // Helper to update one query param without dropping the others. `null` removes.
   const updateParams = useCallback(
@@ -114,6 +117,7 @@ function DbsPageInner() {
   // Local controlled picker state — initialised from URL, written back to URL.
   const [supervisorUserId, setSupervisorUserId] = useState(supervisorParam);
   const [engineerUserId, setEngineerUserId] = useState(engineerParam);
+  const [cmUserId, setCmUserId] = useState(cmParam);
 
   // Sync local state ← URL when the user navigates externally (e.g. via the
   // chip-click on the Engineer tab).
@@ -123,6 +127,9 @@ function DbsPageInner() {
   useEffect(() => {
     setEngineerUserId(engineerParam);
   }, [engineerParam]);
+  useEffect(() => {
+    setCmUserId(cmParam);
+  }, [cmParam]);
 
   const handleSupervisorChange = useCallback(
     (value: string) => {
@@ -135,6 +142,13 @@ function DbsPageInner() {
     (value: string) => {
       setEngineerUserId(value);
       updateParams({ engineer: value || null });
+    },
+    [updateParams],
+  );
+  const handleCmChange = useCallback(
+    (value: string) => {
+      setCmUserId(value);
+      updateParams({ cm: value || null });
     },
     [updateParams],
   );
@@ -254,12 +268,26 @@ function DbsPageInner() {
         />
       ) : null}
 
+      {activeTab === "cm" ? (
+        <CmDbsTab
+          projectId={projectId}
+          date={date}
+          periodType={periodType}
+          cmUserId={cmUserId}
+          onCmChange={handleCmChange}
+          currency={currency}
+        />
+      ) : null}
+
       {activeTab === "pm" ? (
         <PmDbsTab
           projectId={projectId}
           date={date}
           periodType={periodType}
           currency={currency}
+          onNavigateToCm={(cid: string) => {
+            updateParams({ tab: "cm", cm: cid });
+          }}
         />
       ) : null}
     </div>

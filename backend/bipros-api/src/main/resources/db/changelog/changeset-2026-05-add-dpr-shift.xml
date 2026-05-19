@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Phase 2: Day/Night shift tracking on DPR child rows. A single DPR can mix shifts so
+      shift lives on each line item, not on the parent DPR. Default DAY for legacy rows
+      keeps existing data valid under NOT NULL.
+    -->
+    <changeSet id="dpr-shift-1" author="hemendra">
+        <addColumn schemaName="project" tableName="dpr_manpower">
+            <column name="shift" type="varchar(8)" defaultValue="DAY">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addColumn schemaName="project" tableName="dpr_equipment">
+            <column name="shift" type="varchar(8)" defaultValue="DAY">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

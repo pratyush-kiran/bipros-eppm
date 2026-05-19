@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Phase 5 / 6: Equipment & Manpower Deployment Register tables.
+
+      One row per (project, date, CM (nullable), equipment_type|trade, shift).
+      Rebuilt idempotently at the tail of project-day recompute by
+      RegisterAggregationService.recompute(projectId, date). Phase 6 cumulative-days
+      endpoint aggregates straight off these tables via native SQL.
+    -->
+
+    <changeSet id="dbs-register-1-equipment" author="hemendra">
+        <createTable schemaName="dbs" tableName="dbs_equipment_register">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cm_user_id" type="UUID"/>
+            <column name="equipment_type" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="shift" type="VARCHAR(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="count_nos" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="working_hours" type="NUMERIC(12,2)" defaultValueNumeric="0"/>
+            <column name="rate" type="NUMERIC(12,4)" defaultValueNumeric="0"/>
+            <column name="line_cost" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="version" type="BIGINT"/>
+        </createTable>
+
+        <addUniqueConstraint schemaName="dbs"
+                             tableName="dbs_equipment_register"
+                             columnNames="project_id, report_date, cm_user_id, equipment_type, shift"
+                             constraintName="uk_dbs_equipment_register_unique"/>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_equipment_register"
+                     indexName="idx_dbs_equipment_register_project_date">
+            <column name="project_id"/>
+            <column name="report_date"/>
+        </createIndex>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_equipment_register"
+                     indexName="idx_dbs_equipment_register_project_cm_date">
+            <column name="project_id"/>
+            <column name="cm_user_id"/>
+            <column name="report_date"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="dbs" tableName="dbs_equipment_register"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="dbs-register-2-manpower" author="hemendra">
+        <createTable schemaName="dbs" tableName="dbs_manpower_register">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cm_user_id" type="UUID"/>
+            <column name="trade" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="shift" type="VARCHAR(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="count_nos" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="working_hours" type="NUMERIC(12,2)" defaultValueNumeric="0"/>
+            <column name="rate" type="NUMERIC(12,4)" defaultValueNumeric="0"/>
+            <column name="line_cost" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="version" type="BIGINT"/>
+        </createTable>
+
+        <addUniqueConstraint schemaName="dbs"
+                             tableName="dbs_manpower_register"
+                             columnNames="project_id, report_date, cm_user_id, trade, shift"
+                             constraintName="uk_dbs_manpower_register_unique"/>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_manpower_register"
+                     indexName="idx_dbs_manpower_register_project_date">
+            <column name="project_id"/>
+            <column name="report_date"/>
+        </createIndex>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_manpower_register"
+                     indexName="idx_dbs_manpower_register_project_cm_date">
+            <column name="project_id"/>
+            <column name="cm_user_id"/>
+            <column name="report_date"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="dbs" tableName="dbs_manpower_register"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

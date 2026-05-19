@@ -45,6 +45,15 @@ public class DbsDailySupervisor extends BaseEntity {
     @Column(name = "engineer_user_id")
     private UUID engineerUserId;
 
+    /**
+     * Denormalised snapshot of the supervisor's Construction Manager at the moment of
+     * recompute. Set via {@code ProjectTeamService.resolveCmFor(...)} when this row is
+     * (re)computed. Historical rows do not auto-update on team re-orgs — deliberate so
+     * past DBS reports stay stable.
+     */
+    @Column(name = "construction_manager_user_id")
+    private UUID constructionManagerUserId;
+
     @Column(name = "material_amount", precision = 19, scale = 2)
     private BigDecimal materialAmount;
 
@@ -71,6 +80,34 @@ public class DbsDailySupervisor extends BaseEntity {
 
     @Column(name = "boq_achieved_amount", precision = 19, scale = 2)
     private BigDecimal boqAchievedAmount;
+
+    /**
+     * Phase 7: BOQ value for the day attributable to non-preliminary activities. Sum of
+     * line amounts (qty × rate) across DPR rows whose underlying activity has
+     * {@code is_preliminary = false}. Together with {@link #prelimCost} sums to
+     * {@link #boqForTheDayAmount} (modulo rounding).
+     */
+    @Column(name = "direct_cost", precision = 18, scale = 4)
+    private BigDecimal directCost;
+
+    /**
+     * Phase 7: BOQ value for the day attributable to preliminary activities
+     * (mobilisation, site setup, diversions, bonds, etc.).
+     */
+    @Column(name = "prelim_cost", precision = 18, scale = 4)
+    private BigDecimal prelimCost;
+
+    /** Phase 7: convenience field {@code = directCost + prelimCost}. */
+    @Column(name = "total_cost_incl_prelims", precision = 18, scale = 4)
+    private BigDecimal totalCostInclPrelims;
+
+    /**
+     * Phase 7: cumulative BOQ progress as a percentage of plan —
+     * {@code boqAchievedAmount / boqPlannedAmount * 100}. Stored as a percentage
+     * (0..100) with four decimal places.
+     */
+    @Column(name = "pct_achieved", precision = 8, scale = 4)
+    private BigDecimal pctAchieved;
 
     @Column(name = "total_expense", precision = 19, scale = 2)
     private BigDecimal totalExpense;

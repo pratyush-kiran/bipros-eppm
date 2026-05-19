@@ -230,4 +230,20 @@ public class Activity extends BaseEntity {
    */
   @Column(name = "cost_account_id")
   private UUID costAccountId;
+
+  /**
+   * DBS-Phase-2: marks this activity as a BOQ <b>Preliminary</b> item (Section 1 in MoRTH-style
+   * road BOQs — mobilisation, site setup, diversions, bonds, insurance, etc.). The DPR flow is
+   * unchanged; the DBS rollup uses this flag to split the day's total into {@code direct_cost}
+   * vs {@code prelim_cost}. Defaults to {@code false} so existing rows (and any activity created
+   * before the operator visits the editor) behave as direct production work.
+   *
+   * <p>Persisted as {@code is_preliminary boolean NOT NULL DEFAULT false}; the corresponding
+   * Liquibase changeset is
+   * {@code db/changelog/changeset-2026-05-add-activity-preliminary.xml}. Hibernate's dev-mode
+   * {@code ddl-auto: update} adds the column from this annotation.
+   */
+  @Column(name = "is_preliminary", nullable = false,
+          columnDefinition = "boolean NOT NULL DEFAULT false")
+  private boolean preliminary = false;
 }

@@ -1,8 +1,10 @@
 package com.bipros.dbs.service;
 
+import com.bipros.dbs.domain.model.DbsDailyCm;
 import com.bipros.dbs.domain.model.DbsDailyEngineer;
 import com.bipros.dbs.domain.model.DbsDailyProject;
 import com.bipros.dbs.domain.model.DbsDailySupervisor;
+import com.bipros.dbs.domain.repository.DbsDailyCmRepository;
 import com.bipros.dbs.domain.repository.DbsDailyEngineerRepository;
 import com.bipros.dbs.domain.repository.DbsDailyProjectRepository;
 import com.bipros.dbs.domain.repository.DbsDailySupervisorRepository;
@@ -48,9 +50,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DbsAggregationService {
 
+    private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
+
     private final DbsDailySupervisorRepository supervisorRepo;
     private final DbsDailyEngineerRepository engineerRepo;
     private final DbsDailyProjectRepository projectRepo;
+    private final DbsDailyCmRepository cmRepo;
     private final SectionAManpowerCalculator manpowerCalc;
     private final SectionBAdminCalculator adminCalc;
     private final SectionCMachineryCalculator machineryCalc;
@@ -59,6 +64,7 @@ public class DbsAggregationService {
     private final SectionFBoqCalculator boqCalc;
     private final ProjectTeamService projectTeamService;
     private final ObjectMapper objectMapper;
+    private final RegisterAggregationService registerAggregationService;
 
     /**
      * Recompute the supervisor-day row by running the six section calculators and
@@ -88,6 +94,14 @@ public class DbsAggregationService {
             : projectTeamService.resolveEngineerFor(projectId, supervisorUserId).orElse(null);
         row.setEngineerUserId(engineerUserId);
 
+        // Phase 4: denormalise the Construction Manager onto the supervisor row so the
+        // CM-tier rollup can re-query without re-walking the team chain each time. This is
+        // a snapshot at write time — historical rows do not auto-update on team re-orgs.
+        UUID cmUserId = supervisorUserId == null
+            ? null
+            : projectTeamService.resolveCmFor(projectId, supervisorUserId).orElse(null);
+        row.setConstructionManagerUserId(cmUserId);
+
         row.setManpowerAmount(manpower.totalAmount());
         row.setAdminAmount(admin.totalAmount());
         row.setMachineryAmount(machinery.totalAmount());
@@ -97,6 +111,16 @@ public class DbsAggregationService {
         row.setBoqForTheDayAmount(boq.forTheDayAmount());
         row.setBoqPlannedAmount(boq.plannedAmount());
         row.setBoqAchievedAmount(boq.achievedAmount());
+
+        // Phase 7: split the day's BOQ value into direct (non-preliminary activities)
+        // and prelim (mobilisation / site-setup / diversions). totalCostInclPrelims is
+        // the convenience sum; pctAchieved is cumulative progress vs plan (0..100).
+        BigDecimal directCost = nz(boq.directBoqAmount());
+        BigDecimal prelimCost = nz(boq.prelimBoqAmount());
+        row.setDirectCost(directCost);
+        row.setPrelimCost(prelimCost);
+        row.setTotalCostInclPrelims(directCost.add(prelimCost));
+        row.setPctAchieved(percentage(boq.achievedAmount(), boq.plannedAmount()));
 
         BigDecimal totalExpense = sum(manpower.totalAmount(), admin.totalAmount(), machinery.totalAmount(),
             fuel.totalAmount(), material.totalAmount(), BigDecimal.ZERO);
@@ -160,10 +184,32 @@ public class DbsAggregationService {
         applyAggregates(row::setMaterialAmount, supRows, DbsDailySupervisor::getMaterialAmount);
         applyAggregates(row::setSubcontractAmount, supRows, DbsDailySupervisor::getSubcontractAmount);
         applyAggregates(row::setBoqForTheDayAmount, supRows, DbsDailySupervisor::getBoqForTheDayAmount);
-        applyAggregates(row::setBoqPlannedAmount, supRows, DbsDailySupervisor::getBoqPlannedAmount);
-        applyAggregates(row::setBoqAchievedAmount, supRows, DbsDailySupervisor::getBoqAchievedAmount);
         applyAggregates(row::setTotalExpense, supRows, DbsDailySupervisor::getTotalExpense);
         applyAggregates(row::setTotalIncome, supRows, DbsDailySupervisor::getTotalIncome);
+
+        // BOQ cumulative planned/achieved must be DEDUPED at engineer scope — summing the
+        // supervisor rows double-counts whenever two supervisors of this engineer touched
+        // the same BOQ item. computeCumulativeForScope runs a single SELECT DISTINCT over
+        // boq_items filtered to this engineer's supervisors on the date.
+        SectionFBoqCalculator.BoqCumulative engCum = boqCalc.computeCumulativeForScope(
+            projectId, date,
+            supRows.stream()
+                .map(DbsDailySupervisor::getSupervisorUserId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet()));
+        row.setBoqPlannedAmount(engCum.planned());
+        row.setBoqAchievedAmount(engCum.achieved());
+
+        // Phase 7: prelim split rolls up by simple summation. totalCostInclPrelims is
+        // a derived sum-of-sums; pctAchieved is recomputed from the deduped planned/
+        // achieved totals (rather than averaging per-supervisor percentages, which would
+        // over-weight supervisors with small denominators).
+        BigDecimal directCost = sumOf(supRows, DbsDailySupervisor::getDirectCost);
+        BigDecimal prelimCost = sumOf(supRows, DbsDailySupervisor::getPrelimCost);
+        row.setDirectCost(directCost);
+        row.setPrelimCost(prelimCost);
+        row.setTotalCostInclPrelims(directCost.add(prelimCost));
+        row.setPctAchieved(percentage(row.getBoqAchievedAmount(), row.getBoqPlannedAmount()));
 
         BigDecimal contribution = nz(row.getTotalIncome()).subtract(nz(row.getTotalExpense()));
         row.setContribution(contribution);
@@ -182,6 +228,152 @@ public class DbsAggregationService {
         log.info("DBS engineer row saved projectId={} engineer={} date={} sups={} income={}",
             projectId, engineerUserId, date, supRows.size(), row.getTotalIncome());
         return saved;
+    }
+
+    /**
+     * Recompute the CM-day row as the SUM of every supervisor row on the date whose
+     * denormalised {@code construction_manager_user_id} matches. Idempotent upsert on
+     * {@code (projectId, cmUserId, reportDate)}.
+     *
+     * <p>Phase 7: {@code directCost} / {@code prelimCost} / {@code totalCostInclPrelims}
+     * are summed from the supervisor rows (which now carry the prelim split from
+     * {@link SectionFBoqCalculator}). {@code pctAchieved} is derived from the aggregated
+     * planned / achieved totals.
+     */
+    public DbsDailyCm recomputeCmDay(UUID projectId, UUID cmUserId, LocalDate date) {
+        log.debug("DBS recompute cm projectId={} cm={} date={}", projectId, cmUserId, date);
+
+        List<DbsDailySupervisor> supRows = supervisorRepo
+            .findByProjectIdAndReportDateAndConstructionManagerUserId(projectId, date, cmUserId);
+
+        DbsDailyCm row = cmRepo
+            .findByProjectIdAndCmUserIdAndReportDate(projectId, cmUserId, date)
+            .orElseGet(() -> DbsDailyCm.builder()
+                .projectId(projectId)
+                .cmUserId(cmUserId)
+                .reportDate(date)
+                .build());
+
+        row.setManpowerAmount(sumOf(supRows, DbsDailySupervisor::getManpowerAmount));
+        row.setAdminAmount(sumOf(supRows, DbsDailySupervisor::getAdminAmount));
+        row.setMachineryAmount(sumOf(supRows, DbsDailySupervisor::getMachineryAmount));
+        row.setFuelAmount(sumOf(supRows, DbsDailySupervisor::getFuelAmount));
+        row.setMaterialAmount(sumOf(supRows, DbsDailySupervisor::getMaterialAmount));
+
+        BigDecimal boqForDay = sumOf(supRows, DbsDailySupervisor::getBoqForTheDayAmount);
+        // BOQ cumulative is DEDUPED at CM scope — see comment on the engineer rollup.
+        SectionFBoqCalculator.BoqCumulative cmCum = boqCalc.computeCumulativeForScope(
+            projectId, date,
+            supRows.stream()
+                .map(DbsDailySupervisor::getSupervisorUserId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet()));
+        BigDecimal boqPlanned = cmCum.planned();
+        BigDecimal boqAchieved = cmCum.achieved();
+        row.setBoqForTheDayAmount(boqForDay);
+        row.setBoqPlannedToDate(boqPlanned);
+        row.setBoqAchievedToDate(boqAchieved);
+
+        // Phase 7: split direct vs prelim by summing the per-supervisor split. The
+        // supervisor calculator (SectionFBoqCalculator) tags each BOQ line by the
+        // underlying activity's is_preliminary flag, so the CM rollup is just a sum.
+        BigDecimal directCost = sumOf(supRows, DbsDailySupervisor::getDirectCost);
+        BigDecimal prelimCost = sumOf(supRows, DbsDailySupervisor::getPrelimCost);
+        row.setDirectCost(directCost);
+        row.setPrelimCost(prelimCost);
+        row.setTotalCostInclPrelims(directCost.add(prelimCost));
+
+        // contributionPct mirrors the engineer/supervisor compute today: (income − expense) / income × 100.
+        BigDecimal totalExpense = sumOf(supRows, DbsDailySupervisor::getTotalExpense);
+        BigDecimal totalIncome = sumOf(supRows, DbsDailySupervisor::getTotalIncome);
+        BigDecimal contribution = totalIncome.subtract(totalExpense);
+        BigDecimal contributionPct = totalIncome.compareTo(BigDecimal.ZERO) > 0
+            ? contribution.multiply(HUNDRED).divide(totalIncome, 4, RoundingMode.HALF_UP)
+            : BigDecimal.ZERO;
+        row.setContributionPct(contributionPct);
+
+        BigDecimal pctAchieved = boqPlanned.compareTo(BigDecimal.ZERO) > 0
+            ? boqAchieved.multiply(HUNDRED).divide(boqPlanned, 4, RoundingMode.HALF_UP)
+            : BigDecimal.ZERO;
+        row.setPctAchieved(pctAchieved);
+
+        // TODO collect once Phase 7 wires it in — leaving siteManagerIds empty for now.
+        row.setSiteManagerIds(new UUID[0]);
+
+        // Engineer ids from each supervisor's denormalised engineer_user_id; fall back to
+        // re-resolution if a supervisor row was written before that column existed.
+        Set<UUID> engineerIds = new LinkedHashSet<>();
+        for (DbsDailySupervisor s : supRows) {
+            UUID eng = s.getEngineerUserId();
+            if (eng == null && s.getSupervisorUserId() != null) {
+                eng = projectTeamService
+                    .resolveEngineerFor(projectId, s.getSupervisorUserId())
+                    .orElse(null);
+            }
+            if (eng != null) engineerIds.add(eng);
+        }
+        row.setEngineerIds(engineerIds.toArray(new UUID[0]));
+
+        row.setSupervisorCount(supRows.size());
+        row.setRecomputedAt(Instant.now());
+
+        DbsDailyCm saved = cmRepo.save(row);
+        log.info("DBS cm row saved projectId={} cm={} date={} sups={} pctAchieved={}",
+            projectId, cmUserId, date, supRows.size(), pctAchieved);
+        return saved;
+    }
+
+    /**
+     * Period rollup for a single CM — SUMs of all {@code dbs_daily_cm} rows in the range
+     * {@code [from, to]} inclusive. Returns a transient {@link DbsDailyCm} (no id, not
+     * persisted) carrying the totals.
+     */
+    public DbsDailyCm computeCmPeriod(UUID projectId, UUID cmUserId, LocalDate from, LocalDate to) {
+        List<DbsDailyCm> rows = cmRepo
+            .findByProjectIdAndCmUserIdAndReportDateBetween(projectId, cmUserId, from, to);
+
+        DbsDailyCm totals = DbsDailyCm.builder()
+            .projectId(projectId)
+            .cmUserId(cmUserId)
+            .reportDate(to)
+            .build();
+        totals.setManpowerAmount(sumOf(rows, DbsDailyCm::getManpowerAmount));
+        totals.setAdminAmount(sumOf(rows, DbsDailyCm::getAdminAmount));
+        totals.setMachineryAmount(sumOf(rows, DbsDailyCm::getMachineryAmount));
+        totals.setFuelAmount(sumOf(rows, DbsDailyCm::getFuelAmount));
+        totals.setMaterialAmount(sumOf(rows, DbsDailyCm::getMaterialAmount));
+        totals.setDirectCost(sumOf(rows, DbsDailyCm::getDirectCost));
+        totals.setPrelimCost(sumOf(rows, DbsDailyCm::getPrelimCost));
+        totals.setTotalCostInclPrelims(sumOf(rows, DbsDailyCm::getTotalCostInclPrelims));
+        totals.setBoqForTheDayAmount(sumOf(rows, DbsDailyCm::getBoqForTheDayAmount));
+
+        // For period rollups the "to-date" values are the latest row in the range — those
+        // are cumulative on each row. Fall back to the sum when the per-row semantics are
+        // additive (Phase 4 supervisor compute populates them as sum-for-the-day).
+        BigDecimal boqPlanned = sumOf(rows, DbsDailyCm::getBoqPlannedToDate);
+        BigDecimal boqAchieved = sumOf(rows, DbsDailyCm::getBoqAchievedToDate);
+        totals.setBoqPlannedToDate(boqPlanned);
+        totals.setBoqAchievedToDate(boqAchieved);
+
+        BigDecimal pctAchieved = boqPlanned.compareTo(BigDecimal.ZERO) > 0
+            ? boqAchieved.multiply(HUNDRED).divide(boqPlanned, 4, RoundingMode.HALF_UP)
+            : BigDecimal.ZERO;
+        totals.setPctAchieved(pctAchieved);
+
+        BigDecimal boqForDay = totals.getBoqForTheDayAmount();
+        BigDecimal directCost = nz(totals.getDirectCost());
+        BigDecimal contributionPct = nz(boqForDay).compareTo(BigDecimal.ZERO) > 0
+            ? boqForDay.subtract(directCost).multiply(HUNDRED).divide(boqForDay, 4, RoundingMode.HALF_UP)
+            : BigDecimal.ZERO;
+        totals.setContributionPct(contributionPct);
+
+        Integer supervisorCount = rows.stream()
+            .map(DbsDailyCm::getSupervisorCount)
+            .filter(java.util.Objects::nonNull)
+            .max(Integer::compareTo)
+            .orElse(0);
+        totals.setSupervisorCount(supervisorCount);
+        return totals;
     }
 
     /**
@@ -234,8 +426,22 @@ public class DbsAggregationService {
             DbsDailySupervisor::getMaterialAmount, materialLegacyOnly);
         applyAggregates(row::setSubcontractAmount, supRows, DbsDailySupervisor::getSubcontractAmount);
         applyAggregates(row::setBoqForTheDayAmount, supRows, DbsDailySupervisor::getBoqForTheDayAmount);
-        applyAggregates(row::setBoqPlannedAmount, supRows, DbsDailySupervisor::getBoqPlannedAmount);
-        applyAggregates(row::setBoqAchievedAmount, supRows, DbsDailySupervisor::getBoqAchievedAmount);
+
+        // BOQ cumulative is DEDUPED at project scope (null filter = project-wide). Summing
+        // supervisor rows would double-count whenever two supervisors share a BOQ item.
+        SectionFBoqCalculator.BoqCumulative projCum = boqCalc.computeCumulativeForScope(
+            projectId, date, null);
+        row.setBoqPlannedAmount(projCum.planned());
+        row.setBoqAchievedAmount(projCum.achieved());
+
+        // Phase 7: project-wide prelim split sums the per-supervisor split and recomputes
+        // pctAchieved against the deduped planned/achieved.
+        BigDecimal projectDirect = sumOf(supRows, DbsDailySupervisor::getDirectCost);
+        BigDecimal projectPrelim = sumOf(supRows, DbsDailySupervisor::getPrelimCost);
+        row.setDirectCost(projectDirect);
+        row.setPrelimCost(projectPrelim);
+        row.setTotalCostInclPrelims(projectDirect.add(projectPrelim));
+        row.setPctAchieved(percentage(row.getBoqAchievedAmount(), row.getBoqPlannedAmount()));
 
         BigDecimal totalExpense = sum(
             nz(row.getManpowerAmount()), nz(row.getAdminAmount()), nz(row.getMachineryAmount()),
@@ -265,6 +471,16 @@ public class DbsAggregationService {
         DbsDailyProject saved = projectRepo.save(row);
         log.info("DBS project row saved projectId={} date={} sups={} income={} contribution={}",
             projectId, date, row.getSupervisorCount(), row.getTotalIncome(), contribution);
+
+        // Phase 5: rebuild the equipment + manpower deployment register for this day.
+        // Idempotent (delete + re-insert), runs at the tail of project recompute so the
+        // register is consistent with the freshly-written aggregate rows.
+        try {
+            registerAggregationService.recompute(projectId, date);
+        } catch (Exception ex) {
+            log.warn("Register recompute failed projectId={} date={}: {}", projectId, date, ex.toString());
+        }
+
         return saved;
     }
 
@@ -302,6 +518,17 @@ public class DbsAggregationService {
 
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /**
+     * Phase 7: safe-divide helper that returns {@code numerator / denominator * 100} as a
+     * percentage scaled to 4 decimal places. Returns {@code 0} when the denominator is
+     * null, zero, or negative — never throws an {@link ArithmeticException}.
+     */
+    private static BigDecimal percentage(BigDecimal numerator, BigDecimal denominator) {
+        BigDecimal d = nz(denominator);
+        if (d.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
+        return nz(numerator).multiply(HUNDRED).divide(d, 4, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal sum(BigDecimal... parts) {

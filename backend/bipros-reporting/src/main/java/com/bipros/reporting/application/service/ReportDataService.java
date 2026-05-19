@@ -400,20 +400,37 @@ public class ReportDataService {
   private List<ResourceUtilizationData.ResourceUtilRow> getResourceUtilizationFromAssignments(
       UUID projectId) {
     try {
-      // Same fix as the equipment_logs roll-up: r.resource_type → rt.code via FK join.
+      // Union over legacy (resource_id chain) and role-only (role_id + variant chain). Type code
+      // is derived from the variant FK when the legacy resource join misses.
       @SuppressWarnings("unchecked")
       List<Object> rows = em.createNativeQuery(
-              "SELECT r.code, r.name, COALESCE(rt.code, ''), " +
-              "  COALESCE(SUM(a.planned_units), 0) AS planned_units, " +
-              "  COALESCE(SUM(a.actual_units), 0) AS actual_units, " +
-              "  CASE WHEN SUM(a.planned_units) > 0 " +
-              "    THEN ROUND((100.0 * SUM(a.actual_units) / SUM(a.planned_units))::numeric, 2) " +
-              "    ELSE 0 END AS util_pct " +
-              "FROM resource.resources r " +
-              "JOIN resource.resource_assignments a ON r.id = a.resource_id " +
-              "LEFT JOIN resource.resource_types rt ON rt.id = r.resource_type_id " +
-              "WHERE a.project_id = ?1 " +
-              "GROUP BY r.id, r.code, r.name, rt.code " +
+              "WITH legacy AS (" +
+              "  SELECT r.code AS code, r.name AS name, COALESCE(rt.code, '') AS type_code, " +
+              "         COALESCE(SUM(a.planned_units), 0) AS planned_units, " +
+              "         COALESCE(SUM(a.actual_units), 0)  AS actual_units " +
+              "  FROM resource.resources r " +
+              "  JOIN resource.resource_assignments a ON r.id = a.resource_id " +
+              "  LEFT JOIN resource.resource_types rt ON rt.id = r.resource_type_id " +
+              "  WHERE a.project_id = ?1 AND a.resource_id IS NOT NULL " +
+              "  GROUP BY r.id, r.code, r.name, rt.code " +
+              "), role_only AS (" +
+              "  SELECT COALESCE(rr.code, rr.name) AS code, rr.name AS name, " +
+              "         CASE WHEN a.manpower_role_rate_id  IS NOT NULL THEN 'MANPOWER' " +
+              "              WHEN a.equipment_role_variant_id IS NOT NULL THEN 'EQUIPMENT' " +
+              "              WHEN a.material_role_variant_id  IS NOT NULL THEN 'MATERIAL' " +
+              "              ELSE '' END AS type_code, " +
+              "         COALESCE(SUM(a.planned_units), 0) AS planned_units, " +
+              "         COALESCE(SUM(a.actual_units), 0)  AS actual_units " +
+              "  FROM resource.resource_assignments a " +
+              "  JOIN resource.resource_roles rr ON rr.id = a.role_id " +
+              "  WHERE a.project_id = ?1 AND a.resource_id IS NULL AND a.role_id IS NOT NULL " +
+              "  GROUP BY rr.id, rr.code, rr.name, " +
+              "           a.manpower_role_rate_id, a.equipment_role_variant_id, a.material_role_variant_id " +
+              ") " +
+              "SELECT code, name, type_code, planned_units, actual_units, " +
+              "  CASE WHEN planned_units > 0 " +
+              "    THEN ROUND((100.0 * actual_units / planned_units)::numeric, 2) ELSE 0 END AS util_pct " +
+              "FROM (SELECT * FROM legacy UNION ALL SELECT * FROM role_only) u " +
               "ORDER BY util_pct DESC")
           .setParameter(1, projectId)
           .getResultList();

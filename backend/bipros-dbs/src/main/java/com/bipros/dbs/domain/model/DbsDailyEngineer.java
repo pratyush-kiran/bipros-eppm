@@ -68,6 +68,22 @@ public class DbsDailyEngineer extends BaseEntity {
     @Column(name = "boq_achieved_amount", precision = 19, scale = 2)
     private BigDecimal boqAchievedAmount;
 
+    /** Phase 7: sum of {@code direct_cost} across the contributing supervisor rows. */
+    @Column(name = "direct_cost", precision = 18, scale = 4)
+    private BigDecimal directCost;
+
+    /** Phase 7: sum of {@code prelim_cost} across the contributing supervisor rows. */
+    @Column(name = "prelim_cost", precision = 18, scale = 4)
+    private BigDecimal prelimCost;
+
+    /** Phase 7: convenience field {@code = directCost + prelimCost}. */
+    @Column(name = "total_cost_incl_prelims", precision = 18, scale = 4)
+    private BigDecimal totalCostInclPrelims;
+
+    /** Phase 7: {@code boqAchievedAmount / boqPlannedAmount * 100} (percentage, 0..100). */
+    @Column(name = "pct_achieved", precision = 8, scale = 4)
+    private BigDecimal pctAchieved;
+
     @Column(name = "total_expense", precision = 19, scale = 2)
     private BigDecimal totalExpense;
 

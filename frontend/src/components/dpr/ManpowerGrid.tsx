@@ -5,11 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
 import { roleRateApi } from "@/lib/api/roleRateApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
-import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
+import { CellInput, CellSelect, RowGrid, type RowGridColumn } from "./RowGrid";
 import type { DprManpowerRow } from "@/lib/types/dpr";
 
 const blank = (): DprManpowerRow => ({
   trade: "",
+  shift: "DAY",
   nos: null,
   workingHours: null,
   manpowerRoleRateId: null,
@@ -184,6 +185,21 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
           min="0"
           value={r.workingHours}
           onChange={(v) => u({ workingHours: v === "" ? null : Number(v) })}
+        />
+      ),
+    },
+    {
+      key: "shift",
+      label: "Shift",
+      minWidth: 110,
+      render: (r, _i, u) => (
+        <CellSelect
+          value={r.shift ?? "DAY"}
+          onChange={(v) => u({ shift: v === "NIGHT" ? "NIGHT" : "DAY" })}
+          options={[
+            { value: "DAY", label: "Day" },
+            { value: "NIGHT", label: "Night" },
+          ]}
         />
       ),
     },

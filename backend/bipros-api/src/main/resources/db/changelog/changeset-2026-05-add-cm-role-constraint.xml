@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      DBS Phase-2 (Construction Manager role) — extend the project_team.role CHECK
+      constraint to include CONSTRUCTION_MANAGER, so the new tier (PM → CM →
+      SiteManager → Engineer → Supervisor) can be persisted.
+
+      Hibernate generates the original CHECK constraint at table-create time from
+      the @Enumerated(EnumType.STRING) @CheckConstraint values of ProjectRole. In
+      `ddl-auto: update` mode, Hibernate does NOT modify existing CHECK
+      constraints when an enum value is added, so we must explicitly drop and
+      recreate it. `ddl-auto: validate` (prod) accepts whichever constraint
+      Liquibase has left in place.
+    -->
+    <changeSet id="2026-05-add-cm-role-constraint" author="bipros">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="1">
+                SELECT COUNT(*) FROM pg_constraint
+                WHERE conname = 'project_team_role_check'
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            ALTER TABLE project.project_team
+                DROP CONSTRAINT project_team_role_check;
+            ALTER TABLE project.project_team
+                ADD CONSTRAINT project_team_role_check
+                CHECK (role IN ('PM', 'CONSTRUCTION_MANAGER', 'SITE_MANAGER',
+                                'ENGINEER', 'SUPERVISOR', 'QS', 'SAFETY'));
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

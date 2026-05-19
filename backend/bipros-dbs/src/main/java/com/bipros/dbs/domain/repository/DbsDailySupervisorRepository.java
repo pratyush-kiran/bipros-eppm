@@ -22,4 +22,12 @@ public interface DbsDailySupervisorRepository extends JpaRepository<DbsDailySupe
 
     List<DbsDailySupervisor> findByProjectIdAndReportDateBetween(
         UUID projectId, LocalDate from, LocalDate to);
+
+    /**
+     * All supervisor rows on a given date whose denormalised
+     * {@code construction_manager_user_id} matches the supplied CM. Powers the
+     * {@code dbs_daily_cm} rollup recompute.
+     */
+    List<DbsDailySupervisor> findByProjectIdAndReportDateAndConstructionManagerUserId(
+        UUID projectId, LocalDate reportDate, UUID constructionManagerUserId);
 }

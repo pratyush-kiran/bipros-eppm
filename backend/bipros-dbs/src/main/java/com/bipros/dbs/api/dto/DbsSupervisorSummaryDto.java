@@ -15,5 +15,9 @@ public record DbsSupervisorSummaryDto(
     BigDecimal totalIncome,
     BigDecimal contribution,
     BigDecimal contributionPct,
+    BigDecimal directCost,
+    BigDecimal prelimCost,
+    BigDecimal totalCostInclPrelims,
+    BigDecimal pctAchieved,
     Integer dprCount
 ) {}

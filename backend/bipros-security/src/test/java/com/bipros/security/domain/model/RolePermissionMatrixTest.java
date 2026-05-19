@@ -9,8 +9,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Contract tests for {@link RolePermissionMatrix}. These lock the 22-role canonical matrix
- * and guard against drift in the {@link PermissionCatalog}.
+ * Contract tests for {@link RolePermissionMatrix}. These lock the 23-role canonical matrix
+ * (22 original + CONSTRUCTION_MANAGER added in DBS Phase 2) and guard against drift in
+ * the {@link PermissionCatalog}.
  */
 class RolePermissionMatrixTest {
 
@@ -22,7 +23,7 @@ class RolePermissionMatrixTest {
 
     @Test
     void everyRoleHasAtLeastOnePermission() {
-        assertThat(RolePermissionMatrix.DEFAULTS).hasSize(22);
+        assertThat(RolePermissionMatrix.DEFAULTS).hasSize(23);
         for (Map.Entry<String, Set<String>> entry : RolePermissionMatrix.DEFAULTS.entrySet()) {
             assertThat(entry.getValue())
                     .as("role '%s' should have at least one permission", entry.getKey())

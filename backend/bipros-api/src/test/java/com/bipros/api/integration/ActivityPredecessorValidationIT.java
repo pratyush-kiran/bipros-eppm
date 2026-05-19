@@ -97,7 +97,7 @@ class ActivityPredecessorValidationIT {
             null, null, null,
             12.0, null, null, null,
             null, null, null, null, null, null, null, null, null, null
-        , null, null, null, null);
+        , null, null, null, null, null);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(authToken);
@@ -153,7 +153,7 @@ class ActivityPredecessorValidationIT {
             null, null, null,
             null, null, null, null,
             null, null, null, null, null, null, null, null, null, null
-        , null, null, null, null);
+        , null, null, null, null, null);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(authToken);

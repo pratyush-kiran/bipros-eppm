@@ -9,6 +9,9 @@ import java.util.UUID;
 /**
  * Single-day DBS payload for one engineer (sum across their supervisors). No line arrays
  * — drill into the supervisor view for the per-line breakdown.
+ *
+ * <p>Phase 7: {@code directCost} / {@code prelimCost} / {@code totalCostInclPrelims} /
+ * {@code pctAchieved} carry the BOQ-by-activity-type split rolled up from supervisor rows.
  */
 public record DbsEngineerDayResponse(
     UUID id,
@@ -25,6 +28,10 @@ public record DbsEngineerDayResponse(
     BigDecimal boqForTheDayAmount,
     BigDecimal boqPlannedAmount,
     BigDecimal boqAchievedAmount,
+    BigDecimal directCost,
+    BigDecimal prelimCost,
+    BigDecimal totalCostInclPrelims,
+    BigDecimal pctAchieved,
     BigDecimal totalExpense,
     BigDecimal totalIncome,
     BigDecimal contribution,

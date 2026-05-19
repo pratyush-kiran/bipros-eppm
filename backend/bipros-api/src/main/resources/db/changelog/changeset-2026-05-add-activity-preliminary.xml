@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      DBS Phase-2 (Preliminaries) — flag BOQ activities that belong to "Section 1 Preliminaries"
+      in MoRTH-style road contracts (mobilisation, site setup, diversions, bonds, insurance, etc.).
+      The DPR flow is unchanged; the DBS rollup uses this flag to bucket cost contributions into
+      `direct_cost` vs `prelim_cost`.
+
+      Backed by the entity field {@code Activity.preliminary}
+      (`@Column(name = "is_preliminary", nullable = false)`).
+
+      Schema/table verified via the entity's {@code @Table(name = "activities", schema = "activity")}
+      annotation. Default `false` is applied to every existing row so unflagged activities continue
+      to roll up as direct production cost (the same behaviour they had before this column existed).
+    -->
+    <changeSet id="2026-05-add-activity-preliminary" author="bipros">
+        <addColumn tableName="activities" schemaName="activity">
+            <column name="is_preliminary" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

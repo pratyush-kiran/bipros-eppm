@@ -387,8 +387,11 @@ public class ActivityAiGenerationService {
                     null,  // chainageFromM
                     null,  // chainageToM
                     null,  // workActivityId
-                    null   // costAccountId
-            , null, null);
+                    null,  // costAccountId
+                    null,  // supervisorResourceId (deprecated)
+                    null,  // supervisorResourceName (deprecated)
+                    null   // preliminary (DBS-Phase-2 BOQ Section 1 flag)
+            );
 
             try {
                 ActivityResponse saved = activityService.createActivity(createReq);

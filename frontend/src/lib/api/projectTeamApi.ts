@@ -16,6 +16,7 @@ import type { ApiResponse } from "../types";
  */
 export type ProjectRole =
   | "PM"
+  | "CONSTRUCTION_MANAGER"
   | "SITE_MANAGER"
   | "ENGINEER"
   | "SUPERVISOR"
@@ -24,6 +25,7 @@ export type ProjectRole =
 
 export const PROJECT_TEAM_ROLES: ProjectRole[] = [
   "PM",
+  "CONSTRUCTION_MANAGER",
   "SITE_MANAGER",
   "ENGINEER",
   "SUPERVISOR",
@@ -33,6 +35,7 @@ export const PROJECT_TEAM_ROLES: ProjectRole[] = [
 
 export const PROJECT_TEAM_ROLE_LABELS: Record<ProjectRole, string> = {
   PM: "Project Manager",
+  CONSTRUCTION_MANAGER: "Construction Manager",
   SITE_MANAGER: "Site Manager",
   ENGINEER: "Engineer",
   SUPERVISOR: "Supervisor",

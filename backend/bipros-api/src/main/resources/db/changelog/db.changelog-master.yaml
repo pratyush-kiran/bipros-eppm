@@ -181,3 +181,15 @@ databaseChangeLog:
       file: db/changelog/103-dbs-tables.yaml
   - include:
       file: db/changelog/104-work-activity-norm-combination.yaml
+  - include:
+      file: db/changelog/changeset-2026-05-add-activity-preliminary.xml
+  - include:
+      file: db/changelog/changeset-2026-05-add-dpr-shift.xml
+  - include:
+      file: db/changelog/changeset-2026-05-add-dbs-cm.xml
+  - include:
+      file: db/changelog/changeset-2026-05-add-dbs-prelim-cols.xml
+  - include:
+      file: db/changelog/changeset-2026-05-add-dbs-register.xml
+  - include:
+      file: db/changelog/changeset-2026-05-add-cm-role-constraint.xml

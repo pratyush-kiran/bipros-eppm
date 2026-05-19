@@ -63,7 +63,7 @@ class ActivityPredecessorValidationDbTest {
             null, null, null,
             12.0, null, null, null,
             null, null, null, null, null, null, null, null, null, null
-        , null, null, null, null);
+        , null, null, null, null, null);
 
         BusinessRuleException ex = assertThrows(BusinessRuleException.class,
             () -> activityService.updateActivity(succ.getId(), req));
@@ -83,7 +83,7 @@ class ActivityPredecessorValidationDbTest {
             null, null, null,
             0.0, null, null, null,
             null, null, null, null, null, null, null, null, null, null
-        , null, null, null, null);
+        , null, null, null, null, null);
 
         // Should succeed — no progress claimed
         activityService.updateActivity(succ.getId(), req);
@@ -124,7 +124,7 @@ class ActivityPredecessorValidationDbTest {
             null, null, null,
             12.0, null, java.time.LocalDate.of(2026, 4, 14), null,
             null, null, null, null, null, null, null, null, null, null
-        , null, null, null, null);
+        , null, null, null, null, null);
 
         activityService.updateActivity(succ.getId(), req);
 

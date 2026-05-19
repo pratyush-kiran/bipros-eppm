@@ -255,14 +255,16 @@ class DailyProgressReportServiceChildrenTest {
 
   private DprManpowerRow mp(String trade, ManpowerCategory cat, int nos, double hours, double ot) {
     return new DprManpowerRow(
-        null, assignmentMpId, null, trade, cat, nos,
+        null, assignmentMpId, null, trade, cat,
+        com.bipros.project.domain.model.Shift.DAY, nos,
         BigDecimal.valueOf(hours), BigDecimal.valueOf(ot), null,
         null, null, null, null, null, null, null);
   }
 
   private DprEquipmentRow equipRow(String type, String fleet, int nos, double hours, double fuel) {
     return new DprEquipmentRow(
-        null, assignmentEqId, null, type, fleet, EquipmentOwnership.OWNED, nos,
+        null, assignmentEqId, null, type, fleet, EquipmentOwnership.OWNED,
+        com.bipros.project.domain.model.Shift.DAY, nos,
         BigDecimal.valueOf(hours), BigDecimal.ZERO, BigDecimal.ZERO,
         BigDecimal.valueOf(fuel), null, null, null, null, EquipmentAvailability.UTILIZED, null,
         null, null);

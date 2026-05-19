@@ -65,6 +65,7 @@ public class DailyProgressReportController {
   }
 
   @GetMapping
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.READ')")
   public ResponseEntity<ApiResponse<List<DailyProgressReportResponse>>> list(
       @PathVariable UUID projectId,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -74,6 +75,7 @@ public class DailyProgressReportController {
   }
 
   @GetMapping("/{id}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.READ')")
   public ResponseEntity<ApiResponse<DailyProgressReportResponse>> get(
       @PathVariable UUID projectId,
       @PathVariable UUID id) {
@@ -91,6 +93,7 @@ public class DailyProgressReportController {
    * from the DPR form on debounced row changes.
    */
   @PostMapping("/activities/{activityId}/productivity-preview")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.READ')")
   public ResponseEntity<ApiResponse<com.bipros.project.application.dto.ProductivityPreviewResponse>>
       productivityPreview(
           @PathVariable UUID projectId,
@@ -101,6 +104,7 @@ public class DailyProgressReportController {
   }
 
   @GetMapping("/supervisors-used")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.READ')")
   public ResponseEntity<ApiResponse<List<SupervisorOption>>> supervisorsUsed(
       @PathVariable UUID projectId,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
@@ -153,6 +157,7 @@ public class DailyProgressReportController {
   }
 
   @GetMapping("/{id}/photos")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.READ')")
   public ResponseEntity<ApiResponse<List<DprAttachmentResponse>>> listPhotos(
       @PathVariable UUID projectId,
       @PathVariable UUID id) {
@@ -160,6 +165,7 @@ public class DailyProgressReportController {
   }
 
   @GetMapping("/{id}/photos/{photoId}")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.READ')")
   public ResponseEntity<Resource> getPhoto(
       @PathVariable UUID projectId,
       @PathVariable UUID id,

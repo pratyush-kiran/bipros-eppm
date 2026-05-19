@@ -42,6 +42,21 @@ export interface CreateStorePeriodPerformanceRequest {
   plannedValueCost?: number | null;
 }
 
+export interface PeriodPerformanceRollup {
+  periodId: string;
+  periodName: string;
+  periodType: string | null;
+  startDate: string;
+  endDate: string;
+  actualCost: number;
+  plannedValue: number;
+  earnedValue: number;
+  cv: number;
+  sv: number;
+  cpi: number | null;
+  spi: number | null;
+}
+
 export const periodPerformanceApi = {
   getAllFinancialPeriods: () =>
     apiClient
@@ -74,5 +89,13 @@ export const periodPerformanceApi = {
   deleteStorePeriodPerformance: (projectId: string, sppId: string) =>
     apiClient
       .delete<ApiResponse<void>>(`/v1/projects/${projectId}/spp/${sppId}`)
+      .then((r) => r.data),
+
+  getPerformanceRollup: (projectId: string, periodType: "D" | "W" | "M") =>
+    apiClient
+      .get<ApiResponse<PeriodPerformanceRollup[]>>(
+        `/v1/projects/${projectId}/performance`,
+        { params: { periodType } },
+      )
       .then((r) => r.data),
 };

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Phase 4: Construction Manager DBS rollup tier.
+        - dbs.dbs_daily_supervisor gains a denormalised construction_manager_user_id
+          snapshot column populated at recompute time. Nullable for projects without a CM
+          in the team chain.
+        - dbs.dbs_daily_cm is the new CM-tier aggregate, one row per
+          (project_id, cm_user_id, report_date). Mirrors the JPA entity DbsDailyCm.
+        - The direct_cost / prelim_cost / total_cost_incl_prelims / pct_achieved columns
+          are introduced on this brand-new table. Phase 7 will add the equivalent columns
+          on supervisor / engineer / project rows; for now this CM row defaults them to 0.
+    -->
+
+    <changeSet id="dbs-cm-1-add-supervisor-cm-fk" author="hemendra">
+        <addColumn schemaName="dbs" tableName="dbs_daily_supervisor">
+            <column name="construction_manager_user_id" type="UUID"/>
+        </addColumn>
+        <createIndex schemaName="dbs"
+                     tableName="dbs_daily_supervisor"
+                     indexName="idx_dbs_sup_project_date_cm">
+            <column name="project_id"/>
+            <column name="report_date"/>
+            <column name="construction_manager_user_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="dbs-cm-2-create-dbs-daily-cm" author="hemendra">
+        <createTable schemaName="dbs" tableName="dbs_daily_cm">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="cm_user_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="manpower_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="admin_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="machinery_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="fuel_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="material_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="direct_cost" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="prelim_cost" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="total_cost_incl_prelims" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="boq_for_the_day_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="boq_planned_to_date" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="boq_achieved_to_date" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="contribution_pct" type="NUMERIC(8,4)" defaultValueNumeric="0"/>
+            <column name="pct_achieved" type="NUMERIC(8,4)" defaultValueNumeric="0"/>
+            <column name="site_manager_ids" type="uuid[]"/>
+            <column name="engineer_ids" type="uuid[]"/>
+            <column name="supervisor_count" type="INT"/>
+            <column name="recomputed_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="version" type="BIGINT"/>
+        </createTable>
+
+        <addUniqueConstraint schemaName="dbs"
+                             tableName="dbs_daily_cm"
+                             columnNames="project_id, cm_user_id, report_date"
+                             constraintName="uk_dbs_daily_cm_project_cm_date"/>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_daily_cm"
+                     indexName="idx_dbs_cm_project_date">
+            <column name="project_id"/>
+            <column name="report_date"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="dbs" tableName="dbs_daily_cm"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

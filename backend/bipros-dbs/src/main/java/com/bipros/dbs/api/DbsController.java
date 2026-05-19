@@ -1,6 +1,9 @@
 package com.bipros.dbs.api;
 
 import com.bipros.common.dto.ApiResponse;
+import com.bipros.dbs.api.dto.CumulativeDaysResponse;
+import com.bipros.dbs.api.dto.DbsCmDayResponse;
+import com.bipros.dbs.api.dto.DbsCmSummaryDto;
 import com.bipros.dbs.api.dto.DbsEngineerDayResponse;
 import com.bipros.dbs.api.dto.DbsEngineerPeriodResponse;
 import com.bipros.dbs.api.dto.DbsProjectDayResponse;
@@ -8,11 +11,14 @@ import com.bipros.dbs.api.dto.DbsProjectPeriodResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorDayResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorPeriodResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorSummaryDto;
+import com.bipros.dbs.api.dto.EquipmentRegisterResponse;
+import com.bipros.dbs.api.dto.ManpowerRegisterResponse;
 import com.bipros.dbs.domain.model.DbsDailyProject;
 import com.bipros.dbs.export.DbsExcelWriter;
 import com.bipros.dbs.export.DbsPdfWriter;
 import com.bipros.dbs.service.DbsAggregationService;
 import com.bipros.dbs.service.DbsQueryService;
+import com.bipros.dbs.service.RegisterAggregationService;
 import com.bipros.project.application.service.ProjectTeamService;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +65,7 @@ public class DbsController {
     private final ProjectTeamService projectTeamService;
     private final DbsExcelWriter excelWriter;
     private final DbsPdfWriter pdfWriter;
+    private final RegisterAggregationService registerAggregationService;
 
     // ── supervisor ──────────────────────────────────────────────────────────────
 
@@ -94,6 +101,39 @@ public class DbsController {
         }
         DbsEngineerDayResponse body = queryService.getEngineerDay(projectId, engineerUserId, date);
         return ResponseEntity.ok(ApiResponse.ok(body));
+    }
+
+    // ── construction manager (CM) ───────────────────────────────────────────────
+
+    /**
+     * Single-day or period DBS payload for one Construction Manager.
+     *
+     * <p>{@code periodType=DAY} (default) returns the {@code dbs_daily_cm} row directly;
+     * {@code WEEK} / {@code MONTH} return the summed rollup over the ISO Mon–Sun week or
+     * calendar month containing {@code date}.
+     */
+    @GetMapping("/cm/{cmUserId}")
+    public ResponseEntity<ApiResponse<DbsCmDayResponse>> getCmDay(
+        @PathVariable UUID projectId,
+        @PathVariable UUID cmUserId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(required = false, defaultValue = "DAY") String periodType) {
+
+        DbsCmDayResponse body = isPeriod(periodType)
+            ? queryService.getCmPeriod(projectId, cmUserId, periodType, date)
+            : queryService.getCmDay(projectId, cmUserId, date);
+        return ResponseEntity.ok(ApiResponse.ok(body));
+    }
+
+    /**
+     * Compact per-CM summary list for the date. Powers the PM tab's CM drill-down menu.
+     */
+    @GetMapping("/cms")
+    public ResponseEntity<ApiResponse<List<DbsCmSummaryDto>>> listCms(
+        @PathVariable UUID projectId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        return ResponseEntity.ok(ApiResponse.ok(queryService.listCmsForDay(projectId, date)));
     }
 
     // ── project (PM tab) ────────────────────────────────────────────────────────
@@ -132,6 +172,53 @@ public class DbsController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
         return ResponseEntity.ok(ApiResponse.ok(queryService.getAlertsForProjectDay(projectId, date)));
+    }
+
+    // ── equipment & manpower register (Phase 5) ─────────────────────────────────
+
+    /**
+     * Equipment Deployment Register pivoted for the UI: one row per equipment type,
+     * each broken down by CM × shift. Optionally filtered to a single CM.
+     */
+    @GetMapping("/register/equipment")
+    public ResponseEntity<ApiResponse<EquipmentRegisterResponse>> getEquipmentRegister(
+        @PathVariable UUID projectId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(required = false) UUID cmUserId) {
+
+        EquipmentRegisterResponse body = registerAggregationService
+            .getEquipmentRegister(projectId, date, cmUserId);
+        return ResponseEntity.ok(ApiResponse.ok(body));
+    }
+
+    /**
+     * Manpower Deployment Register pivoted for the UI: one row per trade, each broken
+     * down by CM × shift. Optionally filtered to a single CM.
+     */
+    @GetMapping("/register/manpower")
+    public ResponseEntity<ApiResponse<ManpowerRegisterResponse>> getManpowerRegister(
+        @PathVariable UUID projectId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(required = false) UUID cmUserId) {
+
+        ManpowerRegisterResponse body = registerAggregationService
+            .getManpowerRegister(projectId, date, cmUserId);
+        return ResponseEntity.ok(ApiResponse.ok(body));
+    }
+
+    /**
+     * Phase 6 — cumulative equipment-days / manpower-days summed across all dates
+     * {@code <= asOf}. Optionally restricted to a single CM's downline.
+     */
+    @GetMapping("/register/cumulative")
+    public ResponseEntity<ApiResponse<CumulativeDaysResponse>> getCumulative(
+        @PathVariable UUID projectId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf,
+        @RequestParam(required = false) UUID cmUserId) {
+
+        CumulativeDaysResponse body = registerAggregationService
+            .cumulative(projectId, asOf, cmUserId);
+        return ResponseEntity.ok(ApiResponse.ok(body));
     }
 
     // ── admin recompute ─────────────────────────────────────────────────────────
@@ -238,6 +325,7 @@ public class DbsController {
         // honest empty row (supRows.isEmpty() ⇒ dprCount = 0).
         List<UUID> supervisorIds = dprRepository.findDistinctSupervisorUserIdsByProjectAndDate(projectId, date);
         Set<UUID> engineerIds = new LinkedHashSet<>();
+        Set<UUID> cmIds = new LinkedHashSet<>();
         for (UUID sup : supervisorIds) {
             aggregationService.recomputeSupervisorDay(projectId, sup, date);
             // Bug 8 fix: admin recompute previously skipped the engineer-day rollup,
@@ -245,9 +333,16 @@ public class DbsController {
             // Resolve each supervisor's engineer-of-record and queue a recompute.
             projectTeamService.resolveEngineerFor(projectId, sup)
                 .ifPresent(engineerIds::add);
+            // Phase 4: same fan-out for the CM tier — admin recompute must refresh
+            // dbs_daily_cm rows alongside engineer + project.
+            projectTeamService.resolveCmFor(projectId, sup)
+                .ifPresent(cmIds::add);
         }
         for (UUID eng : engineerIds) {
             aggregationService.recomputeEngineerDay(projectId, eng, date);
+        }
+        for (UUID cm : cmIds) {
+            aggregationService.recomputeCmDay(projectId, cm, date);
         }
         return aggregationService.recomputeProjectDay(projectId, date);
     }

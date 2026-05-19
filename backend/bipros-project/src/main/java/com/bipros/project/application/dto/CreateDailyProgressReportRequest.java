@@ -7,6 +7,7 @@ import com.bipros.project.domain.model.Side;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 
@@ -17,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateDailyProgressReportRequest(
-    @NotNull LocalDate reportDate,
+    @NotNull @PastOrPresent(message = "reportDate must not be in the future") LocalDate reportDate,
 
     /**
      * Optional FK to {@code public.users.id} for the supervisor (Phase 4.1 cutover). When set,

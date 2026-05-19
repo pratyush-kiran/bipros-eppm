@@ -3,6 +3,7 @@ package com.bipros.project.application.dto;
 import com.bipros.project.domain.model.DprEquipment;
 import com.bipros.project.domain.model.EquipmentAvailability;
 import com.bipros.project.domain.model.EquipmentOwnership;
+import com.bipros.project.domain.model.Shift;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -17,6 +18,7 @@ public record DprEquipmentRow(
     @NotBlank String equipmentType,
     String fleetNo,
     EquipmentOwnership ownership,
+    Shift shift,
     @PositiveOrZero Integer nos,
     @PositiveOrZero BigDecimal workingHours,
     @PositiveOrZero BigDecimal idleHours,
@@ -39,6 +41,7 @@ public record DprEquipmentRow(
             e.getEquipmentType(),
             e.getFleetNo(),
             e.getOwnership(),
+            e.getShift(),
             e.getNos(),
             e.getWorkingHours(),
             e.getIdleHours(),
@@ -62,6 +65,7 @@ public record DprEquipmentRow(
             .equipmentType(equipmentType)
             .fleetNo(fleetNo)
             .ownership(ownership)
+            .shift(shift == null ? Shift.DAY : shift)
             .nos(nos)
             .workingHours(workingHours)
             .idleHours(idleHours)

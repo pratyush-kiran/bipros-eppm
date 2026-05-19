@@ -107,7 +107,7 @@ class ActivityServiceLockGuardTest {
     return new UpdateActivityRequest(
         "Renamed", null, null, null, null, null, null, null, null,
         null, null, null, null,
-        null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
   }
 
   // ─── LOCKED activities reject mutators ────────────────────────────────────────────

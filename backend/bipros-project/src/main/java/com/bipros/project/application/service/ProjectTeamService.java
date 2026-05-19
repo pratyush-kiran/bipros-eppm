@@ -14,9 +14,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * CRUD + resolver helpers for the project-scoped reporting line (see
@@ -128,6 +131,53 @@ public class ProjectTeamService {
         return teamRepository.findByProjectIdAndRole(projectId, ProjectRole.PM).stream()
             .findFirst()
             .map(ProjectTeamMember::getUserId);
+    }
+
+    /**
+     * Walk the reporting chain from {@code startUserId} upward and return the first
+     * CONSTRUCTION_MANAGER encountered. Returns empty if the chain does not include a
+     * CM (e.g. legacy four-tier configuration without the CM seat).
+     */
+    @Transactional(readOnly = true)
+    public Optional<UUID> resolveCmFor(UUID projectId, UUID startUserId) {
+        return walkUpChain(projectId, startUserId)
+            .filter(m -> m.getRole() == ProjectRole.CONSTRUCTION_MANAGER)
+            .findFirst()
+            .map(ProjectTeamMember::getUserId);
+    }
+
+    /**
+     * Walk the reporting chain from {@code startUserId} upward and return the first PM
+     * encountered. Differs from {@link #resolvePmFor(UUID)} (which returns the project's
+     * PM regardless of the caller's place in the hierarchy) — this overload walks the
+     * chain edges, so an orphaned subtree without a PM at the top returns empty.
+     */
+    @Transactional(readOnly = true)
+    public Optional<UUID> resolvePmFor(UUID projectId, UUID startUserId) {
+        return walkUpChain(projectId, startUserId)
+            .filter(m -> m.getRole() == ProjectRole.PM)
+            .findFirst()
+            .map(ProjectTeamMember::getUserId);
+    }
+
+    /**
+     * Stream the chain of {@link ProjectTeamMember} rows starting at {@code startUserId}
+     * and following {@code reportsToUserId} edges. The starting row itself is included.
+     * A visited-set guards against accidental cycles in the data.
+     */
+    private Stream<ProjectTeamMember> walkUpChain(UUID projectId, UUID startUserId) {
+        if (startUserId == null) return Stream.empty();
+        List<ProjectTeamMember> chain = new java.util.ArrayList<>();
+        Set<UUID> visited = new HashSet<>();
+        UUID cursor = startUserId;
+        while (cursor != null && visited.add(cursor)) {
+            List<ProjectTeamMember> rows = teamRepository.findAllByProjectIdAndUserId(projectId, cursor);
+            if (rows.isEmpty()) break;
+            ProjectTeamMember m = rows.get(0);
+            chain.add(m);
+            cursor = m.getReportsToUserId();
+        }
+        return chain.stream();
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────────

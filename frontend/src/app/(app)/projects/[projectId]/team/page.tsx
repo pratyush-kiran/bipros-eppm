@@ -43,6 +43,7 @@ import { useAuthStore } from "@/lib/state/store";
 // Order is significant — drives the section order on the page.
 const ROLE_ORDER: ProjectRole[] = [
   "PM",
+  "CONSTRUCTION_MANAGER",
   "SITE_MANAGER",
   "ENGINEER",
   "SUPERVISOR",
@@ -52,6 +53,7 @@ const ROLE_ORDER: ProjectRole[] = [
 
 const ROLE_CHIP: Record<ProjectRole, string> = {
   PM: "bg-accent/10 text-accent border-accent/30",
+  CONSTRUCTION_MANAGER: "bg-indigo-500/10 text-indigo-600 border-indigo-500/30",
   SITE_MANAGER: "bg-blue-500/10 text-blue-600 border-blue-500/30",
   ENGINEER: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
   SUPERVISOR: "bg-amber-500/10 text-amber-600 border-amber-500/30",

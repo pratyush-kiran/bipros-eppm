@@ -109,6 +109,7 @@ export default function ActivityDetailPage() {
     workActivityId: "",
     calendarId: "",
     costAccountId: null,
+    preliminary: false,
   });
 
   const [usePert, setUsePert] = useState(false);
@@ -317,6 +318,7 @@ export default function ActivityDetailPage() {
         workActivityId: activity.workActivityId || "",
         calendarId: activity.calendarId || "",
         costAccountId: activity.costAccountId ?? null,
+        preliminary: activity.preliminary ?? false,
         supervisorUserId: activity.responsibleResourceId ?? null,
         supervisorUserName: activity.responsibleResourceName ?? null,
         primaryConstraintType: activity.primaryConstraintType ?? undefined,
@@ -479,6 +481,9 @@ export default function ActivityDetailPage() {
           supervisorOptions={supervisorOptions}
           isLoadingSupervisorPool={isLoadingSupervisorPool}
           onSupervisorChange={handleSupervisorChange}
+          onPreliminaryChange={(checked) =>
+            setEditData((prev) => ({ ...prev, preliminary: checked }))
+          }
         />
       ) : (
         <ViewMode activity={activity} projectId={projectId} workActivity={linkedWorkActivity} projectCalendars={projectCalendars} projectCalendarId={projectCalendarId} costAccounts={costAccounts} />
@@ -1389,6 +1394,12 @@ interface EditFormProps {
   supervisorOptions: { value: string; label: string }[];
   isLoadingSupervisorPool: boolean;
   onSupervisorChange: (value: string) => void;
+  /**
+   * DBS-Phase-2: toggles the BOQ Section 1 (Preliminary) flag. Routed up to the page state
+   * because the value flows back to the backend via {@code UpdateActivityRequest.preliminary}
+   * (not a free-text input the generic {@code onChange} handler can pick up).
+   */
+  onPreliminaryChange: (checked: boolean) => void;
 }
 
 function EditForm({
@@ -1412,6 +1423,7 @@ function EditForm({
   supervisorOptions,
   isLoadingSupervisorPool,
   onSupervisorChange,
+  onPreliminaryChange,
 }: EditFormProps) {
   return (
     <div className="rounded-lg border border-border bg-surface/50 p-6 shadow-sm">
@@ -1704,6 +1716,29 @@ function EditForm({
             Field-accountable supervisor. Picker lists users carrying SUPERVISOR /
             FOREMAN / SITE_ENGINEER / SITE_MANAGER roles.
           </p>
+        </div>
+
+        <div className="border-t border-border pt-6">
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="preliminary"
+              checked={data.preliminary ?? false}
+              onChange={(e) => onPreliminaryChange(e.target.checked)}
+              className="mt-1 rounded border-border"
+            />
+            <label htmlFor="preliminary" className="text-sm text-text-secondary">
+              <span className="font-medium text-text-primary">
+                Preliminary item (BOQ Section 1 — mobilization, site setup, diversions, etc.)
+              </span>
+              <p className="mt-1 text-xs text-text-muted">
+                When checked, this activity&rsquo;s cost is rolled up into the DBS{" "}
+                <em>Preliminaries</em> bucket instead of <em>Direct Cost</em>. Use for
+                mobilisation, site facilities, diversions, bonds, insurance and other Section 1
+                overhead items.
+              </p>
+            </label>
+          </div>
         </div>
 
         <div className="border-t border-border pt-6">

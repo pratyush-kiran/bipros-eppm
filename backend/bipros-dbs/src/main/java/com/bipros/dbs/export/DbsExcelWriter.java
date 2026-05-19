@@ -1,11 +1,18 @@
 package com.bipros.dbs.export;
 
+import com.bipros.dbs.api.dto.CmShiftCount;
+import com.bipros.dbs.api.dto.CumulativeDaysResponse;
 import com.bipros.dbs.api.dto.DbsEngineerDayResponse;
 import com.bipros.dbs.api.dto.DbsProjectDayResponse;
 import com.bipros.dbs.api.dto.DbsSectionLineDto;
 import com.bipros.dbs.api.dto.DbsSupervisorDayResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorSummaryDto;
+import com.bipros.dbs.api.dto.EquipmentRegisterResponse;
+import com.bipros.dbs.api.dto.EquipmentRegisterTypeRow;
+import com.bipros.dbs.api.dto.ManpowerRegisterResponse;
+import com.bipros.dbs.api.dto.ManpowerRegisterTradeRow;
 import com.bipros.dbs.service.DbsQueryService;
+import com.bipros.dbs.service.RegisterAggregationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -32,7 +39,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -53,6 +63,7 @@ import java.util.UUID;
 public class DbsExcelWriter {
 
     private final DbsQueryService queryService;
+    private final RegisterAggregationService registerService;
 
     // ── Public API ─────────────────────────────────────────────────────────────────────────
 
@@ -95,6 +106,17 @@ public class DbsExcelWriter {
                 String sheetName = safeSheetName(label, wb);
                 writeSupervisorSheet(wb, sheetName, sup, date, s);
             }
+
+            // 4. Equipment & Manpower Register sheets (Phase 9). These match the
+            //    "MP & Eqpt Summary", "Plant Summary", and "Eqpmnt & MP Days" sheets
+            //    of the client's Excel template.
+            EquipmentRegisterResponse equipmentRegister =
+                registerService.getEquipmentRegister(projectId, date, null);
+            writeEquipmentRegisterSheet(wb, equipmentRegister, s);
+            writePlantSummarySheet(wb, equipmentRegister, s);
+
+            CumulativeDaysResponse cumulative = registerService.cumulative(projectId, date, null);
+            writeCumulativeDaysSheet(wb, cumulative, s);
 
             return toByteArray(wb);
         } catch (IOException ex) {
@@ -412,6 +434,232 @@ public class DbsExcelWriter {
 
         rowNum++; // spacer between sections
         return rowNum;
+    }
+
+    // ── Sheet: "MP & Eqpt Summary" (Equipment Register pivot by CM × shift) ────────────────
+
+    /**
+     * Equipment Register pivot. One row per equipment type. Columns: SL No, Equipment,
+     * Total, and a (Day, Night) pair for every CM present in the register, finishing
+     * with an "Off Road" column carrying the unattached (cm_user_id IS NULL) bucket.
+     */
+    private void writeEquipmentRegisterSheet(XSSFWorkbook wb, EquipmentRegisterResponse data, Styles s) {
+        XSSFSheet sh = wb.createSheet(safeSheetName("MP & Eqpt Summary", wb));
+        int rowNum = 0;
+
+        XSSFRow title = sh.createRow(rowNum++);
+        setText(title, 0, "Equipment Deployment Register — MP & Eqpt Summary", s.title);
+
+        XSSFRow meta = sh.createRow(rowNum++);
+        setText(meta, 0, "Date :", s.bold);
+        setText(meta, 1, data.date() == null ? "" : data.date().toString(), s.plain);
+        rowNum++; // spacer
+
+        // Distinct CMs across all equipment rows — preserves insertion order so the
+        // column layout is stable across calls with the same data.
+        LinkedHashMap<UUID, String> cms = collectCms(equipmentCms(data));
+
+        // Header — SL No | Equipment | Total | <Cm1 Day> <Cm1 Night> ... | Off Road
+        XSSFRow header = sh.createRow(rowNum++);
+        setText(header, 0, "SL No", s.headerCenter);
+        setText(header, 1, "Equipment", s.headerCenter);
+        setText(header, 2, "Total", s.headerCenter);
+        int col = 3;
+        for (Map.Entry<UUID, String> cm : cms.entrySet()) {
+            setText(header, col++, cm.getValue() + " Day", s.headerCenter);
+            setText(header, col++, cm.getValue() + " Night", s.headerCenter);
+        }
+        int offRoadCol = col;
+        setText(header, offRoadCol, "Off Road", s.headerCenter);
+
+        // Rows
+        int sl = 1;
+        for (EquipmentRegisterTypeRow type : nz(data.equipment())) {
+            XSSFRow row = sh.createRow(rowNum++);
+            setText(row, 0, String.valueOf(sl++), s.plain);
+            setText(row, 1, type.type(), s.plain);
+            setBigDecimal(row, 2, java.math.BigDecimal.valueOf(type.total()), s.numCell);
+
+            int c = 3;
+            int offRoad = 0;
+            for (Map.Entry<UUID, String> cmEntry : cms.entrySet()) {
+                CmShiftCount match = findCmEntry(type.byCm(), cmEntry.getKey());
+                setBigDecimal(row, c++,
+                    java.math.BigDecimal.valueOf(match == null ? 0 : match.day()), s.numCell);
+                setBigDecimal(row, c++,
+                    java.math.BigDecimal.valueOf(match == null ? 0 : match.night()), s.numCell);
+            }
+            // Unattached bucket: any byCm entry with null cmUserId — sum day + night.
+            for (CmShiftCount e : nz(type.byCm())) {
+                if (e.cmUserId() == null) offRoad += e.total();
+            }
+            setBigDecimal(row, offRoadCol, java.math.BigDecimal.valueOf(offRoad), s.numCell);
+        }
+
+        // Make the first columns wide enough for labels; per-CM columns get a uniform
+        // narrow width.
+        int[] widths = new int[offRoadCol + 1];
+        widths[0] = 2400;
+        widths[1] = 7200;
+        widths[2] = 3200;
+        for (int i = 3; i < offRoadCol; i++) widths[i] = 3200;
+        widths[offRoadCol] = 3200;
+        setColumnWidths(sh, widths);
+    }
+
+    // ── Sheet: "Plant Summary" ─────────────────────────────────────────────────────────────
+
+    /**
+     * Plant Summary. One row per equipment type. Columns: Equipment, Variation,
+     * Available, Total as per Site, and a (No's/Day, Total) pair per CM.
+     *
+     * <p>{@code Variation} and {@code Available} are blank in v1 — the plan defers the
+     * plant-census master table.
+     */
+    private void writePlantSummarySheet(XSSFWorkbook wb, EquipmentRegisterResponse data, Styles s) {
+        XSSFSheet sh = wb.createSheet(safeSheetName("Plant Summary", wb));
+        int rowNum = 0;
+
+        XSSFRow title = sh.createRow(rowNum++);
+        setText(title, 0, "Plant Summary", s.title);
+
+        XSSFRow meta = sh.createRow(rowNum++);
+        setText(meta, 0, "Date :", s.bold);
+        setText(meta, 1, data.date() == null ? "" : data.date().toString(), s.plain);
+        rowNum++; // spacer
+
+        LinkedHashMap<UUID, String> cms = collectCms(equipmentCms(data));
+
+        XSSFRow header = sh.createRow(rowNum++);
+        setText(header, 0, "Equipment", s.headerCenter);
+        setText(header, 1, "Variation", s.headerCenter);
+        setText(header, 2, "Available", s.headerCenter);
+        setText(header, 3, "Total as per Site", s.headerCenter);
+        int col = 4;
+        for (Map.Entry<UUID, String> cm : cms.entrySet()) {
+            setText(header, col++, cm.getValue() + " No's/Day", s.headerCenter);
+            setText(header, col++, cm.getValue() + " Total", s.headerCenter);
+        }
+
+        for (EquipmentRegisterTypeRow type : nz(data.equipment())) {
+            XSSFRow row = sh.createRow(rowNum++);
+            setText(row, 0, type.type(), s.plain);
+            // Variation / Available intentionally blank — plant census deferred.
+            setText(row, 1, "", s.plain);
+            setText(row, 2, "", s.plain);
+            setBigDecimal(row, 3, java.math.BigDecimal.valueOf(type.total()), s.numCell);
+            int c = 4;
+            for (Map.Entry<UUID, String> cmEntry : cms.entrySet()) {
+                CmShiftCount match = findCmEntry(type.byCm(), cmEntry.getKey());
+                setBigDecimal(row, c++, java.math.BigDecimal.valueOf(match == null ? 0 : match.day()),
+                    s.numCell);
+                setBigDecimal(row, c++, java.math.BigDecimal.valueOf(match == null ? 0 : match.total()),
+                    s.numCell);
+            }
+        }
+
+        int columns = 4 + (cms.size() * 2);
+        int[] widths = new int[Math.max(columns, 4)];
+        widths[0] = 7200;
+        widths[1] = 3200;
+        widths[2] = 3200;
+        widths[3] = 4400;
+        for (int i = 4; i < widths.length; i++) widths[i] = 3200;
+        setColumnWidths(sh, widths);
+    }
+
+    // ── Sheet: "Eqpmnt & MP Days" (Cumulative Days) ────────────────────────────────────────
+
+    /**
+     * Cumulative deployment-days. Two stacked tables — Equipment first, then Manpower
+     * — separated by a blank row. Header is {@code Resource | Cumulative Days} for each.
+     */
+    private void writeCumulativeDaysSheet(XSSFWorkbook wb, CumulativeDaysResponse data, Styles s) {
+        XSSFSheet sh = wb.createSheet(safeSheetName("Eqpmnt & MP Days", wb));
+        int rowNum = 0;
+
+        XSSFRow title = sh.createRow(rowNum++);
+        setText(title, 0, "Cumulative Equipment & Manpower Days", s.title);
+
+        XSSFRow meta = sh.createRow(rowNum++);
+        setText(meta, 0, "As of :", s.bold);
+        setText(meta, 1, data.asOfDate() == null ? "" : data.asOfDate().toString(), s.plain);
+        rowNum++; // spacer
+
+        // Equipment block
+        XSSFRow eqBanner = sh.createRow(rowNum++);
+        setText(eqBanner, 0, "Equipment", s.sectionHeader);
+        eqBanner.createCell(1).setCellStyle(s.sectionHeader);
+        sh.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 1));
+
+        XSSFRow eqHeader = sh.createRow(rowNum++);
+        setText(eqHeader, 0, "Resource", s.headerCenter);
+        setText(eqHeader, 1, "Cumulative Days", s.headerCenter);
+        for (CumulativeDaysResponse.CumulativeEquipmentDays eq : nz(data.equipment())) {
+            XSSFRow row = sh.createRow(rowNum++);
+            setText(row, 0, eq.type(), s.plain);
+            setBigDecimal(row, 1, java.math.BigDecimal.valueOf(eq.days()), s.numCell);
+        }
+
+        rowNum++; // blank separator row
+
+        // Manpower block
+        XSSFRow mpBanner = sh.createRow(rowNum++);
+        setText(mpBanner, 0, "Manpower", s.sectionHeader);
+        mpBanner.createCell(1).setCellStyle(s.sectionHeader);
+        sh.addMergedRegion(new CellRangeAddress(rowNum - 1, rowNum - 1, 0, 1));
+
+        XSSFRow mpHeader = sh.createRow(rowNum++);
+        setText(mpHeader, 0, "Resource", s.headerCenter);
+        setText(mpHeader, 1, "Cumulative Days", s.headerCenter);
+        for (CumulativeDaysResponse.CumulativeManpowerDays mp : nz(data.manpower())) {
+            XSSFRow row = sh.createRow(rowNum++);
+            setText(row, 0, mp.trade(), s.plain);
+            setBigDecimal(row, 1, java.math.BigDecimal.valueOf(mp.days()), s.numCell);
+        }
+
+        setColumnWidths(sh, new int[] {8000, 4400});
+    }
+
+    // ── Register helpers ───────────────────────────────────────────────────────────────────
+
+    /**
+     * Walks the equipment register response and returns the distinct (cmUserId → name)
+     * map, omitting the unattached bucket — that one lives in the Off Road column.
+     */
+    private static List<CmShiftCount> equipmentCms(EquipmentRegisterResponse data) {
+        List<CmShiftCount> out = new ArrayList<>();
+        for (EquipmentRegisterTypeRow t : nz(data.equipment())) {
+            for (CmShiftCount c : nz(t.byCm())) {
+                if (c.cmUserId() != null) out.add(c);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Collapse a list of (potentially repeated) CM entries into a stable
+     * cmUserId → cmName map. LinkedHashMap preserves first-seen order so column
+     * layout is deterministic between calls.
+     */
+    private static LinkedHashMap<UUID, String> collectCms(List<CmShiftCount> entries) {
+        LinkedHashMap<UUID, String> cms = new LinkedHashMap<>();
+        Set<UUID> seen = new LinkedHashSet<>();
+        for (CmShiftCount c : entries) {
+            if (c.cmUserId() == null) continue;
+            if (seen.add(c.cmUserId())) {
+                cms.put(c.cmUserId(), c.cmName() == null ? shortUuid(c.cmUserId()) : c.cmName());
+            }
+        }
+        return cms;
+    }
+
+    private static CmShiftCount findCmEntry(List<CmShiftCount> byCm, UUID cmUserId) {
+        if (byCm == null) return null;
+        for (CmShiftCount c : byCm) {
+            if (cmUserId.equals(c.cmUserId())) return c;
+        }
+        return null;
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────────────────

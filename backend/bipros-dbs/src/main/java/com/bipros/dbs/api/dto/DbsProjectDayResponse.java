@@ -10,6 +10,9 @@ import java.util.UUID;
  * Single-day DBS payload at project level. {@code cumulative*} fields are computed at read
  * time by summing all dbs_daily_project rows with {@code report_date &lt;= this date}; they
  * are not persisted because they would invalidate on any historical recompute.
+ *
+ * <p>Phase 7: {@code directCost} / {@code prelimCost} / {@code totalCostInclPrelims} /
+ * {@code pctAchieved} carry the project-wide prelim split and progress KPI.
  */
 public record DbsProjectDayResponse(
     UUID id,
@@ -27,6 +30,10 @@ public record DbsProjectDayResponse(
     BigDecimal boqForTheDayAmount,
     BigDecimal boqPlannedAmount,
     BigDecimal boqAchievedAmount,
+    BigDecimal directCost,
+    BigDecimal prelimCost,
+    BigDecimal totalCostInclPrelims,
+    BigDecimal pctAchieved,
     BigDecimal totalExpense,
     BigDecimal totalIncome,
     BigDecimal contribution,

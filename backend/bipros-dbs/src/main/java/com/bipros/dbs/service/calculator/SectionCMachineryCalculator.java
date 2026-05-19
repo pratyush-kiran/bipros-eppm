@@ -15,9 +15,13 @@ import java.util.UUID;
 /**
  * Section C — Machinery / Equipment. Primary source is {@code project.dpr_equipment}
  * joined to {@code project.daily_progress_reports} so we can filter by (project, date,
- * supervisor). Rate resolution mirrors Section A: {@code line_cost} →
- * ({@code nos × working_hours × unit_rate}) → {@code equipment_role_variant_id →
- * equipment_role_variants.rate} → {@code equipment_rate_masters.id = role_id}.
+ * supervisor).
+ *
+ * <p><b>Cost rule:</b> {@code amount = nos × rate}. The DPR's {@code working_hours} column
+ * is a logging field only; never enters cost or quantity math. Rate resolution chain:
+ * {@code line_cost} (preferred — written by {@code DprCostFormulas}) →
+ * {@code unit_rate} on the row → {@code equipment_role_variants.rate} →
+ * {@code equipment_rate_masters.rate}.
  *
  * <p>Legacy {@code project.daily_resource_deployments} (EQUIPMENT) rows are folded in only
  * when {@code supervisorUserId} is null — DRD has no supervisor FK, so project-only
@@ -40,11 +44,10 @@ public class SectionCMachineryCalculator {
             String dprSql = """
                 SELECT eq.equipment_type,
                        COALESCE(eq.nos, 0)                                    AS nos,
-                       COALESCE(eq.working_hours, 0)                          AS hrs,
                        eq.unit_rate                                           AS row_rate,
                        eq.line_cost                                           AS row_line_cost,
                        COALESCE(erv.rate, erm.rate, 0)                        AS fallback_rate,
-                       COALESCE(erv.unit, erm.unit, 'hr')                     AS unit
+                       COALESCE(erv.unit, erm.unit, 'Day')                    AS unit
                 FROM project.dpr_equipment eq
                 JOIN project.daily_progress_reports d ON d.id = eq.dpr_id
                 LEFT JOIN resource.equipment_role_variants erv ON erv.id = eq.equipment_role_variant_id
@@ -61,26 +64,23 @@ public class SectionCMachineryCalculator {
             for (Object[] r : rows) {
                 String desc = (String) r[0];
                 BigDecimal nos = toBigDecimal(r[1]);
-                BigDecimal hrs = toBigDecimal(r[2]);
-                BigDecimal rowRate = toBigDecimalNullable(r[3]);
-                BigDecimal rowLineCost = toBigDecimalNullable(r[4]);
-                BigDecimal fallbackRate = toBigDecimal(r[5]);
-                String unit = (String) r[6];
+                BigDecimal rowRate = toBigDecimalNullable(r[2]);
+                BigDecimal rowLineCost = toBigDecimalNullable(r[3]);
+                BigDecimal fallbackRate = toBigDecimal(r[4]);
+                String unit = (String) r[5];
 
-                BigDecimal qty = nos.multiply(hrs);
                 BigDecimal effectiveRate = rowRate != null && rowRate.signum() > 0 ? rowRate : fallbackRate;
-                BigDecimal amount;
-                if (rowLineCost != null && rowLineCost.signum() != 0) {
-                    amount = rowLineCost.setScale(2, RoundingMode.HALF_UP);
-                } else {
-                    amount = qty.multiply(effectiveRate).setScale(2, RoundingMode.HALF_UP);
-                }
+                // Cost = Nos × Rate. line_cost is preferred (DprCostFormulas already wrote it),
+                // but recompute from nos × rate when it's missing.
+                BigDecimal amount = (rowLineCost != null && rowLineCost.signum() != 0)
+                    ? rowLineCost.setScale(2, RoundingMode.HALF_UP)
+                    : nos.multiply(effectiveRate).setScale(2, RoundingMode.HALF_UP);
                 if (amount.signum() == 0 && effectiveRate.signum() == 0) {
-                    log.warn("Section C equipment row has no resolvable rate: projectId={} date={} equipment={} (nos={}, hrs={}). "
+                    log.warn("Section C equipment row has no resolvable rate: projectId={} date={} equipment={} (nos={}). "
                             + "Configure equipment_role_variants / equipment_rate_masters for the role, or set unit_rate/line_cost on the DPR row.",
-                        projectId, date, desc, nos, hrs);
+                        projectId, date, desc, nos);
                 }
-                lines.add(new SectionLine(desc, unit, effectiveRate, qty, amount));
+                lines.add(new SectionLine(desc, unit, effectiveRate, nos, amount));
                 total = total.add(amount);
             }
         } catch (Exception ex) {
@@ -94,9 +94,8 @@ public class SectionCMachineryCalculator {
                 String drdSql = """
                     SELECT d.resource_description,
                            COALESCE(d.nos_deployed, 0)   AS nos,
-                           COALESCE(d.hours_worked, 0)   AS hrs,
                            COALESCE(e.rate, 0)           AS rate,
-                           COALESCE(e.unit, 'hr')        AS unit
+                           COALESCE(e.unit, 'Day')       AS unit
                     FROM project.daily_resource_deployments d
                     LEFT JOIN resource.equipment_rate_masters e
                            ON e.id = d.resource_role_id OR e.id = d.resource_id
@@ -111,12 +110,10 @@ public class SectionCMachineryCalculator {
                 for (Object[] r : rows) {
                     String desc = (String) r[0];
                     BigDecimal nos = toBigDecimal(r[1]);
-                    BigDecimal hrs = toBigDecimal(r[2]);
-                    BigDecimal rate = toBigDecimal(r[3]);
-                    String unit = (String) r[4];
-                    BigDecimal qty = nos.multiply(hrs);
-                    BigDecimal amount = qty.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                    lines.add(new SectionLine(desc, unit, rate, qty, amount));
+                    BigDecimal rate = toBigDecimal(r[2]);
+                    String unit = (String) r[3];
+                    BigDecimal amount = nos.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+                    lines.add(new SectionLine(desc, unit, rate, nos, amount));
                     total = total.add(amount);
                 }
             } catch (Exception ex) {

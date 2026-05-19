@@ -1,11 +1,18 @@
 package com.bipros.dbs.export;
 
+import com.bipros.dbs.api.dto.CmShiftCount;
+import com.bipros.dbs.api.dto.CumulativeDaysResponse;
 import com.bipros.dbs.api.dto.DbsEngineerDayResponse;
 import com.bipros.dbs.api.dto.DbsProjectDayResponse;
 import com.bipros.dbs.api.dto.DbsSectionLineDto;
 import com.bipros.dbs.api.dto.DbsSupervisorDayResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorSummaryDto;
+import com.bipros.dbs.api.dto.EquipmentRegisterResponse;
+import com.bipros.dbs.api.dto.EquipmentRegisterTypeRow;
+import com.bipros.dbs.api.dto.ManpowerRegisterResponse;
+import com.bipros.dbs.api.dto.ManpowerRegisterTradeRow;
 import com.bipros.dbs.service.DbsQueryService;
+import com.bipros.dbs.service.RegisterAggregationService;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,8 +24,12 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -36,6 +47,7 @@ public class DbsPdfWriter {
     private static final DecimalFormat PCT = new DecimalFormat("0.00%");
 
     private final DbsQueryService queryService;
+    private final RegisterAggregationService registerService;
 
     public byte[] writePmReport(UUID projectId, LocalDate date) {
         DbsProjectDayResponse project = queryService.getProjectDay(projectId, date);
@@ -44,8 +56,14 @@ public class DbsPdfWriter {
             engineers.add(queryService.getEngineerDay(projectId, eid, date));
         }
         List<DbsSupervisorSummaryDto> supervisors = queryService.listSupervisorsForDay(projectId, date);
+        EquipmentRegisterResponse equipmentRegister =
+            registerService.getEquipmentRegister(projectId, date, null);
+        ManpowerRegisterResponse manpowerRegister =
+            registerService.getManpowerRegister(projectId, date, null);
+        CumulativeDaysResponse cumulative = registerService.cumulative(projectId, date, null);
 
-        String html = renderPmHtml(projectId, date, project, engineers, supervisors);
+        String html = renderPmHtml(projectId, date, project, engineers, supervisors,
+            equipmentRegister, manpowerRegister, cumulative);
         return renderToPdf(html, "PM report " + projectId + " " + date);
     }
 
@@ -61,7 +79,10 @@ public class DbsPdfWriter {
         UUID projectId, LocalDate date,
         DbsProjectDayResponse project,
         List<DbsEngineerDayResponse> engineers,
-        List<DbsSupervisorSummaryDto> supervisors) {
+        List<DbsSupervisorSummaryDto> supervisors,
+        EquipmentRegisterResponse equipmentRegister,
+        ManpowerRegisterResponse manpowerRegister,
+        CumulativeDaysResponse cumulative) {
 
         StringBuilder sb = new StringBuilder(8 * 1024);
         sb.append(htmlHead("DBS — Summary-Financial"));
@@ -140,8 +161,167 @@ public class DbsPdfWriter {
             sb.append("</tbody></table>");
         }
 
+        // Phase 9 — Equipment Register, Manpower Register, Cumulative Days.
+        // Mirrors the new Excel sheets ("MP & Eqpt Summary", "Plant Summary",
+        // "Eqpmnt & MP Days") so the PDF stays in lockstep with the workbook.
+        appendEquipmentRegisterSection(sb, equipmentRegister);
+        appendManpowerRegisterSection(sb, manpowerRegister);
+        appendCumulativeDaysSection(sb, cumulative);
+
         sb.append(htmlFoot());
         return sb.toString();
+    }
+
+    private void appendEquipmentRegisterSection(StringBuilder sb, EquipmentRegisterResponse data) {
+        if (data == null) return;
+        sb.append("<h2>Equipment Register</h2>");
+        if (data.equipment() == null || data.equipment().isEmpty()) {
+            sb.append("<p class=\"muted\">No equipment deployed.</p>");
+            return;
+        }
+        LinkedHashMap<UUID, String> cms = collectEquipmentCms(data);
+        sb.append("<table><thead><tr>")
+            .append("<th>Equipment</th>")
+            .append("<th class=\"r\">Total</th>");
+        for (Map.Entry<UUID, String> e : cms.entrySet()) {
+            sb.append("<th class=\"r\">").append(esc(e.getValue())).append(" Day</th>");
+            sb.append("<th class=\"r\">").append(esc(e.getValue())).append(" Night</th>");
+        }
+        sb.append("<th class=\"r\">Off Road</th>")
+            .append("</tr></thead><tbody>");
+        for (EquipmentRegisterTypeRow type : data.equipment()) {
+            sb.append("<tr>")
+                .append(td(type.type()))
+                .append(tdR(String.valueOf(type.total())));
+            for (Map.Entry<UUID, String> e : cms.entrySet()) {
+                CmShiftCount match = findCmEntry(type.byCm(), e.getKey());
+                sb.append(tdR(String.valueOf(match == null ? 0 : match.day())));
+                sb.append(tdR(String.valueOf(match == null ? 0 : match.night())));
+            }
+            int offRoad = 0;
+            if (type.byCm() != null) {
+                for (CmShiftCount c : type.byCm()) {
+                    if (c.cmUserId() == null) offRoad += c.total();
+                }
+            }
+            sb.append(tdR(String.valueOf(offRoad)))
+                .append("</tr>");
+        }
+        sb.append("</tbody></table>");
+    }
+
+    private void appendManpowerRegisterSection(StringBuilder sb, ManpowerRegisterResponse data) {
+        if (data == null) return;
+        sb.append("<h2>Manpower Register</h2>");
+        if (data.manpower() == null || data.manpower().isEmpty()) {
+            sb.append("<p class=\"muted\">No manpower deployed.</p>");
+            return;
+        }
+        LinkedHashMap<UUID, String> cms = collectManpowerCms(data);
+        sb.append("<table><thead><tr>")
+            .append("<th>Trade</th>")
+            .append("<th class=\"r\">Total</th>");
+        for (Map.Entry<UUID, String> e : cms.entrySet()) {
+            sb.append("<th class=\"r\">").append(esc(e.getValue())).append(" Day</th>");
+            sb.append("<th class=\"r\">").append(esc(e.getValue())).append(" Night</th>");
+        }
+        sb.append("<th class=\"r\">Off Roster</th>")
+            .append("</tr></thead><tbody>");
+        for (ManpowerRegisterTradeRow trade : data.manpower()) {
+            sb.append("<tr>")
+                .append(td(trade.trade()))
+                .append(tdR(String.valueOf(trade.total())));
+            for (Map.Entry<UUID, String> e : cms.entrySet()) {
+                CmShiftCount match = findCmEntry(trade.byCm(), e.getKey());
+                sb.append(tdR(String.valueOf(match == null ? 0 : match.day())));
+                sb.append(tdR(String.valueOf(match == null ? 0 : match.night())));
+            }
+            int offRoster = 0;
+            if (trade.byCm() != null) {
+                for (CmShiftCount c : trade.byCm()) {
+                    if (c.cmUserId() == null) offRoster += c.total();
+                }
+            }
+            sb.append(tdR(String.valueOf(offRoster)))
+                .append("</tr>");
+        }
+        sb.append("</tbody></table>");
+    }
+
+    private void appendCumulativeDaysSection(StringBuilder sb, CumulativeDaysResponse data) {
+        if (data == null) return;
+        sb.append("<h2>Cumulative Days</h2>");
+        sb.append("<h3>Equipment</h3>");
+        sb.append("<table><thead><tr>")
+            .append("<th>Resource</th>")
+            .append("<th class=\"r\">Cumulative Days</th>")
+            .append("</tr></thead><tbody>");
+        if (data.equipment() == null || data.equipment().isEmpty()) {
+            sb.append("<tr><td colspan=\"2\" class=\"muted\">No data</td></tr>");
+        } else {
+            for (CumulativeDaysResponse.CumulativeEquipmentDays eq : data.equipment()) {
+                sb.append("<tr>")
+                    .append(td(eq.type()))
+                    .append(tdR(String.valueOf(eq.days())))
+                    .append("</tr>");
+            }
+        }
+        sb.append("</tbody></table>");
+
+        sb.append("<h3>Manpower</h3>");
+        sb.append("<table><thead><tr>")
+            .append("<th>Resource</th>")
+            .append("<th class=\"r\">Cumulative Days</th>")
+            .append("</tr></thead><tbody>");
+        if (data.manpower() == null || data.manpower().isEmpty()) {
+            sb.append("<tr><td colspan=\"2\" class=\"muted\">No data</td></tr>");
+        } else {
+            for (CumulativeDaysResponse.CumulativeManpowerDays mp : data.manpower()) {
+                sb.append("<tr>")
+                    .append(td(mp.trade()))
+                    .append(tdR(String.valueOf(mp.days())))
+                    .append("</tr>");
+            }
+        }
+        sb.append("</tbody></table>");
+    }
+
+    private static LinkedHashMap<UUID, String> collectEquipmentCms(EquipmentRegisterResponse data) {
+        LinkedHashMap<UUID, String> cms = new LinkedHashMap<>();
+        Set<UUID> seen = new LinkedHashSet<>();
+        for (EquipmentRegisterTypeRow t : data.equipment()) {
+            if (t.byCm() == null) continue;
+            for (CmShiftCount c : t.byCm()) {
+                if (c.cmUserId() == null) continue;
+                if (seen.add(c.cmUserId())) {
+                    cms.put(c.cmUserId(), c.cmName() == null ? shortUuid(c.cmUserId()) : c.cmName());
+                }
+            }
+        }
+        return cms;
+    }
+
+    private static LinkedHashMap<UUID, String> collectManpowerCms(ManpowerRegisterResponse data) {
+        LinkedHashMap<UUID, String> cms = new LinkedHashMap<>();
+        Set<UUID> seen = new LinkedHashSet<>();
+        for (ManpowerRegisterTradeRow t : data.manpower()) {
+            if (t.byCm() == null) continue;
+            for (CmShiftCount c : t.byCm()) {
+                if (c.cmUserId() == null) continue;
+                if (seen.add(c.cmUserId())) {
+                    cms.put(c.cmUserId(), c.cmName() == null ? shortUuid(c.cmUserId()) : c.cmName());
+                }
+            }
+        }
+        return cms;
+    }
+
+    private static CmShiftCount findCmEntry(List<CmShiftCount> byCm, UUID cmUserId) {
+        if (byCm == null) return null;
+        for (CmShiftCount c : byCm) {
+            if (cmUserId.equals(c.cmUserId())) return c;
+        }
+        return null;
     }
 
     private String renderSupervisorHtml(

@@ -17,76 +17,42 @@ import java.math.RoundingMode;
  *       {@code Activity.unitsPercentComplete}.</li>
  * </ul>
  *
- * <p>OT multiplier is a placeholder constant for phase 1. Phase 2 looks up an OVERTIME
- * {@link com.bipros.resource.domain.model.ResourceRate} row and applies it per-hour.
+ * <p><b>Cost rule:</b> {@code cost = nos × rate}; {@code units = nos}. The DPR's
+ * {@code working_hours} and {@code ot_hours} columns are logging fields only — never
+ * multiplied into cost or units. The {@code basis} string is preserved on the call so
+ * existing call sites compile, but is intentionally not consulted.
+ *
+ * <p>This mirrors the canonical Resource Plan formula in
+ * {@code ResourceAssignmentCostRollupListener}: {@code actualCost = rate × actualUnits}.
  */
 public final class DprCostFormulas {
 
-  /** OT cost premium for phase 1. Replace with a per-resource OVERTIME rate lookup in phase 2. */
-  public static final BigDecimal DEFAULT_OT_MULTIPLIER = new BigDecimal("1.5");
-
   private DprCostFormulas() {}
 
-  /**
-   * Manpower row cost. {@code basis = "HOUR"} → {@code rate × nos × (workingHours + ot × OT_MULT)}.
-   * Anything else (DAY / SHIFT / EACH / unknown) → {@code rate × nos}, with hours informational.
-   *
-   * <p>When basis is HOUR but the client omitted {@code workingHours} (and {@code otHours}), we
-   * fall back to {@code rate × nos} rather than collapsing to zero — that lets a sparse DPR row
-   * (rate × headcount only) still produce a sensible per-day cost instead of ₹0.
-   */
+  /** Manpower row cost: {@code rate × nos}. Hours and OT hours are informational only. */
   public static BigDecimal manpowerLineCost(DprManpower row, BigDecimal unitRate, String basis) {
     if (unitRate == null || row.getNos() == null || row.getNos() <= 0) return null;
     BigDecimal nos = BigDecimal.valueOf(row.getNos());
-    if ("HOUR".equalsIgnoreCase(basis)) {
-      BigDecimal hours = nz(row.getWorkingHours())
-          .add(nz(row.getOtHours()).multiply(DEFAULT_OT_MULTIPLIER));
-      if (hours.signum() == 0) {
-        // No hours posted at all → fall back to per-day so we don't zero out the row.
-        return unitRate.multiply(nos).setScale(2, RoundingMode.HALF_UP);
-      }
-      return unitRate.multiply(nos).multiply(hours).setScale(2, RoundingMode.HALF_UP);
-    }
     return unitRate.multiply(nos).setScale(2, RoundingMode.HALF_UP);
   }
 
-  /**
-   * Manpower units rolled into the ledger (drives {@code actualUnits}). For HOUR-based resources
-   * we report {@code nos × (workingHours + otHours)} — OT hours count toward effort but are not
-   * inflated by the multiplier. For DAY-based resources we report {@code nos} (one day-equivalent
-   * per person).
-   */
+  /** Manpower units rolled into the ledger: {@code nos}. Hours never enter unit counts. */
   public static BigDecimal manpowerUnits(DprManpower row, String basis) {
     if (row.getNos() == null || row.getNos() <= 0) return BigDecimal.ZERO;
-    BigDecimal nos = BigDecimal.valueOf(row.getNos());
-    if ("HOUR".equalsIgnoreCase(basis)) {
-      return nos.multiply(nz(row.getWorkingHours()).add(nz(row.getOtHours())));
-    }
-    return nos;
+    return BigDecimal.valueOf(row.getNos());
   }
 
-  /**
-   * Equipment row cost. Working hours are billed; idle / breakdown are not. Fuel cost is excluded
-   * in phase 1 (no fuel-rate model yet) — fuel litres still persist on the row for analytics.
-   */
+  /** Equipment row cost: {@code rate × nos}. Working hours are logging-only. */
   public static BigDecimal equipmentLineCost(DprEquipment row, BigDecimal unitRate, String basis) {
     if (unitRate == null || row.getNos() == null || row.getNos() <= 0) return null;
     BigDecimal nos = BigDecimal.valueOf(row.getNos());
-    if ("HOUR".equalsIgnoreCase(basis)) {
-      BigDecimal hours = nz(row.getWorkingHours());
-      return unitRate.multiply(nos).multiply(hours).setScale(2, RoundingMode.HALF_UP);
-    }
     return unitRate.multiply(nos).setScale(2, RoundingMode.HALF_UP);
   }
 
-  /** Equipment units rolled into the ledger: {@code nos × workingHours} for HOUR basis, else nos. */
+  /** Equipment units rolled into the ledger: {@code nos}. */
   public static BigDecimal equipmentUnits(DprEquipment row, String basis) {
     if (row.getNos() == null || row.getNos() <= 0) return BigDecimal.ZERO;
-    BigDecimal nos = BigDecimal.valueOf(row.getNos());
-    if ("HOUR".equalsIgnoreCase(basis)) {
-      return nos.multiply(nz(row.getWorkingHours()));
-    }
-    return nos;
+    return BigDecimal.valueOf(row.getNos());
   }
 
   /** Material row cost: {@code rate × quantity}. */
@@ -98,9 +64,5 @@ public final class DprCostFormulas {
   /** Material units rolled into the ledger: {@code quantity}. */
   public static BigDecimal materialUnits(DprMaterial row) {
     return row.getQuantity() == null ? BigDecimal.ZERO : row.getQuantity();
-  }
-
-  private static BigDecimal nz(BigDecimal v) {
-    return v == null ? BigDecimal.ZERO : v;
   }
 }

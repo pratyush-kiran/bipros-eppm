@@ -39,6 +39,7 @@ export default function NewActivityPage() {
     calendarId: string;
     supervisorUserId: string;
     supervisorUserName: string;
+    preliminary: boolean;
   }>({
     code: "",
     name: "",
@@ -53,6 +54,7 @@ export default function NewActivityPage() {
     calendarId: "",
     supervisorUserId: "",
     supervisorUserName: "",
+    preliminary: false,
   });
 
   const [error, setError] = useState("");
@@ -147,6 +149,9 @@ export default function NewActivityPage() {
         calendarId: formData.calendarId || undefined,
         supervisorUserId: formData.supervisorUserId || undefined,
         supervisorUserName: formData.supervisorUserName || undefined,
+        // DBS-Phase-2 BOQ Section 1 (Preliminaries) flag. Only send when explicitly ticked so
+        // the backend's null-means-default contract is preserved.
+        preliminary: formData.preliminary || undefined,
       };
 
       const result = await activityApi.createActivity(projectId, createRequest);
@@ -465,6 +470,31 @@ export default function NewActivityPage() {
             <p className="mt-1 text-xs text-text-muted">
               Leave empty to use the project’s default calendar. Select a different calendar to override.
             </p>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                id="preliminary"
+                checked={formData.preliminary}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, preliminary: e.target.checked }))
+                }
+                className="mt-1 rounded border-border"
+              />
+              <label htmlFor="preliminary" className="text-sm text-text-secondary">
+                <span className="font-medium text-text-primary">
+                  Preliminary item (BOQ Section 1 — mobilization, site setup, diversions, etc.)
+                </span>
+                <p className="mt-1 text-xs text-text-muted">
+                  When checked, this activity&rsquo;s cost is rolled up into the DBS{" "}
+                  <em>Preliminaries</em> bucket instead of <em>Direct Cost</em>. Use for
+                  mobilisation, site facilities, diversions, bonds, insurance and other Section 1
+                  overhead items.
+                </p>
+              </label>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-6">

@@ -80,6 +80,12 @@ export interface ActivityResponse {
   /** Default unit from the linked WorkActivity. Lets the DPR form auto-fill the unit field
    *  when the user picks an activity. Null when no work-activity link exists. */
   workActivityDefaultUnit?: string | null;
+  /**
+   * DBS-Phase-2: BOQ Section 1 "Preliminary" flag (mobilisation, site setup, diversions,
+   * bonds, insurance, etc.). When true the DBS rollup buckets the activity's cost contribution
+   * into `prelim_cost` instead of `direct_cost`. Defaults to false for every existing row.
+   */
+  preliminary?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -115,6 +121,12 @@ export interface CreateActivityRequest {
   supervisorUserId?: string | null;
   /** Supervisor display-snapshot — frontend passes the picker option name. */
   supervisorUserName?: string | null;
+  /**
+   * DBS-Phase-2: optional initial state for the BOQ "Preliminary" flag. Pass true to create the
+   * activity already flagged as a Section 1 Preliminary item; omit / null leaves the entity
+   * default of false.
+   */
+  preliminary?: boolean | null;
 }
 
 export interface UpdateActivityRequest {
@@ -146,6 +158,12 @@ export interface UpdateActivityRequest {
    */
   supervisorUserId?: string | null;
   supervisorUserName?: string | null;
+  /**
+   * DBS-Phase-2: toggle the BOQ "Preliminary" flag. Pass true / false to set the new value;
+   * omit / null leaves it unchanged (matches the PATCH-style semantics of every other field
+   * on this request).
+   */
+  preliminary?: boolean | null;
 }
 
 /**

@@ -131,6 +131,13 @@ public class ProfileSeeder {
                     RolePermissionMatrix.permissionsFor("VIEWER")
             ),
             new DefaultProfile(
+                    "CONSTRUCTION_MANAGER",
+                    "Construction Manager",
+                    "Daily site execution: crew & machine deployment, materials, DPR ownership.",
+                    "CONSTRUCTION_MANAGER",
+                    RolePermissionMatrix.permissionsFor("CONSTRUCTION_MANAGER")
+            ),
+            new DefaultProfile(
                     "SITE_MANAGER",
                     "Site Manager",
                     "Daily site execution: crew & machine deployment, materials, DPR ownership.",

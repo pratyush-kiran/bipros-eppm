@@ -1,5 +1,7 @@
 package com.bipros.dbs.service;
 
+import com.bipros.dbs.api.dto.DbsCmDayResponse;
+import com.bipros.dbs.api.dto.DbsCmSummaryDto;
 import com.bipros.dbs.api.dto.DbsEngineerDayResponse;
 import com.bipros.dbs.api.dto.DbsEngineerPeriodResponse;
 import com.bipros.dbs.api.dto.DbsProjectDayResponse;
@@ -8,9 +10,11 @@ import com.bipros.dbs.api.dto.DbsSectionLineDto;
 import com.bipros.dbs.api.dto.DbsSupervisorDayResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorPeriodResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorSummaryDto;
+import com.bipros.dbs.domain.model.DbsDailyCm;
 import com.bipros.dbs.domain.model.DbsDailyEngineer;
 import com.bipros.dbs.domain.model.DbsDailyProject;
 import com.bipros.dbs.domain.model.DbsDailySupervisor;
+import com.bipros.dbs.domain.repository.DbsDailyCmRepository;
 import com.bipros.dbs.domain.repository.DbsDailyEngineerRepository;
 import com.bipros.dbs.domain.repository.DbsDailyProjectRepository;
 import com.bipros.dbs.domain.repository.DbsDailySupervisorRepository;
@@ -64,6 +68,8 @@ public class DbsQueryService {
     private final DbsDailySupervisorRepository supervisorRepo;
     private final DbsDailyEngineerRepository engineerRepo;
     private final DbsDailyProjectRepository projectRepo;
+    private final DbsDailyCmRepository cmRepo;
+    private final DbsAggregationService aggregationService;
     private final DailyProgressReportRepository dprRepository;
     private final ObjectMapper objectMapper;
     private final DbsAlertEvaluator alertEvaluator;
@@ -90,6 +96,46 @@ public class DbsQueryService {
             .findByProjectIdAndEngineerUserIdAndReportDate(projectId, engineerUserId, date)
             .map(this::toResponse)
             .orElseGet(() -> zeroEngineer(projectId, engineerUserId, date));
+    }
+
+    public DbsCmDayResponse getCmDay(UUID projectId, UUID cmUserId, LocalDate date) {
+        return cmRepo
+            .findByProjectIdAndCmUserIdAndReportDate(projectId, cmUserId, date)
+            .map(this::toResponse)
+            .orElseGet(() -> zeroCm(projectId, cmUserId, date));
+    }
+
+    /**
+     * Period-window rollup for one CM. Period bounds follow the same ISO-Mon week / calendar
+     * month convention as the supervisor / engineer counterparts.
+     */
+    public DbsCmDayResponse getCmPeriod(UUID projectId, UUID cmUserId, String periodType, LocalDate referenceDate) {
+        LocalDate[] bounds = boundsFor(periodType, referenceDate);
+        DbsDailyCm totals = aggregationService.computeCmPeriod(projectId, cmUserId, bounds[0], bounds[1]);
+        return toResponse(totals);
+    }
+
+    /**
+     * Compact per-CM summaries for a project on a given date — powers the PM tab CM drill-down.
+     */
+    public List<DbsCmSummaryDto> listCmsForDay(UUID projectId, LocalDate date) {
+        List<DbsDailyCm> rows = cmRepo.findByProjectIdAndReportDate(projectId, date);
+        Map<UUID, String> nameByUser = resolveUserNames(rows.stream()
+            .map(DbsDailyCm::getCmUserId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toCollection(LinkedHashSet::new)));
+        return rows.stream()
+            .map(r -> new DbsCmSummaryDto(
+                r.getCmUserId(),
+                nameByUser.get(r.getCmUserId()),
+                r.getSupervisorCount() == null ? 0 : r.getSupervisorCount(),
+                nz(r.getDirectCost()),
+                nz(r.getPrelimCost()),
+                nz(r.getTotalCostInclPrelims()),
+                nz(r.getContributionPct()),
+                nz(r.getPctAchieved())
+            ))
+            .toList();
     }
 
     public DbsProjectDayResponse getProjectDay(UUID projectId, LocalDate date) {
@@ -211,6 +257,11 @@ public class DbsQueryService {
                 nz(r.getTotalIncome()),
                 nz(r.getContribution()),
                 nz(r.getContributionPct()),
+                // Phase 7: BOQ direct/prelim split + cumulative progress KPI.
+                nz(r.getDirectCost()),
+                nz(r.getPrelimCost()),
+                nz(r.getTotalCostInclPrelims()),
+                nz(r.getPctAchieved()),
                 // The supervisor row is per-(project, supervisor, date); each row corresponds to
                 // the aggregated work for that supervisor that day. We surface 1 as the count
                 // because we don't currently persist the source-DPR count on the supervisor row.
@@ -244,6 +295,10 @@ public class DbsQueryService {
             nz(e.getBoqForTheDayAmount()),
             nz(e.getBoqPlannedAmount()),
             nz(e.getBoqAchievedAmount()),
+            nz(e.getDirectCost()),
+            nz(e.getPrelimCost()),
+            nz(e.getTotalCostInclPrelims()),
+            nz(e.getPctAchieved()),
             nz(e.getTotalExpense()),
             nz(e.getTotalIncome()),
             nz(e.getContribution()),
@@ -275,10 +330,40 @@ public class DbsQueryService {
             nz(e.getBoqForTheDayAmount()),
             nz(e.getBoqPlannedAmount()),
             nz(e.getBoqAchievedAmount()),
+            nz(e.getDirectCost()),
+            nz(e.getPrelimCost()),
+            nz(e.getTotalCostInclPrelims()),
+            nz(e.getPctAchieved()),
             nz(e.getTotalExpense()),
             nz(e.getTotalIncome()),
             nz(e.getContribution()),
             nz(e.getContributionPct()),
+            e.getRecomputedAt()
+        );
+    }
+
+    private DbsCmDayResponse toResponse(DbsDailyCm e) {
+        return new DbsCmDayResponse(
+            e.getId(),
+            e.getProjectId(),
+            e.getCmUserId(),
+            e.getReportDate(),
+            asList(e.getSiteManagerIds()),
+            asList(e.getEngineerIds()),
+            e.getSupervisorCount() == null ? 0 : e.getSupervisorCount(),
+            nz(e.getMaterialAmount()),
+            nz(e.getManpowerAmount()),
+            nz(e.getAdminAmount()),
+            nz(e.getMachineryAmount()),
+            nz(e.getFuelAmount()),
+            nz(e.getDirectCost()),
+            nz(e.getPrelimCost()),
+            nz(e.getTotalCostInclPrelims()),
+            nz(e.getBoqForTheDayAmount()),
+            nz(e.getBoqPlannedToDate()),
+            nz(e.getBoqAchievedToDate()),
+            nz(e.getContributionPct()),
+            nz(e.getPctAchieved()),
             e.getRecomputedAt()
         );
     }
@@ -303,6 +388,10 @@ public class DbsQueryService {
             nz(e.getBoqForTheDayAmount()),
             nz(e.getBoqPlannedAmount()),
             nz(e.getBoqAchievedAmount()),
+            nz(e.getDirectCost()),
+            nz(e.getPrelimCost()),
+            nz(e.getTotalCostInclPrelims()),
+            nz(e.getPctAchieved()),
             nz(e.getTotalExpense()),
             nz(e.getTotalIncome()),
             nz(e.getContribution()),
@@ -322,11 +411,26 @@ public class DbsQueryService {
             null, projectId, supervisorUserId, null, null, date,
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            // Phase 7: directCost, prelimCost, totalCostInclPrelims, pctAchieved
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO,
             Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(),
+            null
+        );
+    }
+
+    private DbsCmDayResponse zeroCm(UUID projectId, UUID cmUserId, LocalDate date) {
+        return new DbsCmDayResponse(
+            null, projectId, cmUserId, date,
+            Collections.emptyList(), Collections.emptyList(), 0,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, BigDecimal.ZERO,
             null
         );
     }
@@ -336,7 +440,10 @@ public class DbsQueryService {
             null, projectId, engineerUserId, date, Collections.emptyList(),
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            // Phase 7
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO,
             null
         );
@@ -349,7 +456,10 @@ public class DbsQueryService {
             null, projectId, date, Collections.emptyList(), 0, 0,
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            // Phase 7
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+            BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO,
             cumExpense, cumIncome, cumContribution,
             null,
@@ -371,6 +481,10 @@ public class DbsQueryService {
         BigDecimal boqDay = sumDtos(daily, DbsSupervisorDayResponse::boqForTheDayAmount);
         BigDecimal boqPlanned = sumDtos(daily, DbsSupervisorDayResponse::boqPlannedAmount);
         BigDecimal boqAch = sumDtos(daily, DbsSupervisorDayResponse::boqAchievedAmount);
+        BigDecimal direct = sumDtos(daily, DbsSupervisorDayResponse::directCost);
+        BigDecimal prelim = sumDtos(daily, DbsSupervisorDayResponse::prelimCost);
+        BigDecimal totalIncl = direct.add(prelim);
+        BigDecimal pctAchieved = pct(boqAch, boqPlanned);
         BigDecimal expense = sumDtos(daily, DbsSupervisorDayResponse::totalExpense);
         BigDecimal income = sumDtos(daily, DbsSupervisorDayResponse::totalIncome);
         BigDecimal contribution = income.subtract(expense).setScale(2, RoundingMode.HALF_UP);
@@ -381,6 +495,7 @@ public class DbsQueryService {
             null, projectId, supervisorUserId, null, null, to,
             material, manpower, admin, machinery, fuel, sub,
             boqDay, boqPlanned, boqAch,
+            direct, prelim, totalIncl, pctAchieved,
             expense, income, contribution, contributionPct,
             Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
             Collections.emptyList(), Collections.emptyList(), Collections.emptyList(),
@@ -401,6 +516,10 @@ public class DbsQueryService {
         BigDecimal boqDay = sumDtos(daily, DbsEngineerDayResponse::boqForTheDayAmount);
         BigDecimal boqPlanned = sumDtos(daily, DbsEngineerDayResponse::boqPlannedAmount);
         BigDecimal boqAch = sumDtos(daily, DbsEngineerDayResponse::boqAchievedAmount);
+        BigDecimal direct = sumDtos(daily, DbsEngineerDayResponse::directCost);
+        BigDecimal prelim = sumDtos(daily, DbsEngineerDayResponse::prelimCost);
+        BigDecimal totalIncl = direct.add(prelim);
+        BigDecimal pctAchieved = pct(boqAch, boqPlanned);
         BigDecimal expense = sumDtos(daily, DbsEngineerDayResponse::totalExpense);
         BigDecimal income = sumDtos(daily, DbsEngineerDayResponse::totalIncome);
         BigDecimal contribution = income.subtract(expense).setScale(2, RoundingMode.HALF_UP);
@@ -415,6 +534,7 @@ public class DbsQueryService {
             null, projectId, engineerUserId, to, new ArrayList<>(sups),
             material, manpower, admin, machinery, fuel, sub,
             boqDay, boqPlanned, boqAch,
+            direct, prelim, totalIncl, pctAchieved,
             expense, income, contribution, contributionPct,
             null
         );
@@ -431,6 +551,10 @@ public class DbsQueryService {
         BigDecimal boqDay = sumDtos(daily, DbsProjectDayResponse::boqForTheDayAmount);
         BigDecimal boqPlanned = sumDtos(daily, DbsProjectDayResponse::boqPlannedAmount);
         BigDecimal boqAch = sumDtos(daily, DbsProjectDayResponse::boqAchievedAmount);
+        BigDecimal direct = sumDtos(daily, DbsProjectDayResponse::directCost);
+        BigDecimal prelim = sumDtos(daily, DbsProjectDayResponse::prelimCost);
+        BigDecimal totalIncl = direct.add(prelim);
+        BigDecimal pctAchieved = pct(boqAch, boqPlanned);
         BigDecimal expense = sumDtos(daily, DbsProjectDayResponse::totalExpense);
         BigDecimal income = sumDtos(daily, DbsProjectDayResponse::totalIncome);
         BigDecimal contribution = income.subtract(expense).setScale(2, RoundingMode.HALF_UP);
@@ -463,6 +587,7 @@ public class DbsQueryService {
             null, projectId, to, new ArrayList<>(engineers), supervisorCount, dprCount,
             material, manpower, admin, machinery, fuel, sub,
             boqDay, boqPlanned, boqAch,
+            direct, prelim, totalIncl, pctAchieved,
             expense, income, contribution, contributionPct,
             cumExpense, cumIncome, cumContribution,
             null,
@@ -512,6 +637,11 @@ public class DbsQueryService {
         }
     }
 
+    private static List<UUID> asList(UUID[] arr) {
+        if (arr == null || arr.length == 0) return Collections.emptyList();
+        return Arrays.asList(arr);
+    }
+
     private static List<UUID> parseUuidList(String csv) {
         if (csv == null || csv.isBlank()) return Collections.emptyList();
         return Arrays.stream(csv.split(","))
@@ -526,6 +656,13 @@ public class DbsQueryService {
 
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /** Phase 7: percentage helper — {@code num/denom * 100} or {@code 0} when denom <= 0. */
+    private static BigDecimal pct(BigDecimal numerator, BigDecimal denominator) {
+        BigDecimal d = nz(denominator);
+        if (d.compareTo(BigDecimal.ZERO) <= 0) return BigDecimal.ZERO;
+        return nz(numerator).multiply(BigDecimal.valueOf(100)).divide(d, 4, RoundingMode.HALF_UP);
     }
 
     private static <T> BigDecimal sum(List<T> rows, java.util.function.Function<T, BigDecimal> extractor) {

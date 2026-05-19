@@ -56,6 +56,13 @@ public class DprEquipment extends BaseEntity {
     @Column(name = "ownership", length = 20)
     private EquipmentOwnership ownership;
 
+    /** Day or night shift this row was deployed in. Default DAY; mixed-shift days store separate rows. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "shift", nullable = false, length = 8,
+            columnDefinition = "varchar(8) NOT NULL DEFAULT 'DAY'")
+    @Builder.Default
+    private Shift shift = Shift.DAY;
+
     @Column(name = "nos")
     private Integer nos;
 

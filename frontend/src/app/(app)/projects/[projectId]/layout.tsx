@@ -77,31 +77,33 @@ function ProjectDetailLayoutInner({
   // gate — tabs whose perm the current user lacks are filtered out before render
   // so SUPERVISOR-tier users don't see finance/contract surfaces.
   type ProjectTab = { id: string; label: string; href: string | null; permission?: string };
+  // Order follows the runbook flow: plan → commercial+org → execution → daily P&L →
+  // financial analysis → schedule views → cross-cutting. Team is promoted out of
+  // the More dropdown because it's load-bearing for the DBS Engineer/CM/PM rollup.
   const allTabs: ProjectTab[] = [
     { id: "overview", label: "Overview", href: null },
     { id: "wbs", label: "WBS", href: null },
     { id: "activities", label: "Activities", href: `/projects/${projectId}/activities` },
-    { id: "resources", label: "Resources", href: null },
-    { id: "gantt", label: "Gantt", href: null },
-    { id: "network", label: "Network", href: null },
+    /* { id: "resources", label: "Resources", href: null }, */
+    { id: "boq", label: "BOQ", href: `/projects/${projectId}/boq` },
+    { id: "team", label: "Team", href: `/projects/${projectId}/team` },
     { id: "dpr", label: "DPR", href: `/projects/${projectId}/dpr` },
     { id: "dbs", label: "DBS", href: `/projects/${projectId}/dbs` },
-    { id: "capacity", label: "Capacity Util.", href: `/projects/${projectId}/capacity-utilization` },
     { id: "costs", label: "Costs", href: null, permission: "COST.READ" },
     { id: "evm", label: "EVM", href: null, permission: "EVM.READ" },
-    { id: "baselines", label: "Baselines", href: null, permission: "BASELINE.READ" },
+
+    { id: "capacity", label: "Capacity Util.", href: `/projects/${projectId}/capacity-utilization` },
+    { id: "gantt", label: "Gantt", href: null },
+    { id: "network", label: "Network", href: null },
     { id: "insights", label: "Insights", href: `/projects/${projectId}/insights` },
     { id: "risks", label: "Risks", href: `/projects/${projectId}/risks`, permission: "RISK.READ" },
-    { id: "contracts", label: "Contracts", href: `/projects/${projectId}/contracts`, permission: "CONTRACT.READ" },
+
     { id: "gis", label: "GIS", href: `/projects/${projectId}/gis-viewer` },
-    // Site Ops — Phase C modules
-    { id: "workfronts", label: "Workfronts", href: `/projects/${projectId}/workfronts`, permission: "WORKFRONT.READ" },
-    { id: "snags", label: "Snags", href: `/projects/${projectId}/snags`, permission: "SNAG.READ" },
-    { id: "handovers", label: "Handovers", href: `/projects/${projectId}/handovers`, permission: "SHIFT_HANDOVER.READ" },
-    { id: "attendance", label: "Attendance", href: `/projects/${projectId}/attendance`, permission: "ATTENDANCE.READ" },
-    { id: "checklists", label: "Checklists", href: `/projects/${projectId}/checklists`, permission: "CHECKLIST.READ" },
-    { id: "indents", label: "Indents", href: `/projects/${projectId}/indents`, permission: "PROCUREMENT_REQUEST.READ" },
-    { id: "ncrs", label: "NCRs", href: `/projects/${projectId}/ncrs`, permission: "NCR.READ" },
+    { id: "baselines", label: "Baselines", href: null, permission: "BASELINE.READ" },
+    { id: "contracts", label: "Contracts", href: `/projects/${projectId}/contracts`, permission: "CONTRACT.READ" },
+    // Site Ops — Phase C modules are intentionally hidden from the top nav
+    // (Workfronts, Snags, Handovers, Attendance, Checklists, Indents, NCRs).
+    // They remain reachable via direct URL or the More dropdown if re-added later.
   ];
 
   const tabs = allTabs.filter((t) => !t.permission || hasPermission(t.permission));
@@ -116,10 +118,13 @@ function ProjectDetailLayoutInner({
   ];
 
   const moreLinks = [
-    { label: "Team", href: `/projects/${projectId}/team` },
+    // Team is now a top-level tab (see allTabs above).
     { label: "Budget Changes", href: `/projects/${projectId}/budget-changes` },
     { label: "Relationships", href: `/projects/${projectId}/relationships` },
     { label: "Daily Cost Report", href: `/projects/${projectId}/daily-cost-report` },
+    { label: "Performance (D/W/M)", href: `/projects/${projectId}/performance` },
+    { label: "P&L vs Budgeted Rates", href: `/projects/${projectId}/pnl/budgeted` },
+    { label: "P&L vs BOQ Rates", href: `/projects/${projectId}/pnl/boq` },
     { label: "Material Consumption", href: `/projects/${projectId}/material-consumption` },
     { label: "Material Consumption Report", href: `/projects/${projectId}/reports/material-consumption` },
     { label: "Material Reconciliation", href: `/projects/${projectId}/material-reconciliation` },

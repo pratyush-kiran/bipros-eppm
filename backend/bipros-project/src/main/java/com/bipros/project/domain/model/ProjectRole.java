@@ -7,6 +7,7 @@ package com.bipros.project.domain.model;
  */
 public enum ProjectRole {
     PM,
+    CONSTRUCTION_MANAGER,
     SITE_MANAGER,
     ENGINEER,
     SUPERVISOR,

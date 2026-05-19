@@ -63,5 +63,12 @@ public record CreateActivityRequest(
 
     // Deprecated (Phase 4.5): ignored by ActivityService.createActivity (the display
     // cache it fed is gone — see supervisorResourceId).
-    String supervisorResourceName
+    String supervisorResourceName,
+
+    /**
+     * DBS-Phase-2: mark this activity as a BOQ Section 1 Preliminary (mobilisation, site setup,
+     * diversions, etc.) so its cost contribution is rolled up into the DBS {@code prelim_cost}
+     * bucket. Optional — {@code null} leaves the entity default of {@code false}.
+     */
+    Boolean preliminary
 ) {}

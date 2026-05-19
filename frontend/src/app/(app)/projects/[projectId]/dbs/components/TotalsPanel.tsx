@@ -56,7 +56,7 @@ export function TotalsPanel({
         <KpiTile
           label="Total Income"
           value={formatCurrency(totalIncome, currency)}
-          hint="BOQ executed today × rate"
+          hint="qty executed × boq_rate"
           tone="accent"
         />
         <KpiTile

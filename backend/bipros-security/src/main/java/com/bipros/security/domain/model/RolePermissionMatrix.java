@@ -178,6 +178,11 @@ public final class RolePermissionMatrix {
                 "AI.READ"
         ));
 
+        // 11b. CONSTRUCTION_MANAGER — mirrors SITE_MANAGER (interim five-tier chain seat
+        //      between PM and SITE_MANAGER). Permission set deliberately identical to
+        //      SITE_MANAGER's; refine later if the contract diverges.
+        m.put("CONSTRUCTION_MANAGER", Set.copyOf(m.get("SITE_MANAGER")));
+
         // 12. SITE_ENGINEER — DPR write + NCR write + SAFETY + PERMIT + workfront RELEASE
         //     + snag CLOSE + checklist APPROVE (engineering sign-off bench).
         m.put("SITE_ENGINEER", Set.of(

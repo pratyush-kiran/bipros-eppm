@@ -45,6 +45,14 @@ export interface DbsSupervisorDayResponse {
   totalIncome: number;
   contribution: number;
   contributionPct: number;
+  /** Phase 7 — non-preliminary BOQ cost. Nullable while backend is rolling out the column. */
+  directCost?: number | null;
+  /** Phase 7 — preliminary BOQ cost. */
+  prelimCost?: number | null;
+  /** Phase 7 — directCost + prelimCost. */
+  totalCostInclPrelims?: number | null;
+  /** Phase 7 — boqAchievedToDate / boqPlannedToDate × 100. */
+  pctAchieved?: number | null;
   materialLines: DbsSectionLine[];
   manpowerLines: DbsSectionLine[];
   adminLines: DbsSectionLine[];
@@ -74,7 +82,61 @@ export interface DbsEngineerDayResponse {
   totalIncome: number;
   contribution: number;
   contributionPct: number;
+  directCost?: number | null;
+  prelimCost?: number | null;
+  totalCostInclPrelims?: number | null;
+  pctAchieved?: number | null;
   recomputedAt?: string;
+}
+
+/**
+ * Phase 8 — Construction Manager day rollup. CM sits between PM and Site
+ * Manager in the chain (PM → CM → SM → Engineer → Supervisor). The CM "owns"
+ * a DPR's resources by walking up the supervisor's reporting chain at
+ * recompute time, so historical CM rollups stay stable on team re-orgs.
+ *
+ * Section line arrays are NOT carried — the CM tier shows section totals only;
+ * drill in to a specific Engineer / Supervisor for line-level detail.
+ */
+export interface DbsCmDayResponse {
+  id?: string;
+  projectId: string;
+  cmUserId?: string;
+  cmName?: string;
+  reportDate: string;
+  /** Site Managers (and Engineers if no SM) reporting up to this CM on that date. */
+  siteManagerIds?: string[];
+  engineerIds?: string[];
+  supervisorIds?: string[];
+  supervisorCount?: number;
+  materialAmount: number;
+  manpowerAmount: number;
+  adminAmount: number;
+  machineryAmount: number;
+  fuelAmount: number;
+  subcontractAmount: number;
+  boqForTheDayAmount: number;
+  boqPlannedAmount: number;
+  boqAchievedAmount: number;
+  totalExpense: number;
+  totalIncome: number;
+  contribution: number;
+  contributionPct: number;
+  directCost?: number | null;
+  prelimCost?: number | null;
+  totalCostInclPrelims?: number | null;
+  pctAchieved?: number | null;
+  /** Optional — the CM's contribution to the project P&L. */
+  contributionPctOfProject?: number | null;
+  recomputedAt?: string;
+}
+
+export interface DbsCmPeriodResponse {
+  periodType: DbsPeriodType;
+  from: string;
+  to: string;
+  totals: DbsCmDayResponse;
+  dailyRows: DbsCmDayResponse[];
 }
 
 export interface DbsProjectDayResponse {
@@ -97,6 +159,10 @@ export interface DbsProjectDayResponse {
   totalIncome: number;
   contribution: number;
   contributionPct: number;
+  directCost?: number | null;
+  prelimCost?: number | null;
+  totalCostInclPrelims?: number | null;
+  pctAchieved?: number | null;
   cumulativeExpense?: number;
   cumulativeIncome?: number;
   cumulativeContribution?: number;
@@ -123,6 +189,81 @@ export interface DbsSupervisorSummaryDto {
   contribution: number;
   contributionPct: number;
   dprCount: number;
+  directCost?: number | null;
+  prelimCost?: number | null;
+  totalCostInclPrelims?: number | null;
+  pctAchieved?: number | null;
+}
+
+/**
+ * Phase 8 — One CM's roll-up summary used to populate the CM picker and the
+ * "Group by CM" table on the PM tab. Mirrors {@link DbsSupervisorSummaryDto}
+ * but adds CM-specific fields (downline supervisor count, contribution to
+ * project P&L).
+ */
+export interface DbsCmSummaryDto {
+  cmUserId: string;
+  cmName?: string;
+  supervisorCount: number;
+  directCost?: number | null;
+  prelimCost?: number | null;
+  totalCostInclPrelims?: number | null;
+  /** Share of project P&L attributed to this CM (0..100). */
+  contributionPct?: number | null;
+  /** boqAchievedToDate / boqPlannedToDate × 100. */
+  pctAchieved?: number | null;
+}
+
+/**
+ * Phase 8 — Equipment Deployment Register pivoted for the UI.
+ *
+ * Server returns one row per (equipment type) with a nested `byCm` array,
+ * one entry per Construction Manager who deployed any of this type today.
+ * `total = sum(byCm[].total)` and equals `totalDay + totalNight`.
+ */
+export interface CmShiftCount {
+  cmUserId: string;
+  cmName?: string;
+  day: number;
+  night: number;
+  total: number;
+}
+
+export interface EquipmentRegisterTypeRow {
+  type: string;
+  byCm: CmShiftCount[];
+  totalDay: number;
+  totalNight: number;
+  total: number;
+}
+
+export interface EquipmentRegisterResponse {
+  date: string;
+  equipment: EquipmentRegisterTypeRow[];
+}
+
+export interface ManpowerRegisterTradeRow {
+  trade: string;
+  byCm: CmShiftCount[];
+  totalDay: number;
+  totalNight: number;
+  total: number;
+}
+
+export interface ManpowerRegisterResponse {
+  date: string;
+  manpower: ManpowerRegisterTradeRow[];
+}
+
+/**
+ * Phase 8 — Cumulative Equipment-Days / Manpower-Days as of a given date.
+ * Backend sums register row `count_nos` from project start up to `asOfDate`.
+ * Does NOT carry CM / shift columns — collapse the table to two columns.
+ */
+export interface CumulativeDaysResponse {
+  asOfDate: string;
+  equipment: { type: string; days: number }[];
+  manpower: { trade: string; days: number }[];
 }
 
 export interface DbsSupervisorPeriodResponse {
@@ -217,6 +358,67 @@ export const dbsApi = {
       .get<ApiResponse<DbsSupervisorSummaryDto[]>>(
         `${base(projectId)}/supervisors`,
         { params: { date } },
+      )
+      .then((r) => r.data),
+
+  /**
+   * Phase 8 — single CM's day (or period) roll-up. The backend resolves which
+   * supervisors / engineers fall under this CM via the project_team chain.
+   * `periodType` defaults to DAY on the backend.
+   */
+  getCmDay: (
+    projectId: string,
+    cmUserId: string,
+    params: { date: string; periodType?: DbsPeriodType },
+  ) =>
+    apiClient
+      .get<ApiResponse<DbsCmDayResponse>>(`${base(projectId)}/cm/${cmUserId}`, {
+        params: { date: params.date, periodType: params.periodType ?? "DAY" },
+      })
+      .then((r) => r.data),
+
+  /**
+   * Phase 8 — list of all CMs with activity on the given date. Used to populate
+   * the CM picker and the "Group by CM" table on the PM tab.
+   */
+  listCms: (projectId: string, date: string) =>
+    apiClient
+      .get<ApiResponse<DbsCmSummaryDto[]>>(`${base(projectId)}/cms`, {
+        params: { date },
+      })
+      .then((r) => r.data),
+
+  /**
+   * Phase 8 — Equipment Deployment Register for one day. Optional `cmUserId`
+   * filters to a single CM's deployments.
+   */
+  getEquipmentRegister: (projectId: string, date: string, cmUserId?: string) =>
+    apiClient
+      .get<ApiResponse<EquipmentRegisterResponse>>(
+        `${base(projectId)}/register/equipment`,
+        { params: { date, ...(cmUserId ? { cmUserId } : {}) } },
+      )
+      .then((r) => r.data),
+
+  /** Phase 8 — Manpower Deployment Register for one day, grouped by trade. */
+  getManpowerRegister: (projectId: string, date: string, cmUserId?: string) =>
+    apiClient
+      .get<ApiResponse<ManpowerRegisterResponse>>(
+        `${base(projectId)}/register/manpower`,
+        { params: { date, ...(cmUserId ? { cmUserId } : {}) } },
+      )
+      .then((r) => r.data),
+
+  /**
+   * Phase 8 — Cumulative Equipment-Days / Manpower-Days as of a given date.
+   * Sums `count_nos` from project start up to `asOf`. Optional `cmUserId`
+   * filters to a single CM's downline.
+   */
+  getCumulative: (projectId: string, asOf: string, cmUserId?: string) =>
+    apiClient
+      .get<ApiResponse<CumulativeDaysResponse>>(
+        `${base(projectId)}/register/cumulative`,
+        { params: { asOf, ...(cmUserId ? { cmUserId } : {}) } },
       )
       .then((r) => r.data),
 

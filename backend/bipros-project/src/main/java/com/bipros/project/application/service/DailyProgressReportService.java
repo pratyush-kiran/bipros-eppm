@@ -731,23 +731,26 @@ public class DailyProgressReportService {
     UUID dprId = saved.getId();
     boolean canValidate = activityId != null;
 
+    UUID projectId = saved.getProjectId();
+
     List<DprManpower> manpower = new ArrayList<>();
     if (manpowerRows != null) {
       for (DprManpowerRow row : manpowerRows) {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
         if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MANPOWER", activityId);
         BigDecimal unitRate = pickUnitRate(row.unitRate(), snap);
-        // Manpower defaults to HOUR — matches equipment and the per-hour math the client posts
-        // (nos × workingHours × unitRate). Snapshot basis derived from resource.unit is often a
-        // productivity unit (e.g. "PER_DAY") that doesn't match the actual rate basis, so we
-        // only honour an explicit client-provided basis; otherwise default to HOUR.
-        String basis = row.unitRateBasis() != null && !row.unitRateBasis().isBlank()
-            ? row.unitRateBasis()
-            : "HOUR";
-        // Legacy "rate-missing:" warning removed: in the role-only model the rate flows from
-        // manpower_role_rates via RoleRateResolver/ensureAssignmentsExist, which emits its own
-        // MISSING_RATE: ... warning only when truly absent. The legacy resource_id chain that
-        // populated `snap.unitRate` is null for role-only rows and produced false positives.
+        String basis = pickBasis(row.unitRateBasis(), snap);
+        // Role-only fallback: UI posts manpowerRoleRateId without a resource_assignment_id, so
+        // the assignment snapshot can't resolve a rate. Look up the rate book directly with the
+        // project-override chain so line_cost is populated at save time.
+        if (unitRate == null && row.manpowerRoleRateId() != null) {
+          RoleRateLookup lookup = lookupRoleRateForManpower(projectId, row.manpowerRoleRateId());
+          if (lookup != null) {
+            unitRate = lookup.rate();
+            if (basis == null || basis.isBlank()) basis = deriveBasis(lookup.unit());
+          }
+        }
+        if (basis == null || basis.isBlank()) basis = "HOUR";
         DprManpower entity = row.toEntity(dprId);
         entity.setResourceId(pickResourceId(row.resourceId(), snap));
         entity.setUnitRate(unitRate);
@@ -763,13 +766,15 @@ public class DailyProgressReportService {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
         if (canValidate) requireKind(row.resourceAssignmentId(), snap, "EQUIPMENT", activityId);
         BigDecimal unitRate = pickUnitRate(row.unitRate(), snap);
-        // Equipment defaults to HOUR — most equipment is hourly-billed. The snapshot's basis
-        // (derived from resource.unit) is intentionally NOT used here: resource.unit is often
-        // a productivity unit like "PER_DAY" that doesn't match the actual rate basis. Clients
-        // can override by sending unitRateBasis explicitly when day-billing equipment.
-        String basis = row.unitRateBasis() != null && !row.unitRateBasis().isBlank()
-            ? row.unitRateBasis()
-            : "HOUR";
+        String basis = pickBasis(row.unitRateBasis(), snap);
+        if (unitRate == null && row.equipmentRoleVariantId() != null) {
+          RoleRateLookup lookup = lookupRoleRateForEquipment(projectId, row.equipmentRoleVariantId());
+          if (lookup != null) {
+            unitRate = lookup.rate();
+            if (basis == null || basis.isBlank()) basis = deriveBasis(lookup.unit());
+          }
+        }
+        if (basis == null || basis.isBlank()) basis = "HOUR";
         DprEquipment entity = row.toEntity(dprId);
         entity.setResourceId(pickResourceId(row.resourceId(), snap));
         entity.setUnitRate(unitRate);
@@ -786,6 +791,10 @@ public class DailyProgressReportService {
         AssignmentSnapshot snap = lookupAssignmentSnapshot(row.resourceAssignmentId(), reportDate);
         if (canValidate) requireKind(row.resourceAssignmentId(), snap, "MATERIAL", activityId);
         BigDecimal unitRate = pickUnitRate(row.unitRate(), snap);
+        if (unitRate == null && row.materialRoleVariantId() != null) {
+          RoleRateLookup lookup = lookupRoleRateForMaterial(projectId, row.materialRoleVariantId());
+          if (lookup != null) unitRate = lookup.rate();
+        }
         DprMaterial entity = row.toEntity(dprId);
         entity.setResourceId(pickResourceId(row.resourceId(), snap));
         entity.setUnitRate(unitRate);
@@ -822,6 +831,17 @@ public class DailyProgressReportService {
                                     String resourceTypeCode, String unit, BigDecimal unitRate,
                                     String basis) {}
 
+  /**
+   * Snapshot lookup that understands both legacy (resource_id chain) and role-only
+   * (manpower_role_rate_id / equipment_role_variant_id / material_role_variant_id +
+   * effective_rate snapshot on the assignment row) assignments.
+   *
+   * <p>Resolution order for rate: {@code ra.effective_rate} (snapshotted at assignment time
+   * for both models) → legacy {@code resource_rates} lookup → legacy {@code r.cost_per_unit}.
+   * Unit / basis is taken from {@code ra.unit} when set (role-only path) and falls back to
+   * {@code r.unit} (legacy). Type code falls back to a variant-FK derivation when the
+   * legacy {@code resource_types.code} join misses.
+   */
   @SuppressWarnings("unchecked")
   private AssignmentSnapshot lookupAssignmentSnapshot(UUID assignmentId, LocalDate reportDate) {
     if (assignmentId == null) return null;
@@ -830,7 +850,10 @@ public class DailyProgressReportService {
     List<Object[]> rows = em.createNativeQuery(
             "SELECT ra.activity_id, ra.resource_id, ra.rate_type, "
                 + "       r.name, r.unit, r.cost_per_unit, "
-                + "       rt.code "
+                + "       rt.code, "
+                + "       ra.effective_rate, ra.unit, "
+                + "       ra.manpower_role_rate_id, ra.equipment_role_variant_id, "
+                + "       ra.material_role_variant_id "
                 + "FROM resource.resource_assignments ra "
                 + "LEFT JOIN resource.resources r ON r.id = ra.resource_id "
                 + "LEFT JOIN resource.resource_types rt ON rt.id = r.resource_type_id "
@@ -843,15 +866,97 @@ public class DailyProgressReportService {
     UUID resourceId = (UUID) row[1];
     String rateType = (String) row[2];
     String resourceName = (String) row[3];
-    String unit = (String) row[4];
+    String legacyUnit = (String) row[4];
     BigDecimal costPerUnit = row[5] == null ? null : (BigDecimal) row[5];
     String typeCode = (String) row[6];
+    BigDecimal assignmentEffectiveRate = row[7] == null ? null : (BigDecimal) row[7];
+    String assignmentUnit = (String) row[8];
+    UUID manpowerRoleRateId = (UUID) row[9];
+    UUID equipmentRoleVariantId = (UUID) row[10];
+    UUID materialRoleVariantId = (UUID) row[11];
 
-    BigDecimal effectiveRate = resolveEffectiveRate(resourceId, rateType, effectiveOn);
+    // Rate: prefer the assignment-time snapshot (covers both legacy and role-only). Fall back
+    // to the legacy resource_rates / resources.cost_per_unit chain for older rows that never
+    // had effective_rate populated.
+    BigDecimal effectiveRate = assignmentEffectiveRate;
+    if (effectiveRate == null) {
+      effectiveRate = resolveEffectiveRate(resourceId, rateType, effectiveOn);
+    }
     if (effectiveRate == null) effectiveRate = costPerUnit;
+
+    // Unit/basis: assignment unit ("Day" / "Hour") wins; only fall back to resource.unit when
+    // unset. Legacy resource.unit was sometimes a productivity unit ("PER_DAY") that didn't
+    // match the rate basis — assignment.unit is captured directly from the variant rate book.
+    String unit = assignmentUnit != null ? assignmentUnit : legacyUnit;
+
+    // Type code: derive from variant FK when the legacy join missed (role-only model has no
+    // resource row, so rt.code joins to nothing).
+    if (typeCode == null || typeCode.isBlank()) {
+      if (manpowerRoleRateId != null) typeCode = "MANPOWER";
+      else if (equipmentRoleVariantId != null) typeCode = "EQUIPMENT";
+      else if (materialRoleVariantId != null) typeCode = "MATERIAL";
+    }
 
     return new AssignmentSnapshot(activityId, resourceId, resourceName, typeCode, unit,
         effectiveRate, deriveBasis(unit));
+  }
+
+  /** Tiny tuple — resolved rate plus the rate-book unit ("Day"/"Hour"/"MT"/etc.). */
+  private record RoleRateLookup(BigDecimal rate, String unit) {}
+
+  private RoleRateLookup lookupRoleRateForManpower(UUID projectId, UUID manpowerRoleRateId) {
+    return lookupRoleRate(projectId, manpowerRoleRateId,
+        "resource.manpower_role_rates",
+        "resource.project_manpower_role_rate_override",
+        "manpower_role_rate_id");
+  }
+
+  private RoleRateLookup lookupRoleRateForEquipment(UUID projectId, UUID equipmentRoleVariantId) {
+    return lookupRoleRate(projectId, equipmentRoleVariantId,
+        "resource.equipment_role_variants",
+        "resource.project_equipment_role_variant_override",
+        "equipment_role_variant_id");
+  }
+
+  private RoleRateLookup lookupRoleRateForMaterial(UUID projectId, UUID materialRoleVariantId) {
+    return lookupRoleRate(projectId, materialRoleVariantId,
+        "resource.material_role_variants",
+        "resource.project_material_role_variant_override",
+        "material_role_variant_id");
+  }
+
+  /**
+   * Resolves the effective rate for a role-only variant via the two-tier chain:
+   * per-project override → variant's default rate. Mirrors {@code RoleRateResolver} but is
+   * implemented inline with native SQL because this module cannot depend on bipros-resource.
+   */
+  @SuppressWarnings("unchecked")
+  private RoleRateLookup lookupRoleRate(UUID projectId, UUID variantId, String variantTable,
+                                        String overrideTable, String fkColumn) {
+    if (variantId == null || em == null) return null;
+    BigDecimal overrideRate = null;
+    if (projectId != null) {
+      List<Object> overrideRows = em.createNativeQuery(
+              "SELECT override_rate FROM " + overrideTable
+                  + " WHERE project_id = :projectId AND " + fkColumn + " = :variantId "
+                  + "AND active = true ORDER BY created_at DESC LIMIT 1")
+          .setParameter("projectId", projectId)
+          .setParameter("variantId", variantId)
+          .getResultList();
+      if (!overrideRows.isEmpty() && overrideRows.get(0) != null) {
+        overrideRate = (BigDecimal) overrideRows.get(0);
+      }
+    }
+    List<Object[]> rows = em.createNativeQuery(
+            "SELECT rate, unit FROM " + variantTable + " WHERE id = :variantId")
+        .setParameter("variantId", variantId)
+        .getResultList();
+    if (rows.isEmpty()) return null;
+    BigDecimal baseRate = rows.get(0)[0] == null ? null : (BigDecimal) rows.get(0)[0];
+    String unit = (String) rows.get(0)[1];
+    BigDecimal effective = overrideRate != null ? overrideRate : baseRate;
+    if (effective == null) return null;
+    return new RoleRateLookup(effective, unit);
   }
 
   /** Finds the latest {@code resource_rates} row covering {@code reportDate} for the resource. */
@@ -1464,11 +1569,13 @@ public class DailyProgressReportService {
         s(r.roleId()) + "|" + s(r.manpowerRoleRateId()) + "|"
             + n(r.nos()) + "|" + b(r.workingHours()) + "|" + b(r.otHours()) + "|" + b(r.idleHours())
             + "|" + nz(r.contractorName()) + "|" + nz(r.remarks())
+            + "|" + sh(r.shift())
     ).sorted().toList();
     List<String> e = existing.stream().map(r ->
         s(r.getRoleId()) + "|" + s(r.getManpowerRoleRateId()) + "|"
             + n(r.getNos()) + "|" + b(r.getWorkingHours()) + "|" + b(r.getOtHours()) + "|" + b(r.getIdleHours())
             + "|" + nz(r.getContractorName()) + "|" + nz(r.getRemarks())
+            + "|" + sh(r.getShift())
     ).sorted().toList();
     return a.equals(e);
   }
@@ -1482,12 +1589,14 @@ public class DailyProgressReportService {
             + n(r.nos()) + "|" + b(r.workingHours()) + "|" + b(r.idleHours()) + "|"
             + b(r.breakdownHours()) + "|" + b(r.fuelLitres()) + "|"
             + nz(r.operatorName()) + "|" + nz(r.remarks())
+            + "|" + sh(r.shift())
     ).sorted().toList();
     List<String> e = existing.stream().map(r ->
         s(r.getRoleId()) + "|" + s(r.getEquipmentRoleVariantId()) + "|" + nz(r.getFleetNo()) + "|"
             + n(r.getNos()) + "|" + b(r.getWorkingHours()) + "|" + b(r.getIdleHours()) + "|"
             + b(r.getBreakdownHours()) + "|" + b(r.getFuelLitres()) + "|"
             + nz(r.getOperatorName()) + "|" + nz(r.getRemarks())
+            + "|" + sh(r.getShift())
     ).sorted().toList();
     return a.equals(e);
   }
@@ -1513,5 +1622,8 @@ public class DailyProgressReportService {
     return d == null ? "" : d.stripTrailingZeros().toPlainString();
   }
   private static String nz(String x) { return x == null ? "" : x; }
+  private static String sh(com.bipros.project.domain.model.Shift s) {
+    return s == null ? "DAY" : s.name();
+  }
 
 }

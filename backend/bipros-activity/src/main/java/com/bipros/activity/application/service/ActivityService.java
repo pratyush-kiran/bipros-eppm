@@ -127,6 +127,11 @@ public class ActivityService {
     activity.setChainageToM(request.chainageToM());
     activity.setWorkActivityId(request.workActivityId());
     activity.setCostAccountId(request.costAccountId());
+    if (request.preliminary() != null) {
+      // DBS-Phase-2 BOQ Section 1 flag. Null on the request → keep the entity default (false);
+      // an explicit value lets the admin create an activity already flagged as a preliminary.
+      activity.setPreliminary(request.preliminary());
+    }
     // Phase 4.5: responsibleResourceId / responsibleResourceName are gone from the DB
     // (Liquibase 094 dropped the columns). Supervisor identity is now carried by
     // supervisor_user_id and set via PUT /v1/activities/{id}/supervisor — the create path
@@ -291,6 +296,11 @@ public class ActivityService {
     // costAccountId: explicit null clears the value; non-null sets it
     if (request.costAccountId() != null) {
       activity.setCostAccountId(request.costAccountId());
+    }
+    if (request.preliminary() != null) {
+      // DBS-Phase-2 BOQ Section 1 flag. Non-null toggles between direct & prelim buckets; null
+      // leaves the value untouched (matches the rest of this method's "PATCH-style" semantics).
+      activity.setPreliminary(request.preliminary());
     }
     // Phase 4.5: supervisor Resource fields are deprecated (the DB columns are dropped by
     // Liquibase 094). The request still carries them for back-compat with older frontends

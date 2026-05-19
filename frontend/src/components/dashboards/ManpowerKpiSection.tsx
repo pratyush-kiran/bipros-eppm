@@ -112,7 +112,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           Manpower KPIs <span className="text-xs font-normal text-text-muted">({range.from} → {range.to})</span>
         </h2>
         <div className="text-[11px] text-text-muted">
-          {wu.activeResourceCount} of {wu.laborResourceCount} labour active · {kpis.productivityFactor.length} activities tracked · {kpis.labourCostPerUnit.length} BOQ items costed
+          {wu.activeResourceCount} of {wu.laborResourceCount} manpower active · {kpis.productivityFactor.length} activities tracked · {kpis.labourCostPerUnit.length} BOQ items costed
         </div>
       </div>
 
@@ -122,12 +122,12 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           <ul className="list-disc list-inside space-y-0.5">
             {dq.missingRateResourceCount > 0 && (
               <li>
-                {dq.missingRateResourceCount} labour resource(s) have no rate set — affects Total Labour Cost and Cost / Unit. <a className="underline" href="/admin/labour-master">Fix in Admin → Labour Master</a>
+                {dq.missingRateResourceCount} manpower resource(s) have no rate set — affects Total Labour Cost and Cost / Unit. <a className="underline" href="/admin/labour-master">Fix in Admin → Labour Master</a>
               </li>
             )}
             {dq.missingAttendanceResourceCount > 0 && (
               <li>
-                {dq.missingAttendanceResourceCount} labour resource(s) missing attendance master — defaulted to 8 h/day for available-hours.
+                {dq.missingAttendanceResourceCount} manpower resource(s) missing attendance master — defaulted to 8 h/day for available-hours.
               </li>
             )}
             {dq.unitMismatchActivityCount > 0 && (
@@ -169,11 +169,11 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           <div className="mt-1 text-2xl font-semibold text-text-primary">{formatRupees(totalLabourCost)}</div>
           <div
             className="mt-1 text-xs text-text-secondary"
-            title="Σ (hours worked × hourly rate) across all labour resources, normalised by salary type."
+            title="Σ (hours worked × hourly rate) across all manpower resources, normalised by salary type."
           >
             {dq.missingRateResourceCount > 0
               ? `${dq.missingRateResourceCount} resource(s) missing rate`
-              : "across all labour activities"}
+              : "across all manpower activities"}
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface/50 p-4">
@@ -272,7 +272,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           </div>
           <div
             className="mt-1 text-xs text-text-secondary"
-            title="KPI 3.1 — Σ over LABOR resource assignments of (planned man-hours × hourly rate × overlap-with-window). planned_units stored as man-hours."
+            title="KPI 3.1 — Σ over MANPOWER resource assignments of (planned man-hours × hourly rate × overlap-with-window). planned_units stored as man-hours."
           >
             {kpis.labourCostSummary.activityCoverageCount} activities planned
             {kpis.labourCostSummary.missingPlanCount > 0 && ` · ${kpis.labourCostSummary.missingPlanCount} skipped`}

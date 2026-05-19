@@ -71,5 +71,13 @@ public record UpdateActivityRequest(
     UUID supervisorResourceId,
 
     /** Display-snapshot of the supervisor Resource name from the frontend picker. */
-    String supervisorResourceName
+    String supervisorResourceName,
+
+    /**
+     * DBS-Phase-2: toggle the BOQ Preliminary flag. Pass {@code true} to mark the activity as a
+     * Section 1 Preliminary item, {@code false} to demote it back to direct production. Pass
+     * {@code null} to leave unchanged (consistent with the rest of this request's
+     * "only-mutate-on-non-null" semantics).
+     */
+    Boolean preliminary
 ) {}

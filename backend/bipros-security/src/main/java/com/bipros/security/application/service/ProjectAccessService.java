@@ -1,6 +1,9 @@
 package com.bipros.security.application.service;
 
 import com.bipros.common.security.ProjectAccessGuard;
+import com.bipros.project.domain.model.ProjectRole;
+import com.bipros.project.domain.model.ProjectTeamMember;
+import com.bipros.project.domain.repository.ProjectTeamRepository;
 import com.bipros.security.domain.model.AccessLevel;
 import com.bipros.security.domain.model.ProjectMember;
 import com.bipros.security.domain.model.ProjectMemberRole;
@@ -12,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -40,8 +44,26 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProjectAccessService implements ProjectAccessGuard {
 
+    /**
+     * Project-team roles that grant write (edit) access on a project. Mirrors the read-only
+     * project_members EDITORS set but uses the {@link ProjectRole} taxonomy used by the
+     * {@code project.project_team} table (the reporting-line membership written for pilot /
+     * DBS rollups). Site Engineer + Supervisor are deliberately included so they can file
+     * DPRs and resource deployments without being added to the legacy project_members table.
+     */
+    private static final Set<ProjectRole> TEAM_EDITORS = EnumSet.of(
+            ProjectRole.PM,
+            ProjectRole.CONSTRUCTION_MANAGER,
+            ProjectRole.SITE_MANAGER,
+            ProjectRole.ENGINEER,
+            ProjectRole.SUPERVISOR);
+
+    /** Project-team roles that may delete a project. PM only — matches ProjectMemberRole.DELETERS. */
+    private static final Set<ProjectRole> TEAM_DELETERS = EnumSet.of(ProjectRole.PM);
+
     private final ObsSecurityService obsSecurityService;
     private final ProjectMemberRepository projectMemberRepository;
+    private final ProjectTeamRepository projectTeamRepository;
     private final CurrentUserService currentUserService;
 
     @Override
@@ -97,8 +119,11 @@ public class ProjectAccessService implements ProjectAccessGuard {
         if (obsProjects != null) {
             ids.addAll(obsProjects);
         }
-        // ProjectMember-derived projects
+        // ProjectMember-derived projects (legacy project_members table)
         ids.addAll(projectMemberRepository.findProjectIdsByUserId(userId));
+        // ProjectTeamMember-derived projects (project.project_team — DBS reporting line; how
+        // pilot PM/CM/Engineer/Supervisor are wired). Any team-row grants READ.
+        ids.addAll(projectTeamRepository.findProjectIdsByUserId(userId));
         return ids;
     }
 
@@ -119,6 +144,12 @@ public class ProjectAccessService implements ProjectAccessGuard {
         if (!projectMemberRepository.findByUserIdAndProjectId(userId, projectId).isEmpty()) {
             return true;
         }
+        // Project-team membership (project.project_team — DBS reporting line) grants READ.
+        // Any role on the team qualifies; this is the secondary grant path that lets
+        // pilot PM/CM/Engineer/Supervisor see their project without a project_members row.
+        if (!projectTeamRepository.findAllByProjectIdAndUserId(projectId, userId).isEmpty()) {
+            return true;
+        }
         return obsSecurityService.hasAccess(userId, projectId, AccessLevel.VIEW);
     }
 
@@ -133,10 +164,15 @@ public class ProjectAccessService implements ProjectAccessGuard {
         boolean hasEditingRole = projectMemberRepository.findByUserIdAndProjectId(userId, projectId).stream()
                 .map(ProjectMember::getProjectRole)
                 .anyMatch(ProjectMemberRole::canEdit);
-        if (!hasEditingRole) {
-            return false;
+        if (hasEditingRole && obsSecurityService.hasAccess(userId, projectId, AccessLevel.EDIT)) {
+            return true;
         }
-        return obsSecurityService.hasAccess(userId, projectId, AccessLevel.EDIT);
+        // Project-team editor (PM/CM/SiteMgr/Engineer/Supervisor) grants EDIT independently of
+        // OBS. Per-permission gates (e.g. hasPermission('DPR.CREATE')) remain the fine-grained
+        // controls layered on top of this membership test.
+        return projectTeamRepository.findAllByProjectIdAndUserId(projectId, userId).stream()
+                .map(ProjectTeamMember::getRole)
+                .anyMatch(TEAM_EDITORS::contains);
     }
 
     @Transactional(readOnly = true)
@@ -150,10 +186,13 @@ public class ProjectAccessService implements ProjectAccessGuard {
         boolean hasDeletingRole = projectMemberRepository.findByUserIdAndProjectId(userId, projectId).stream()
                 .map(ProjectMember::getProjectRole)
                 .anyMatch(ProjectMemberRole::canDelete);
-        if (!hasDeletingRole) {
-            return false;
+        if (hasDeletingRole && obsSecurityService.hasAccess(userId, projectId, AccessLevel.FULL)) {
+            return true;
         }
-        return obsSecurityService.hasAccess(userId, projectId, AccessLevel.FULL);
+        // Project-team PM grants DELETE — mirrors ProjectMemberRole.DELETERS = {PROJECT_MANAGER}.
+        return projectTeamRepository.findAllByProjectIdAndUserId(projectId, userId).stream()
+                .map(ProjectTeamMember::getRole)
+                .anyMatch(TEAM_DELETERS::contains);
     }
 
     @Transactional(readOnly = true)

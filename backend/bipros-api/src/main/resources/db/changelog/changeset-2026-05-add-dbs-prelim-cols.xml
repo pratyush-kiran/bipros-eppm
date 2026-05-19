@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Phase 7: Preliminaries split + Cost-incl-Prelims + % Achieved.
+        Adds four columns to dbs_daily_supervisor / dbs_daily_engineer / dbs_daily_project,
+        mirroring the columns already present on dbs_daily_cm (introduced in Phase 4):
+          - direct_cost              (BOQ value for the day, non-preliminary activities)
+          - prelim_cost              (BOQ value for the day, preliminary activities)
+          - total_cost_incl_prelims  (direct_cost + prelim_cost)
+          - pct_achieved             (boqAchievedAmount / boqPlannedAmount * 100, 0..100)
+
+        All columns nullable to keep existing rows intact under ddl-auto:validate in prod.
+        SectionFBoqCalculator joins activity.activities.is_preliminary to bucket each line;
+        DbsAggregationService.recomputeXxxDay populates these four columns from there
+        (supervisor) or by SUMing the contributing child rows (engineer / project / CM).
+    -->
+
+    <changeSet id="dbs-prelim-1-supervisor" author="hemendra">
+        <addColumn schemaName="dbs" tableName="dbs_daily_supervisor">
+            <column name="direct_cost" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_supervisor">
+            <column name="prelim_cost" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_supervisor">
+            <column name="total_cost_incl_prelims" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_supervisor">
+            <column name="pct_achieved" type="NUMERIC(8,4)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="dbs-prelim-2-engineer" author="hemendra">
+        <addColumn schemaName="dbs" tableName="dbs_daily_engineer">
+            <column name="direct_cost" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_engineer">
+            <column name="prelim_cost" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_engineer">
+            <column name="total_cost_incl_prelims" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_engineer">
+            <column name="pct_achieved" type="NUMERIC(8,4)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="dbs-prelim-3-project" author="hemendra">
+        <addColumn schemaName="dbs" tableName="dbs_daily_project">
+            <column name="direct_cost" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_project">
+            <column name="prelim_cost" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_project">
+            <column name="total_cost_incl_prelims" type="NUMERIC(18,4)"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_project">
+            <column name="pct_achieved" type="NUMERIC(8,4)"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

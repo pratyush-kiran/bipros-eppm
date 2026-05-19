@@ -74,6 +74,12 @@ public record ActivityResponse(
      *  Lets the DPR form auto-fill {@code DPR.unit} when an activity is picked. Null when the
      *  activity has no work-activity link, or when the list path didn't bulk-load default units. */
     String workActivityDefaultUnit,
+    /**
+     * DBS-Phase-2: when {@code true}, this activity is a BOQ Section 1 Preliminary (mobilisation,
+     * site setup, diversions, etc.) and its cost contribution is bucketed into {@code prelim_cost}
+     * instead of {@code direct_cost} on every DBS rollup. Mirrors {@link com.bipros.activity.domain.model.Activity#isPreliminary()}.
+     */
+    boolean preliminary,
     Instant createdAt,
     Instant updatedAt,
     String createdBy,
@@ -148,6 +154,7 @@ public record ActivityResponse(
         supervisorUserName,
         sups,
         workActivityDefaultUnit,
+        activity.isPreliminary(),
         activity.getCreatedAt(),
         activity.getUpdatedAt(),
         activity.getCreatedBy(),
@@ -234,6 +241,7 @@ public record ActivityResponse(
         supervisorUserName,
         sups,
         null,
+        activity.isPreliminary(),
         activity.getCreatedAt(),
         activity.getUpdatedAt(),
         activity.getCreatedBy(),

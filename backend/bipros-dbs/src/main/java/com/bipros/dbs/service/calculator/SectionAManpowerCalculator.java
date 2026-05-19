@@ -15,10 +15,15 @@ import java.util.UUID;
 /**
  * Section A — Manpower. Primary source is {@code project.dpr_manpower} (per-row line items on
  * each DPR), joined to {@code project.daily_progress_reports} so we can filter by
- * (project, date, supervisor). Rate resolution falls back through:
- * {@code line_cost} → ({@code nos × working_hours × unit_rate}) →
- * {@code manpower_role_rate_id → manpower_role_rates.rate} →
- * {@code role_id → manpower_rate_masters.rate}.
+ * (project, date, supervisor).
+ *
+ * <p><b>Cost rule:</b> {@code amount = nos × rate}. The DPR's {@code working_hours} column
+ * is a logging field only and never enters cost or quantity math — mirroring the canonical
+ * Resource Plan formula in {@code ResourceAssignmentCostRollupListener} where
+ * {@code actualCost = rate × actualUnits}. Rate resolution chain:
+ * {@code line_cost} (preferred — written by {@code DprCostFormulas}) →
+ * {@code unit_rate} on the row → {@code manpower_role_rates.rate} →
+ * {@code manpower_rate_masters.rate}.
  *
  * <p>Legacy {@code project.daily_resource_deployments} (LABOR/MANPOWER) rows are folded in as
  * a secondary source, but only when {@code supervisorUserId} is null — DRD carries no
@@ -42,11 +47,10 @@ public class SectionAManpowerCalculator {
             String dprSql = """
                 SELECT m.trade,
                        COALESCE(m.nos, 0)                                     AS nos,
-                       COALESCE(m.working_hours, 0)                           AS hrs,
                        m.unit_rate                                            AS row_rate,
                        m.line_cost                                            AS row_line_cost,
                        COALESCE(rrr.rate, mrm.rate, 0)                        AS fallback_rate,
-                       COALESCE(rrr.unit, mrm.unit, 'hr')                     AS unit
+                       COALESCE(rrr.unit, mrm.unit, 'Day')                    AS unit
                 FROM project.dpr_manpower m
                 JOIN project.daily_progress_reports d ON d.id = m.dpr_id
                 LEFT JOIN resource.manpower_role_rates rrr ON rrr.id = m.manpower_role_rate_id
@@ -63,26 +67,23 @@ public class SectionAManpowerCalculator {
             for (Object[] r : rows) {
                 String desc = (String) r[0];
                 BigDecimal nos = toBigDecimal(r[1]);
-                BigDecimal hrs = toBigDecimal(r[2]);
-                BigDecimal rowRate = toBigDecimalNullable(r[3]);
-                BigDecimal rowLineCost = toBigDecimalNullable(r[4]);
-                BigDecimal fallbackRate = toBigDecimal(r[5]);
-                String unit = (String) r[6];
+                BigDecimal rowRate = toBigDecimalNullable(r[2]);
+                BigDecimal rowLineCost = toBigDecimalNullable(r[3]);
+                BigDecimal fallbackRate = toBigDecimal(r[4]);
+                String unit = (String) r[5];
 
-                BigDecimal qty = nos.multiply(hrs);
                 BigDecimal effectiveRate = rowRate != null && rowRate.signum() > 0 ? rowRate : fallbackRate;
-                BigDecimal amount;
-                if (rowLineCost != null && rowLineCost.signum() != 0) {
-                    amount = rowLineCost.setScale(2, RoundingMode.HALF_UP);
-                } else {
-                    amount = qty.multiply(effectiveRate).setScale(2, RoundingMode.HALF_UP);
-                }
+                // Cost = Nos × Rate. line_cost is preferred (DprCostFormulas already wrote it),
+                // but recompute from nos × rate when it's missing.
+                BigDecimal amount = (rowLineCost != null && rowLineCost.signum() != 0)
+                    ? rowLineCost.setScale(2, RoundingMode.HALF_UP)
+                    : nos.multiply(effectiveRate).setScale(2, RoundingMode.HALF_UP);
                 if (amount.signum() == 0 && effectiveRate.signum() == 0) {
-                    log.warn("Section A manpower row has no resolvable rate: projectId={} date={} trade={} (nos={}, hrs={}). "
+                    log.warn("Section A manpower row has no resolvable rate: projectId={} date={} trade={} (nos={}). "
                             + "Configure manpower_role_rates / manpower_rate_masters for the role, or set unit_rate/line_cost on the DPR row.",
-                        projectId, date, desc, nos, hrs);
+                        projectId, date, desc, nos);
                 }
-                lines.add(new SectionLine(desc, unit, effectiveRate, qty, amount));
+                lines.add(new SectionLine(desc, unit, effectiveRate, nos, amount));
                 total = total.add(amount);
             }
         } catch (Exception ex) {
@@ -96,9 +97,8 @@ public class SectionAManpowerCalculator {
                 String drdSql = """
                     SELECT d.resource_description,
                            COALESCE(d.nos_deployed, 0)   AS nos,
-                           COALESCE(d.hours_worked, 0)   AS hrs,
                            COALESCE(r.rate, 0)           AS rate,
-                           COALESCE(r.unit, 'hr')        AS unit
+                           COALESCE(r.unit, 'Day')       AS unit
                     FROM project.daily_resource_deployments d
                     LEFT JOIN resource.manpower_rate_masters r ON r.role_id = d.resource_role_id
                     WHERE d.project_id = :pid
@@ -112,12 +112,10 @@ public class SectionAManpowerCalculator {
                 for (Object[] r : rows) {
                     String desc = (String) r[0];
                     BigDecimal nos = toBigDecimal(r[1]);
-                    BigDecimal hrs = toBigDecimal(r[2]);
-                    BigDecimal rate = toBigDecimal(r[3]);
-                    String unit = (String) r[4];
-                    BigDecimal qty = nos.multiply(hrs);
-                    BigDecimal amount = qty.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                    lines.add(new SectionLine(desc, unit, rate, qty, amount));
+                    BigDecimal rate = toBigDecimal(r[2]);
+                    String unit = (String) r[3];
+                    BigDecimal amount = nos.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+                    lines.add(new SectionLine(desc, unit, rate, nos, amount));
                     total = total.add(amount);
                 }
             } catch (Exception ex) {

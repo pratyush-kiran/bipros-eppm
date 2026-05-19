@@ -13,6 +13,10 @@ import java.util.UUID;
  *
  * <p>The {@code id} is {@code null} for synthetic zero-fill rows (no underlying
  * dbs_daily_supervisor row exists for the requested key).
+ *
+ * <p>Phase 7: {@code directCost} / {@code prelimCost} / {@code totalCostInclPrelims} /
+ * {@code pctAchieved} carry the BOQ-by-activity-type split (direct vs preliminary) and
+ * cumulative progress vs plan.
  */
 public record DbsSupervisorDayResponse(
     UUID id,
@@ -30,6 +34,10 @@ public record DbsSupervisorDayResponse(
     BigDecimal boqForTheDayAmount,
     BigDecimal boqPlannedAmount,
     BigDecimal boqAchievedAmount,
+    BigDecimal directCost,
+    BigDecimal prelimCost,
+    BigDecimal totalCostInclPrelims,
+    BigDecimal pctAchieved,
     BigDecimal totalExpense,
     BigDecimal totalIncome,
     BigDecimal contribution,

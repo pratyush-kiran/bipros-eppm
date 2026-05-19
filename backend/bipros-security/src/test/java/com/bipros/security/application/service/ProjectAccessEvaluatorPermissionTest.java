@@ -1,5 +1,8 @@
 package com.bipros.security.application.service;
 
+import com.bipros.project.domain.model.ProjectRole;
+import com.bipros.project.domain.model.ProjectTeamMember;
+import com.bipros.project.domain.repository.ProjectTeamRepository;
 import com.bipros.security.domain.model.ProjectMember;
 import com.bipros.security.domain.repository.ProjectMemberRepository;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,9 @@ class ProjectAccessEvaluatorPermissionTest {
 
     @Mock
     private ProjectMemberRepository projectMemberRepository;
+
+    @Mock
+    private ProjectTeamRepository projectTeamRepository;
 
     @InjectMocks
     private ProjectAccessEvaluator evaluator;
@@ -133,6 +139,32 @@ class ProjectAccessEvaluatorPermissionTest {
         when(currentUserService.getCurrentUserId()).thenReturn(userId);
         when(projectMemberRepository.findByUserIdAndProjectId(userId, projectId))
                 .thenReturn(List.of(new ProjectMember()));
+
+        boolean allowed = evaluator.hasProjectPermission(projectId, PERMISSION);
+
+        assertThat(allowed).isTrue();
+    }
+
+    @Test
+    void hasPermissionAndIsProjectTeamMember_returnsTrue() {
+        // Regression for DA-RBAC-01/02/03: a user wired in project.project_team (DBS reporting
+        // line) but NOT in the legacy project_members table should still be granted project
+        // permissions. This is how pilot.pm1 / pilot.cm1 / pilot.eng1 / pilot.sup1 are seeded.
+        UUID userId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        ProjectTeamMember teamRow = ProjectTeamMember.builder()
+                .userId(userId)
+                .projectId(projectId)
+                .role(ProjectRole.SUPERVISOR)
+                .build();
+        when(currentUserService.isSystemContext()).thenReturn(false);
+        when(currentUserService.isAdmin()).thenReturn(false);
+        when(currentUserService.hasPermission(PERMISSION)).thenReturn(true);
+        when(currentUserService.getCurrentUserId()).thenReturn(userId);
+        when(projectMemberRepository.findByUserIdAndProjectId(userId, projectId))
+                .thenReturn(List.of());
+        when(projectTeamRepository.findAllByProjectIdAndUserId(projectId, userId))
+                .thenReturn(List.of(teamRow));
 
         boolean allowed = evaluator.hasProjectPermission(projectId, PERMISSION);
 

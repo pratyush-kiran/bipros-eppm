@@ -2,6 +2,7 @@ package com.bipros.project.application.dto;
 
 import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.model.ManpowerCategory;
+import com.bipros.project.domain.model.Shift;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -20,6 +21,7 @@ public record DprManpowerRow(
     UUID resourceId,
     @NotBlank String trade,
     ManpowerCategory category,
+    Shift shift,
     @PositiveOrZero Integer nos,
     @PositiveOrZero BigDecimal workingHours,
     @PositiveOrZero BigDecimal otHours,
@@ -40,6 +42,7 @@ public record DprManpowerRow(
             e.getResourceId(),
             e.getTrade(),
             e.getCategory(),
+            e.getShift(),
             e.getNos(),
             e.getWorkingHours(),
             e.getOtHours(),
@@ -60,6 +63,7 @@ public record DprManpowerRow(
             .resourceId(resourceId)
             .trade(trade)
             .category(category)
+            .shift(shift == null ? Shift.DAY : shift)
             .nos(nos)
             .workingHours(workingHours)
             .otHours(otHours)

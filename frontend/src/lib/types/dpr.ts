@@ -21,6 +21,8 @@ export interface DprManpowerRow {
   resourceId?: string | null;
   trade: string;
   category?: ManpowerCategory | null;
+  /** Per-row shift (DAY / NIGHT). Mixed-shift days use separate rows. Defaults DAY server-side. */
+  shift?: Shift | null;
   nos?: number | null;
   workingHours?: number | null;
   otHours?: number | null;
@@ -43,6 +45,8 @@ export interface DprEquipmentRow {
   equipmentType: string;
   fleetNo?: string | null;
   ownership?: EquipmentOwnership | null;
+  /** Per-row shift (DAY / NIGHT). Mixed-shift days use separate rows. Defaults DAY server-side. */
+  shift?: Shift | null;
   nos?: number | null;
   workingHours?: number | null;
   idleHours?: number | null;

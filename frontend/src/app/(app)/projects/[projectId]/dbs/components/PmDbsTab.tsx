@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, Calendar, AlertCircle, FileSpreadsheet, FileText } from "lucide-react";
+import {
+  RefreshCw,
+  Calendar,
+  AlertCircle,
+  ArrowRight,
+  FileSpreadsheet,
+  FileText,
+} from "lucide-react";
 import toast from "react-hot-toast";
 
 import { EmptyState } from "@/components/common/EmptyState";
@@ -27,6 +34,9 @@ import { useAuthStore } from "@/lib/state/store";
 import { getErrorMessage } from "@/lib/utils/error";
 import { formatCurrency, formatPercent } from "@/lib/utils/format";
 
+import { DailyBreakdownTable } from "./DailyBreakdownTable";
+import { EquipmentRegisterPanel } from "./EquipmentRegisterPanel";
+import { ManpowerRegisterPanel } from "./ManpowerRegisterPanel";
 import { TotalsPanel } from "./TotalsPanel";
 
 /**
@@ -81,9 +91,21 @@ export interface PmDbsTabProps {
   date: string;
   periodType: DbsPeriodType;
   currency?: string | null;
+  /**
+   * Phase 8 — callback fired when the user clicks "drill in" on a row in the
+   * "Group by CM" table. Parent switches the active tab to `cm` and seeds the
+   * `?cm=<userId>` query param.
+   */
+  onNavigateToCm?: (cmUserId: string) => void;
 }
 
-export function PmDbsTab({ projectId, date, periodType, currency }: PmDbsTabProps) {
+export function PmDbsTab({
+  projectId,
+  date,
+  periodType,
+  currency,
+  onNavigateToCm,
+}: PmDbsTabProps) {
   const qc = useQueryClient();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   // Permission code is best-effort — backend enforces the real ABAC. We mirror
@@ -96,6 +118,10 @@ export function PmDbsTab({ projectId, date, periodType, currency }: PmDbsTabProp
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
+  // Phase 8 — Group-by-CM toggle. When on, the engineer breakdown table is
+  // replaced with a per-CM table (no per-engineer fan-out queries; uses the
+  // `/cms` summary endpoint directly).
+  const [groupByCm, setGroupByCm] = useState(false);
 
   const handleExport = async (kind: "xlsx" | "pdf") => {
     if (!projectId || !date) return;
@@ -156,14 +182,24 @@ export function PmDbsTab({ projectId, date, periodType, currency }: PmDbsTabProp
   });
 
   const { data: usersData } = useQuery({
-    queryKey: ["users", "by-roles", ["ENGINEER", "SITE_ENGINEER"]],
-    queryFn: () => userApi.listByRoles(["ENGINEER", "SITE_ENGINEER"]),
+    queryKey: ["users", "by-roles", ["ENGINEER", "SITE_ENGINEER", "CONSTRUCTION_MANAGER"]],
+    queryFn: () =>
+      userApi.listByRoles(["ENGINEER", "SITE_ENGINEER", "CONSTRUCTION_MANAGER"]),
   });
   const usersById = useMemo(() => {
     const m = new Map<string, UserSummary>();
     for (const u of usersData ?? []) m.set(u.id, u);
     return m;
   }, [usersData]);
+
+  // Phase 8 — CM roster for the Group-by-CM table. Only fetched when the toggle
+  // is on, in DAY mode (period rollups aren't supported per-CM in v1).
+  const cmsQuery = useQuery({
+    queryKey: ["dbs-cms-roster", projectId, date],
+    queryFn: () => dbsApi.listCms(projectId, date),
+    enabled: !!projectId && !!date && periodType === "DAY" && groupByCm,
+  });
+  const cms = cmsQuery.data?.data ?? [];
 
   const recomputeMutation = useMutation({
     mutationFn: () => dbsApi.recompute(projectId, date),
@@ -298,6 +334,48 @@ export function PmDbsTab({ projectId, date, periodType, currency }: PmDbsTabProp
             </section>
           ) : null}
 
+          {/* Phase 8 — Prelim-aware KPI tiles. Sit above the standard P&L panel so
+              they're the first numbers a PM sees on opening the tab. Falls back
+              to 0 / "—" when the backend hasn't populated the columns yet. */}
+          <div
+            className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+            data-testid="pm-prelim-kpis"
+          >
+            <KpiTile
+              label="Direct BOQ Value"
+              value={formatCurrency(day.directCost ?? 0, currency)}
+              hint="Today's BOQ income · excl. preliminaries"
+              tone="warning"
+            />
+            <KpiTile
+              label="Prelim BOQ Value"
+              value={formatCurrency(day.prelimCost ?? 0, currency)}
+              hint="Today's BOQ income · prelim items only"
+            />
+            <KpiTile
+              label="Total BOQ Value"
+              value={formatCurrency(day.totalCostInclPrelims ?? 0, currency)}
+              hint="Direct + Prelim BOQ value today"
+              tone="accent"
+            />
+            <KpiTile
+              label="% Achieved"
+              value={
+                day.pctAchieved != null
+                  ? formatPercent(day.pctAchieved)
+                  : "—"
+              }
+              hint="qty executed-to-date ÷ planned"
+              tone={
+                day.pctAchieved != null && day.pctAchieved >= 95
+                  ? "success"
+                  : day.pctAchieved != null && day.pctAchieved < 60
+                    ? "danger"
+                    : "default"
+              }
+            />
+          </div>
+
           <TotalsPanel
             materialAmount={day.materialAmount}
             manpowerAmount={day.manpowerAmount}
@@ -330,7 +408,7 @@ export function PmDbsTab({ projectId, date, periodType, currency }: PmDbsTabProp
                 <KpiTile
                   label="Cumulative Income"
                   value={formatCurrency(day.cumulativeIncome ?? 0, currency)}
-                  hint="BOQ achieved-to-date × rate"
+                  hint="qty executed-to-date × boq_rate"
                   tone="accent"
                 />
                 <KpiTile
@@ -348,8 +426,127 @@ export function PmDbsTab({ projectId, date, periodType, currency }: PmDbsTabProp
             </section>
           ) : null}
 
+          {/* Phase 8 — Group-by-CM toggle. Default shows per-engineer (existing
+              behaviour); on, shows one row per CM with summary fields, click-
+              through into the CM tab. */}
+          {periodType === "DAY" ? (
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-xs text-text-muted">Group rows by</span>
+              <div className="inline-flex overflow-hidden rounded-md border border-border bg-surface">
+                <button
+                  type="button"
+                  onClick={() => setGroupByCm(false)}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    !groupByCm
+                      ? "bg-accent text-accent-foreground"
+                      : "text-text-secondary hover:bg-surface-hover"
+                  }`}
+                >
+                  Engineer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupByCm(true)}
+                  className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    groupByCm
+                      ? "bg-accent text-accent-foreground"
+                      : "text-text-secondary hover:bg-surface-hover"
+                  }`}
+                >
+                  CM
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Per-CM breakdown — Phase 8. Fetched on-demand by `cmsQuery`. */}
+          {periodType === "DAY" && groupByCm ? (
+            <section className="rounded-lg border border-border bg-surface/50 shadow-sm">
+              <header className="border-b border-border px-4 py-3">
+                <h3 className="text-sm font-semibold text-text-primary">
+                  Per-CM breakdown
+                </h3>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  One row per Construction Manager. Click {`"Drill in"`} to see
+                  the CM tab pre-filtered.
+                </p>
+              </header>
+              {cmsQuery.isLoading ? (
+                <div className="px-4 py-6 text-center text-xs text-text-muted">
+                  Loading CM rollup…
+                </div>
+              ) : cms.length === 0 ? (
+                <div className="px-4 py-6 text-center text-xs text-text-muted">
+                  No CMs with downline activity on this date.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm" data-testid="pm-cm-breakdown">
+                    <thead className="bg-surface/40 text-left text-xs uppercase tracking-wide text-text-muted">
+                      <tr>
+                        <th className="px-4 py-2">Construction Manager</th>
+                        <th className="px-4 py-2 text-right">Supervisors</th>
+                        <th className="px-4 py-2 text-right">Direct Cost</th>
+                        <th className="px-4 py-2 text-right">Prelim Cost</th>
+                        <th className="px-4 py-2 text-right">Cost incl Prelims</th>
+                        <th className="px-4 py-2 text-right">Contribution %</th>
+                        <th className="px-4 py-2 text-right">% Achieved</th>
+                        <th className="px-4 py-2 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {cms.map((cm) => {
+                        const u = usersById.get(cm.cmUserId);
+                        const name = cm.cmName ?? u?.name ?? cm.cmUserId.slice(0, 8) + "…";
+                        return (
+                          <tr key={cm.cmUserId}>
+                            <td className="px-4 py-2 text-text-primary">{name}</td>
+                            <td className="px-4 py-2 text-right font-mono text-text-secondary">
+                              {cm.supervisorCount ?? 0}
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-text-secondary">
+                              {formatCurrency(cm.directCost ?? 0, currency)}
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-text-secondary">
+                              {formatCurrency(cm.prelimCost ?? 0, currency)}
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-text-secondary">
+                              {formatCurrency(cm.totalCostInclPrelims ?? 0, currency)}
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-text-secondary">
+                              {cm.contributionPct != null
+                                ? formatPercent(cm.contributionPct)
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-2 text-right font-mono text-text-secondary">
+                              {cm.pctAchieved != null
+                                ? formatPercent(cm.pctAchieved)
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-2 text-right">
+                              {onNavigateToCm ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onNavigateToCm(cm.cmUserId)}
+                                  className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-500/20"
+                                >
+                                  Drill in
+                                  <ArrowRight size={11} />
+                                </button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          ) : null}
+
           {/* Per-engineer breakdown — mirrors Summary-Financial (NEW) columns */}
-          {periodType === "DAY" && engineerIds.length > 0 ? (
+          {periodType === "DAY" && !groupByCm && engineerIds.length > 0 ? (
             <section className="rounded-lg border border-border bg-surface/50 shadow-sm">
               <header className="border-b border-border px-4 py-3">
                 <h3 className="text-sm font-semibold text-text-primary">
@@ -464,59 +661,24 @@ export function PmDbsTab({ projectId, date, periodType, currency }: PmDbsTabProp
             </section>
           ) : null}
 
-          {/* Period mode — show daily project rollup table in place of per-engineer fan-out */}
+          {/* Phase 8 — Equipment & Manpower deployment registers. Mounted at the
+              bottom of the PM tab because they're cross-cutting and reference
+              the same date as the totals above. */}
+          {periodType === "DAY" ? (
+            <>
+              <EquipmentRegisterPanel projectId={projectId} date={date} />
+              <ManpowerRegisterPanel projectId={projectId} date={date} />
+            </>
+          ) : null}
+
+          {/* Period mode — daily project rollup with cumulative columns + period totals. */}
           {periodType !== "DAY" && dailyRows.length > 0 ? (
-            <section className="rounded-lg border border-border bg-surface/50 shadow-sm">
-              <header className="border-b border-border px-4 py-3">
-                <h3 className="text-sm font-semibold text-text-primary">
-                  Daily breakdown ({periodType.toLowerCase()} view)
-                </h3>
-              </header>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface/40 text-left text-xs uppercase tracking-wide text-text-muted">
-                    <tr>
-                      <th className="px-4 py-2">Date</th>
-                      <th className="px-4 py-2 text-right">Expense</th>
-                      <th className="px-4 py-2 text-right">Income</th>
-                      <th className="px-4 py-2 text-right">Contribution</th>
-                      <th className="px-4 py-2 text-right">Contribution %</th>
-                      <th className="px-4 py-2 text-right">DPRs</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {dailyRows.map((row) => (
-                      <tr key={row.reportDate}>
-                        <td className="px-4 py-2 text-text-primary">{row.reportDate}</td>
-                        <td className="px-4 py-2 text-right font-mono text-text-secondary">
-                          {formatCurrency(row.totalExpense, currency)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-text-secondary">
-                          {formatCurrency(row.totalIncome, currency)}
-                        </td>
-                        <td
-                          className={`px-4 py-2 text-right font-mono ${
-                            row.contribution > 0
-                              ? "text-emerald-600"
-                              : row.contribution < 0
-                                ? "text-rose-600"
-                                : "text-text-secondary"
-                          }`}
-                        >
-                          {formatCurrency(row.contribution, currency)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-text-secondary">
-                          {formatPercent(row.contributionPct * 100)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-text-secondary">
-                          {row.dprCount}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+            <DailyBreakdownTable
+              rows={dailyRows}
+              currency={currency}
+              periodLabel={periodType.toLowerCase()}
+              showDprCount
+            />
           ) : null}
         </>
       )}

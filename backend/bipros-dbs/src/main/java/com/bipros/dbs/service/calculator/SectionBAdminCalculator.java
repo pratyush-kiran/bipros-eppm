@@ -36,12 +36,13 @@ public class SectionBAdminCalculator {
             return SectionResult.empty();
         }
         try {
+            // Cost rule: amount = nos × rate. hours_worked is a logging field; never enters
+            // cost or quantity math (mirrors Resource Plan formula).
             String sql = """
                 SELECT d.resource_description,
                        COALESCE(d.nos_deployed, 0)   AS nos,
-                       COALESCE(d.hours_worked, 0)   AS hrs,
                        COALESCE(r.rate, 0)           AS rate,
-                       COALESCE(r.unit, 'day')       AS unit
+                       COALESCE(r.unit, 'Day')       AS unit
                 FROM project.daily_resource_deployments d
                 LEFT JOIN resource.manpower_rate_masters r ON r.role_id = d.resource_role_id
                 WHERE d.project_id = :pid
@@ -61,12 +62,10 @@ public class SectionBAdminCalculator {
             for (Object[] r : rows) {
                 String desc = (String) r[0];
                 BigDecimal nos = toBigDecimal(r[1]);
-                BigDecimal hrs = toBigDecimal(r[2]);
-                BigDecimal rate = toBigDecimal(r[3]);
-                String unit = (String) r[4];
-                BigDecimal qty = nos.multiply(hrs);
-                BigDecimal amount = qty.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                lines.add(new SectionLine(desc, unit, rate, qty, amount));
+                BigDecimal rate = toBigDecimal(r[2]);
+                String unit = (String) r[3];
+                BigDecimal amount = nos.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+                lines.add(new SectionLine(desc, unit, rate, nos, amount));
                 total = total.add(amount);
             }
             return new SectionResult(total.setScale(2, RoundingMode.HALF_UP), lines);

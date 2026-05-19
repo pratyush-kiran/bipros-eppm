@@ -3,8 +3,11 @@ package com.bipros.cost.api;
 import com.bipros.common.dto.ApiResponse;
 import com.bipros.common.dto.PagedResponse;
 import com.bipros.cost.application.dto.*;
+import com.bipros.cost.application.service.BoqMarginService;
+import com.bipros.cost.application.service.BudgetedMarginService;
 import com.bipros.cost.application.service.CashFlowForecastEngine;
 import com.bipros.cost.application.service.CostService;
+import com.bipros.cost.application.service.PerformanceRollupService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +24,9 @@ import java.util.UUID;
 public class CostController {
 
     private final CostService costService;
+    private final PerformanceRollupService performanceRollupService;
+    private final BudgetedMarginService budgetedMarginService;
+    private final BoqMarginService boqMarginService;
 
     // Cost Account Endpoints
     @PreAuthorize("hasPermission(null, 'COST.CREATE')")
@@ -255,6 +261,75 @@ public class CostController {
             @PathVariable UUID sppId) {
         costService.deleteStorePeriodPerformance(sppId);
         return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    // Performance D/W/M Rollup (Feature 1)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/performance")
+    public ResponseEntity<ApiResponse<List<PeriodPerformanceRollupDto>>> getPerformanceRollup(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "M") String periodType) {
+        return ResponseEntity.ok(ApiResponse.ok(performanceRollupService.rollup(projectId, periodType)));
+    }
+
+    // P&L vs Budgeted Unit Rates (Feature 2)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/budgeted/items")
+    public ResponseEntity<ApiResponse<List<MarginItemDto>>> getBudgetedMarginByItem(
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(ApiResponse.ok(budgetedMarginService.marginByBoqItem(projectId)));
+    }
+
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/budgeted/activities")
+    public ResponseEntity<ApiResponse<List<MarginActivityDto>>> getBudgetedMarginByActivity(
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(ApiResponse.ok(budgetedMarginService.marginByActivity(projectId)));
+    }
+
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/budgeted/periods")
+    public ResponseEntity<ApiResponse<List<MarginPeriodDto>>> getBudgetedMarginByPeriod(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "M") String periodType) {
+        return ResponseEntity.ok(ApiResponse.ok(budgetedMarginService.marginByPeriod(projectId, periodType)));
+    }
+
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/budgeted/summary")
+    public ResponseEntity<ApiResponse<MarginSummaryDto>> getBudgetedMarginSummary(
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(ApiResponse.ok(budgetedMarginService.summary(projectId)));
+    }
+
+    // P&L vs BOQ Rates (Feature 3)
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/boq/items")
+    public ResponseEntity<ApiResponse<List<MarginItemDto>>> getBoqMarginByItem(
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(ApiResponse.ok(boqMarginService.marginByBoqItem(projectId)));
+    }
+
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/boq/activities")
+    public ResponseEntity<ApiResponse<List<MarginActivityDto>>> getBoqMarginByActivity(
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(ApiResponse.ok(boqMarginService.marginByActivity(projectId)));
+    }
+
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/boq/periods")
+    public ResponseEntity<ApiResponse<List<MarginPeriodDto>>> getBoqMarginByPeriod(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "M") String periodType) {
+        return ResponseEntity.ok(ApiResponse.ok(boqMarginService.marginByPeriod(projectId, periodType)));
+    }
+
+    @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'COST.READ')")
+    @GetMapping("/projects/{projectId}/pnl/boq/summary")
+    public ResponseEntity<ApiResponse<MarginSummaryDto>> getBoqMarginSummary(
+            @PathVariable UUID projectId) {
+        return ResponseEntity.ok(ApiResponse.ok(boqMarginService.summary(projectId)));
     }
 
     // RA Bill Endpoints

@@ -15,6 +15,7 @@ import { projectTeamApi } from "@/lib/api/projectTeamApi";
 import { userApi, type UserSummary } from "@/lib/api/userApi";
 import { formatCurrency, formatPercent } from "@/lib/utils/format";
 
+import { DailyBreakdownTable } from "./DailyBreakdownTable";
 import { TotalsPanel } from "./TotalsPanel";
 
 /**
@@ -208,55 +209,13 @@ export function EngineerDbsTab({
             )}
           </section>
 
-          {/* Period-mode daily breakdown */}
+          {/* Period-mode daily breakdown — cumulative columns + period totals. */}
           {periodType !== "DAY" && dailyRows.length > 0 ? (
-            <section className="rounded-lg border border-border bg-surface/50 shadow-sm">
-              <header className="border-b border-border px-4 py-3">
-                <h3 className="text-sm font-semibold text-text-primary">
-                  Daily breakdown ({periodType.toLowerCase()} view)
-                </h3>
-              </header>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-surface/40 text-left text-xs uppercase tracking-wide text-text-muted">
-                    <tr>
-                      <th className="px-4 py-2">Date</th>
-                      <th className="px-4 py-2 text-right">Expense</th>
-                      <th className="px-4 py-2 text-right">Income</th>
-                      <th className="px-4 py-2 text-right">Contribution</th>
-                      <th className="px-4 py-2 text-right">Contribution %</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {dailyRows.map((row) => (
-                      <tr key={row.reportDate}>
-                        <td className="px-4 py-2 text-text-primary">{row.reportDate}</td>
-                        <td className="px-4 py-2 text-right font-mono text-text-secondary">
-                          {formatCurrency(row.totalExpense, currency)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-text-secondary">
-                          {formatCurrency(row.totalIncome, currency)}
-                        </td>
-                        <td
-                          className={`px-4 py-2 text-right font-mono ${
-                            row.contribution > 0
-                              ? "text-emerald-600"
-                              : row.contribution < 0
-                                ? "text-rose-600"
-                                : "text-text-secondary"
-                          }`}
-                        >
-                          {formatCurrency(row.contribution, currency)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-mono text-text-secondary">
-                          {formatPercent(row.contributionPct * 100)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+            <DailyBreakdownTable
+              rows={dailyRows}
+              currency={currency}
+              periodLabel={periodType.toLowerCase()}
+            />
           ) : null}
         </>
       )}
