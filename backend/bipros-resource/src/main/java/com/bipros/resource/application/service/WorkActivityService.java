@@ -5,6 +5,7 @@ import com.bipros.common.exception.ResourceNotFoundException;
 import com.bipros.common.util.AuditService;
 import com.bipros.resource.application.dto.CreateWorkActivityRequest;
 import com.bipros.resource.application.dto.WorkActivityResponse;
+import com.bipros.resource.domain.model.NormCombination;
 import com.bipros.resource.domain.model.WorkActivity;
 import com.bipros.resource.domain.repository.ProductivityNormRepository;
 import com.bipros.resource.domain.repository.WorkActivityRepository;
@@ -42,6 +43,7 @@ public class WorkActivityService {
         .description(trimToNull(request.description()))
         .sortOrder(request.sortOrder())
         .active(request.active() == null ? Boolean.TRUE : request.active())
+        .normCombination(request.normCombination() == null ? NormCombination.SERIES : request.normCombination())
         .build();
     WorkActivity saved = repository.save(wa);
     auditService.logCreate("WorkActivity", saved.getId(), WorkActivityResponse.from(saved));
@@ -68,6 +70,9 @@ public class WorkActivityService {
     wa.setSortOrder(request.sortOrder());
     if (request.active() != null) {
       wa.setActive(request.active());
+    }
+    if (request.normCombination() != null) {
+      wa.setNormCombination(request.normCombination());
     }
     WorkActivity updated = repository.save(wa);
     auditService.logUpdate("WorkActivity", id, "workActivity", null, WorkActivityResponse.from(updated));

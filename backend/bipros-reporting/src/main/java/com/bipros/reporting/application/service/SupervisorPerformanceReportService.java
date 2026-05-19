@@ -82,13 +82,15 @@ public class SupervisorPerformanceReportService {
     Map<NormCacheKey, Budgeted> normCache = new HashMap<>();
     for (ManpowerCellRow c : manpowerCells) {
       normCache.computeIfAbsent(
-          new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "MANPOWER"),
-          k -> normResolver.resolveByResourceType(k.workActivityId(), k.resourceTypeId(), k.normType()));
+          new NormCacheKey(c.workActivityId(), c.roleId(), c.resourceTypeId(), "MANPOWER"),
+          k -> normResolver.resolveByRoleOrType(
+              k.workActivityId(), k.roleId(), k.resourceTypeId(), k.normType()));
     }
     for (EquipmentCellRow c : equipmentCells) {
       normCache.computeIfAbsent(
-          new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "EQUIPMENT"),
-          k -> normResolver.resolveByResourceType(k.workActivityId(), k.resourceTypeId(), k.normType()));
+          new NormCacheKey(c.workActivityId(), c.roleId(), c.resourceTypeId(), "EQUIPMENT"),
+          k -> normResolver.resolveByRoleOrType(
+              k.workActivityId(), k.roleId(), k.resourceTypeId(), k.normType()));
     }
 
     // Real per-(activity, role) planned headcount from RoleAssignment, used by the drill-down's
@@ -194,11 +196,12 @@ public class SupervisorPerformanceReportService {
                 + "  a.name                                                        AS activity_name, "
                 + "  d.unit                                                        AS activity_unit, "
                 + "  SUM(d.qty_executed)                                           AS qty, "
-                + "  SUM(COALESCE(m.nos, 0) * COALESCE(m.working_hours, " + DEFAULT_HOURS_PER_DAY + ")) AS person_hours, "
-                + "  SUM( "
-                + "    COALESCE(m.nos, 0) * COALESCE(m.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / " + DEFAULT_HOURS_PER_DAY + " "
-                + "    * COALESCE(m.unit_rate, mrr.rate, 0) "
-                + "  )                                                             AS line_cost_total, "
+                // actual_nos is the raw sum of headcount. working_hours is DPR logging metadata
+                // only — never multiplied in. DAY-basis manpower rates are paid per person/day
+                // regardless of hours, and half-day attendance should not silently halve the
+                // role's contribution to Capacity Util / Supervisor Performance.
+                + "  SUM(COALESCE(m.nos, 0))                                       AS actual_nos, "
+                + "  SUM(COALESCE(m.nos, 0) * COALESCE(m.unit_rate, mrr.rate, 0))  AS line_cost_total, "
                 + "  m.role_id                                                     AS role_id "
                 + "FROM project.daily_progress_reports d "
                 + "JOIN project.dpr_manpower m       ON m.dpr_id = d.id "
@@ -208,14 +211,11 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND m.role_id IS NOT NULL "
-                // Multi-supervisor: filter on activity_supervisors join via EXISTS so a
-                // co-supervisor sees all DPRs under activities they supervise, regardless
-                // of who personally filed each DPR. EXISTS does not fan out rows.
+                // Filter by the supervisor who actually filed the DPR. Co-supervisors on a
+                // shared activity each see only their own DPRs — matches the supervisor-dropdown
+                // count semantics and the user's mental model. NULL = project-wide.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR EXISTS ( "
-                + "            SELECT 1 FROM activity.activity_supervisors s "
-                + "             WHERE s.activity_id = a.id "
-                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
                 + "         a.work_activity_id, a.code, a.name, d.unit, m.role_id")
         .setParameter("projectId", projectId)
@@ -255,11 +255,9 @@ public class SupervisorPerformanceReportService {
                 + "  a.name                                                       AS activity_name, "
                 + "  d.unit                                                       AS activity_unit, "
                 + "  SUM(d.qty_executed)                                          AS qty, "
-                + "  SUM(COALESCE(e.nos, 0) * COALESCE(e.working_hours, " + DEFAULT_HOURS_PER_DAY + ")) AS machine_hours, "
-                + "  SUM( "
-                + "    COALESCE(e.nos, 0) * COALESCE(e.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / " + DEFAULT_HOURS_PER_DAY + " "
-                + "    * COALESCE(e.unit_rate, erv.rate, 0) "
-                + "  )                                                            AS line_cost_total, "
+                // Same hours-ignored rule as manpower above — equipment actuals = raw sum of nos.
+                + "  SUM(COALESCE(e.nos, 0))                                      AS actual_nos, "
+                + "  SUM(COALESCE(e.nos, 0) * COALESCE(e.unit_rate, erv.rate, 0)) AS line_cost_total, "
                 + "  e.role_id                                                    AS role_id "
                 + "FROM project.daily_progress_reports d "
                 + "JOIN project.dpr_equipment e         ON e.dpr_id = d.id "
@@ -269,12 +267,9 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND e.role_id IS NOT NULL "
-                // Same multi-supervisor swap as the manpower query above.
+                // Same filer-based filter as the manpower query above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR EXISTS ( "
-                + "            SELECT 1 FROM activity.activity_supervisors s "
-                + "             WHERE s.activity_id = a.id "
-                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
                 + "         a.work_activity_id, a.code, a.name, d.unit, e.role_id")
         .setParameter("projectId", projectId)
@@ -311,13 +306,10 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND d.activity_id IS NOT NULL "
-                // Same multi-supervisor swap. d.activity_id is guaranteed non-null by the
-                // preceding clause, so it is safe to use as the join target.
+                // Same filer-based filter — activity meta should only include activities the
+                // selected supervisor actually filed a DPR for, matching the cells above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR EXISTS ( "
-                + "            SELECT 1 FROM activity.activity_supervisors s "
-                + "             WHERE s.activity_id = d.activity_id "
-                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY d.activity_id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
@@ -373,10 +365,10 @@ public class SupervisorPerformanceReportService {
     for (ManpowerCellRow c : cells) {
       TradeAccumulator acc = byTrade.computeIfAbsent(c.tradeKey(),
           k -> new TradeAccumulator(c.tradeKey(), c.tradeLabel()));
-      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "MANPOWER"));
-      BigDecimal cellActualDays = c.personHours() == null
-          ? BigDecimal.ZERO
-          : c.personHours().divide(BigDecimal.valueOf(DEFAULT_HOURS_PER_DAY), 6, RoundingMode.HALF_UP);
+      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.roleId(), c.resourceTypeId(), "MANPOWER"));
+      // Hours are logging-only; Actual Man-days = raw sum of nos. Same DAY-basis semantics the
+      // cost rollup and new SC180 section use — keep them all aligned.
+      BigDecimal cellActualDays = c.actualNos() == null ? BigDecimal.ZERO : c.actualNos();
       BigDecimal cellBudgetedDays = (norm != null && norm.outputPerDay() != null
           && norm.outputPerDay().signum() > 0 && c.qty() != null)
           ? c.qty().divide(norm.outputPerDay(), 6, RoundingMode.HALF_UP)
@@ -385,6 +377,9 @@ public class SupervisorPerformanceReportService {
       acc.actualDays = acc.actualDays.add(cellActualDays);
       if (cellBudgetedDays != null) {
         acc.budgetedDays = (acc.budgetedDays == null) ? cellBudgetedDays : acc.budgetedDays.add(cellBudgetedDays);
+      }
+      if (c.qty() != null) {
+        acc.qtyDone = (acc.qtyDone == null) ? c.qty() : acc.qtyDone.add(c.qty());
       }
       if (c.lineCostTotal() != null) {
         acc.lineCostTotal = acc.lineCostTotal.add(c.lineCostTotal());
@@ -413,10 +408,8 @@ public class SupervisorPerformanceReportService {
     for (EquipmentCellRow c : cells) {
       TradeAccumulator acc = byEquipment.computeIfAbsent(c.equipmentKey(),
           k -> new TradeAccumulator(c.equipmentKey(), c.equipmentLabel()));
-      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "EQUIPMENT"));
-      BigDecimal cellActualDays = c.machineHours() == null
-          ? BigDecimal.ZERO
-          : c.machineHours().divide(BigDecimal.valueOf(DEFAULT_HOURS_PER_DAY), 6, RoundingMode.HALF_UP);
+      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.roleId(), c.resourceTypeId(), "EQUIPMENT"));
+      BigDecimal cellActualDays = c.actualNos() == null ? BigDecimal.ZERO : c.actualNos();
       BigDecimal cellBudgetedDays = (norm != null && norm.outputPerDay() != null
           && norm.outputPerDay().signum() > 0 && c.qty() != null)
           ? c.qty().divide(norm.outputPerDay(), 6, RoundingMode.HALF_UP)
@@ -425,6 +418,9 @@ public class SupervisorPerformanceReportService {
       acc.actualDays = acc.actualDays.add(cellActualDays);
       if (cellBudgetedDays != null) {
         acc.budgetedDays = (acc.budgetedDays == null) ? cellBudgetedDays : acc.budgetedDays.add(cellBudgetedDays);
+      }
+      if (c.qty() != null) {
+        acc.qtyDone = (acc.qtyDone == null) ? c.qty() : acc.qtyDone.add(c.qty());
       }
       if (c.lineCostTotal() != null) {
         acc.lineCostTotal = acc.lineCostTotal.add(c.lineCostTotal());
@@ -453,17 +449,12 @@ public class SupervisorPerformanceReportService {
     BigDecimal costImplication = (mmRate != null && a.budgetedDays != null)
         ? a.actualDays.subtract(a.budgetedDays).multiply(mmRate).setScale(2, RoundingMode.HALF_UP)
         : null;
-    BigDecimal actualNos = (workDays > 0) ? a.actualDays.divide(BigDecimal.valueOf(workDays), 2, RoundingMode.HALF_UP) : null;
-    BigDecimal budgetedNos = (a.budgetedDays != null && workDays > 0)
-        ? a.budgetedDays.divide(BigDecimal.valueOf(workDays), 2, RoundingMode.HALF_UP)
-        : null;
     return new TradeRollup(
         a.key, a.label,
         mmRate != null ? mmRate.setScale(2, RoundingMode.HALF_UP) : null,
+        a.qtyDone != null ? a.qtyDone.setScale(2, RoundingMode.HALF_UP) : null,
         a.budgetedDays != null ? a.budgetedDays.setScale(2, RoundingMode.HALF_UP) : null,
-        budgetedNos,
         a.actualDays.setScale(2, RoundingMode.HALF_UP),
-        actualNos,
         utilizationPct,
         costImplication,
         a.normSource != null ? a.normSource : "NONE");
@@ -477,17 +468,12 @@ public class SupervisorPerformanceReportService {
     BigDecimal costImplication = (hourRate != null && a.budgetedDays != null)
         ? a.actualDays.subtract(a.budgetedDays).multiply(hourRate).setScale(2, RoundingMode.HALF_UP)
         : null;
-    BigDecimal actualNos = (workDays > 0) ? a.actualDays.divide(BigDecimal.valueOf(workDays), 2, RoundingMode.HALF_UP) : null;
-    BigDecimal budgetedNos = (a.budgetedDays != null && workDays > 0)
-        ? a.budgetedDays.divide(BigDecimal.valueOf(workDays), 2, RoundingMode.HALF_UP)
-        : null;
     return new EquipmentRollup(
         a.key, a.label,
         hourRate != null ? hourRate.setScale(2, RoundingMode.HALF_UP) : null,
+        a.qtyDone != null ? a.qtyDone.setScale(2, RoundingMode.HALF_UP) : null,
         a.budgetedDays != null ? a.budgetedDays.setScale(2, RoundingMode.HALF_UP) : null,
-        budgetedNos,
         a.actualDays.setScale(2, RoundingMode.HALF_UP),
-        actualNos,
         utilizationPct,
         costImplication,
         a.normSource != null ? a.normSource : "NONE");
@@ -507,15 +493,15 @@ public class SupervisorPerformanceReportService {
     Map<UUID, Map<String, ResourceLineAccumulator>> byActivity = new LinkedHashMap<>();
     for (ManpowerCellRow c : manpowerCells) {
       if (c.activityId() == null) continue;
-      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "MANPOWER"));
+      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.roleId(), c.resourceTypeId(), "MANPOWER"));
       mergeIntoActivity(byActivity, c.activityId(), "MANPOWER",
-          c.tradeKey(), c.tradeLabel(), c.qty(), c.personHours(), norm, c.roleId());
+          c.tradeKey(), c.tradeLabel(), c.qty(), c.actualNos(), norm, c.roleId());
     }
     for (EquipmentCellRow c : equipmentCells) {
       if (c.activityId() == null) continue;
-      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.resourceTypeId(), "EQUIPMENT"));
+      Budgeted norm = normCache.get(new NormCacheKey(c.workActivityId(), c.roleId(), c.resourceTypeId(), "EQUIPMENT"));
       mergeIntoActivity(byActivity, c.activityId(), "EQUIPMENT",
-          c.equipmentKey(), c.equipmentLabel(), c.qty(), c.machineHours(), norm, c.roleId());
+          c.equipmentKey(), c.equipmentLabel(), c.qty(), c.actualNos(), norm, c.roleId());
     }
 
     Map<UUID, ActivityHeader> headers = new HashMap<>();
@@ -538,7 +524,7 @@ public class SupervisorPerformanceReportService {
         BigDecimal plannedHeadcount = acc.roleId == null ? null
             : plannedByActivityRole.get(new ActivityRoleKey(actId, acc.roleId));
         lines.add(buildResourceLine(acc.kind, acc.resourceKey, acc.resourceLabel,
-            acc.qty, acc.hoursTotal, acc.norm, plannedHeadcount, workDays));
+            acc.qty, acc.actualNos, acc.norm, plannedHeadcount, workDays));
       }
       out.add(new ActivityDrillDown(
           actId,
@@ -558,7 +544,7 @@ public class SupervisorPerformanceReportService {
   private static void mergeIntoActivity(
       Map<UUID, Map<String, ResourceLineAccumulator>> byActivity,
       UUID activityId, String kind, String resourceKey, String resourceLabel,
-      BigDecimal qty, BigDecimal hoursTotal, Budgeted norm, UUID roleId) {
+      BigDecimal qty, BigDecimal actualNos, Budgeted norm, UUID roleId) {
     Map<String, ResourceLineAccumulator> linesByKey =
         byActivity.computeIfAbsent(activityId, k -> new LinkedHashMap<>());
     String dedupeKey = kind + "::" + resourceKey;
@@ -566,11 +552,11 @@ public class SupervisorPerformanceReportService {
     if (acc == null) {
       linesByKey.put(dedupeKey, new ResourceLineAccumulator(kind, resourceKey, resourceLabel,
           qty == null ? BigDecimal.ZERO : qty,
-          hoursTotal == null ? BigDecimal.ZERO : hoursTotal,
+          actualNos == null ? BigDecimal.ZERO : actualNos,
           norm, roleId));
     } else {
       if (qty != null) acc.qty = acc.qty.add(qty);
-      if (hoursTotal != null) acc.hoursTotal = acc.hoursTotal.add(hoursTotal);
+      if (actualNos != null) acc.actualNos = acc.actualNos.add(actualNos);
       // Preserve the first non-NONE norm encountered. Different resource_type_ids inside the
       // same trade typically share the same type-level norm, so this is harmless; if they
       // genuinely differ, the first-wins choice is documented as a known limitation.
@@ -587,15 +573,16 @@ public class SupervisorPerformanceReportService {
     final String resourceLabel;
     final UUID roleId;
     BigDecimal qty;
-    BigDecimal hoursTotal;
+    /** Raw sum of nos (headcount-days) across DPRs — hours are not multiplied in. */
+    BigDecimal actualNos;
     Budgeted norm;
     ResourceLineAccumulator(String kind, String resourceKey, String resourceLabel,
-                            BigDecimal qty, BigDecimal hoursTotal, Budgeted norm, UUID roleId) {
+                            BigDecimal qty, BigDecimal actualNos, Budgeted norm, UUID roleId) {
       this.kind = kind;
       this.resourceKey = resourceKey;
       this.resourceLabel = resourceLabel;
       this.qty = qty;
-      this.hoursTotal = hoursTotal;
+      this.actualNos = actualNos;
       this.norm = norm;
       this.roleId = roleId;
     }
@@ -603,17 +590,23 @@ public class SupervisorPerformanceReportService {
 
   private ResourceLine buildResourceLine(
       String kind, String key, String label,
-      BigDecimal qty, BigDecimal hoursTotal, Budgeted norm,
+      BigDecimal qty, BigDecimal actualNos, Budgeted norm,
       BigDecimal plannedHeadcount, int workDays) {
 
-    BigDecimal actualDays = (hoursTotal != null)
-        ? hoursTotal.divide(BigDecimal.valueOf(DEFAULT_HOURS_PER_DAY), 6, RoundingMode.HALF_UP)
-        : BigDecimal.ZERO;
+    // actualDays is now the raw sum of nos — DAY-basis semantics, hours are not multiplied in.
+    BigDecimal actualDays = actualNos != null ? actualNos : BigDecimal.ZERO;
     BigDecimal budgetDays = (norm != null && norm.outputPerDay() != null
         && norm.outputPerDay().signum() > 0 && qty != null)
         ? qty.divide(norm.outputPerDay(), 6, RoundingMode.HALF_UP)
         : null;
-    BigDecimal actualsFtm = (qty != null && actualDays.signum() > 0)
+    // Actual FTM (qty ÷ actualDays) is the realised productivity rate per resource-day, meant
+    // to be compared against the norm's Budget rate. When there's no Budget (role has no
+    // productivity norm), the FTM number is mathematically true but meaningless — it'd read as
+    // "1 carpenter-day produced 300 m" when really the carpenter was just present alongside the
+    // mason and excavator who drove the output. Suppress it so the column reads cleanly: norms
+    // present → both Budget + FTM shown; no norm → both blank.
+    boolean budgetExists = budgetDays != null;
+    BigDecimal actualsFtm = (budgetExists && qty != null && actualDays.signum() > 0)
         ? qty.divide(actualDays, 4, RoundingMode.HALF_UP)
         : null;
     BigDecimal utilizationPct = computeUtilizationPct(budgetDays, actualDays);
@@ -666,8 +659,13 @@ public class SupervisorPerformanceReportService {
       if (c.activityId() != null) activityIds.add(c.activityId());
     }
     if (roleIds.isEmpty() || activityIds.isEmpty()) return Map.of();
+    // Display the raw nos the planner entered, not the headcount × duration product the legacy
+    // planned_units column stores. Falls through to quantity for material rows and to the legacy
+    // planned_units only for pre-headcount rows. Same COALESCE pattern as the capacity-util
+    // bucketed planned loader (CapacityUtilizationReportService.loadPlannedHeadcountByBucket).
     List<Object[]> rows = em.createNativeQuery(
-            "SELECT ra.activity_id, ra.role_id, ra.planned_units "
+            "SELECT ra.activity_id, ra.role_id, "
+                + "       COALESCE(ra.headcount, ra.quantity, ra.planned_units) AS planned_nos "
                 + "FROM resource.resource_assignments ra "
                 + "JOIN activity.activities a ON a.id = ra.activity_id "
                 + "WHERE a.project_id = :projectId "
@@ -728,7 +726,11 @@ public class SupervisorPerformanceReportService {
       String tradeKey, String tradeLabel, UUID resourceTypeId,
       UUID activityId, UUID workActivityId,
       String activityCode, String activityName, String activityUnit,
-      BigDecimal qty, BigDecimal personHours, BigDecimal lineCostTotal,
+      /** Activity output executed where this trade was present (sum across DPRs in the cell). */
+      BigDecimal qty,
+      /** Raw sum of headcount across DPRs — hours intentionally NOT multiplied in. */
+      BigDecimal actualNos,
+      BigDecimal lineCostTotal,
       /** Role FK used by the drill-down to look up RoleAssignment.plannedUnits. */
       UUID roleId) {}
 
@@ -736,7 +738,10 @@ public class SupervisorPerformanceReportService {
       String equipmentKey, String equipmentLabel, UUID resourceTypeId,
       UUID activityId, UUID workActivityId,
       String activityCode, String activityName, String activityUnit,
-      BigDecimal qty, BigDecimal machineHours, BigDecimal lineCostTotal,
+      BigDecimal qty,
+      /** Raw sum of equipment headcount across DPRs — hours intentionally NOT multiplied in. */
+      BigDecimal actualNos,
+      BigDecimal lineCostTotal,
       UUID roleId) {}
 
   /** (activityId, roleId) → plannedUnits — drill-down uses this for the real Plan column. */
@@ -747,13 +752,19 @@ public class SupervisorPerformanceReportService {
 
   private record ActivityHeader(String code, String name, String unit) {}
 
-  private record NormCacheKey(UUID workActivityId, UUID resourceTypeId, String normType) {}
+  /** Norm cache key. {@code roleId} included so MASON and HELPER (both LABOR-type) don't share a
+   *  cached norm — the resolver picks a role-keyed norm when present, type-keyed otherwise. */
+  private record NormCacheKey(UUID workActivityId, UUID roleId, UUID resourceTypeId, String normType) {}
 
   private static final class TradeAccumulator {
     final String key;
     final String label;
     BigDecimal actualDays = BigDecimal.ZERO;
     BigDecimal budgetedDays = null;     // null = no norm available for any contributing cell
+    /** Activity output the trade was present for — sourced from {@code dpr.qty_executed} on each
+     *  cell. Lets the UI render a "Qty done" column so users can see where Bud. Man-days came
+     *  from (= qty ÷ norm). Null when no cells had a qty. */
+    BigDecimal qtyDone = null;
     BigDecimal lineCostTotal = BigDecimal.ZERO;
     String normSource = null;
 

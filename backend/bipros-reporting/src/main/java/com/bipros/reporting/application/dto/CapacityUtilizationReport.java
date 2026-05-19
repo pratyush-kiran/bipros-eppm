@@ -69,10 +69,21 @@ public record CapacityUtilizationReport(
        */
       BigDecimal actualDaysUntracked,
       BigDecimal utilizationPct,
-      BigDecimal costImplication
+      BigDecimal costImplication,
+      /**
+       * Of the {@link #actualDays}, how many were on SERIES-configured activities where this
+       * role's side was NOT the governing one — i.e. the other side's norm capped expected
+       * output, so this role was inherently constrained, not underperforming. Null when no
+       * such days exist. Used by the UI to surface a "constrained by [side] bottleneck"
+       * annotation explaining why the util% is otherwise low.
+       */
+      BigDecimal constrainedDays,
+      /** {@code MANPOWER} | {@code EQUIPMENT} — which side governed (capped the output) on the
+       *  constrained activities. Null when {@link #constrainedDays} is null. */
+      String constrainedBySide
   ) {
     public static RolePeriod empty() {
-      return new RolePeriod(null, null, null, null, null, null, null, null, null, null);
+      return new RolePeriod(null, null, null, null, null, null, null, null, null, null, null, null);
     }
   }
 

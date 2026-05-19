@@ -77,9 +77,9 @@ public class RoleAssignmentService {
     }
     String unit = rateResolver.resolveUnit(typeCode, variantId);
 
-    // For manpower/equipment, plannedUnits = headcount × duration so the cost reflects
-    // the full activity, not a single day. Duration defaults to the activity's
-    // originalDuration when not provided on the request. Material keeps quantity-only.
+    // plannedUnits tracks person-days (headcount × duration) for DPR/EVA rollups.
+    // plannedCost is independent (headcount × rate) and intentionally excludes duration.
+    // Duration defaults to the activity's originalDuration when not provided.
     Activity activity = activityRepo.findById(req.activityId()).orElse(null);
     BigDecimal plannedUnits;
     BigDecimal effectiveDuration = null;
@@ -99,7 +99,13 @@ public class RoleAssignmentService {
       plannedUnits = BigDecimal.valueOf(headcount).multiply(effectiveDuration);
       quantity = null;
     }
-    BigDecimal plannedCost = plannedUnits.multiply(rate);
+    // Cost is headcount × rate (or quantity × rate for material). Duration is intentionally
+    // excluded — plannedUnits keeps person-day semantics for DPR/EVA, but per-row plannedCost
+    // is a point-in-time figure, not the duration-scaled total.
+    BigDecimal plannedCost =
+        "MATERIAL".equals(typeCode)
+            ? quantity.multiply(rate)
+            : BigDecimal.valueOf(headcount).multiply(rate);
 
     LocalDate plannedStart = req.plannedStartDate();
     LocalDate plannedFinish = req.plannedFinishDate();
@@ -116,19 +122,21 @@ public class RoleAssignmentService {
     if (existing.isPresent()) {
       ResourceAssignment merged = existing.get();
       BigDecimal mergedUnits;
+      BigDecimal mergedCost;
       if ("MATERIAL".equals(typeCode)) {
         BigDecimal current = merged.getQuantity() == null ? BigDecimal.ZERO : merged.getQuantity();
         BigDecimal next = current.add(quantity);
         merged.setQuantity(next);
         mergedUnits = next;
+        mergedCost = next.multiply(rate);
       } else {
         int current = merged.getHeadcount() == null ? 0 : merged.getHeadcount();
         int next = current + headcount;
         merged.setHeadcount(next);
         merged.setDuration(effectiveDuration);
         mergedUnits = BigDecimal.valueOf(next).multiply(effectiveDuration);
+        mergedCost = BigDecimal.valueOf(next).multiply(rate);
       }
-      BigDecimal mergedCost = mergedUnits.multiply(rate);
       merged.setPlannedUnits(mergedUnits.doubleValue());
       merged.setBudgetedUnits(mergedUnits.doubleValue());
       merged.setPlannedCost(mergedCost);
@@ -222,7 +230,10 @@ public class RoleAssignmentService {
       plannedUnits = BigDecimal.valueOf(headcount).multiply(effectiveDuration);
       quantity = null;
     }
-    BigDecimal plannedCost = plannedUnits.multiply(rate);
+    BigDecimal plannedCost =
+        "MATERIAL".equals(typeCode)
+            ? quantity.multiply(rate)
+            : BigDecimal.valueOf(headcount).multiply(rate);
 
     a.setRoleId(req.roleId());
     a.setManpowerRoleRateId(

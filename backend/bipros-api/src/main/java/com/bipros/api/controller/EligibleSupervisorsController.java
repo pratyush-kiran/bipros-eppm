@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EligibleSupervisorsController {
 
-  private static final String LABOR_TYPE_CODE = "LABOR";
+  private static final String LABOR_TYPE_CODE = "MANPOWER";
 
   private final ResourceRepository resourceRepository;
   private final ProjectResourceRepository projectResourceRepository;

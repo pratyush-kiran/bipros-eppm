@@ -33,12 +33,38 @@ export function RoleDemandOverview({ projectId, activityId, title = "Resource Pl
     [resp],
   );
 
+  // Display rule, kept deliberately simple per user request:
+  //   Planned   = headcount (or quantity for material)        — what was entered
+  //   Actual    = stored actualUnits                          — cumulative nos from DPRs
+  //   Remaining = max(Planned − Actual, 0)                    — plain subtraction
+  // Hours never enter this math — DAY-basis rollups store just `nos`, HOUR-basis stores
+  // `nos × hours`. Either way we surface the stored value directly.
+  // Legacy rows (no headcount / no quantity) keep the original stored numbers.
+  const display = (r: RoleAssignmentResponse) => {
+    if (r.headcount != null) {
+      const planned = r.headcount;
+      const actual = r.actualUnits ?? 0;
+      return { planned, actual, remaining: Math.max(planned - actual, 0) };
+    }
+    if (r.quantity != null) {
+      const planned = Number(r.quantity);
+      const actual = r.actualUnits ?? 0;
+      return { planned, actual, remaining: Math.max(planned - actual, 0) };
+    }
+    return {
+      planned: r.plannedUnits ?? 0,
+      actual: r.actualUnits ?? 0,
+      remaining: r.remainingUnits ?? Math.max((r.plannedUnits ?? 0) - (r.actualUnits ?? 0), 0),
+    };
+  };
+
   const totals = useMemo(() => {
     return rows.reduce(
       (acc, r) => {
-        acc.plannedUnits += r.plannedUnits ?? 0;
-        acc.actualUnits += r.actualUnits ?? 0;
-        acc.remainingUnits += r.remainingUnits ?? 0;
+        const d = display(r);
+        acc.plannedUnits += d.planned;
+        acc.actualUnits += d.actual;
+        acc.remainingUnits += d.remaining;
         acc.plannedCost += r.plannedCost ?? 0;
         acc.actualCost += r.actualCost ?? 0;
         acc.remainingCost += r.remainingCost ?? 0;
@@ -53,6 +79,7 @@ export function RoleDemandOverview({ projectId, activityId, title = "Resource Pl
         remainingCost: 0,
       },
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows]);
 
   const sz = compact ? "text-xs" : "text-sm";
@@ -102,33 +129,36 @@ export function RoleDemandOverview({ projectId, activityId, title = "Resource Pl
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, idx) => (
-              <tr
-                key={r.id}
-                className={`border-b border-border/40 transition-colors hover:bg-accent/5 ${
-                  idx % 2 === 1 ? "bg-surface-hover/40" : ""
-                }`}
-              >
-                <td className={`${pad} font-medium text-text-primary`}>
-                  {r.roleName ?? "—"}
-                  {r.unplanned && (
-                    <span
-                      className="ml-2 inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
-                      title="Field-added by a DPR — not in the original plan"
-                    >
-                      Unplanned
-                    </span>
-                  )}
-                </td>
-                <td className={`${pad} text-text-secondary`}>{r.variantLabel ?? "—"}</td>
-                <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtNum(r.plannedUnits)}</td>
-                <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtNum(r.actualUnits)}</td>
-                <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtNum(r.remainingUnits)}</td>
-                <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtCost(r.plannedCost)}</td>
-                <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtCost(r.actualCost)}</td>
-                <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtCost(r.remainingCost)}</td>
-              </tr>
-            ))}
+            {rows.map((r, idx) => {
+              const d = display(r);
+              return (
+                <tr
+                  key={r.id}
+                  className={`border-b border-border/40 transition-colors hover:bg-accent/5 ${
+                    idx % 2 === 1 ? "bg-surface-hover/40" : ""
+                  }`}
+                >
+                  <td className={`${pad} font-medium text-text-primary`}>
+                    {r.roleName ?? "—"}
+                    {r.unplanned && (
+                      <span
+                        className="ml-2 inline-flex items-center rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning"
+                        title="Field-added by a DPR — not in the original plan"
+                      >
+                        Unplanned
+                      </span>
+                    )}
+                  </td>
+                  <td className={`${pad} text-text-secondary`}>{r.variantLabel ?? "—"}</td>
+                  <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtNum(d.planned)}</td>
+                  <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtNum(d.actual)}</td>
+                  <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtNum(d.remaining)}</td>
+                  <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtCost(r.plannedCost)}</td>
+                  <td className={`${pad} text-right tabular-nums ${cellActual}`}>{fmtCost(r.actualCost)}</td>
+                  <td className={`${pad} text-right tabular-nums ${cellRemaining}`}>{fmtCost(r.remainingCost)}</td>
+                </tr>
+              );
+            })}
             <tr className="border-t-2 border-accent/40 bg-accent/10 font-semibold">
               <td className={`${pad} text-accent`} colSpan={2}>Totals</td>
               <td className={`${pad} text-right tabular-nums ${cellPlanned}`}>{fmtNum(totals.plannedUnits)}</td>

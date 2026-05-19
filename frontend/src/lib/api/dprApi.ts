@@ -54,6 +54,8 @@ export interface ProductivityPreviewResponse {
    * and to surface the "this activity is informational" banners.
    */
   coverage: ProductivityCoverage;
+  /** How MP + EQ are combined for the BOTH case: SERIES (min) | PARALLEL (sum) | SUBSTITUTE (max). */
+  normCombination: "SERIES" | "PARALLEL" | "SUBSTITUTE";
   warnings: string[];
 }
 

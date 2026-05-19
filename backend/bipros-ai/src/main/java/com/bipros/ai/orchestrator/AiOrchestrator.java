@@ -787,11 +787,20 @@ public class AiOrchestrator {
               question.
 
             Tool routing for activity / schedule questions:
-            - For activity-level questions ("what's in progress", "what's almost
-              done", "show me started-but-not-finished work", "what hasn't started")
-              call list_activities first. Activity codes (e.g. ACT-1.3.5(ii)) and
-              names ARE acceptable in your prose — that's how project teams already
-              talk about their work.
+            - For unqualified count / list questions ("how many activities are
+              there", "list the activities", "what activities does this project
+              have") call list_activities WITHOUT a status arg (it defaults to
+              ANY and returns every activity). NEVER pass status=IN_PROGRESS
+              for these — that hides not-started and completed work and gives
+              a falsely low count.
+            - For progress-sliced questions, call list_activities with the
+              EXPLICIT status that matches the user's wording:
+                "what's in progress" / "what's almost done" / "started but not
+                finished"          → status=IN_PROGRESS
+                "what hasn't started" / "not started yet"   → status=NOT_STARTED
+                "what's done" / "completed activities"      → status=COMPLETED
+              Activity codes (e.g. ACT-1.3.5(ii)) and names ARE acceptable in
+              your prose — that's how project teams already talk about their work.
             - For schedule-health questions ("what's slipping", "what's on the
               critical path", "any near-critical work") call analyze_schedule.
             - For "which activities have negative float" / "what's behind on

@@ -242,6 +242,8 @@ export function DprWorkFrontRow({ row, index, total, onEdit, onDelete }: Props) 
               fmt(m.nos, 0),
               fmt(m.workingHours),
             ])}
+            accent="emerald"
+            numericFromIndex={1}
           />
           <DetailTable
             title="Equipment / PMV"
@@ -253,6 +255,8 @@ export function DprWorkFrontRow({ row, index, total, onEdit, onDelete }: Props) 
               fmt(e.nos, 0),
               fmt(e.workingHours),
             ])}
+            accent="bronze"
+            numericFromIndex={1}
           />
           <DetailTable
             title="Material"
@@ -262,6 +266,8 @@ export function DprWorkFrontRow({ row, index, total, onEdit, onDelete }: Props) 
               m.materialName,
               fmt(m.quantity, 3),
             ])}
+            accent="steel"
+            numericFromIndex={1}
           />
 
           {liveIssues.length > 0 && (

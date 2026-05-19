@@ -108,19 +108,22 @@ public class DailyProgressReportService {
     // execution data against it is meaningless. Lock the activity to start accepting DPRs.
     rejectIfActivityDraft(request.activityId());
 
-    // Reject duplicate DPRs for the same (project, day, activity). The ledger
-    // (daily_activity_resource_outputs) has a unique key on (project, date, activity, resource);
-    // two DPRs that overlap on resources for the same activity on the same day collide on save.
-    // The user should edit the existing DPR instead of creating a parallel one.
-    if (request.activityId() != null && request.reportDate() != null) {
-      dprRepository.findFirstByProjectIdAndReportDateAndActivityId(
-              projectId, request.reportDate(), request.activityId())
+    // Reject duplicate DPRs from the *same supervisor* for the same (project, day, activity).
+    // Multi-supervisor model: an activity can have two or more supervisors and each may file
+    // their own DPR for the same date — uniqueness is per supervisor, not per activity. Resource
+    // overlap between two supervisors' DPRs is still blocked by the ledger's unique key on
+    // (project, date, activity, resource). Legacy free-text DPRs (supervisor_user_id null) skip
+    // this check; the ledger handles the collision case.
+    if (request.activityId() != null
+        && request.reportDate() != null
+        && request.supervisorUserId() != null) {
+      dprRepository.findFirstByProjectIdAndReportDateAndActivityIdAndSupervisorUserId(
+              projectId, request.reportDate(), request.activityId(), request.supervisorUserId())
           .ifPresent(existing -> {
             throw new com.bipros.common.exception.BusinessRuleException(
                 "DPR_ALREADY_EXISTS_FOR_ACTIVITY",
-                "A DPR for this activity on " + request.reportDate()
-                    + " already exists. Edit the existing entry to add or update resources, "
-                    + "rather than creating a parallel one.");
+                "A DPR for this supervisor on this activity for " + request.reportDate()
+                    + " already exists. Edit the existing entry instead of creating a parallel one.");
           });
     }
 
@@ -427,14 +430,17 @@ public class DailyProgressReportService {
   }
 
   /**
-   * Supervisors of activities that have at least one DPR in the date window. Powers the
-   * Capacity Utilization / Supervisor Performance dropdown.
+   * Supervisors who personally filed at least one DPR on the project in the date window. Powers
+   * the Capacity Utilization / Supervisor Performance dropdown badge.
    *
-   * <p>Multi-supervisor (commit 182141eb): the source is now
-   * {@code activity.activity_supervisors} — a user appears in the dropdown when they
-   * supervise any activity that has a DPR in range, regardless of whether they personally
-   * filed any of those DPRs. The {@code dprCount} field reads as "DPRs under activities
-   * they supervise in range" to match the new filter semantics on the report side.
+   * <p>{@code dprCount} reads as "DPRs filed by this user in the window" — counted straight from
+   * {@code daily_progress_reports.supervisor_user_id} with no fan-out through
+   * {@code activity_supervisors}. This matches the supervisor filter on the report side, which
+   * also keys off the DPR's filer rather than the activity's assignees. Co-supervisors on a
+   * shared activity each see their own filing count.
+   *
+   * <p>DPRs with {@code supervisor_user_id = NULL} (legacy imports / manually inserted) are
+   * excluded so the dropdown never shows a `(null)` bucket.
    */
   @Transactional(readOnly = true)
   public List<com.bipros.project.application.dto.SupervisorOption> listSupervisorsUsed(
@@ -443,22 +449,21 @@ public class DailyProgressReportService {
 
     @SuppressWarnings("unchecked")
     List<Object[]> raw = em.createNativeQuery(
-            "SELECT s.user_id, "
-                + "       COALESCE(u.username, '')                                              AS supervisor_code, "
+            "SELECT d.supervisor_user_id                                                AS user_id, "
+                + "       COALESCE(u.username, '')                                       AS supervisor_code, "
                 + "       COALESCE( "
                 + "         NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), "
                 + "         u.username, "
-                + "         MAX(s.user_name_snapshot)) "
-                + "                                                                             AS supervisor_name, "
-                + "       COUNT(DISTINCT d.id)                                                  AS dpr_count "
-                + "FROM activity.activity_supervisors s "
-                + "JOIN activity.activities a            ON a.id = s.activity_id "
-                + "JOIN project.daily_progress_reports d ON d.activity_id = a.id "
-                + "LEFT JOIN public.users u              ON u.id = s.user_id "
-                + "WHERE a.project_id = :projectId "
+                + "         '') "
+                + "                                                                      AS supervisor_name, "
+                + "       COUNT(DISTINCT d.id)                                            AS dpr_count "
+                + "FROM project.daily_progress_reports d "
+                + "LEFT JOIN public.users u ON u.id = d.supervisor_user_id "
+                + "WHERE d.project_id = :projectId "
+                + "  AND d.supervisor_user_id IS NOT NULL "
                 + "  AND (CAST(:fromDate AS date) IS NULL OR d.report_date >= CAST(:fromDate AS date)) "
                 + "  AND (CAST(:toDate   AS date) IS NULL OR d.report_date <= CAST(:toDate   AS date)) "
-                + "GROUP BY s.user_id, u.username, u.first_name, u.last_name "
+                + "GROUP BY d.supervisor_user_id, u.username, u.first_name, u.last_name "
                 + "ORDER BY dpr_count DESC, supervisor_name")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)

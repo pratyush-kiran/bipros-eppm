@@ -231,6 +231,22 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: INFO
     org.springframework.security: DEBUG
 
+# Disable legacy project seeders (OmanRoadProjectSeeder / KhasabDailyDataSeeder)
+# that would re-create projects 6155 / SC-180 deleted from this dev DB. Override
+# with -Dseeders.legacy.enabled=true to re-enable for a fresh seed.
+seeders:
+  legacy:
+    enabled: false
+
+# Skip AnalyticsBackfillBootstrap on every boot. The bootstrap re-runs heavy
+# backfills for any fact table that's empty (cost/evm/risk/labour) — for the
+# OMAN-only DB there's no source data in those tables, so the iteration is wasted
+# CPU and currently pegs ClickHouse during merges. Trigger backfills manually via
+# /v1/admin/analytics/backfill when needed. Set true to re-enable on-boot backfill.
+analytics:
+  bootstrap:
+    enabled: false
+
 ---
 # Production profile — activate with SPRING_PROFILES_ACTIVE=prod.
 # Required env vars in prod:

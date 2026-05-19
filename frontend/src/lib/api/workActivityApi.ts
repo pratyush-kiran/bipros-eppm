@@ -1,6 +1,15 @@
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types";
 
+/**
+ * How Manpower + Equipment productivity norms combine into the single "expected output / day"
+ * figure on the DPR preview. Ignored when only one side has a norm.
+ *   SERIES     — min(MP, EQ); same-unit-of-output, work in sequence (default).
+ *   PARALLEL   — MP + EQ; independent teams on different stretches.
+ *   SUBSTITUTE — max(MP, EQ); either side alone finishes the unit.
+ */
+export type NormCombination = "SERIES" | "PARALLEL" | "SUBSTITUTE";
+
 export interface WorkActivityResponse {
   id: string;
   code: string;
@@ -10,6 +19,7 @@ export interface WorkActivityResponse {
   description: string | null;
   sortOrder: number | null;
   active: boolean;
+  normCombination: NormCombination;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -42,6 +52,8 @@ export interface ProductivityCoverageResponse {
   manpower: ProductivityCoverageSide;
   equipment: ProductivityCoverageSide;
   summary: ProductivityCoverageSummary;
+  /** From the Work Activity master — drives the wording in coverage chips and DPR banners. */
+  normCombination: NormCombination;
 }
 
 export interface CreateWorkActivityRequest {
@@ -52,6 +64,8 @@ export interface CreateWorkActivityRequest {
   description?: string | null;
   sortOrder?: number | null;
   active?: boolean;
+  /** Server defaults to SERIES when omitted (and keeps existing value on update). */
+  normCombination?: NormCombination;
 }
 
 export const workActivityApi = {

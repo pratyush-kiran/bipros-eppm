@@ -232,6 +232,15 @@ public class CapacityUtilizationReportService {
         ? loadManpowerContributions(projectId, fromDate, toDate, supervisorUserId)
         : loadEquipmentContributions(projectId, fromDate, toDate, supervisorUserId);
 
+    // SERIES-bottleneck lookup, by project-activity id. Computed once per section: for each
+    // activity in the contribution set, decide which side (MP or EQ) governed under SERIES. The
+    // OPPOSITE side's role rows on those activities will get a "constrained by …" annotation.
+    java.util.Set<UUID> activityIdSet = new java.util.HashSet<>();
+    for (Contribution c : contributions) {
+      if (c.activityId != null) activityIdSet.add(c.activityId);
+    }
+    Map<UUID, BottleneckInfo> bottleneckByActivity = computeBottleneck(projectId, activityIdSet);
+
     // Per (role, period) accumulator. We track:
     //  - sum of role-days across DPRs in the bucket
     //  - sum of distinct dpr.qty_executed per (role × work_activity) so we can compute budget
@@ -282,6 +291,17 @@ public class CapacityUtilizationReportService {
           ara.dayQty = ara.dayQty.add(c.qtyExecuted == null ? BigDecimal.ZERO : c.qtyExecuted);
         }
       }
+
+      // SERIES bottleneck check: if the activity has a governing side and it ISN'T this
+      // section's side, this role was constrained by the other side. Accumulate role-days
+      // into the constraint buckets so the UI can render "X days constrained by …".
+      BottleneckInfo bot = c.activityId == null ? null : bottleneckByActivity.get(c.activityId);
+      if (bot != null && !normType.equalsIgnoreCase(bot.governingSide())) {
+        ara.cumConstrainedDays = ara.cumConstrainedDays.add(c.roleDays);
+        if (isInMonth) ara.monthConstrainedDays = ara.monthConstrainedDays.add(c.roleDays);
+        if (isInDay) ara.dayConstrainedDays = ara.dayConstrainedDays.add(c.roleDays);
+        ara.constrainedBySide = bot.governingSide();
+      }
     }
 
     // Resolve norms for each (workActivity, role, normType) once, then walk every accumulator.
@@ -315,6 +335,13 @@ public class CapacityUtilizationReportService {
       BigDecimal dayActualUntracked = BigDecimal.ZERO;
       BigDecimal monthActualUntracked = BigDecimal.ZERO;
       BigDecimal cumActualUntracked = BigDecimal.ZERO;
+      // Constraint roll-up across all activities this role touched. constrainedBySide is the
+      // same for the whole row because a MP-section role can only be constrained by EQUIPMENT,
+      // and vice versa — the section type dictates the constrainer side, never both.
+      BigDecimal dayConstrained = BigDecimal.ZERO;
+      BigDecimal monthConstrained = BigDecimal.ZERO;
+      BigDecimal cumConstrained = BigDecimal.ZERO;
+      String constrainedBySide = null;
       boolean anyNormResolved = false;
       java.util.Set<String> normSources = new java.util.HashSet<>();
       for (ActivityRoleAccumulator ara : role.activityRoles.values()) {
@@ -343,6 +370,13 @@ public class CapacityUtilizationReportService {
           monthActualUntracked = monthActualUntracked.add(ara.monthActualDays);
           cumActualUntracked = cumActualUntracked.add(ara.cumActualDays);
         }
+        // Roll the per-activity constraint accumulations up into the role-period totals.
+        // constrainedBySide is fixed by the section's normType so the last non-null value wins
+        // safely — each contribution from a constrained activity emitted the same value.
+        dayConstrained = dayConstrained.add(ara.dayConstrainedDays);
+        monthConstrained = monthConstrained.add(ara.monthConstrainedDays);
+        cumConstrained = cumConstrained.add(ara.cumConstrainedDays);
+        if (ara.constrainedBySide != null) constrainedBySide = ara.constrainedBySide;
       }
 
       BigDecimal ratePerDay = roleRateCache.get(role.roleId);
@@ -370,11 +404,11 @@ public class CapacityUtilizationReportService {
       rows.add(new RoleRow(
           role.roleId, role.roleCode, role.roleName, ratePerDay,
           buildPeriod(role.dayActualDays, dayBudget, role.dayQty(), plannedDaysDay,
-              effectiveRate, workDays, dayActualUntracked),
+              effectiveRate, workDays, dayActualUntracked, dayConstrained, constrainedBySide),
           buildPeriod(role.monthActualDays, monthBudget, role.monthQty(), plannedDaysMonth,
-              effectiveRate, workDays, monthActualUntracked),
+              effectiveRate, workDays, monthActualUntracked, monthConstrained, constrainedBySide),
           buildPeriod(role.cumActualDays, cumBudget, role.cumQty(), plannedDaysCum,
-              effectiveRate, workDays, cumActualUntracked),
+              effectiveRate, workDays, cumActualUntracked, cumConstrained, constrainedBySide),
           normSourceLabel));
     }
 
@@ -388,7 +422,8 @@ public class CapacityUtilizationReportService {
   private RolePeriod buildPeriod(
       BigDecimal actualDays, BigDecimal budgetDays, BigDecimal qty,
       BigDecimal plannedDays, BigDecimal ratePerDay, int workDays,
-      BigDecimal actualDaysUntracked) {
+      BigDecimal actualDaysUntracked,
+      BigDecimal constrainedDays, String constrainedBySide) {
     boolean hasAny = (actualDays != null && actualDays.signum() > 0)
         || (budgetDays != null && budgetDays.signum() > 0)
         || (qty != null && qty.signum() > 0);
@@ -416,15 +451,22 @@ public class CapacityUtilizationReportService {
           .setScale(2, RoundingMode.HALF_UP);
     }
     BigDecimal untrackedOut = untracked.signum() > 0 ? untracked : null;
+    BigDecimal constrainedOut = (constrainedDays != null && constrainedDays.signum() > 0)
+        ? constrainedDays : null;
+    String constrainedSideOut = constrainedOut == null ? null : constrainedBySide;
     return new RolePeriod(qty, budgetDays, budgetNos, plannedDays, plannedNos,
-        actualDays, actualNos, untrackedOut, utilPct, costImpl);
+        actualDays, actualNos, untrackedOut, utilPct, costImpl,
+        constrainedOut, constrainedSideOut);
   }
 
   private RolePeriod sumPeriod(List<RoleRow> rows, java.util.function.Function<RoleRow, RolePeriod> pick) {
     BigDecimal qty = BigDecimal.ZERO, bd = BigDecimal.ZERO, ad = BigDecimal.ZERO;
     BigDecimal pd = BigDecimal.ZERO, cost = BigDecimal.ZERO;
     BigDecimal untracked = BigDecimal.ZERO;
+    BigDecimal constrained = BigDecimal.ZERO;
+    String constrainedSide = null;
     boolean anyPlanned = false, anyCost = false, anyData = false, anyUntracked = false;
+    boolean anyConstrained = false;
     for (RoleRow r : rows) {
       RolePeriod p = pick.apply(r);
       if (p == null) continue;
@@ -435,6 +477,11 @@ public class CapacityUtilizationReportService {
       if (p.costImplication() != null) { cost = cost.add(p.costImplication()); anyCost = true; }
       if (p.actualDaysUntracked() != null) {
         untracked = untracked.add(p.actualDaysUntracked()); anyUntracked = true;
+      }
+      if (p.constrainedDays() != null) {
+        constrained = constrained.add(p.constrainedDays());
+        anyConstrained = true;
+        if (p.constrainedBySide() != null) constrainedSide = p.constrainedBySide();
       }
     }
     if (!anyData) return RolePeriod.empty();
@@ -457,7 +504,9 @@ public class CapacityUtilizationReportService {
         null,
         anyUntracked ? untracked : null,
         utilPct,
-        anyCost ? cost : null);
+        anyCost ? cost : null,
+        anyConstrained && constrained.signum() > 0 ? constrained : null,
+        anyConstrained && constrained.signum() > 0 ? constrainedSide : null);
   }
 
   // ─── Native-SQL data loaders ──────────────────────────────────────────────────────────────
@@ -479,9 +528,13 @@ public class CapacityUtilizationReportService {
                 + "       MAX(wa.name) AS wa_name, "
                 + "       MAX(wa.default_unit) AS wa_default_unit, "
                 + "       MAX(d.qty_executed) AS qty_executed, "
-                + "       SUM(COALESCE(m.nos, 0) * COALESCE(m.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / "
-                + DEFAULT_HOURS_PER_DAY + ") AS role_days, "
-                + "       m.trade AS trade "
+                // role_days is the raw sum of nos. working_hours is logging metadata on the
+                // DPR row and intentionally not multiplied in — DAY-basis rates are paid per
+                // person regardless of hours worked, and we don't want a half-day attendance
+                // to silently halve the role's contribution to Capacity Util.
+                + "       SUM(COALESCE(m.nos, 0)) AS role_days, "
+                + "       m.trade AS trade, "
+                + "       a.id AS activity_id "
                 + "FROM project.dpr_manpower m "
                 + "JOIN project.daily_progress_reports d ON d.id = m.dpr_id "
                 + "JOIN activity.activities a ON a.id = d.activity_id "
@@ -490,15 +543,12 @@ public class CapacityUtilizationReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND a.work_activity_id IS NOT NULL "
-                // Multi-supervisor (commit 182141eb): filter on activity_supervisors join, not
-                // dpr.supervisor_user_id. EXISTS is a semi-join — does not multiply rows, so
-                // the GROUP BY below stays correct and aggregates do not inflate.
+                // Filter by the supervisor who actually filed the DPR. Co-supervisors on a
+                // shared activity each see only their own DPRs — matches the supervisor-dropdown
+                // count semantics. NULL = project-wide.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR EXISTS ( "
-                + "            SELECT 1 FROM activity.activity_supervisors s "
-                + "             WHERE s.activity_id = a.id "
-                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
-                + "GROUP BY m.role_id, m.trade, d.id, d.report_date, a.work_activity_id")
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "GROUP BY m.role_id, m.trade, d.id, d.report_date, a.work_activity_id, a.id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
@@ -522,9 +572,10 @@ public class CapacityUtilizationReportService {
                 + "       MAX(wa.name) AS wa_name, "
                 + "       MAX(wa.default_unit) AS wa_default_unit, "
                 + "       MAX(d.qty_executed) AS qty_executed, "
-                + "       SUM(COALESCE(e.nos, 0) * COALESCE(e.working_hours, " + DEFAULT_HOURS_PER_DAY + ") / "
-                + DEFAULT_HOURS_PER_DAY + ") AS role_days, "
-                + "       e.equipment_type AS trade "
+                // Same hours-scaling rationale as manpower — equipment Actual = raw sum of nos.
+                + "       SUM(COALESCE(e.nos, 0)) AS role_days, "
+                + "       e.equipment_type AS trade, "
+                + "       a.id AS activity_id "
                 + "FROM project.dpr_equipment e "
                 + "JOIN project.daily_progress_reports d ON d.id = e.dpr_id "
                 + "JOIN activity.activities a ON a.id = d.activity_id "
@@ -533,13 +584,10 @@ public class CapacityUtilizationReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND a.work_activity_id IS NOT NULL "
-                // Same multi-supervisor swap as the manpower query above.
+                // Same filer-based filter as the manpower query above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
-                + "       OR EXISTS ( "
-                + "            SELECT 1 FROM activity.activity_supervisors s "
-                + "             WHERE s.activity_id = a.id "
-                + "               AND s.user_id = CAST(:supervisorUserId AS uuid))) "
-                + "GROUP BY e.role_id, e.equipment_type, d.id, d.report_date, a.work_activity_id")
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "GROUP BY e.role_id, e.equipment_type, d.id, d.report_date, a.work_activity_id, a.id")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
@@ -553,6 +601,7 @@ public class CapacityUtilizationReportService {
     List<Contribution> out = new ArrayList<>(raw.size());
     for (Object[] r : raw) {
       String trade = (String) r[10];
+      UUID activityId = r.length > 11 ? (UUID) r[11] : null;
       out.add(new Contribution(
           (UUID) r[0],
           (String) r[1],
@@ -564,7 +613,8 @@ public class CapacityUtilizationReportService {
           (String) r[7],
           toBigDecimal(r[8]),
           toBigDecimal(r[9]),
-          trade));
+          trade,
+          activityId));
     }
     return out;
   }
@@ -707,8 +757,15 @@ public class CapacityUtilizationReportService {
     java.util.Set<UUID> monthActivities = loadActivitiesWithDpr(projectId, monthStart, monthEnd);
     java.util.Set<UUID> cumActivities = loadActivitiesWithDpr(projectId, cumStart, cumEnd);
 
+    // Display Planned as raw nos the planner entered (headcount for MP/EQ, quantity for material).
+    // The legacy planned_units column stores headcount × duration in person-days for DPR/EVA
+    // rollups — surfacing that here would show "50 nos" when the user planned 10 masons for 5 days,
+    // which they correctly read as wrong. COALESCE falls through to planned_units only for legacy
+    // rows that pre-date the headcount/quantity columns.
     List<Object[]> rows = em.createNativeQuery(
-            "SELECT ra.role_id, ra.planned_units, a.id, a.planned_start_date, a.planned_finish_date "
+            "SELECT ra.role_id, "
+                + "       COALESCE(ra.headcount, ra.quantity, ra.planned_units) AS planned_nos, "
+                + "       a.id, a.planned_start_date, a.planned_finish_date "
                 + "FROM resource.resource_assignments ra "
                 + "JOIN activity.activities a ON a.id = ra.activity_id "
                 + "WHERE a.project_id = :projectId "
@@ -768,6 +825,101 @@ public class CapacityUtilizationReportService {
   }
 
   /**
+   * Compute the bottleneck side for each SERIES activity in the report window.
+   *
+   * <p>For SERIES activities, expected output = min(Manpower side, Equipment side). Whichever
+   * side has the smaller {@code SUM(norm.output × planned_headcount)} caps the day; the other
+   * side's resources are <em>constrained</em>, not underperforming. We tag those rows so the UI
+   * can render "constrained by [side] bottleneck" beside the otherwise-misleading low util%.
+   *
+   * <p>Resolution mirrors {@link #resolveNorm}: try role-level norm first, fall back to unscoped.
+   * Material rows are ignored — bottleneck only applies to MP↔EQ trade-offs. Returns an empty
+   * map for any activity that isn't SERIES, has only one side norm'd, or ties exactly.
+   */
+  @SuppressWarnings("unchecked")
+  private Map<UUID, BottleneckInfo> computeBottleneck(
+      UUID projectId, java.util.Set<UUID> activityIds) {
+    if (activityIds == null || activityIds.isEmpty()) return Map.of();
+
+    // Pull norm_combination + the per-(activity, role) raw inputs to compute side expectations.
+    // We resolve MP and EQ norms inline via correlated subqueries — same chain resolveNorm uses,
+    // just expressed as SQL so we make exactly one round trip for the whole report window.
+    List<Object[]> rows = em.createNativeQuery(
+            "SELECT a.id AS activity_id, "
+                + "       COALESCE(wa.norm_combination, 'SERIES') AS combo, "
+                + "       COALESCE(ra.headcount, ra.planned_units, 0) AS planned_nos, "
+                + "       (SELECT COALESCE(rn.output_per_man_per_day, rn.output_per_day) "
+                + "          FROM resource.productivity_norms rn "
+                + "         WHERE rn.work_activity_id = wa.id "
+                + "           AND rn.norm_type = 'MANPOWER' "
+                + "           AND (rn.role_id = ra.role_id "
+                + "                OR (rn.role_id IS NULL AND rn.category_id IS NULL "
+                + "                    AND rn.grade_id IS NULL AND rn.make IS NULL "
+                + "                    AND rn.model IS NULL AND rn.resource_id IS NULL "
+                + "                    AND rn.resource_type_id IS NULL)) "
+                + "           AND rn.category_id IS NULL AND rn.grade_id IS NULL "
+                + "           AND rn.make IS NULL AND rn.model IS NULL "
+                + "         ORDER BY (rn.role_id IS NULL), rn.created_at NULLS LAST "
+                + "         LIMIT 1) AS mp_norm, "
+                + "       (SELECT rn.output_per_day "
+                + "          FROM resource.productivity_norms rn "
+                + "         WHERE rn.work_activity_id = wa.id "
+                + "           AND rn.norm_type = 'EQUIPMENT' "
+                + "           AND (rn.role_id = ra.role_id "
+                + "                OR (rn.role_id IS NULL AND rn.category_id IS NULL "
+                + "                    AND rn.grade_id IS NULL AND rn.make IS NULL "
+                + "                    AND rn.model IS NULL AND rn.resource_id IS NULL "
+                + "                    AND rn.resource_type_id IS NULL)) "
+                + "           AND rn.category_id IS NULL AND rn.grade_id IS NULL "
+                + "           AND rn.make IS NULL AND rn.model IS NULL "
+                + "         ORDER BY (rn.role_id IS NULL), rn.created_at NULLS LAST "
+                + "         LIMIT 1) AS eq_norm "
+                + "FROM activity.activities a "
+                + "JOIN resource.work_activities wa ON wa.id = a.work_activity_id "
+                + "JOIN resource.resource_assignments ra ON ra.activity_id = a.id "
+                + "WHERE a.project_id = :pid "
+                + "  AND a.id IN :aids")
+        .setParameter("pid", projectId)
+        .setParameter("aids", activityIds)
+        .getResultList();
+
+    // Accumulate per-activity mp / eq expected outputs and the activity's combination rule.
+    Map<UUID, BigDecimal> mpByActivity = new HashMap<>();
+    Map<UUID, BigDecimal> eqByActivity = new HashMap<>();
+    Map<UUID, String> comboByActivity = new HashMap<>();
+    for (Object[] r : rows) {
+      UUID actId = (UUID) r[0];
+      String combo = (String) r[1];
+      BigDecimal plannedNos = toBigDecimal(r[2]);
+      BigDecimal mpNorm = toBigDecimal(r[3]);
+      BigDecimal eqNorm = toBigDecimal(r[4]);
+      comboByActivity.put(actId, combo);
+      if (plannedNos == null || plannedNos.signum() <= 0) continue;
+      if (mpNorm != null && mpNorm.signum() > 0) {
+        mpByActivity.merge(actId, mpNorm.multiply(plannedNos), BigDecimal::add);
+      }
+      if (eqNorm != null && eqNorm.signum() > 0) {
+        eqByActivity.merge(actId, eqNorm.multiply(plannedNos), BigDecimal::add);
+      }
+    }
+
+    Map<UUID, BottleneckInfo> out = new HashMap<>();
+    for (UUID actId : activityIds) {
+      String combo = comboByActivity.get(actId);
+      if (!"SERIES".equals(combo)) continue; // PARALLEL / SUBSTITUTE: both sides contribute
+      BigDecimal mp = mpByActivity.getOrDefault(actId, BigDecimal.ZERO);
+      BigDecimal eq = eqByActivity.getOrDefault(actId, BigDecimal.ZERO);
+      // Skip single-side activities and ties — there's nothing "the other side" was constrained
+      // by, so no annotation is warranted.
+      if (mp.signum() <= 0 || eq.signum() <= 0) continue;
+      int cmp = mp.compareTo(eq);
+      if (cmp == 0) continue;
+      out.put(actId, new BottleneckInfo(cmp < 0 ? "MANPOWER" : "EQUIPMENT"));
+    }
+    return out;
+  }
+
+  /**
    * Date-range intersection. Activities without any planned dates ({@code null/null}) are
    * treated as "always active" so they show up in every bucket — the user shouldn't lose
    * planning info just because dates aren't set yet.
@@ -811,7 +963,10 @@ public class CapacityUtilizationReportService {
       UUID dprId, LocalDate reportDate,
       UUID workActivityId, String workActivityName, String workActivityDefaultUnit,
       BigDecimal qtyExecuted, BigDecimal roleDays,
-      String trade) {
+      String trade,
+      /** Project-level activity id. Needed so SERIES bottleneck can be computed per-activity
+       *  (multiple activities can share the same WorkActivity master with different plans). */
+      UUID activityId) {
     /**
      * Stable accumulator key: uses the real roleId when present; otherwise derives a
      * deterministic UUID from the free-text trade string so distinct trades stay separate
@@ -828,6 +983,18 @@ public class CapacityUtilizationReportService {
   private record DprRoleKey(UUID dprId, UUID roleId) {}
 
   private record NormLookup(BigDecimal outputPerDay, String source) {}
+
+  /**
+   * Per-project-activity bottleneck for SERIES activities. {@code governingSide} is the side
+   * (MANPOWER or EQUIPMENT) whose norm capped the activity's expected output. Roles on the
+   * <em>other</em> side were inherently constrained — their utilization % is mathematically
+   * true but the constraint, not their own efficiency, is the reason it's low.
+   *
+   * <p>Absent from the map when norm_combination is PARALLEL/SUBSTITUTE (both sides contribute,
+   * neither is "constrained"), when only one side has norms (no opposite to constrain), or when
+   * both sides' planned expectations tie (no clear bottleneck).
+   */
+  private record BottleneckInfo(String governingSide) {}
 
   private record BucketedPlanned(BigDecimal day, BigDecimal month, BigDecimal cum) {
     static BucketedPlanned empty() {
@@ -878,6 +1045,15 @@ public class CapacityUtilizationReportService {
     BigDecimal dayQty = BigDecimal.ZERO;
     BigDecimal monthQty = BigDecimal.ZERO;
     BigDecimal cumQty = BigDecimal.ZERO;
+    // Constraint accumulators — populated only for SERIES non-bottleneck contributions.
+    // Kept per-(workActivity,role) just like the rest of the per-activity-role aggregates so
+    // the role rollup can sum them straight into the period totals.
+    BigDecimal dayConstrainedDays = BigDecimal.ZERO;
+    BigDecimal monthConstrainedDays = BigDecimal.ZERO;
+    BigDecimal cumConstrainedDays = BigDecimal.ZERO;
+    /** Same value across all constraint accumulations on this activity (one bottleneck per
+     *  activity by definition); null when this activity isn't a constrained one. */
+    String constrainedBySide;
 
     ActivityRoleAccumulator(UUID wa, String name, String unit, UUID roleId) {
       this.workActivityId = wa;

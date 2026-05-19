@@ -1,0 +1,42 @@
+databaseChangeLog:
+  # Adds resource.work_activities.norm_combination — controls how Manpower and Equipment
+  # productivity norms combine into a single "expected output / day" figure on the DPR preview.
+  # SERIES   = min(MP, EQ)  — bottleneck; matches historical behaviour, hence the default
+  # PARALLEL = MP + EQ      — independent teams working different stretches
+  # SUBSTITUTE = max(MP, EQ) — either side alone can finish the unit
+  # Ignored when only one side has a norm. Dev picks this up via Hibernate ddl-auto: update;
+  # prod uses validate, so this changeset is the source of truth.
+
+  - changeSet:
+      id: 104-1-work-activity-norm-combination-column
+      author: bipros
+      changes:
+        - addColumn:
+            tableName: work_activities
+            schemaName: resource
+            columns:
+              - column:
+                  name: norm_combination
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+                  defaultValue: 'SERIES'
+      rollback:
+        - dropColumn:
+            tableName: work_activities
+            schemaName: resource
+            columnName: norm_combination
+
+  - changeSet:
+      id: 104-2-work-activity-norm-combination-check
+      author: bipros
+      changes:
+        - sql:
+            comment: Restrict norm_combination to the three valid enum values.
+            sql: >-
+              ALTER TABLE resource.work_activities
+              ADD CONSTRAINT work_activities_norm_combination_check
+              CHECK (norm_combination IN ('SERIES','PARALLEL','SUBSTITUTE'))
+      rollback:
+        - sql:
+            sql: ALTER TABLE resource.work_activities DROP CONSTRAINT IF EXISTS work_activities_norm_combination_check

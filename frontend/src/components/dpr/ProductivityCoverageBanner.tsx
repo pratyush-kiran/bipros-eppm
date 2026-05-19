@@ -5,6 +5,8 @@ import type { ProductivityCoverage } from "@/lib/api/dprApi";
 
 interface Props {
   coverage: ProductivityCoverage | null;
+  /** Combination rule from the Work Activity master. Drives the BOTH-coverage message wording. */
+  normCombination?: "SERIES" | "PARALLEL" | "SUBSTITUTE";
 }
 
 /**
@@ -15,7 +17,7 @@ interface Props {
  * <p>Never blocks save. Always softly worded — the underlying state (no WA linked, no norms
  * configured, single-side tracking) is legitimate, not an error.
  */
-export function ProductivityCoverageBanner({ coverage }: Props) {
+export function ProductivityCoverageBanner({ coverage, normCombination }: Props) {
   if (!coverage) return null;
 
   const message = (() => {
@@ -29,7 +31,14 @@ export function ProductivityCoverageBanner({ coverage }: Props) {
       case "EQUIPMENT_ONLY":
         return "Productivity is measured from Equipment output. Manpower rows are recorded but don't drive expected output for this kind of work.";
       case "BOTH":
-        return "Productivity is the min(Manpower, Equipment) bottleneck. If only one side is logged, that side drives the expected output.";
+        switch (normCombination) {
+          case "PARALLEL":
+            return "This activity is configured as Parallel — expected output = Manpower + Equipment. Both sides work independent stretches and their outputs add. Log rows on either side; if you log only one, that side drives the expected output.";
+          case "SUBSTITUTE":
+            return "This activity is configured as Substitute — expected output = max(Manpower, Equipment). Either side alone can finish the unit, so the faster side drives the day and the slower side is redundant. If you log only one side, that side drives the expected output.";
+          default: // SERIES or undefined — default behaviour
+            return "This activity is configured as Series — expected output = min(Manpower, Equipment). The two sides work on the same unit in sequence, so the slower side caps the day's output. If you log only one side, that side drives the expected output.";
+        }
       default:
         return null;
     }

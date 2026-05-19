@@ -34,7 +34,7 @@ import java.util.TreeSet;
 @RequiredArgsConstructor
 public class DprSupervisorBackfillController {
 
-  private static final String LABOR_TYPE_CODE = "LABOR";
+  private static final String LABOR_TYPE_CODE = "MANPOWER";
 
   private final DailyProgressReportRepository dprRepository;
   private final ResourceRepository resourceRepository;

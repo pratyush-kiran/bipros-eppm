@@ -26,6 +26,14 @@ public record ResourceAssignmentResponse(
     /** Phase 2: original committed cost, frozen unless an explicit Re-budget action runs. */
     BigDecimal budgetedCost,
     Double plannedUnits,
+    /** Raw nos the planner entered for manpower/equipment. {@link #plannedUnits} keeps the
+     *  person-day product (headcount × duration) for DPR/EVA rollups; this field exposes the
+     *  human-meaningful "nos" so UI rollups (e.g. Resource Plan) can display the entered value. */
+    Integer headcount,
+    /** Activity duration applied when computing {@link #plannedUnits}. Exposed for UI tooltips. */
+    BigDecimal duration,
+    /** Raw quantity the planner entered for material assignments. */
+    BigDecimal quantity,
     Double actualUnits,
     Double remainingUnits,
     Double atCompletionUnits,
@@ -73,6 +81,9 @@ public record ResourceAssignmentResponse(
         assignment.getBudgetedUnits(),
         assignment.getBudgetedCost(),
         assignment.getPlannedUnits(),
+        assignment.getHeadcount(),
+        assignment.getDuration(),
+        assignment.getQuantity(),
         assignment.getActualUnits(),
         assignment.getRemainingUnits(),
         assignment.getAtCompletionUnits(),

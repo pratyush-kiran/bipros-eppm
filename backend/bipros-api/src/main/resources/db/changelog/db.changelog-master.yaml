@@ -179,3 +179,5 @@ databaseChangeLog:
       file: db/changelog/102-material-consumption-user-cols.yaml
   - include:
       file: db/changelog/103-dbs-tables.yaml
+  - include:
+      file: db/changelog/104-work-activity-norm-combination.yaml

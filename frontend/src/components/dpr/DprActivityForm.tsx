@@ -1019,11 +1019,15 @@ export function DprActivityForm({
                 state.unit.trim().toLowerCase() !== activityUnit.trim().toLowerCase()
               ) {
                 return (
-                  <p className="mt-1 text-xs text-warning">
-                    ⚠️ This activity is normally measured in{" "}
-                    <strong>{activityUnit}</strong>. Saving with{" "}
-                    <strong>{state.unit}</strong> will make the productivity-norm comparison
-                    meaningless on the Capacity Utilization page.
+                  <p className="mt-1 flex items-start gap-1.5 text-xs text-warning">
+                    <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                    <span>
+                      Master Work Activity unit is{" "}
+                      <span className="font-semibold">{activityUnit}</span> but this DPR uses{" "}
+                      <span className="font-semibold">{state.unit}</span>. Capacity Utilization
+                      compares DPR workdone against the norm in matching units — a mismatch
+                      will skew the productivity %.
+                    </span>
                   </p>
                 );
               }
@@ -1043,7 +1047,10 @@ export function DprActivityForm({
 
       {state.activityId && (
         <div className="px-5">
-          <ProductivityCoverageBanner coverage={preview?.coverage ?? null} />
+          <ProductivityCoverageBanner
+            coverage={preview?.coverage ?? null}
+            normCombination={preview?.normCombination}
+          />
         </div>
       )}
 

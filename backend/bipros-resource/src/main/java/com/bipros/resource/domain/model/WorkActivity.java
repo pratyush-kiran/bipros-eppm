@@ -3,6 +3,8 @@ package com.bipros.resource.domain.model;
 import com.bipros.common.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -61,4 +63,22 @@ public class WorkActivity extends BaseEntity {
   @Column(nullable = false)
   @Default
   private Boolean active = true;
+
+  /**
+   * How Manpower and Equipment productivity norms combine into a single "expected output" figure
+   * (used by the DPR productivity preview). Ignored when only one side has a norm. Defaults to
+   * SERIES so the historical {@code min()} bottleneck behaviour is preserved for existing data.
+   *
+   * <p>{@code columnDefinition} carries the DB-side default so {@code ddl-auto: update} in dev can
+   * add this NOT NULL column to a populated table without manual backfill. Prod gets the same
+   * default via the matching Liquibase changeset 104.
+   */
+  @Enumerated(EnumType.STRING)
+  @Column(
+      name = "norm_combination",
+      nullable = false,
+      length = 16,
+      columnDefinition = "VARCHAR(16) DEFAULT 'SERIES'")
+  @Default
+  private NormCombination normCombination = NormCombination.SERIES;
 }

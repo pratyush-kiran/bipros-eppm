@@ -58,6 +58,7 @@ public class DprProductivityPreviewService {
     else if (manpowerTracked) coverageLabel = "MANPOWER_ONLY";
     else if (equipmentTracked) coverageLabel = "EQUIPMENT_ONLY";
     else coverageLabel = "NONE";
+    String normCombination = loadNormCombination(workActivityId); // SERIES / PARALLEL / SUBSTITUTE
 
     Map<NormKey, NormRow> cache = new HashMap<>();
     List<String> warnings = new ArrayList<>();
@@ -112,7 +113,7 @@ public class DprProductivityPreviewService {
     BigDecimal bottleneck;
     String source;
     if (expectedFromManpower != null && expectedFromEquipment != null) {
-      bottleneck = expectedFromManpower.min(expectedFromEquipment);
+      bottleneck = combine(expectedFromManpower, expectedFromEquipment, normCombination);
       source = "BOTH";
     } else if (expectedFromManpower != null) {
       bottleneck = expectedFromManpower;
@@ -125,11 +126,27 @@ public class DprProductivityPreviewService {
       source = "NONE";
     }
     return new ProductivityPreviewResponse(
-        expectedFromManpower, expectedFromEquipment, bottleneck, source, coverageLabel, warnings);
+        expectedFromManpower, expectedFromEquipment, bottleneck, source, coverageLabel,
+        normCombination, warnings);
+  }
+
+  /**
+   * Combines the manpower and equipment expected outputs per the Work Activity's configured rule.
+   * Both inputs are guaranteed non-null by the caller. Unknown / null combination falls back to
+   * SERIES so the historical bottleneck behaviour is preserved.
+   */
+  private static BigDecimal combine(BigDecimal manpower, BigDecimal equipment, String combination) {
+    if ("PARALLEL".equals(combination)) {
+      return manpower.add(equipment);
+    }
+    if ("SUBSTITUTE".equals(combination)) {
+      return manpower.max(equipment);
+    }
+    return manpower.min(equipment); // SERIES (default)
   }
 
   private static ProductivityPreviewResponse empty(String coverage) {
-    return new ProductivityPreviewResponse(null, null, null, "NONE", coverage, List.of());
+    return new ProductivityPreviewResponse(null, null, null, "NONE", coverage, "SERIES", List.of());
   }
 
   private UUID loadWorkActivityId(UUID activityId) {
@@ -144,6 +161,19 @@ public class DprProductivityPreviewService {
     if (o instanceof UUID u) return u;
     if (o instanceof String s) return UUID.fromString(s);
     return null;
+  }
+
+  /** Reads the {@code norm_combination} configured on the Work Activity master. Defaults to
+   *  {@code SERIES} when the column is missing or null (pre-104 data / seeded rows). */
+  @SuppressWarnings("unchecked")
+  private String loadNormCombination(UUID workActivityId) {
+    List<Object> rows = em.createNativeQuery(
+            "SELECT wa.norm_combination FROM resource.work_activities wa WHERE wa.id = :wa")
+        .setParameter("wa", workActivityId)
+        .setMaxResults(1)
+        .getResultList();
+    if (rows.isEmpty() || rows.get(0) == null) return "SERIES";
+    return rows.get(0).toString();
   }
 
   /** Returns [hasManpowerNorm, hasEquipmentNorm] for the Work Activity. One round-trip. */

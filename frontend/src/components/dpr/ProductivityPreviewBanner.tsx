@@ -9,6 +9,8 @@ export interface ProductivityPreviewData {
   expectedBottleneck: number | null;
   source: "BOTH" | "MANPOWER_ONLY" | "EQUIPMENT_ONLY" | "NONE";
   coverage: ProductivityCoverage;
+  /** Combination rule echoed from the Work Activity. Drives the side-tag label below. */
+  normCombination?: "SERIES" | "PARALLEL" | "SUBSTITUTE";
   warnings: string[];
 }
 
@@ -50,7 +52,14 @@ export function ProductivityPreviewBanner({ preview, workdone, unit }: Props) {
       case "EQUIPMENT_ONLY":
         return "from Equipment";
       case "BOTH":
-        return "min(Manpower, Equipment)";
+        switch (preview.normCombination) {
+          case "PARALLEL":
+            return "Manpower + Equipment";
+          case "SUBSTITUTE":
+            return "max(Manpower, Equipment)";
+          default: // SERIES or undefined
+            return "min(Manpower, Equipment)";
+        }
       default:
         return "";
     }

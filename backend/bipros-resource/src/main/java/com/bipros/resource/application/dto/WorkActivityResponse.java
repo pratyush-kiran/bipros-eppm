@@ -1,5 +1,6 @@
 package com.bipros.resource.application.dto;
 
+import com.bipros.resource.domain.model.NormCombination;
 import com.bipros.resource.domain.model.WorkActivity;
 
 import java.time.Instant;
@@ -14,6 +15,8 @@ public record WorkActivityResponse(
     String description,
     Integer sortOrder,
     Boolean active,
+    /** How Manpower + Equipment norms combine on the DPR preview. Default SERIES. */
+    NormCombination normCombination,
     Instant createdAt,
     Instant updatedAt,
     String createdBy,
@@ -29,6 +32,7 @@ public record WorkActivityResponse(
         wa.getDescription(),
         wa.getSortOrder(),
         wa.getActive(),
+        wa.getNormCombination() == null ? NormCombination.SERIES : wa.getNormCombination(),
         wa.getCreatedAt(),
         wa.getUpdatedAt(),
         wa.getCreatedBy(),

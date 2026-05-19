@@ -172,6 +172,78 @@ public class ProductivityNormResolver {
     return resolveByResourceType(workActivityId, resourceTypeId, "MANPOWER");
   }
 
+  /**
+   * Three-tier productivity-norm lookup for the supervisor performance + activity drill-down
+   * tables, where the natural key is a trade/role on a work activity:
+   * <ol>
+   *   <li><b>ROLE</b> — {@code (work_activity, role, norm_type)} with no category/grade/make/model.
+   *       Picks up role-only norms (the dominant post-migration pattern).</li>
+   *   <li><b>RESOURCE_TYPE</b> — {@code (work_activity, resource_type, norm_type)}. Legacy norms
+   *       that pre-date the role column live here.</li>
+   *   <li><b>WORK_ACTIVITY</b> — unscoped {@code (work_activity, norm_type)} fallback so seeded
+   *       baseline norms still drive a budget when no role/type-keyed row exists.</li>
+   * </ol>
+   *
+   * <p>First non-null wins. For MANPOWER prefers {@code output_per_man_per_day}; for EQUIPMENT
+   * uses {@code output_per_day} directly. Both consumers (legacy Manpower / Equipment Utilization
+   * tables AND the Activity Drill-down) call this so a role-keyed norm resolves uniformly.
+   *
+   * <p>{@code roleId} or {@code resourceTypeId} may be null — missing tiers are skipped, never
+   * causing a SQL error. Returns {@link Budgeted}'s NONE marker when nothing matches.
+   */
+  public Budgeted resolveByRoleOrType(
+      UUID workActivityId, UUID roleId, UUID resourceTypeId, String normType) {
+    if (workActivityId == null || normType == null) {
+      return new Budgeted(null, "NONE");
+    }
+    String preferredColumn = "EQUIPMENT".equalsIgnoreCase(normType)
+        ? "n.output_per_day"
+        : "COALESCE(n.output_per_man_per_day, n.output_per_day)";
+
+    // Tier 1: role-level norm (no variant axes).
+    if (roleId != null) {
+      BigDecimal roleLevel = singleBigDecimal(
+          "SELECT " + preferredColumn + " "
+              + "FROM resource.productivity_norms n "
+              + "WHERE n.work_activity_id = :wa "
+              + "  AND n.norm_type = :nt "
+              + "  AND n.role_id = :role "
+              + "  AND n.category_id IS NULL AND n.grade_id IS NULL "
+              + "  AND n.make IS NULL AND n.model IS NULL "
+              + "ORDER BY n.created_at NULLS LAST",
+          Map.of("wa", workActivityId, "nt", normType, "role", roleId));
+      if (roleLevel != null) return new Budgeted(roleLevel, "ROLE");
+    }
+
+    // Tier 2: resource-type norm (legacy path).
+    if (resourceTypeId != null) {
+      BigDecimal typeLevel = singleBigDecimal(
+          "SELECT " + preferredColumn + " "
+              + "FROM resource.productivity_norms n "
+              + "WHERE n.work_activity_id = :wa "
+              + "  AND n.norm_type = :nt "
+              + "  AND n.resource_id IS NULL "
+              + "  AND n.resource_type_id = :rt",
+          Map.of("wa", workActivityId, "nt", normType, "rt", resourceTypeId));
+      if (typeLevel != null) return new Budgeted(typeLevel, "RESOURCE_TYPE");
+    }
+
+    // Tier 3: unscoped work-activity-only norm.
+    BigDecimal workActivityOnly = singleBigDecimal(
+        "SELECT " + preferredColumn + " "
+            + "FROM resource.productivity_norms n "
+            + "WHERE n.work_activity_id = :wa "
+            + "  AND n.norm_type = :nt "
+            + "  AND n.resource_id IS NULL "
+            + "  AND n.resource_type_id IS NULL "
+            + "  AND n.role_id IS NULL "
+            + "ORDER BY (" + preferredColumn + " IS NULL), n.created_at NULLS LAST",
+        Map.of("wa", workActivityId, "nt", normType));
+    if (workActivityOnly != null) return new Budgeted(workActivityOnly, "WORK_ACTIVITY");
+
+    return new Budgeted(null, "NONE");
+  }
+
   @SuppressWarnings("unchecked")
   private BigDecimal singleBigDecimal(String sql, Map<String, Object> params) {
     var query = em.createNativeQuery(sql);

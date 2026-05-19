@@ -75,10 +75,9 @@ function ManpowerUtilizationTableInner({ rows }: { rows: TradeRollup[] }) {
             <th className="px-3 py-2 text-left">#</th>
             <th className="px-3 py-2 text-left">Trade</th>
             <th className="px-3 py-2 text-right">MM Rate</th>
+            <th className="px-3 py-2 text-right">Qty Done</th>
             <th className="px-3 py-2 text-right">Bud. Man-days</th>
-            <th className="px-3 py-2 text-right">Bud. Nos</th>
             <th className="px-3 py-2 text-right">Act. Man-days</th>
-            <th className="px-3 py-2 text-right">Act. Nos</th>
             <th className="px-3 py-2 text-center">% Util.</th>
             <th className="px-3 py-2 text-right">Cost Implication</th>
           </tr>
@@ -100,16 +99,13 @@ function ManpowerUtilizationTableInner({ rows }: { rows: TradeRollup[] }) {
                 {fmt(r.mmRate)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
+                {fmt(r.qtyDone)}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">
                 {fmt(r.budgetedManDays)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.budgetedNos)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
                 {fmt(r.actualManDays)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.actualNos)}
               </td>
               <td className="px-3 py-2 text-center">
                 <UtilCell util={r.utilizationPct} />
@@ -154,10 +150,9 @@ function EquipmentUtilizationTableInner({
             <th className="px-3 py-2 text-left">#</th>
             <th className="px-3 py-2 text-left">Equipment</th>
             <th className="px-3 py-2 text-right">Eq Rate / Day</th>
+            <th className="px-3 py-2 text-right">Qty Done</th>
             <th className="px-3 py-2 text-right">Bud. Eqpt-days</th>
-            <th className="px-3 py-2 text-right">Bud. Nos</th>
             <th className="px-3 py-2 text-right">Act. Eqpt-days</th>
-            <th className="px-3 py-2 text-right">Act. Nos</th>
             <th className="px-3 py-2 text-center">% Util.</th>
             <th className="px-3 py-2 text-right">Cost Implication</th>
           </tr>
@@ -179,16 +174,13 @@ function EquipmentUtilizationTableInner({
                 {fmt(r.hourRate)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
+                {fmt(r.qtyDone)}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">
                 {fmt(r.budgetedDays)}
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.budgetedNos)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
                 {fmt(r.actualDays)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.actualNos)}
               </td>
               <td className="px-3 py-2 text-center">
                 <UtilCell util={r.utilizationPct} />

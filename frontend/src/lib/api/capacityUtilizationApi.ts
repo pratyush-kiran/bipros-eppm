@@ -31,6 +31,15 @@ export interface RolePeriod {
   actualDaysUntracked: number | null;
   utilizationPct: number | null;
   costImplication: number | null;
+  /**
+   * Portion of actualDays spent on SERIES-configured activities where this role's side was NOT
+   * the governing one — the other side's norm capped expected output, so the low util % is the
+   * constraint, not the role's efficiency. Null when no such days exist.
+   */
+  constrainedDays: number | null;
+  /** The side that governed expected output on the constrained activities: MANPOWER | EQUIPMENT.
+   *  Null when {@link #constrainedDays} is null. */
+  constrainedBySide: "MANPOWER" | "EQUIPMENT" | null;
 }
 
 export interface CapacityRoleRow {
@@ -118,10 +127,13 @@ export interface TradeRollup {
   tradeKey: string;
   tradeLabel: string;
   mmRate: number | null;
+  /** Activity output executed where this trade was present — the source of budgetedManDays
+   *  (= qtyDone ÷ productivity norm). Surfaced as its own column so users can see the math. */
+  qtyDone: number | null;
   budgetedManDays: number | null;
-  budgetedNos: number | null;
+  /** Raw sum of headcount (nos) across DPRs — DAY-basis, hours ignored. Same scale as
+   *  budgetedManDays so % Util = budgeted ÷ actual × 100 is dimensionally honest. */
   actualManDays: number | null;
-  actualNos: number | null;
   utilizationPct: number | null;
   costImplication: number | null;
   normSource: BudgetedSource;
@@ -131,10 +143,9 @@ export interface EquipmentRollup {
   equipmentKey: string;
   equipmentLabel: string;
   hourRate: number | null;
+  qtyDone: number | null;
   budgetedDays: number | null;
-  budgetedNos: number | null;
   actualDays: number | null;
-  actualNos: number | null;
   utilizationPct: number | null;
   costImplication: number | null;
   normSource: BudgetedSource;

@@ -11,17 +11,35 @@
  * Extend cautiously — adding values is safe, removing values orphans existing data.
  */
 export const STANDARD_UNITS = [
+  // Volume
   "Cum",
+  "Brass",
+  "L",
+  // Area
   "Sqm",
-  "MT",
+  "Sqft",
+  // Length
   "Rm",
-  "lin.m.",
   "Lm",
+  "lin.m.",
+  "R/mtr",
+  "m",
+  "mm",
+  "ft",
+  "in",
+  // Mass / weight
+  "kg",
+  "MT",
+  "Tonne",
+  "Quintal",
+  "Bag",
+  // Count
   "Each",
   "Nr",
-  "R/mtr",
-  "L",
-  "kg",
+  "Nos",
+  // Time
+  "Day",
+  "Hour",
 ] as const;
 
 export type StandardUnit = (typeof STANDARD_UNITS)[number];

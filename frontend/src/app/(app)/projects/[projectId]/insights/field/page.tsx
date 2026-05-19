@@ -185,7 +185,7 @@ export default function ProjectFieldInsightsPage() {
             ))}
           </div>
         ) : activeSites.length === 0 ? (
-          <EmptyState label="No DPRs in the last 7 days for this project. Active site cards will appear once supervisors submit daily progress reports." />
+          <EmptyState label="No active sites to show. A card appears when an activity is marked IN_PROGRESS and has a DPR filed against it in the last 7 days." />
         ) : (
           <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
             {activeSites.map((site) => (

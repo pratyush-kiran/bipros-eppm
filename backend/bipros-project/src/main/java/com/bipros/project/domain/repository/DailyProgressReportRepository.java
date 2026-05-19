@@ -28,6 +28,17 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
   Optional<DailyProgressReport> findFirstByProjectIdAndReportDateAndActivityId(
       UUID projectId, LocalDate reportDate, UUID activityId);
 
+  /**
+   * Multi-supervisor variant: an activity can have multiple supervisors, each filing their own
+   * DPR for the same day. The uniqueness key narrows to {@code (project, date, activity,
+   * supervisor_user_id)} — the same supervisor can't file twice, but two different supervisors
+   * on the same activity/day are allowed. Resource-overlap collisions across those two DPRs
+   * are still caught by the ledger's unique key on
+   * {@code (project_id, output_date, activity_id, resource_id)}.
+   */
+  Optional<DailyProgressReport> findFirstByProjectIdAndReportDateAndActivityIdAndSupervisorUserId(
+      UUID projectId, LocalDate reportDate, UUID activityId, UUID supervisorUserId);
+
   List<DailyProgressReport> findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
       UUID projectId, LocalDate from, LocalDate to);
 

@@ -24,4 +24,7 @@ public record ProductivityPreviewResponse(
     String source,
     /** Coverage summary echoed from the Work Activity: MANPOWER_ONLY | EQUIPMENT_ONLY | BOTH | NONE | NO_WORK_ACTIVITY. */
     String coverage,
+    /** How MP + EQ were combined: SERIES (min) | PARALLEL (sum) | SUBSTITUTE (max). Echoed from
+     *  the Work Activity so the UI banner can phrase the explanation correctly. */
+    String normCombination,
     List<String> warnings) {}

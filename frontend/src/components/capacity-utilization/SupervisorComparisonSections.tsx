@@ -57,18 +57,22 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
             rollup ? (
               <div className="space-y-0.5 text-xs">
                 <div>
+                  Qty:{" "}
+                  <span className="tabular-nums">
+                    {fmt(rollup.qtyDone)}
+                  </span>
+                </div>
+                <div>
                   Bud:{" "}
                   <span className="tabular-nums">
                     {fmt(rollup.budgetedManDays)}
-                  </span>{" "}
-                  ({fmt(rollup.budgetedNos)})
+                  </span>
                 </div>
                 <div>
                   Act:{" "}
                   <span className="tabular-nums">
                     {fmt(rollup.actualManDays)}
-                  </span>{" "}
-                  ({fmt(rollup.actualNos)})
+                  </span>
                 </div>
                 <div>
                   Cost:{" "}
@@ -103,18 +107,22 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
             rollup ? (
               <div className="space-y-0.5 text-xs">
                 <div>
+                  Qty:{" "}
+                  <span className="tabular-nums">
+                    {fmt(rollup.qtyDone)}
+                  </span>
+                </div>
+                <div>
                   Bud:{" "}
                   <span className="tabular-nums">
                     {fmt(rollup.budgetedDays)}
-                  </span>{" "}
-                  ({fmt(rollup.budgetedNos)})
+                  </span>
                 </div>
                 <div>
                   Act:{" "}
                   <span className="tabular-nums">
                     {fmt(rollup.actualDays)}
-                  </span>{" "}
-                  ({fmt(rollup.actualNos)})
+                  </span>
                 </div>
                 <div>
                   Cost:{" "}

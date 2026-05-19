@@ -13,11 +13,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 @Profile("!test")
+@ConditionalOnProperty(name = "analytics.bootstrap.enabled", havingValue = "true", matchIfMissing = true)
 public class AnalyticsBackfillBootstrap {
 
     private static final String JOB_NAME = "analytics_first_boot_backfill";

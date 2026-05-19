@@ -11,9 +11,9 @@ import {
 import {
   productivityNormApi,
   type CreateProductivityNormRequest,
-  type ProductivityNormType,
 } from "@/lib/api/productivityNormApi";
 import { activityApi } from "@/lib/api/activityApi";
+import { resourceRoleApi } from "@/lib/api/resourceRoleApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { STANDARD_UNITS, unitOptionsWithFallback } from "@/lib/constants/units";
 import { useAuthStore } from "@/lib/state/store";
@@ -106,13 +106,19 @@ export function LinkOrCreateWorkActivityDialog({
       : null,
   );
 
-  // step 2 — norm state
-  const [normType, setNormType] = useState<ProductivityNormType>("MANPOWER");
+  // step 2 — norm state. Scope + Unit are shared between Manpower and Equipment sections;
+  // each section has its own enabled toggle, role picker, and output fields so a user can
+  // save Manpower-only, Equipment-only, or both in a single bulk call.
+  const [scope, setScope] = useState<"UNSCOPED" | "ROLE">("UNSCOPED");
   const [normUnit, setNormUnit] = useState<string>(
     existingMasterDefaultUnit ?? defaultUnit ?? "",
   );
+  const [manpowerEnabled, setManpowerEnabled] = useState<boolean>(true);
+  const [manpowerRoleId, setManpowerRoleId] = useState<string>("");
   const [outputPerManPerDay, setOutputPerManPerDay] = useState<string>("");
   const [crewSize, setCrewSize] = useState<string>("");
+  const [equipmentEnabled, setEquipmentEnabled] = useState<boolean>(false);
+  const [equipmentRoleId, setEquipmentRoleId] = useState<string>("");
   const [outputPerHour, setOutputPerHour] = useState<string>("");
   const [workingHoursPerDay, setWorkingHoursPerDay] = useState<string>("8");
 
@@ -138,10 +144,14 @@ export function LinkOrCreateWorkActivityDialog({
           }
         : null,
     );
-    setNormType("MANPOWER");
+    setScope("UNSCOPED");
     setNormUnit(existingMasterDefaultUnit ?? defaultUnit ?? "");
+    setManpowerEnabled(true);
+    setManpowerRoleId("");
     setOutputPerManPerDay("");
     setCrewSize("");
+    setEquipmentEnabled(false);
+    setEquipmentRoleId("");
     setOutputPerHour("");
     setWorkingHoursPerDay("8");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,6 +177,34 @@ export function LinkOrCreateWorkActivityDialog({
     ],
     [masters],
   );
+
+  // Roles for the per-section role pickers when scope = ROLE. The list is filtered to the
+  // norm-type bucket: MANPOWER/LABOR for the manpower section, EQUIPMENT/MACHINE for the
+  // equipment section. Matches the filtering in /admin/productivity-norms.
+  const { data: rolesData } = useQuery({
+    queryKey: ["resource-roles", "all"],
+    queryFn: () => resourceRoleApi.list(),
+    enabled: open && step === "NORM" && scope === "ROLE",
+  });
+  const allRoles = useMemo(() => rolesData?.data ?? [], [rolesData]);
+  const manpowerRoleOptions = useMemo(() => {
+    const codes = new Set(["MANPOWER", "LABOR"]);
+    return [
+      { value: "", label: "— pick role —" },
+      ...allRoles
+        .filter((r) => r.active && codes.has(r.resourceTypeCode.toUpperCase()))
+        .map((r) => ({ value: r.id, label: r.name })),
+    ];
+  }, [allRoles]);
+  const equipmentRoleOptions = useMemo(() => {
+    const codes = new Set(["EQUIPMENT", "MACHINE"]);
+    return [
+      { value: "", label: "— pick role —" },
+      ...allRoles
+        .filter((r) => r.active && codes.has(r.resourceTypeCode.toUpperCase()))
+        .map((r) => ({ value: r.id, label: r.name })),
+    ];
+  }, [allRoles]);
 
   const invalidateAfterMasterChange = (newMasterId: string) => {
     queryClient.invalidateQueries({ queryKey: ["work-activities", "active"] });
@@ -248,38 +286,67 @@ export function LinkOrCreateWorkActivityDialog({
   const createNormMutation = useMutation({
     mutationFn: async () => {
       if (!resolvedMaster) throw new Error("No master resolved");
-      const body: CreateProductivityNormRequest = {
-        normType,
-        workActivityId: resolvedMaster.id,
-        unit: normUnit.trim(),
-      };
-      if (normType === "MANPOWER") {
+      const unit = normUnit.trim();
+      if (!unit) throw new Error("Unit is required");
+      const payloads: CreateProductivityNormRequest[] = [];
+
+      if (manpowerEnabled) {
         const out = Number(outputPerManPerDay);
         if (!Number.isFinite(out) || out <= 0) {
-          throw new Error("Output per man per day is required");
+          throw new Error("Manpower: Output per man per day is required");
         }
-        body.outputPerManPerDay = out;
+        const body: CreateProductivityNormRequest = {
+          normType: "MANPOWER",
+          workActivityId: resolvedMaster.id,
+          unit,
+          outputPerManPerDay: out,
+          roleId: scope === "ROLE" ? manpowerRoleId || null : null,
+        };
         const crew = parseInt(crewSize, 10);
         if (Number.isFinite(crew) && crew > 0) {
           body.crewSize = crew;
           body.outputPerDay = +(out * crew).toFixed(4);
         }
-      } else {
+        payloads.push(body);
+      }
+
+      if (equipmentEnabled) {
         const out = Number(outputPerHour);
         if (!Number.isFinite(out) || out <= 0) {
-          throw new Error("Output per hour is required");
+          throw new Error("Equipment: Output per hour is required");
         }
-        body.outputPerHour = out;
+        const body: CreateProductivityNormRequest = {
+          normType: "EQUIPMENT",
+          workActivityId: resolvedMaster.id,
+          unit,
+          outputPerHour: out,
+          roleId: scope === "ROLE" ? equipmentRoleId || null : null,
+        };
         const hrs = Number(workingHoursPerDay);
         if (Number.isFinite(hrs) && hrs > 0) {
           body.workingHoursPerDay = hrs;
           body.outputPerDay = +(out * hrs).toFixed(4);
         }
+        payloads.push(body);
       }
-      return productivityNormApi.create(body);
+
+      if (payloads.length === 0) {
+        throw new Error("Pick at least Manpower or Equipment");
+      }
+      // Role scope: each picked section must have a role chosen.
+      if (scope === "ROLE") {
+        if (manpowerEnabled && !manpowerRoleId) {
+          throw new Error("Manpower: pick a role for role-scoped norm");
+        }
+        if (equipmentEnabled && !equipmentRoleId) {
+          throw new Error("Equipment: pick a role for role-scoped norm");
+        }
+      }
+      return productivityNormApi.createBulk(payloads);
     },
-    onSuccess: () => {
-      toast.success("Productivity Norm created");
+    onSuccess: (res) => {
+      const n = res.data?.length ?? 0;
+      toast.success(n === 1 ? "Productivity Norm created" : `Saved ${n} productivity norms`);
       if (resolvedMaster) invalidateAfterMasterChange(resolvedMaster.id);
       onClose();
     },
@@ -492,66 +559,111 @@ export function LinkOrCreateWorkActivityDialog({
               <div className="flex items-start gap-2">
                 <Gauge className="mt-0.5 h-4 w-4 flex-shrink-0 text-info" />
                 <p>
-                  This creates an <span className="font-semibold">unscoped</span> baseline norm for{" "}
-                  <span className="font-semibold">{resolvedMaster.name}</span>. Role / variant /
-                  resource-specific norms can be added later from Admin → Productivity Norms.
+                  Configure productivity norms for{" "}
+                  <span className="font-semibold">{resolvedMaster.name}</span>. Pick Manpower,
+                  Equipment, or both — each section is saved as its own norm. Variant-level
+                  norms (skill / grade / make / model) can still be added from Admin → Productivity
+                  Norms.
                 </p>
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-text-secondary">
-                Norm type
+                Scope
               </label>
-              <div className="mt-1 flex gap-2">
-                {(["MANPOWER", "EQUIPMENT"] as ProductivityNormType[]).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setNormType(t)}
-                    className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
-                      normType === t
-                        ? "border-accent bg-accent/10 text-accent"
-                        : "border-border bg-surface-hover text-text-secondary hover:text-text-primary"
-                    }`}
-                  >
-                    {t === "MANPOWER" ? "Manpower" : "Equipment"}
-                  </button>
-                ))}
+              <div className="mt-1 flex gap-4 text-sm">
+                <label className="flex items-center gap-2 text-text-primary">
+                  <input
+                    type="radio"
+                    name="norm-scope"
+                    value="UNSCOPED"
+                    checked={scope === "UNSCOPED"}
+                    onChange={() => setScope("UNSCOPED")}
+                  />
+                  Unscoped (any role on this activity)
+                </label>
+                <label className="flex items-center gap-2 text-text-primary">
+                  <input
+                    type="radio"
+                    name="norm-scope"
+                    value="ROLE"
+                    checked={scope === "ROLE"}
+                    onChange={() => setScope("ROLE")}
+                  />
+                  Specific role
+                </label>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Unit <span className="text-danger">*</span>
-                </label>
-                <select
-                  value={normUnit}
-                  onChange={(e) => setNormUnit(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">— select —</option>
-                  {unitOptionsWithFallback(normUnit).map((u) => (
-                    <option key={u} value={u}>
-                      {u}
+            <div>
+              <label className="block text-sm font-medium text-text-secondary">
+                Unit <span className="text-danger">*</span>
+              </label>
+              <select
+                value={normUnit}
+                onChange={(e) => setNormUnit(e.target.value)}
+                className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option value="">— select —</option>
+                {unitOptionsWithFallback(normUnit).map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+                {/* If the master's default unit isn't in STANDARD_UNITS, surface it too. */}
+                {resolvedMaster.defaultUnit &&
+                  !(STANDARD_UNITS as readonly string[]).includes(
+                    resolvedMaster.defaultUnit,
+                  ) &&
+                  resolvedMaster.defaultUnit !== normUnit && (
+                    <option value={resolvedMaster.defaultUnit}>
+                      {resolvedMaster.defaultUnit}
                     </option>
-                  ))}
-                  {/* If the master's default unit isn't in STANDARD_UNITS, surface it too. */}
-                  {resolvedMaster.defaultUnit &&
-                    !(STANDARD_UNITS as readonly string[]).includes(
-                      resolvedMaster.defaultUnit,
-                    ) &&
-                    resolvedMaster.defaultUnit !== normUnit && (
-                      <option value={resolvedMaster.defaultUnit}>
-                        {resolvedMaster.defaultUnit}
-                      </option>
-                    )}
-                </select>
-              </div>
+                  )}
+              </select>
+              {resolvedMaster.defaultUnit &&
+                normUnit &&
+                normUnit.trim() !== resolvedMaster.defaultUnit && (
+                  <p className="mt-1 flex items-start gap-1.5 text-xs text-warning">
+                    <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                    <span>
+                      Master Work Activity unit is{" "}
+                      <span className="font-semibold">{resolvedMaster.defaultUnit}</span> but
+                      this norm uses{" "}
+                      <span className="font-semibold">{normUnit}</span>. Capacity Utilization
+                      compares DPR workdone against the norm in matching units — a mismatch
+                      will skew the productivity %.
+                    </span>
+                  </p>
+                )}
+            </div>
 
-              {normType === "MANPOWER" ? (
-                <>
+            {/* Manpower section */}
+            <div className="rounded-md border border-border bg-surface-hover/40 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={manpowerEnabled}
+                  onChange={(e) => setManpowerEnabled(e.target.checked)}
+                />
+                Configure Manpower norm
+              </label>
+              {manpowerEnabled && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {scope === "ROLE" && (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-text-secondary">
+                        Manpower role <span className="text-danger">*</span>
+                      </label>
+                      <SearchableSelect
+                        value={manpowerRoleId}
+                        onChange={setManpowerRoleId}
+                        placeholder="— pick role —"
+                        options={manpowerRoleOptions}
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-text-secondary">
                       Output per man / day <span className="text-danger">*</span>
@@ -562,11 +674,11 @@ export function LinkOrCreateWorkActivityDialog({
                       min="0"
                       value={outputPerManPerDay}
                       onChange={(e) => setOutputPerManPerDay(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                       placeholder="e.g. 5"
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-text-secondary">
                       Crew size (optional)
                     </label>
@@ -576,22 +688,48 @@ export function LinkOrCreateWorkActivityDialog({
                       min="1"
                       value={crewSize}
                       onChange={(e) => setCrewSize(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                       placeholder="If given, gang output / day is derived"
                     />
-                    {crewSize && outputPerManPerDay && (
-                      <p className="mt-1 text-xs text-text-muted">
-                        Derived gang output:{" "}
-                        <span className="font-semibold text-text-secondary">
-                          {(Number(outputPerManPerDay) * Number(crewSize)).toFixed(2)}{" "}
-                          {normUnit || "units"} / day
-                        </span>
-                      </p>
-                    )}
                   </div>
-                </>
-              ) : (
-                <>
+                  {crewSize && outputPerManPerDay && (
+                    <p className="col-span-2 -mt-1 text-xs text-text-muted">
+                      Derived gang output:{" "}
+                      <span className="font-semibold text-text-secondary">
+                        {(Number(outputPerManPerDay) * Number(crewSize)).toFixed(2)}{" "}
+                        {normUnit || "units"} / day
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Equipment section */}
+            <div className="rounded-md border border-border bg-surface-hover/40 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={equipmentEnabled}
+                  onChange={(e) => setEquipmentEnabled(e.target.checked)}
+                />
+                Configure Equipment norm
+              </label>
+              {equipmentEnabled && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {scope === "ROLE" && (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-text-secondary">
+                        Equipment role <span className="text-danger">*</span>
+                      </label>
+                      <SearchableSelect
+                        value={equipmentRoleId}
+                        onChange={setEquipmentRoleId}
+                        placeholder="— pick role —"
+                        options={equipmentRoleOptions}
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-text-secondary">
                       Output per hour <span className="text-danger">*</span>
@@ -602,11 +740,11 @@ export function LinkOrCreateWorkActivityDialog({
                       min="0"
                       value={outputPerHour}
                       onChange={(e) => setOutputPerHour(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                       placeholder="e.g. 12.5"
                     />
                   </div>
-                  <div className="col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-text-secondary">
                       Working hours / day
                     </label>
@@ -616,19 +754,19 @@ export function LinkOrCreateWorkActivityDialog({
                       min="0"
                       value={workingHoursPerDay}
                       onChange={(e) => setWorkingHoursPerDay(e.target.value)}
-                      className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                     />
-                    {workingHoursPerDay && outputPerHour && (
-                      <p className="mt-1 text-xs text-text-muted">
-                        Derived output / day:{" "}
-                        <span className="font-semibold text-text-secondary">
-                          {(Number(outputPerHour) * Number(workingHoursPerDay)).toFixed(2)}{" "}
-                          {normUnit || "units"} / day
-                        </span>
-                      </p>
-                    )}
                   </div>
-                </>
+                  {workingHoursPerDay && outputPerHour && (
+                    <p className="col-span-2 -mt-1 text-xs text-text-muted">
+                      Derived output / day:{" "}
+                      <span className="font-semibold text-text-secondary">
+                        {(Number(outputPerHour) * Number(workingHoursPerDay)).toFixed(2)}{" "}
+                        {normUnit || "units"} / day
+                      </span>
+                    </p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -646,14 +784,20 @@ export function LinkOrCreateWorkActivityDialog({
                 disabled={
                   isBusy ||
                   !normUnit.trim() ||
-                  (normType === "MANPOWER"
-                    ? !outputPerManPerDay
-                    : !outputPerHour)
+                  (!manpowerEnabled && !equipmentEnabled) ||
+                  (manpowerEnabled && !outputPerManPerDay) ||
+                  (equipmentEnabled && !outputPerHour) ||
+                  (scope === "ROLE" && manpowerEnabled && !manpowerRoleId) ||
+                  (scope === "ROLE" && equipmentEnabled && !equipmentRoleId)
                 }
                 onClick={() => createNormMutation.mutate()}
                 className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
               >
-                {createNormMutation.isPending ? "Saving..." : "Save norm"}
+                {createNormMutation.isPending
+                  ? "Saving..."
+                  : manpowerEnabled && equipmentEnabled
+                    ? "Save norms"
+                    : "Save norm"}
               </button>
             </div>
           </div>

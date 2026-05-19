@@ -293,6 +293,13 @@ export interface ResourceAssignmentResponse {
   /** Phase 2: original committed cost. Frozen unless an explicit Re-budget action runs. */
   budgetedCost: number | null;
   plannedUnits: number;
+  /** Raw nos the planner entered for manpower/equipment. plannedUnits = headcount × duration
+   *  (kept for DPR/EVA rollups); this field exposes the human-meaningful "nos". */
+  headcount: number | null;
+  /** Activity duration applied when computing plannedUnits. */
+  duration: number | null;
+  /** Raw quantity the planner entered for material assignments. */
+  quantity: number | null;
   actualUnits: number;
   remainingUnits: number | null;
   atCompletionUnits: number | null;

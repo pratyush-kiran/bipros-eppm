@@ -54,7 +54,10 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ManpowerKpiService {
 
-  private static final String LABOR_TYPE_CODE = "LABOR";
+  // ResourceTypeSeeder writes "MANPOWER" (renamed from the original "LABOR"); the
+  // KPI used to look for "LABOR" so it found zero labour resources and reported
+  // 0.0% Workforce Utilisation regardless of DPR content.
+  private static final String LABOR_TYPE_CODE = "MANPOWER";
   private static final double DEFAULT_HOURS_PER_DAY = 8d;
   /** Indian Factories Act §59 — minimum 2× base rate for overtime. */
   private static final double OT_MULTIPLIER = 2.0d;

@@ -66,7 +66,7 @@ import java.util.UUID;
 public class SupervisorRosterCalculator {
 
   private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
-  private static final String LABOR_TYPE_CODE = "LABOR";
+  private static final String LABOR_TYPE_CODE = "MANPOWER";
 
   private final ActivityRepository activityRepository;
   private final ResourceRepository resourceRepository;

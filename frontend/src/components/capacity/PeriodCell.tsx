@@ -17,6 +17,23 @@ export function utilBand(util: number | null | undefined): string {
 }
 
 /**
+ * Hover-tooltip text on the Util % badge. Explains the norm-tracked-role rule so users
+ * don't perceive the governing role's util % as unfair credit — supporting roles without
+ * norms contribute to cost but aren't measured against output, by design.
+ */
+const UTIL_TOOLTIP =
+  "Util % measures how efficiently this role was used against the activity's total output. " +
+  "Output ÷ the role's productivity norm gives the Budget days; comparing against actual gives this %. " +
+  "Supporting roles without norms (helpers, finishers, etc.) contribute to cost but aren't measured " +
+  "against output — they only show Qty done and Actual, no Util %.";
+
+function sideLabel(side: "MANPOWER" | "EQUIPMENT" | null | undefined): string {
+  if (side === "MANPOWER") return "Manpower";
+  if (side === "EQUIPMENT") return "Equipment";
+  return "the other";
+}
+
+/**
  * SC180-style cell for one bucket of a role row. Shared between the project-level capacity
  * utilization view and the multi-period aggregate view. Renders Budget / Planned / Actual /
  * Untracked / %Util / Cost in a tight stack.
@@ -54,7 +71,8 @@ export const PeriodCell = memo(function PeriodCell({
       )}
       <div className="flex items-center gap-2">
         <span
-          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${utilBand(period.utilizationPct)}`}
+          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold cursor-help ${utilBand(period.utilizationPct)}`}
+          title={UTIL_TOOLTIP}
         >
           {period.utilizationPct == null ? "—" : `${fmt(period.utilizationPct, 1)} %`}
         </span>
@@ -66,6 +84,14 @@ export const PeriodCell = memo(function PeriodCell({
           </span>
         )}
       </div>
+      {period.constrainedDays != null && period.constrainedDays > 0 && (
+        <div className="mt-1 text-warning italic">
+          ⚠ {fmt(period.constrainedDays, 1)} day{period.constrainedDays === 1 ? "" : "s"} constrained by{" "}
+          {sideLabel(period.constrainedBySide)} side (SERIES) — that side's norm capped the
+          activity's output, so this row's low util % is the bottleneck, not the role's
+          efficiency.
+        </div>
+      )}
     </div>
   );
 });

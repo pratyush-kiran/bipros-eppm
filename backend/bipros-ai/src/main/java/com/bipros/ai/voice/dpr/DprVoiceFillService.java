@@ -54,7 +54,7 @@ import java.util.UUID;
 @Slf4j
 public class DprVoiceFillService {
 
-  private static final String LABOR_TYPE_CODE = "LABOR";
+  private static final String LABOR_TYPE_CODE = "MANPOWER";
   private static final int MAX_REFERENCE_LIST_SIZE = 200;
 
   private final SpeechToTextService speechToTextService;

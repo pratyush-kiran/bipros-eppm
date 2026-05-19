@@ -1,5 +1,6 @@
 package com.bipros.api.config.seeder;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.model.ActivityStatus;
 import com.bipros.activity.domain.repository.ActivityRepository;
@@ -75,6 +76,7 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 @Profile("seed")
+@ConditionalOnProperty(name = "seeders.legacy.enabled", havingValue = "true", matchIfMissing = true)
 @Order(180)
 public class KhasabDailyDataSeeder implements CommandLineRunner {
 

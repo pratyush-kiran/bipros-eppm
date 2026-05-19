@@ -1,5 +1,6 @@
 package com.bipros.api.config.seeder;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.model.ActivityRelationship;
 import com.bipros.activity.domain.model.ActivityStatus;
@@ -108,6 +109,7 @@ import java.util.UUID;
 @Slf4j
 @Component
 @Profile("seed")
+@ConditionalOnProperty(name = "seeders.legacy.enabled", havingValue = "true", matchIfMissing = true)
 @Order(141)
 @RequiredArgsConstructor
 public class OmanRoadProjectSeeder implements CommandLineRunner {

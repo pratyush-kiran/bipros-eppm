@@ -70,7 +70,8 @@ public class ProductivityCoverageService {
         wa.getDefaultUnit(),
         new Side(hasManpower, manpower),
         new Side(hasEquipment, equipment),
-        summaryLabel);
+        summaryLabel,
+        wa.getNormCombination() == null ? "SERIES" : wa.getNormCombination().name());
   }
 
   private NormSummary summarise(

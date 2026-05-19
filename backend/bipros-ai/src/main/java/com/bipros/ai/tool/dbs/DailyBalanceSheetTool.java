@@ -63,11 +63,11 @@ public class DailyBalanceSheetTool implements Tool {
 
     @Override
     public String description() {
-        return "Daily Balance Sheet of resources (manpower trades and equipment) for a given date "
-                + "or date range on a project — yesterday's closing → today's additions/releases → "
-                + "today's closing → working/idle hours and utilization %. Use this for questions "
-                + "like 'show today's resource balance sheet', 'how many helpers are on site this "
-                + "week', 'equipment ins-and-outs for the last 7 days', or any DBS-style report.";
+        return "Resource (manpower + equipment) ledger derived from DPR rows — opening headcount, "
+                + "additions/releases, closing headcount, working/idle hours, utilization %. Use "
+                + "for questions about who/what is on site, trade counts, equipment ins-and-outs, "
+                + "utilization. This is NOT the financial Daily Balance Sheet — for expense, "
+                + "income, contribution margin, and BOQ planned-vs-achieved use `dbs_financial`.";
     }
 
     @Override

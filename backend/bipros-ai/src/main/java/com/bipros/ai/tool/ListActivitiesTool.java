@@ -18,9 +18,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Returns activity rows the user can act on — by default the ones currently in
- * progress (started but not finished). The agent calls this for "what's in
- * flight", "what's almost done", or "what hasn't started" type questions.
+ * Returns activity rows for the project. Default is unfiltered (every
+ * activity) so unqualified questions like "how many activities are there"
+ * and "list the activities" return the truthful total. The agent narrows
+ * with the {@code status} filter when the user explicitly asks about
+ * progress ("what's in flight", "what's almost done", "what hasn't started").
  *
  * Status is derived from {@code percentComplete} + {@code actualStartDate} so
  * the result is consistent even if the persisted {@code status} column is
@@ -41,9 +43,11 @@ public class ListActivitiesTool extends ProjectScopedTool {
 
     @Override
     public String description() {
-        return "List activities. By default returns activities currently in progress "
-                + "(started but not yet completed). Optional `status` filter "
-                + "(IN_PROGRESS, NOT_STARTED, COMPLETED, ANY) and percent-complete window. "
+        return "List activities. By default returns EVERY activity for the project (status=ANY) "
+                + "so unqualified questions like 'how many activities are there' or 'list the "
+                + "activities' get the full count. Pass an explicit `status` filter "
+                + "(IN_PROGRESS, NOT_STARTED, COMPLETED, ANY) and percent-complete window "
+                + "ONLY when the user asks about a specific progress slice. "
                 + "Optional `edit_status` filter (DRAFT, LOCKED, ANY — default ANY) selects on "
                 + "the planning lifecycle: DRAFT = plan still being edited (DPR submission "
                 + "rejected); LOCKED = plan frozen, DPRs flow. "
@@ -77,7 +81,12 @@ public class ListActivitiesTool extends ProjectScopedTool {
         ObjectNode statusNode = objectMapper.createObjectNode();
         statusNode.put("type", "string");
         statusNode.set("enum", statusEnum);
-        statusNode.put("default", "IN_PROGRESS");
+        statusNode.put("default", "ANY");
+        statusNode.put("description",
+                "Progress filter. Default ANY returns every activity — use this for "
+                        + "unqualified count / list questions. Narrow to IN_PROGRESS, "
+                        + "NOT_STARTED, or COMPLETED only when the user explicitly asks "
+                        + "about that slice.");
         props.set("status", statusNode);
 
         ArrayNode editStatusEnum = objectMapper.createArrayNode();
@@ -106,7 +115,7 @@ public class ListActivitiesTool extends ProjectScopedTool {
 
     @Override
     protected ToolResult doExecute(JsonNode input, AiContext ctx) {
-        String statusFilter = input.path("status").asText("IN_PROGRESS").toUpperCase();
+        String statusFilter = input.path("status").asText("ANY").toUpperCase();
         String editStatusFilter = input.path("edit_status").asText("ANY").toUpperCase();
         int limit = Math.max(1, Math.min(500, input.path("limit").asInt(100)));
         Double minPct = input.has("min_percent_complete") ? input.path("min_percent_complete").asDouble() : null;

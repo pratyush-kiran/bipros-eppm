@@ -646,9 +646,25 @@ public class ResourceAssignmentService {
         rate = a.getEffectiveRate();
       }
 
-      BigDecimal newPlanned = (rate != null && a.getPlannedUnits() != null)
-          ? rate.multiply(BigDecimal.valueOf(a.getPlannedUnits()))
-          : a.getPlannedCost();
+      // Role-based rows: planned cost is headcount × rate (manpower/equipment) or
+      // quantity × rate (material) — duration is not multiplied in. Legacy resource-based
+      // rows keep rate × plannedUnits.
+      BigDecimal newPlanned;
+      if (rate == null) {
+        newPlanned = a.getPlannedCost();
+      } else if (a.getResourceId() == null) {
+        if (a.getHeadcount() != null) {
+          newPlanned = rate.multiply(BigDecimal.valueOf(a.getHeadcount()));
+        } else if (a.getQuantity() != null) {
+          newPlanned = rate.multiply(a.getQuantity());
+        } else {
+          newPlanned = a.getPlannedCost();
+        }
+      } else if (a.getPlannedUnits() != null) {
+        newPlanned = rate.multiply(BigDecimal.valueOf(a.getPlannedUnits()));
+      } else {
+        newPlanned = a.getPlannedCost();
+      }
       BigDecimal newActual = (rate != null && a.getActualUnits() != null)
           ? rate.multiply(BigDecimal.valueOf(a.getActualUnits()))
           : null;

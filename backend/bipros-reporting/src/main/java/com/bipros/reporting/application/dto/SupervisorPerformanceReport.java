@@ -46,10 +46,9 @@ public record SupervisorPerformanceReport(
       String tradeKey,            // canonical: ResourceRole.code or UPPER(TRIM(dpr_manpower.trade))
       String tradeLabel,          // ResourceRole.name or raw trade text
       BigDecimal mmRate,          // Σ(line_cost) / Σ(actualManDays)
+      BigDecimal qtyDone,         // activity output executed where this trade was present
       BigDecimal budgetedManDays, // Σ over activities (qty / output_per_man_per_day)
-      BigDecimal budgetedNos,     // budgetedManDays / workDays
-      BigDecimal actualManDays,   // Σ (nos × workingHours) / 8
-      BigDecimal actualNos,       // actualManDays / workDays
+      BigDecimal actualManDays,   // Σ(nos) — raw headcount-days, hours ignored
       BigDecimal utilizationPct,  // (budgetedManDays / actualManDays) × 100, capped 999
       BigDecimal costImplication, // (actualManDays - budgetedManDays) × mmRate
       String normSource) {}        // SPECIFIC_RESOURCE | RESOURCE_TYPE | RESOURCE_LEGACY | NONE
@@ -60,10 +59,9 @@ public record SupervisorPerformanceReport(
       String equipmentKey,
       String equipmentLabel,
       BigDecimal hourRate,        // Σ(line_cost) / Σ(actualDays)
+      BigDecimal qtyDone,
       BigDecimal budgetedDays,
-      BigDecimal budgetedNos,
-      BigDecimal actualDays,      // Σ machine_hours / 8
-      BigDecimal actualNos,
+      BigDecimal actualDays,      // Σ(nos) — raw equipment-days, hours ignored
       BigDecimal utilizationPct,
       BigDecimal costImplication,
       String normSource) {}

@@ -21,6 +21,8 @@ import com.bipros.project.domain.repository.DprEquipmentRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
 import com.bipros.project.domain.repository.DprMaterialRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
+import com.bipros.resource.domain.model.Resource;
+import com.bipros.resource.domain.repository.ResourceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -29,7 +31,11 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,7 +69,12 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 @Profile("seed")
-@Order(206)
+// 208 = run AFTER OmanDemoActivityResourceSeeder (207). That seeder creates the
+// OMD-LAB-* / OMD-EQ-* / OMD-MAT-* master Resource rows; this one then links
+// every DPR child row to the right Resource so the KPI services can roll them
+// up. Used to be 206 (before resources existed) — that left resourceId null
+// and every Manpower/Equipment KPI computed against zero rows.
+@Order(208)
 public class OmanDemoDailyDataSeeder implements CommandLineRunner {
 
     private static final String CONTRACTOR_NAME = "Sandou Construction";
@@ -93,8 +104,15 @@ public class OmanDemoDailyDataSeeder implements CommandLineRunner {
     private final DprManpowerRepository manpowerRepository;
     private final DprEquipmentRepository equipmentRepository;
     private final DprMaterialRepository materialRepository;
+    private final ResourceRepository resourceRepository;
     private final OmanDemoWorkbookReader reader;
     private final OmanDemoStaffDirectory directory;
+
+    // Built once at the top of run() — maps a workbook trade / equipment-type string
+    // (lower-cased, trimmed) to the OMD-LAB-* / OMD-EQ-* master Resource UUID created
+    // by OmanDemoActivityResourceSeeder (@Order 207).
+    private Map<String, UUID> manpowerResourceByName = new HashMap<>();
+    private Map<String, UUID> equipmentResourceByName = new HashMap<>();
 
     @Override
     public void run(String... args) {
@@ -107,21 +125,34 @@ public class OmanDemoDailyDataSeeder implements CommandLineRunner {
         }
         Project project = projectOpt.get();
 
-        // Idempotency: skip only if DPRs in the workbook's actual date range are
-        // already present. After YEAR_SHIFT the range is 2026-01-24 onward (cells
-        // say 2025; we land them in 2026 to match filename + demo "now"). Historical
-        // performance snapshots (Oct, Nov, Jan-5 — also +1y to Oct-25/Nov-25/Jan-26)
-        // share the project but live in a different date range, so they must not
-        // block the real daily-data import.
+        // Build the Resource lookup maps before we start writing DPR child rows so
+        // every DprManpower / DprEquipment row gets its resourceId populated and
+        // ManpowerKpiService / EquipmentKpiService can roll them up.
+        loadResourceLookups();
+
+        // Back-fill resourceId on existing DPR child rows that were written
+        // before this seeder learned how to wire them up. One-shot, no-ops on
+        // the next boot once every row has a non-null resourceId.
+        backfillResourceIdsOnExistingDprRows(project.getId());
+
+        // Idempotency: skip the workbook import only if DPRs in the workbook's actual
+        // date range are already present. After YEAR_SHIFT the range is 2026-01-24
+        // onward (cells say 2025; we land them in 2026 to match filename + demo
+        // "now"). Historical performance snapshots (Oct, Nov, Jan-5 — also +1y to
+        // Oct-25/Nov-25/Jan-26) share the project but live in a different date
+        // range, so they must not block the real daily-data import. The synthetic
+        // roll-forward at the bottom of this method has its own idempotency guard.
         List<DailyProgressReport> dailyWindow =
                 dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
                         project.getId(),
                         LocalDate.of(2025 + YEAR_SHIFT, 1, 24),
                         LocalDate.of(2025 + YEAR_SHIFT, 4, 30));
-        if (!dailyWindow.isEmpty()) {
-            log.info("[oman-demo daily] {} daily DPRs already exist for {} in the "
-                            + "workbook date range, skipping",
+        boolean workbookAlreadyImported = !dailyWindow.isEmpty();
+        if (workbookAlreadyImported) {
+            log.info("[oman-demo daily] {} workbook DPRs already exist for {} — "
+                            + "skipping workbook import, running synthetic roll-forward only",
                     dailyWindow.size(), project.getCode());
+            rollForwardSyntheticDprs(project.getId());
             return;
         }
 
@@ -310,6 +341,107 @@ public class OmanDemoDailyDataSeeder implements CommandLineRunner {
         log.info("[oman-demo daily] loaded {} DPRs ({} manpower, {} equipment, {} material) "
                         + "from workbook (unresolved supervisors={}, unknown activity codes={})",
                 dprCount, mpCount, eqCount, matCount, unresolvedSup, unknownActivity);
+
+        // After the real workbook import, extend the DPR stream forward so the
+        // default 30-day Insights window includes today (R1 in the design plan).
+        rollForwardSyntheticDprs(project.getId());
+    }
+
+    // ---------- Resource lookup helpers ----------
+
+    /**
+     * Snapshot all OMD-LAB-* / OMD-EQ-* Resources into name → id maps so
+     * {@link #resolveManpowerResourceId(String)} and
+     * {@link #resolveEquipmentResourceId(String)} are O(1) per DPR row.
+     * Keys are the display-name lower-cased — matches what the workbook hands us
+     * via {@code r.manpowerTrade()} / {@code r.equipmentType()}.
+     */
+    private void loadResourceLookups() {
+        manpowerResourceByName = new HashMap<>();
+        equipmentResourceByName = new HashMap<>();
+        int mp = 0, eq = 0;
+        for (Resource r : resourceRepository.findAll()) {
+            if (r.getCode() == null || r.getName() == null) continue;
+            if (r.getCode().startsWith("OMD-LAB-")) {
+                manpowerResourceByName.put(r.getName().trim().toLowerCase(Locale.ROOT), r.getId());
+                mp++;
+            } else if (r.getCode().startsWith("OMD-EQ-")) {
+                equipmentResourceByName.put(r.getName().trim().toLowerCase(Locale.ROOT), r.getId());
+                eq++;
+            }
+        }
+        log.info("[oman-demo daily] resource lookup snapshot: {} manpower, {} equipment", mp, eq);
+    }
+
+    private UUID resolveManpowerResourceId(String trade) {
+        if (trade == null) return null;
+        return manpowerResourceByName.get(trade.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private UUID resolveEquipmentResourceId(String equipmentType) {
+        if (equipmentType == null) return null;
+        return equipmentResourceByName.get(equipmentType.trim().toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * One-shot back-fill of {@code resource_id} on DprManpower / DprEquipment
+     * rows that were saved before this seeder learned how to wire them up. Walks
+     * every DPR for the project, resolves each child row's trade /
+     * equipmentType against the lookup maps, and saves rows where a non-null
+     * id can be derived. Idempotent — no work to do once every row has a
+     * resourceId.
+     */
+    private void backfillResourceIdsOnExistingDprRows(UUID projectId) {
+        List<DailyProgressReport> dprs = dprRepository
+                .findByProjectIdOrderByReportDateAscIdAsc(projectId);
+        if (dprs.isEmpty()) return;
+
+        // Bulk-fetch all child rows in one repository round-trip per kind.
+        java.util.Set<UUID> dprIds = new java.util.HashSet<>();
+        for (DailyProgressReport d : dprs) dprIds.add(d.getId());
+
+        List<DprManpower> allMp = manpowerRepository.findByDprIdIn(dprIds);
+        List<DprEquipment> allEq = equipmentRepository.findByDprIdIn(dprIds);
+
+        List<DprManpower> mpToSave = new ArrayList<>();
+        for (DprManpower m : allMp) {
+            if (m.getResourceId() != null) continue;
+            UUID rid = resolveManpowerResourceId(m.getTrade());
+            if (rid != null) {
+                m.setResourceId(rid);
+                mpToSave.add(m);
+            }
+        }
+        if (!mpToSave.isEmpty()) {
+            try {
+                manpowerRepository.saveAll(mpToSave);
+            } catch (Exception e) {
+                log.warn("[oman-demo daily] back-fill manpower save failed: {}", e.getMessage());
+            }
+        }
+
+        List<DprEquipment> eqToSave = new ArrayList<>();
+        for (DprEquipment e : allEq) {
+            if (e.getResourceId() != null) continue;
+            UUID rid = resolveEquipmentResourceId(e.getEquipmentType());
+            if (rid != null) {
+                e.setResourceId(rid);
+                eqToSave.add(e);
+            }
+        }
+        if (!eqToSave.isEmpty()) {
+            try {
+                equipmentRepository.saveAll(eqToSave);
+            } catch (Exception e2) {
+                log.warn("[oman-demo daily] back-fill equipment save failed: {}", e2.getMessage());
+            }
+        }
+
+        if (!mpToSave.isEmpty() || !eqToSave.isEmpty()) {
+            log.info("[oman-demo daily] back-filled resourceId on {} existing manpower + "
+                            + "{} existing equipment rows",
+                    mpToSave.size(), eqToSave.size());
+        }
     }
 
     private DailyProgressReport buildDpr(UUID projectId, GroupKey k,
@@ -361,14 +493,22 @@ public class OmanDemoDailyDataSeeder implements CommandLineRunner {
     }
 
     private DprManpower newManpower(UUID dprId, DailyDataRawRow r) {
+        BigDecimal wh = nz(r.manpowerHours());
+        // Deterministic OT/idle jitter so the KPI cards land on credible non-zero
+        // values without poisoning regression tests. Seeded by (dprId, trade) so
+        // the same DPR re-seed always produces the same numbers.
+        long seed = mix(dprId.hashCode(), r.manpowerTrade() == null ? 0 : r.manpowerTrade().hashCode());
+        BigDecimal otHours = scale(wh, 0.0d, 0.10d, seed, 1);
+        BigDecimal idleHours = scale(wh, 0.03d, 0.10d, seed, 2);
         return DprManpower.builder()
                 .dprId(dprId)
+                .resourceId(resolveManpowerResourceId(r.manpowerTrade()))
                 .trade(truncate(r.manpowerTrade(), 100))
                 .category(categorise(r.manpowerTrade()))
                 .nos(r.manpowerNos() != null ? r.manpowerNos() : 1)
-                .workingHours(nz(r.manpowerHours()))
-                .otHours(BigDecimal.ZERO)
-                .idleHours(BigDecimal.ZERO)
+                .workingHours(wh)
+                .otHours(otHours)
+                .idleHours(idleHours)
                 .unitRate(r.manpowerRate())
                 .unitRateBasis("HOUR")
                 .lineCost(r.manpowerCost())
@@ -385,15 +525,29 @@ public class OmanDemoDailyDataSeeder implements CommandLineRunner {
     }
 
     private DprEquipment newEquipment(UUID dprId, DailyDataRawRow r) {
+        BigDecimal wh = nz(r.equipmentHours());
+        // Deterministic jitter: 5-15% idle on every machine, breakdown only on
+        // ~5% of (machine, day) pairs and at 10-25% of working hours. Seeded by
+        // (dprId, equipmentType, ownership-bias) for stable reseeds.
+        long seed = mix(dprId.hashCode(), r.equipmentType() == null ? 0 : r.equipmentType().hashCode());
+        BigDecimal idleHours = scale(wh, 0.05d, 0.15d, seed, 1);
+        boolean broke = (Math.floorMod(seed >>> 7, 20L) == 0);
+        BigDecimal breakdownHours = broke ? scale(wh, 0.10d, 0.25d, seed, 2) : BigDecimal.ZERO;
+        // Cycle ownership across rows so the Owned-vs-Rented chart has both
+        // slices; deterministic via the seed so the mix stays stable.
+        EquipmentOwnership ownership = (Math.floorMod(seed >>> 13, 4L) == 0)
+                ? EquipmentOwnership.HIRED : EquipmentOwnership.OWNED;
         return DprEquipment.builder()
                 .dprId(dprId)
+                .resourceId(resolveEquipmentResourceId(r.equipmentType()))
                 .equipmentType(truncate(r.equipmentType(), 100))
-                .ownership(EquipmentOwnership.OWNED)
+                .ownership(ownership)
                 .nos(r.equipmentNos() != null ? r.equipmentNos() : 1)
-                .workingHours(nz(r.equipmentHours()))
-                .idleHours(BigDecimal.ZERO)
-                .breakdownHours(BigDecimal.ZERO)
-                .availabilityStatus(EquipmentAvailability.UTILIZED)
+                .workingHours(wh)
+                .idleHours(idleHours)
+                .breakdownHours(breakdownHours)
+                .availabilityStatus(broke ? EquipmentAvailability.BREAKDOWN
+                        : EquipmentAvailability.UTILIZED)
                 .unitRate(r.equipmentRate())
                 .unitRateBasis("HOUR")
                 .lineCost(r.equipmentCost())
@@ -488,4 +642,210 @@ public class OmanDemoDailyDataSeeder implements CommandLineRunner {
             String activityCode,
             Long chainageFromM,
             Long chainageToM) {}
+
+    // ---------- Deterministic jitter helpers ----------
+
+    /**
+     * 64-bit hash mixer (xorshift-style) — splits a {@code (dprId, rowKey)} pair
+     * into a stable per-row seed used by {@link #scale} so jitter is reproducible
+     * across reseeds without pulling in a PRNG dependency.
+     */
+    private static long mix(int a, int b) {
+        long x = (((long) a) << 32) ^ (b & 0xFFFFFFFFL) ^ 0x9E3779B97F4A7C15L;
+        x ^= (x >>> 33); x *= 0xFF51AFD7ED558CCDL;
+        x ^= (x >>> 33); x *= 0xC4CEB9FE1A85EC53L;
+        x ^= (x >>> 33);
+        return x;
+    }
+
+    /**
+     * Returns {@code base × U(minFrac, maxFrac)} as a 2-dp BigDecimal, where the
+     * uniform draw is deterministic in {@code seed} and {@code slot}. Returns
+     * zero when {@code base} is null or non-positive.
+     */
+    private static BigDecimal scale(BigDecimal base, double minFrac, double maxFrac,
+                                    long seed, int slot) {
+        if (base == null || base.signum() <= 0) return BigDecimal.ZERO;
+        long s = mix((int) (seed ^ (seed >>> 32)), slot);
+        double u = ((s & 0x7FFFFFFFFFFFFFFFL) % 1_000_000L) / 1_000_000d;
+        double frac = minFrac + (maxFrac - minFrac) * u;
+        return base.multiply(BigDecimal.valueOf(frac)).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    // ---------- Synthetic roll-forward (R1) ----------
+
+    /**
+     * Pick the most-recent workbook DPR per {@code (activityId, supervisorUserId)}
+     * group and replay it for every working day (Mon–Sat) from {@code last + 1}
+     * through {@code LocalDate.now()}. Reuses the same supervisor, activity,
+     * unit, side, and quantity pattern; produces fresh DprManpower /
+     * DprEquipment / DprMaterial child rows with the same resourceId linkage so
+     * the KPI rollups stay consistent.
+     *
+     * <p>Idempotent: re-running the seeder skips any (project, date) that already
+     * has a DPR.
+     */
+    private void rollForwardSyntheticDprs(UUID projectId) {
+        LocalDate today = LocalDate.now();
+        List<DailyProgressReport> allDprs = dprRepository
+                .findByProjectIdOrderByReportDateAscIdAsc(projectId);
+        if (allDprs.isEmpty()) {
+            log.info("[oman-demo daily] roll-forward: no source DPRs, skipping");
+            return;
+        }
+        LocalDate latest = allDprs.stream()
+                .map(DailyProgressReport::getReportDate)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+        if (latest == null || !latest.isBefore(today)) {
+            log.info("[oman-demo daily] roll-forward: latest DPR {} already ≥ today {}, skipping",
+                    latest, today);
+            return;
+        }
+
+        // Source pool = the last 14 calendar days of workbook DPRs. Gives us a
+        // healthy mix of activities/crews to replay rather than just the very
+        // last day.
+        LocalDate cutoff = latest.minusDays(14);
+        List<DailyProgressReport> recent = allDprs.stream()
+                .filter(d -> !d.getReportDate().isBefore(cutoff))
+                .toList();
+        if (recent.isEmpty()) {
+            log.info("[oman-demo daily] roll-forward: no recent template DPRs, skipping");
+            return;
+        }
+        Map<UUID, DailyProgressReport> templateByKey = new LinkedHashMap<>();
+        for (DailyProgressReport d : recent) {
+            UUID key = d.getActivityId() != null ? d.getActivityId() : d.getId();
+            templateByKey.merge(key, d, (a, b) ->
+                    a.getReportDate().isAfter(b.getReportDate()) ? a : b);
+        }
+        List<DailyProgressReport> templates = new ArrayList<>(templateByKey.values());
+
+        // Skip pre-existing (project, date) pairs so re-runs are a no-op.
+        Set<LocalDate> alreadyHaveDate = allDprs.stream()
+                .map(DailyProgressReport::getReportDate)
+                .collect(java.util.stream.Collectors.toSet());
+
+        int synthetic = 0;
+        int childMp = 0, childEq = 0, childMat = 0;
+        for (LocalDate d = latest.plusDays(1); !d.isAfter(today); d = d.plusDays(1)) {
+            if (d.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
+            if (alreadyHaveDate.contains(d)) continue;
+            for (DailyProgressReport tmpl : templates) {
+                DailyProgressReport copy = cloneDpr(tmpl, d);
+                DailyProgressReport saved;
+                try {
+                    saved = dprRepository.save(copy);
+                } catch (Exception e) {
+                    log.warn("[oman-demo daily] roll-forward DPR save failed at {} (activity {}): {}",
+                            d, tmpl.getActivityId(), e.getMessage());
+                    continue;
+                }
+                synthetic++;
+
+                // Fetch + clone the template's child rows.
+                List<DprManpower> srcMp = manpowerRepository.findByDprIdIn(Set.of(tmpl.getId()));
+                List<DprEquipment> srcEq = equipmentRepository.findByDprIdIn(Set.of(tmpl.getId()));
+                List<DprMaterial> srcMat = materialRepository.findByDprIdIn(Set.of(tmpl.getId()));
+
+                List<DprManpower> mp = new ArrayList<>(srcMp.size());
+                for (DprManpower m : srcMp) mp.add(cloneManpower(m, saved.getId(), d));
+                List<DprEquipment> eq = new ArrayList<>(srcEq.size());
+                for (DprEquipment e : srcEq) eq.add(cloneEquipment(e, saved.getId(), d));
+                List<DprMaterial> mat = new ArrayList<>(srcMat.size());
+                for (DprMaterial m : srcMat) mat.add(cloneMaterial(m, saved.getId()));
+
+                try { manpowerRepository.saveAll(mp); childMp += mp.size(); } catch (Exception ex) {
+                    log.warn("[oman-demo daily] roll-forward mp save failed: {}", ex.getMessage());
+                }
+                try { equipmentRepository.saveAll(eq); childEq += eq.size(); } catch (Exception ex) {
+                    log.warn("[oman-demo daily] roll-forward eq save failed: {}", ex.getMessage());
+                }
+                try { materialRepository.saveAll(mat); childMat += mat.size(); } catch (Exception ex) {
+                    log.warn("[oman-demo daily] roll-forward mat save failed: {}", ex.getMessage());
+                }
+            }
+        }
+        log.info("[oman-demo daily] roll-forward generated {} synthetic DPRs through {} "
+                        + "({} manpower, {} equipment, {} material child rows)",
+                synthetic, today, childMp, childEq, childMat);
+    }
+
+    private static DailyProgressReport cloneDpr(DailyProgressReport src, LocalDate newDate) {
+        return DailyProgressReport.builder()
+                .projectId(src.getProjectId())
+                .reportDate(newDate)
+                .supervisorName(src.getSupervisorName())
+                .supervisorUserId(src.getSupervisorUserId())
+                .chainageFromM(src.getChainageFromM())
+                .chainageToM(src.getChainageToM())
+                .activityId(src.getActivityId())
+                .activityName(src.getActivityName())
+                .wbsNodeId(src.getWbsNodeId())
+                .boqItemId(src.getBoqItemId())
+                .boqItemNo(src.getBoqItemNo())
+                .unit(src.getUnit())
+                .qtyExecuted(src.getQtyExecuted())
+                .weatherCondition(DEFAULT_WEATHER)
+                .side(src.getSide())
+                .shift(src.getShift())
+                .approvalStatus(DprApprovalStatus.APPROVED)
+                .contractorName(src.getContractorName())
+                .safetyIncidentType(SafetyIncidentType.NONE)
+                .build();
+    }
+
+    private DprManpower cloneManpower(DprManpower src, UUID newDprId, LocalDate newDate) {
+        BigDecimal wh = nz(src.getWorkingHours());
+        long seed = mix(newDprId.hashCode(), src.getTrade() == null ? 0 : src.getTrade().hashCode());
+        return DprManpower.builder()
+                .dprId(newDprId)
+                .resourceId(src.getResourceId() != null
+                        ? src.getResourceId() : resolveManpowerResourceId(src.getTrade()))
+                .trade(src.getTrade())
+                .category(src.getCategory())
+                .nos(src.getNos())
+                .workingHours(wh)
+                .otHours(scale(wh, 0.0d, 0.10d, seed, 1))
+                .idleHours(scale(wh, 0.03d, 0.10d, seed, 2))
+                .unitRate(src.getUnitRate())
+                .unitRateBasis(src.getUnitRateBasis())
+                .lineCost(src.getLineCost())
+                .contractorName(src.getContractorName())
+                .build();
+    }
+
+    private DprEquipment cloneEquipment(DprEquipment src, UUID newDprId, LocalDate newDate) {
+        BigDecimal wh = nz(src.getWorkingHours());
+        long seed = mix(newDprId.hashCode(), src.getEquipmentType() == null ? 0 : src.getEquipmentType().hashCode());
+        boolean broke = (Math.floorMod(seed >>> 7, 20L) == 0);
+        return DprEquipment.builder()
+                .dprId(newDprId)
+                .resourceId(src.getResourceId() != null
+                        ? src.getResourceId() : resolveEquipmentResourceId(src.getEquipmentType()))
+                .equipmentType(src.getEquipmentType())
+                .ownership(src.getOwnership() != null ? src.getOwnership() : EquipmentOwnership.OWNED)
+                .nos(src.getNos())
+                .workingHours(wh)
+                .idleHours(scale(wh, 0.05d, 0.15d, seed, 1))
+                .breakdownHours(broke ? scale(wh, 0.10d, 0.25d, seed, 2) : BigDecimal.ZERO)
+                .availabilityStatus(broke ? EquipmentAvailability.BREAKDOWN
+                        : EquipmentAvailability.UTILIZED)
+                .unitRate(src.getUnitRate())
+                .unitRateBasis(src.getUnitRateBasis())
+                .lineCost(src.getLineCost())
+                .build();
+    }
+
+    private static DprMaterial cloneMaterial(DprMaterial src, UUID newDprId) {
+        return DprMaterial.builder()
+                .dprId(newDprId)
+                .materialName(src.getMaterialName())
+                .quantity(src.getQuantity())
+                .unit(src.getUnit())
+                .unitRate(src.getUnitRate())
+                .lineCost(src.getLineCost())
+                .build();
+    }
 }

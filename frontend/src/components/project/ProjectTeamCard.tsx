@@ -66,7 +66,9 @@ export function ProjectTeamCard({ projectId }: Props) {
   }, [pool]);
 
   return (
-    <div className="rounded-xl border border-border bg-surface/50 p-6 shadow-lg">
+    <>
+
+      {/* <div className="rounded-xl border border-border bg-surface/50 p-6 shadow-lg">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-medium uppercase tracking-wider text-text-secondary">
           Project Team
@@ -125,6 +127,7 @@ export function ProjectTeamCard({ projectId }: Props) {
           )}
         </>
       )}
-    </div>
+    </div> */}
+    </>
   );
 }

@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ManpowerKpiInsightsCollector implements InsightDataCollector {
 
-  private static final String LABOR_TYPE_CODE = "LABOR";
+  private static final String LABOR_TYPE_CODE = "MANPOWER";
   private static final int DEFAULT_LOOKBACK_DAYS = 30;
 
   private final DailyActivityResourceOutputRepository darRepository;

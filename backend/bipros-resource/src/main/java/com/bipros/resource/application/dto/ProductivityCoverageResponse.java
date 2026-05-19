@@ -28,7 +28,10 @@ public record ProductivityCoverageResponse(
     String defaultUnit,
     Side manpower,
     Side equipment,
-    String summary) {
+    String summary,
+    /** Echoed from the Work Activity master so the UI can name the rule in its banner copy:
+     *  {@code SERIES} (min) | {@code PARALLEL} (sum) | {@code SUBSTITUTE} (max). */
+    String normCombination) {
 
   public record Side(
       boolean configured,

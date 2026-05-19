@@ -1,5 +1,6 @@
 package com.bipros.resource.application.dto;
 
+import com.bipros.resource.domain.model.NormCombination;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -24,5 +25,8 @@ public record CreateWorkActivityRequest(
     @PositiveOrZero
     Integer sortOrder,
 
-    Boolean active
+    Boolean active,
+
+    /** Optional — service falls back to SERIES (and keeps existing value on update when null). */
+    NormCombination normCombination
 ) {}

@@ -6,6 +6,7 @@ import com.bipros.project.domain.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -40,11 +41,17 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 @Profile("seed")
-@Order(210)
+@ConditionalOnProperty(name = "analytics.bootstrap.enabled", havingValue = "true", matchIfMissing = true)
+// 220 = run AFTER all the new enrichment + ledger seeders (209–211) so the
+// ClickHouse backfill picks up the freshly-seeded rows in one pass.
+@Order(220)
 public class OmanDemoAnalyticsBackfillSeeder implements CommandLineRunner {
 
     private static final LocalDate BACKFILL_FROM = LocalDate.of(2024, 9, 1);
-    private static final LocalDate BACKFILL_TO = LocalDate.of(2026, 4, 30);
+    // Closes through "today" so the ClickHouse mirror covers any synthetic
+    // roll-forward DPRs the OmanDemoDailyDataSeeder generates beyond the
+    // workbook's last real date (2026-04-30).
+    private static final LocalDate BACKFILL_TO = LocalDate.now();
     private static final List<String> FACT_TABLES_TO_PROBE = List.of(
             "fact_dpr_logs",
             "fact_activity_progress_daily",

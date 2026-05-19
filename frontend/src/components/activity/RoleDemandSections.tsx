@@ -21,10 +21,6 @@ interface Props {
   onChanged?: () => void;
   // When true, every add/edit/delete control is disabled. Backend also rejects with ACTIVITY_LOCKED.
   locked?: boolean;
-  // Default duration (days) pre-filled into Manpower/Equipment Duration inputs. Usually the
-  // parent activity's originalDuration — the backend defaults to the same value when omitted,
-  // so this just makes the implicit default visible/editable to the user.
-  defaultDuration?: number | null;
 }
 
 /**
@@ -42,7 +38,6 @@ export function RoleDemandSections({
   activityId,
   onChanged,
   locked = false,
-  defaultDuration = null,
 }: Props) {
   const qc = useQueryClient();
 
@@ -107,7 +102,6 @@ export function RoleDemandSections({
         rows={manpowerAssignments}
         onChanged={refresh}
         locked={locked}
-        defaultDuration={defaultDuration}
       />
       <EquipmentSection
         projectId={projectId}
@@ -116,7 +110,6 @@ export function RoleDemandSections({
         rows={equipmentAssignments}
         onChanged={refresh}
         locked={locked}
-        defaultDuration={defaultDuration}
       />
       <MaterialSection
         projectId={projectId}
@@ -141,7 +134,6 @@ interface ManpowerSectionProps {
   rows: RoleAssignmentResponse[];
   onChanged: () => void;
   locked: boolean;
-  defaultDuration: number | null;
 }
 
 function ManpowerSection({
@@ -151,21 +143,11 @@ function ManpowerSection({
   rows,
   onChanged,
   locked,
-  defaultDuration,
 }: ManpowerSectionProps) {
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [headcount, setHeadcount] = useState<number>(1);
-  // Duration in days. Empty string = "let the backend default to activity.originalDuration".
-  const [duration, setDuration] = useState<string>(
-    defaultDuration != null ? String(defaultDuration) : "",
-  );
   const [error, setError] = useState<string | null>(null);
-
-  // Keep input in sync when the parent activity's originalDuration loads after first render.
-  useEffect(() => {
-    setDuration(defaultDuration != null ? String(defaultDuration) : "");
-  }, [defaultDuration]);
 
   const { data: variantsResp } = useQuery({
     queryKey: ["manpower-rates-for-role", roleId],
@@ -179,14 +161,7 @@ function ManpowerSection({
   useEffect(() => setVariantId(""), [roleId]);
 
   const selected = variants.find((v) => v.id === variantId);
-  const parsedDuration = duration.trim() === "" ? null : Number(duration);
-  // Effective duration for the planned-cost preview: explicit input → activity default → 1.
-  const effectiveDuration =
-    parsedDuration != null && !Number.isNaN(parsedDuration) && parsedDuration > 0
-      ? parsedDuration
-      : defaultDuration != null && defaultDuration > 0
-        ? defaultDuration
-        : 1;
+  const effectiveDuration = 1;
   const plannedUnits = headcount * effectiveDuration;
   const plannedCost = selected ? plannedUnits * selected.rate : 0;
 
@@ -197,16 +172,11 @@ function ManpowerSection({
         roleId,
         manpowerRoleRateId: variantId,
         headcount,
-        duration:
-          parsedDuration != null && !Number.isNaN(parsedDuration)
-            ? parsedDuration
-            : undefined,
       }),
     onSuccess: () => {
       setRoleId("");
       setVariantId("");
       setHeadcount(1);
-      setDuration(defaultDuration != null ? String(defaultDuration) : "");
       setError(null);
       onChanged();
     },
@@ -224,21 +194,15 @@ function ManpowerSection({
     mutationFn: ({
       row,
       value,
-      durationValue,
     }: {
       row: RoleAssignmentResponse;
       value: number;
-      durationValue?: number | null;
     }) =>
       roleAssignmentApi.update(row.id, {
         activityId,
         roleId: row.roleId!,
         manpowerRoleRateId: row.variantId ?? undefined,
         headcount: value,
-        duration:
-          durationValue != null && !Number.isNaN(durationValue)
-            ? durationValue
-            : row.duration ?? undefined,
       }),
     onSuccess: () => onChanged(),
     onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
@@ -248,7 +212,7 @@ function ManpowerSection({
     <section className="rounded-md border border-border bg-surface p-3">
       <h4 className="mb-2 text-sm font-semibold">Manpower Requirements</h4>
       {error && <div className="mb-2 text-xs text-danger">{error}</div>}
-      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_0.8fr_auto] gap-2 items-end">
+      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_auto] gap-2 items-end">
         <label className="text-xs">
           <span className="text-text-muted">Role</span>
           <select
@@ -292,24 +256,6 @@ function ManpowerSection({
             className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           />
         </label>
-        <label className="text-xs">
-          <span className="text-text-muted">
-            Duration (days)
-            {defaultDuration != null ? (
-              <span className="ml-1 text-text-muted/70">· default {defaultDuration}</span>
-            ) : null}
-          </span>
-          <input
-            type="number"
-            step="0.01"
-            min={0}
-            value={duration}
-            placeholder={defaultDuration != null ? String(defaultDuration) : "auto"}
-            onChange={(e) => setDuration(e.target.value)}
-            disabled={locked}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
-          />
-        </label>
         <button
           disabled={locked || !roleId || !variantId || !headcount || create.isPending}
           onClick={() => create.mutate()}
@@ -321,28 +267,22 @@ function ManpowerSection({
 
       {selected && (
         <div className="mt-2 text-xs text-text-muted">
-          Planned: <b>{plannedUnits}</b> ({headcount} × {effectiveDuration}d) · Cost:{" "}
-          <b>₹{plannedCost.toFixed(2)}</b>
+          Planned: <b>{plannedUnits}</b> · Cost: <b>₹{plannedCost.toFixed(2)}</b>
         </div>
       )}
 
       <DemandTable
-        columns={["Role", "Category / Grade", "Nos", "Duration (d)", "Planned Cost"]}
+        columns={["Role", "Category / Grade", "Nos", "Planned Cost"]}
         rows={rows}
         cells={(a) => [
           a.roleName ?? "—",
           a.variantLabel ?? "—",
           a.headcount ?? a.plannedUnits ?? "—",
-          a.duration ?? "—",
           a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
-        secondaryEditCellIndex={3}
-        secondaryEditValueOf={(a) => Number(a.duration ?? defaultDuration ?? 0)}
-        onEditSave={(row, value, secondaryValue) =>
-          update.mutate({ row, value, durationValue: secondaryValue })
-        }
+        onEditSave={(row, value) => update.mutate({ row, value })}
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />
@@ -361,7 +301,6 @@ interface EquipmentSectionProps {
   rows: RoleAssignmentResponse[];
   onChanged: () => void;
   locked: boolean;
-  defaultDuration: number | null;
 }
 
 function EquipmentSection({
@@ -371,19 +310,11 @@ function EquipmentSection({
   rows,
   onChanged,
   locked,
-  defaultDuration,
 }: EquipmentSectionProps) {
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [headcount, setHeadcount] = useState<number>(1);
-  const [duration, setDuration] = useState<string>(
-    defaultDuration != null ? String(defaultDuration) : "",
-  );
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDuration(defaultDuration != null ? String(defaultDuration) : "");
-  }, [defaultDuration]);
 
   const { data: variantsResp } = useQuery({
     queryKey: ["equipment-variants-for-role", roleId],
@@ -397,13 +328,7 @@ function EquipmentSection({
   useEffect(() => setVariantId(""), [roleId]);
 
   const selected = variants.find((v) => v.id === variantId);
-  const parsedDuration = duration.trim() === "" ? null : Number(duration);
-  const effectiveDuration =
-    parsedDuration != null && !Number.isNaN(parsedDuration) && parsedDuration > 0
-      ? parsedDuration
-      : defaultDuration != null && defaultDuration > 0
-        ? defaultDuration
-        : 1;
+  const effectiveDuration = 1;
   const plannedUnits = headcount * effectiveDuration;
   const plannedCost = selected ? plannedUnits * selected.rate : 0;
 
@@ -414,16 +339,11 @@ function EquipmentSection({
         roleId,
         equipmentRoleVariantId: variantId,
         headcount,
-        duration:
-          parsedDuration != null && !Number.isNaN(parsedDuration)
-            ? parsedDuration
-            : undefined,
       }),
     onSuccess: () => {
       setRoleId("");
       setVariantId("");
       setHeadcount(1);
-      setDuration(defaultDuration != null ? String(defaultDuration) : "");
       setError(null);
       onChanged();
     },
@@ -441,21 +361,15 @@ function EquipmentSection({
     mutationFn: ({
       row,
       value,
-      durationValue,
     }: {
       row: RoleAssignmentResponse;
       value: number;
-      durationValue?: number | null;
     }) =>
       roleAssignmentApi.update(row.id, {
         activityId,
         roleId: row.roleId!,
         equipmentRoleVariantId: row.variantId ?? undefined,
         headcount: value,
-        duration:
-          durationValue != null && !Number.isNaN(durationValue)
-            ? durationValue
-            : row.duration ?? undefined,
       }),
     onSuccess: () => onChanged(),
     onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
@@ -465,7 +379,7 @@ function EquipmentSection({
     <section className="rounded-md border border-border bg-surface p-3">
       <h4 className="mb-2 text-sm font-semibold">Equipment Requirements</h4>
       {error && <div className="mb-2 text-xs text-danger">{error}</div>}
-      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_0.8fr_auto] gap-2 items-end">
+      <div className="grid grid-cols-[1.4fr_1.4fr_0.7fr_auto] gap-2 items-end">
         <label className="text-xs">
           <span className="text-text-muted">Equipment</span>
           <select
@@ -509,24 +423,6 @@ function EquipmentSection({
             className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
           />
         </label>
-        <label className="text-xs">
-          <span className="text-text-muted">
-            Duration (days)
-            {defaultDuration != null ? (
-              <span className="ml-1 text-text-muted/70">· default {defaultDuration}</span>
-            ) : null}
-          </span>
-          <input
-            type="number"
-            step="0.01"
-            min={0}
-            value={duration}
-            placeholder={defaultDuration != null ? String(defaultDuration) : "auto"}
-            onChange={(e) => setDuration(e.target.value)}
-            disabled={locked}
-            className="mt-1 w-full rounded-md border border-border bg-surface-hover px-2 py-1.5 text-xs disabled:opacity-50"
-          />
-        </label>
         <button
           disabled={locked || !roleId || !variantId || !headcount || create.isPending}
           onClick={() => create.mutate()}
@@ -538,28 +434,22 @@ function EquipmentSection({
 
       {selected && (
         <div className="mt-2 text-xs text-text-muted">
-          Planned: <b>{plannedUnits}</b> ({headcount} × {effectiveDuration}d) · Cost:{" "}
-          <b>₹{plannedCost.toFixed(2)}</b>
+          Planned: <b>{plannedUnits}</b> · Cost: <b>₹{plannedCost.toFixed(2)}</b>
         </div>
       )}
 
       <DemandTable
-        columns={["Equipment", "Variant", "Nos", "Duration (d)", "Planned Cost"]}
+        columns={["Equipment", "Variant", "Nos", "Planned Cost"]}
         rows={rows}
         cells={(a) => [
           a.roleName ?? "—",
           a.variantLabel ?? "—",
           a.headcount ?? a.plannedUnits ?? "—",
-          a.duration ?? "—",
           a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
-        secondaryEditCellIndex={3}
-        secondaryEditValueOf={(a) => Number(a.duration ?? defaultDuration ?? 0)}
-        onEditSave={(row, value, secondaryValue) =>
-          update.mutate({ row, value, durationValue: secondaryValue })
-        }
+        onEditSave={(row, value) => update.mutate({ row, value })}
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />

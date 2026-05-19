@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   workActivityApi,
   type CreateWorkActivityRequest,
+  type NormCombination,
   type WorkActivityResponse,
 } from "@/lib/api/workActivityApi";
 import { TabTip } from "@/components/common/TabTip";
@@ -22,6 +23,7 @@ interface ActivityForm {
   description: string;
   sortOrder: string;
   active: boolean;
+  normCombination: NormCombination;
 }
 
 const initialFormState: ActivityForm = {
@@ -32,6 +34,7 @@ const initialFormState: ActivityForm = {
   description: "",
   sortOrder: "",
   active: true,
+  normCombination: "SERIES",
 };
 
 const toIntOrUndefined = (value: string): number | undefined => {
@@ -92,6 +95,7 @@ export default function WorkActivitiesPage() {
       description: activity.description ?? "",
       sortOrder: activity.sortOrder?.toString() ?? "",
       active: activity.active,
+      normCombination: activity.normCombination ?? "SERIES",
     });
     setShowForm(true);
     setError(null);
@@ -108,6 +112,7 @@ export default function WorkActivitiesPage() {
         description: formData.description || undefined,
         sortOrder: toIntOrUndefined(formData.sortOrder),
         active: formData.active,
+        normCombination: formData.normCombination,
       };
       if (editingId) {
         await workActivityApi.update(editingId, request);
@@ -378,6 +383,84 @@ export default function WorkActivitiesPage() {
                   Optional notes — scope inclusions / exclusions, measurement convention, contract
                   reference. Shows up only on this admin page.
                 </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1 text-text-secondary">
+                  Norm combination
+                </label>
+                <p className="text-xs text-text-muted mb-2">
+                  How should the DPR preview combine expected output when this activity has{" "}
+                  <em>both</em> Manpower and Equipment productivity norms? Ignored when only one
+                  side has a norm — that single side drives the expected output regardless.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {(
+                    [
+                      {
+                        value: "SERIES" as const,
+                        title: "Series — bottleneck (default)",
+                        body: (
+                          <>
+                            Manpower and equipment work on the <em>same</em> unit of output, in
+                            sequence (e.g. excavator digs, mason cleans behind it). Expected ={" "}
+                            <strong>min(Manpower, Equipment)</strong>. Slowest side caps output.
+                            Use for excavation, concreting, paving, plastering — most gang work.
+                          </>
+                        ),
+                      },
+                      {
+                        value: "PARALLEL" as const,
+                        title: "Parallel — independent teams",
+                        body: (
+                          <>
+                            Manpower team and equipment team work <em>independently</em> on
+                            different stretches. Expected ={" "}
+                            <strong>Manpower + Equipment</strong>. Outputs add. Use for road side
+                            clearance, brush cutting, survey — where the two sides cover different
+                            ground.
+                          </>
+                        ),
+                      },
+                      {
+                        value: "SUBSTITUTE" as const,
+                        title: "Substitute — either alone",
+                        body: (
+                          <>
+                            Either side alone can finish the unit; the slower one is redundant.
+                            Expected = <strong>max(Manpower, Equipment)</strong>. Rare — use only
+                            for activities like demolition where hammer-and-JCB are
+                            interchangeable. Default to Series if unsure.
+                          </>
+                        ),
+                      },
+                    ] as const
+                  ).map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={`flex items-start gap-3 rounded-lg border px-3 py-2 cursor-pointer ${
+                        formData.normCombination === opt.value
+                          ? "border-accent bg-accent/10"
+                          : "border-border bg-surface-hover"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="norm-combination"
+                        value={opt.value}
+                        checked={formData.normCombination === opt.value}
+                        onChange={() =>
+                          setFormData({ ...formData, normCombination: opt.value })
+                        }
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-text-primary">{opt.title}</div>
+                        <div className="text-xs text-text-muted mt-1">{opt.body}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex gap-2 mt-4">

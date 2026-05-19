@@ -57,6 +57,10 @@
         </dependency>
         <dependency>
             <groupId>com.bipros</groupId>
+            <artifactId>bipros-dbs</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.bipros</groupId>
             <artifactId>bipros-evm</artifactId>
         </dependency>
         <dependency>

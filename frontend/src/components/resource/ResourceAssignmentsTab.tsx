@@ -122,16 +122,33 @@ export function ResourceAssignmentsTab({ projectId }: { projectId: string }) {
       const poolEntry = a.resourceId ? poolMap.get(a.resourceId) : undefined;
       const activity = activityMap.get(a.activityId);
       const anyA = a as unknown as Record<string, unknown>;
-      const plannedUnits = a.plannedUnits;
-      const actualUnits = a.actualUnits;
+      // Display rule, kept deliberately simple:
+      //   Planned   = headcount (or quantity for material)   — what was entered
+      //   Actual    = stored actualUnits                     — cumulative nos from DPRs
+      //   Remaining = max(Planned − Actual, 0)               — plain subtraction
+      // Hours never enter this math. Legacy rows (no headcount/quantity) keep stored values.
+      const storedActual = a.actualUnits ?? 0;
+      let plannedUnits: number;
+      let actualUnits: number;
+      let remainingUnits: number;
+      if (a.headcount != null) {
+        plannedUnits = a.headcount;
+        actualUnits = storedActual;
+        remainingUnits = Math.max(plannedUnits - actualUnits, 0);
+      } else if (a.quantity != null) {
+        plannedUnits = Number(a.quantity);
+        actualUnits = storedActual;
+        remainingUnits = Math.max(plannedUnits - actualUnits, 0);
+      } else {
+        plannedUnits = a.plannedUnits;
+        actualUnits = storedActual;
+        const storedRemaining = anyA.remainingUnits as number | null | undefined;
+        remainingUnits = storedRemaining != null
+          ? storedRemaining
+          : Math.max(plannedUnits - actualUnits, 0);
+      }
       const plannedCost = (anyA.plannedCost as number) ?? 0;
       const actualCost = (anyA.actualCost as number) ?? 0;
-      // Backend's daily-output rollup leaves remaining_units / remaining_cost null until the
-      // first daily output row exists. Derive from planned − actual so role rollups still tally.
-      const storedRemainingUnits = anyA.remainingUnits as number | null | undefined;
-      const remainingUnits = storedRemainingUnits != null
-        ? storedRemainingUnits
-        : Math.max((plannedUnits ?? 0) - (actualUnits ?? 0), 0);
       const storedRemainingCost = anyA.remainingCost as number | null | undefined;
       const remainingCost = storedRemainingCost != null
         ? storedRemainingCost

@@ -101,8 +101,8 @@ class DailyProgressReportServiceDraftRejectionTest {
     });
     lenient().when(dprRepository.sumQtyExecutedThroughDate(any(), any(), any()))
         .thenReturn(BigDecimal.ZERO);
-    lenient().when(dprRepository.findFirstByProjectIdAndReportDateAndActivityId(
-            any(), any(), any())).thenReturn(Optional.empty());
+    lenient().when(dprRepository.findFirstByProjectIdAndReportDateAndActivityIdAndSupervisorUserId(
+            any(), any(), any(), any())).thenReturn(Optional.empty());
     lenient().when(manpowerRepository.saveAll(any())).thenReturn(List.of());
     lenient().when(equipmentRepository.saveAll(any())).thenReturn(List.of());
     lenient().when(materialRepository.saveAll(any())).thenReturn(List.of());
