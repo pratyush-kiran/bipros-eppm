@@ -193,3 +193,11 @@ databaseChangeLog:
       file: db/changelog/changeset-2026-05-add-dbs-register.xml
   - include:
       file: db/changelog/changeset-2026-05-add-cm-role-constraint.xml
+  - include:
+      file: db/changelog/changeset-2026-05-20-expense-categories.xml
+  - include:
+      file: db/changelog/changeset-2026-05-20-activity-expense-budget.xml
+  - include:
+      file: db/changelog/changeset-2026-05-20-dbs-manual-expenses.xml
+  - include:
+      file: db/changelog/changeset-2026-05-20-project-expense-threshold.xml

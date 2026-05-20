@@ -142,6 +142,17 @@ public class DbsDailySupervisor extends BaseEntity {
     @Column(name = "subcontract_lines_json", columnDefinition = "TEXT")
     private String subcontractLinesJson;
 
+    /**
+     * Section G — Other Expenses. Sum of approved {@code dbs_manual_expenses} for this
+     * (supervisor, date) bucketed via the category's {@code dbs_section}. Merged into
+     * the existing section totals on write by {@code DbsAggregationService}.
+     */
+    @Column(name = "other_amount", precision = 19, scale = 4)
+    private BigDecimal otherAmount;
+
+    @Column(name = "other_lines_json", columnDefinition = "TEXT")
+    private String otherLinesJson;
+
     @Column(name = "recomputed_at")
     private Instant recomputedAt;
 

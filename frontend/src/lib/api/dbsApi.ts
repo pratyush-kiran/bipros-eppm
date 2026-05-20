@@ -38,6 +38,8 @@ export interface DbsSupervisorDayResponse {
   machineryAmount: number;
   fuelAmount: number;
   subcontractAmount: number;
+  /** Section G — sum of approved manual expenses (ad-hoc). Optional while rolling out. */
+  otherAmount?: number;
   boqForTheDayAmount: number;
   boqPlannedAmount: number;
   boqAchievedAmount: number;
@@ -75,6 +77,8 @@ export interface DbsEngineerDayResponse {
   machineryAmount: number;
   fuelAmount: number;
   subcontractAmount: number;
+  /** Section G — sum of approved manual expenses (ad-hoc). Optional while rolling out. */
+  otherAmount?: number;
   boqForTheDayAmount: number;
   boqPlannedAmount: number;
   boqAchievedAmount: number;
@@ -115,6 +119,8 @@ export interface DbsCmDayResponse {
   machineryAmount: number;
   fuelAmount: number;
   subcontractAmount: number;
+  /** Section G — sum of approved manual expenses (ad-hoc). Optional while rolling out. */
+  otherAmount?: number;
   boqForTheDayAmount: number;
   boqPlannedAmount: number;
   boqAchievedAmount: number;
@@ -152,6 +158,8 @@ export interface DbsProjectDayResponse {
   machineryAmount: number;
   fuelAmount: number;
   subcontractAmount: number;
+  /** Section G — sum of approved manual expenses (ad-hoc). Optional while rolling out. */
+  otherAmount?: number;
   boqForTheDayAmount: number;
   boqPlannedAmount: number;
   boqAchievedAmount: number;
@@ -353,11 +361,11 @@ export const dbsApi = {
       })
       .then((r) => r.data),
 
-  listSupervisorsForDay: (projectId: string, date: string) =>
+  listSupervisorsForDay: (projectId: string, date: string, periodType?: string) =>
     apiClient
       .get<ApiResponse<DbsSupervisorSummaryDto[]>>(
         `${base(projectId)}/supervisors`,
-        { params: { date } },
+        { params: periodType && periodType !== "DAY" ? { date, periodType } : { date } },
       )
       .then((r) => r.data),
 

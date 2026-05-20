@@ -31,6 +31,7 @@ public record DbsSupervisorDayResponse(
     BigDecimal machineryAmount,
     BigDecimal fuelAmount,
     BigDecimal subcontractAmount,
+    BigDecimal otherAmount,
     BigDecimal boqForTheDayAmount,
     BigDecimal boqPlannedAmount,
     BigDecimal boqAchievedAmount,
@@ -49,5 +50,6 @@ public record DbsSupervisorDayResponse(
     List<DbsSectionLineDto> fuelLines,
     List<DbsSectionLineDto> boqLines,
     List<DbsSectionLineDto> subcontractLines,
+    List<DbsSectionLineDto> otherLines,
     Instant recomputedAt
 ) {}

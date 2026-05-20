@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Ad-hoc activity expenses (plan §3): master data table for the categories that drive
+      the DBS expense capture. Each category maps to a DBS section letter (A/B/C/D/E/F/G)
+      so manually-entered expenses bucket into the right section at read time.
+
+      Ships with 10 seed defaults so the feature is usable on day 1 without manual setup.
+    -->
+
+    <changeSet id="expense-categories-1-create" author="claude">
+        <createTable schemaName="resource" tableName="expense_categories">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="VARCHAR(500)"/>
+            <column name="dbs_section" type="CHAR(1)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="default_taxable" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="default_tax_rate_pct" type="NUMERIC(5,2)"/>
+            <column name="sort_order" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="version" type="BIGINT"/>
+        </createTable>
+
+        <addUniqueConstraint schemaName="resource"
+                             tableName="expense_categories"
+                             columnNames="code"
+                             constraintName="uk_expense_categories_code"/>
+
+        <sql>
+            ALTER TABLE resource.expense_categories
+            ADD CONSTRAINT ck_expense_categories_dbs_section
+            CHECK (dbs_section IN ('A','B','C','D','E','F','G'));
+        </sql>
+
+        <rollback>
+            <dropTable schemaName="resource" tableName="expense_categories"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="expense-categories-2-seed-defaults" author="claude">
+        <comment>10 default categories covering the common ad-hoc expense buckets.</comment>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="TRANSPORT"/>
+            <column name="name" value="Transport / Vehicle hire"/>
+            <column name="description" value="Diesel coupons, taxi fares, lorry hire, parking, tolls"/>
+            <column name="dbs_section" value="G"/>
+            <column name="sort_order" valueNumeric="10"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="REPAIR"/>
+            <column name="name" value="Emergency repair / Maintenance"/>
+            <column name="description" value="Unplanned machinery / tool repair, spare-part purchase"/>
+            <column name="dbs_section" value="G"/>
+            <column name="sort_order" valueNumeric="20"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="CATERING"/>
+            <column name="name" value="Catering / Hospitality"/>
+            <column name="description" value="Site visit refreshments, one-off worker meal, water/tea"/>
+            <column name="dbs_section" value="B"/>
+            <column name="default_taxable" valueBoolean="true"/>
+            <column name="default_tax_rate_pct" valueNumeric="5.00"/>
+            <column name="sort_order" valueNumeric="30"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="SAFETY"/>
+            <column name="name" value="Safety / PPE / First-aid"/>
+            <column name="description" value="Helmets, gloves, first-aid kit, hospital transport"/>
+            <column name="dbs_section" value="G"/>
+            <column name="sort_order" valueNumeric="40"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="SITE_OFFICE"/>
+            <column name="name" value="Site office"/>
+            <column name="description" value="Stationery, internet, photocopy, courier"/>
+            <column name="dbs_section" value="G"/>
+            <column name="default_taxable" valueBoolean="true"/>
+            <column name="default_tax_rate_pct" valueNumeric="18.00"/>
+            <column name="sort_order" valueNumeric="50"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="LOCAL_PURCHASE"/>
+            <column name="name" value="Local material purchase"/>
+            <column name="description" value="Material bought on emergency, not in resource plan"/>
+            <column name="dbs_section" value="E"/>
+            <column name="default_taxable" valueBoolean="true"/>
+            <column name="default_tax_rate_pct" valueNumeric="18.00"/>
+            <column name="sort_order" valueNumeric="60"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="ADHOC_FUEL"/>
+            <column name="name" value="Petty fuel coupons (non-DPR)"/>
+            <column name="description" value="Fuel purchased outside DPR flow"/>
+            <column name="dbs_section" value="D"/>
+            <column name="sort_order" valueNumeric="65"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="SUBCONTRACT"/>
+            <column name="name" value="Ad-hoc subcontract work"/>
+            <column name="description" value="One-off subcontracted service (plumbing, painting, hauling)"/>
+            <column name="dbs_section" value="F"/>
+            <column name="default_taxable" valueBoolean="true"/>
+            <column name="default_tax_rate_pct" valueNumeric="18.00"/>
+            <column name="sort_order" valueNumeric="70"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="HONORARIUM"/>
+            <column name="name" value="Worker incentives / Festive"/>
+            <column name="description" value="Bonus, festival gifts, one-off worker reward"/>
+            <column name="dbs_section" value="G"/>
+            <column name="sort_order" valueNumeric="80"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+        <insert schemaName="resource" tableName="expense_categories">
+            <column name="id" valueComputed="gen_random_uuid()"/>
+            <column name="code" value="MISC"/>
+            <column name="name" value="Miscellaneous"/>
+            <column name="description" value="Catch-all for ad-hoc expenses that don't fit another category"/>
+            <column name="dbs_section" value="G"/>
+            <column name="sort_order" valueNumeric="99"/>
+            <column name="created_by" value="system"/>
+            <column name="updated_by" value="system"/>
+            <column name="version" valueNumeric="0"/>
+        </insert>
+
+        <rollback>
+            <delete schemaName="resource" tableName="expense_categories">
+                <where>code IN ('TRANSPORT','REPAIR','CATERING','SAFETY','SITE_OFFICE','LOCAL_PURCHASE','ADHOC_FUEL','SUBCONTRACT','HONORARIUM','MISC')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

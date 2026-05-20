@@ -10,6 +10,7 @@ import { activityApi } from "@/lib/api/activityApi";
 import { resourceApi } from "@/lib/api/resourceApi";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ActivityEditStatusBadge } from "@/components/activity/ActivityEditStatusBadge";
+import { ActivityExpenseBudgetPanel } from "@/components/activity/ActivityExpenseBudgetPanel";
 import { RoleDemandSections } from "@/components/activity/RoleDemandSections";
 import { RoleDemandOverview } from "@/components/activity/RoleDemandOverview";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
@@ -281,6 +282,12 @@ function DrawerInner({
               </div>
 
               <RoleDemandSections
+                projectId={projectId}
+                activityId={activityId}
+                locked={isLocked}
+              />
+
+              <ActivityExpenseBudgetPanel
                 projectId={projectId}
                 activityId={activityId}
                 locked={isLocked}

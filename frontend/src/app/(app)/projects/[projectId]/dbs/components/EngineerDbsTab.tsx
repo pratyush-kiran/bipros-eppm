@@ -172,6 +172,7 @@ export function EngineerDbsTab({
             machineryAmount={day.machineryAmount}
             fuelAmount={day.fuelAmount}
             subcontractAmount={day.subcontractAmount}
+            otherAmount={day.otherAmount ?? 0}
             totalExpense={day.totalExpense}
             totalIncome={day.totalIncome}
             contribution={day.contribution}

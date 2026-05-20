@@ -73,6 +73,7 @@ class DbsExcelWriterRegisterSheetsTest {
                 /*machineryAmount*/ BigDecimal.ZERO,
                 /*fuelAmount*/ BigDecimal.ZERO,
                 /*subcontractAmount*/ BigDecimal.ZERO,
+                /*otherAmount*/ BigDecimal.ZERO,
                 /*boqForTheDayAmount*/ BigDecimal.ZERO,
                 /*boqPlannedAmount*/ BigDecimal.ZERO,
                 /*boqAchievedAmount*/ BigDecimal.ZERO,

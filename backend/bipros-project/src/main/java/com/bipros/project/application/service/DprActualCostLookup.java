@@ -44,15 +44,37 @@ public class DprActualCostLookup {
 
     /**
      * Sum of all DPR child {@code line_cost} values for the given (project, activity), across
-     * manpower + equipment + material rows. Returns {@link BigDecimal#ZERO} when there's nothing
-     * to count (rather than null, which would force every caller to coalesce).
+     * manpower + equipment + material rows, PLUS APPROVED manual expenses logged against the
+     * activity in {@code dbs.dbs_manual_expenses}. Returns {@link BigDecimal#ZERO} when nothing
+     * to count.
+     *
+     * <p>Manual expenses are read via native SQL (instead of a repository) to avoid a cyclic
+     * dependency on bipros-dbs from bipros-project.
      */
     public BigDecimal sumByActivity(UUID projectId, UUID activityId) {
         if (projectId == null || activityId == null) return BigDecimal.ZERO;
         BigDecimal mp = nz(manpowerRepository.sumLineCostByProjectAndActivity(projectId, activityId));
         BigDecimal eq = nz(equipmentRepository.sumLineCostByProjectAndActivity(projectId, activityId));
         BigDecimal mt = nz(materialRepository.sumLineCostByProjectAndActivity(projectId, activityId));
-        return mp.add(eq).add(mt);
+        BigDecimal manual = sumManualExpensesByActivity(projectId, activityId);
+        return mp.add(eq).add(mt).add(manual);
+    }
+
+    @SuppressWarnings("unchecked")
+    private BigDecimal sumManualExpensesByActivity(UUID projectId, UUID activityId) {
+        try {
+            Object raw = em.createNativeQuery(
+                    "SELECT COALESCE(SUM(amount), 0) FROM dbs.dbs_manual_expenses "
+                        + "WHERE project_id = :pid AND activity_id = :aid "
+                        + "AND approval_status = 'APPROVED'")
+                .setParameter("pid", projectId)
+                .setParameter("aid", activityId)
+                .getSingleResult();
+            return raw instanceof BigDecimal b ? b : new BigDecimal(raw.toString());
+        } catch (Exception ex) {
+            // Table not yet present (fresh DB before migrations) — return zero gracefully.
+            return BigDecimal.ZERO;
+        }
     }
 
     /**
@@ -68,7 +90,30 @@ public class DprActualCostLookup {
         accumulate(out, "project.dpr_manpower", projectId);
         accumulate(out, "project.dpr_equipment", projectId);
         accumulate(out, "project.dpr_material", projectId);
+        accumulateManual(out, projectId);
         return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void accumulateManual(Map<UUID, BigDecimal> sink, UUID projectId) {
+        try {
+            String sql = "SELECT activity_id, COALESCE(SUM(amount), 0) "
+                    + "FROM dbs.dbs_manual_expenses "
+                    + "WHERE project_id = :projectId "
+                    + "  AND activity_id IS NOT NULL "
+                    + "  AND approval_status = 'APPROVED' "
+                    + "GROUP BY activity_id";
+            List<Object[]> rows = em.createNativeQuery(sql)
+                    .setParameter("projectId", projectId)
+                    .getResultList();
+            for (Object[] r : rows) {
+                UUID activityId = (UUID) r[0];
+                BigDecimal amount = r[1] instanceof BigDecimal b ? b : new BigDecimal(r[1].toString());
+                sink.merge(activityId, amount, BigDecimal::add);
+            }
+        } catch (Exception ex) {
+            // dbs.dbs_manual_expenses missing (fresh DB) — skip silently.
+        }
     }
 
     /** Project-level total — used by {@code CostService.getCostSummary} for the actual rollup. */

@@ -4,12 +4,17 @@ import com.bipros.dbs.domain.model.DbsDailyCm;
 import com.bipros.dbs.domain.model.DbsDailyEngineer;
 import com.bipros.dbs.domain.model.DbsDailyProject;
 import com.bipros.dbs.domain.model.DbsDailySupervisor;
+import com.bipros.dbs.domain.model.DbsManualExpense;
 import com.bipros.dbs.domain.repository.DbsDailyCmRepository;
 import com.bipros.dbs.domain.repository.DbsDailyEngineerRepository;
 import com.bipros.dbs.domain.repository.DbsDailyProjectRepository;
 import com.bipros.dbs.domain.repository.DbsDailySupervisorRepository;
+import com.bipros.dbs.domain.repository.DbsManualExpenseRepository;
 import com.bipros.dbs.service.calculator.BoqSectionResult;
 import com.bipros.dbs.service.calculator.SectionAManpowerCalculator;
+import com.bipros.dbs.service.calculator.SectionLine;
+import com.bipros.resource.domain.model.ExpenseCategory;
+import com.bipros.resource.domain.repository.ExpenseCategoryRepository;
 import com.bipros.dbs.service.calculator.SectionBAdminCalculator;
 import com.bipros.dbs.service.calculator.SectionCMachineryCalculator;
 import com.bipros.dbs.service.calculator.SectionDFuelCalculator;
@@ -29,8 +34,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -65,6 +73,8 @@ public class DbsAggregationService {
     private final ProjectTeamService projectTeamService;
     private final ObjectMapper objectMapper;
     private final RegisterAggregationService registerAggregationService;
+    private final DbsManualExpenseRepository manualExpenseRepo;
+    private final ExpenseCategoryRepository expenseCategoryRepo;
 
     /**
      * Recompute the supervisor-day row by running the six section calculators and
@@ -102,12 +112,19 @@ public class DbsAggregationService {
             : projectTeamService.resolveCmFor(projectId, supervisorUserId).orElse(null);
         row.setConstructionManagerUserId(cmUserId);
 
-        row.setManpowerAmount(manpower.totalAmount());
-        row.setAdminAmount(admin.totalAmount());
-        row.setMachineryAmount(machinery.totalAmount());
-        row.setFuelAmount(fuel.totalAmount());
-        row.setMaterialAmount(material.totalAmount());
-        row.setSubcontractAmount(BigDecimal.ZERO);
+        // ── Section G merge: APPROVED manual expenses for this supervisor on this date,
+        // bucketed by category.dbs_section. Adds to the existing section totals and also
+        // populates the new Section G (Other Expenses) field.
+        ManualExpenseBuckets manuals = loadManualBuckets(projectId, supervisorUserId, date);
+
+        row.setManpowerAmount(nz(manpower.totalAmount()).add(manuals.section('A')));
+        row.setAdminAmount(nz(admin.totalAmount()).add(manuals.section('B')));
+        row.setMachineryAmount(nz(machinery.totalAmount()).add(manuals.section('C')));
+        row.setFuelAmount(nz(fuel.totalAmount()).add(manuals.section('D')));
+        row.setMaterialAmount(nz(material.totalAmount()).add(manuals.section('E')));
+        row.setSubcontractAmount(manuals.section('F'));
+        row.setOtherAmount(manuals.section('G'));
+        row.setOtherLinesJson(manuals.linesJsonForSection('G'));
         row.setBoqForTheDayAmount(boq.forTheDayAmount());
         row.setBoqPlannedAmount(boq.plannedAmount());
         row.setBoqAchievedAmount(boq.achievedAmount());
@@ -122,8 +139,16 @@ public class DbsAggregationService {
         row.setTotalCostInclPrelims(directCost.add(prelimCost));
         row.setPctAchieved(percentage(boq.achievedAmount(), boq.plannedAmount()));
 
-        BigDecimal totalExpense = sum(manpower.totalAmount(), admin.totalAmount(), machinery.totalAmount(),
-            fuel.totalAmount(), material.totalAmount(), BigDecimal.ZERO);
+        // Total expense = sum of ALL section amounts including manual merges in A-E plus
+        // standalone Section F (sub-contractor) and G (other).
+        BigDecimal totalExpense = sum(
+            row.getManpowerAmount(),
+            row.getAdminAmount(),
+            row.getMachineryAmount(),
+            row.getFuelAmount(),
+            row.getMaterialAmount(),
+            row.getSubcontractAmount(),
+            row.getOtherAmount());
         // Daily P&L: income must be the for-the-day BOQ amount, NOT cumulative achieved-to-date.
         // boqAchievedAmount is still persisted separately (above) for the cumulative-income KPI.
         BigDecimal totalIncome = nz(boq.forTheDayAmount());
@@ -184,6 +209,7 @@ public class DbsAggregationService {
         applyAggregates(row::setMaterialAmount, supRows, DbsDailySupervisor::getMaterialAmount);
         applyAggregates(row::setSubcontractAmount, supRows, DbsDailySupervisor::getSubcontractAmount);
         applyAggregates(row::setBoqForTheDayAmount, supRows, DbsDailySupervisor::getBoqForTheDayAmount);
+        applyAggregates(row::setOtherAmount, supRows, DbsDailySupervisor::getOtherAmount);
         applyAggregates(row::setTotalExpense, supRows, DbsDailySupervisor::getTotalExpense);
         applyAggregates(row::setTotalIncome, supRows, DbsDailySupervisor::getTotalIncome);
 
@@ -259,6 +285,7 @@ public class DbsAggregationService {
         row.setMachineryAmount(sumOf(supRows, DbsDailySupervisor::getMachineryAmount));
         row.setFuelAmount(sumOf(supRows, DbsDailySupervisor::getFuelAmount));
         row.setMaterialAmount(sumOf(supRows, DbsDailySupervisor::getMaterialAmount));
+        row.setOtherAmount(sumOf(supRows, DbsDailySupervisor::getOtherAmount));
 
         BigDecimal boqForDay = sumOf(supRows, DbsDailySupervisor::getBoqForTheDayAmount);
         // BOQ cumulative is DEDUPED at CM scope — see comment on the engineer rollup.
@@ -426,6 +453,7 @@ public class DbsAggregationService {
             DbsDailySupervisor::getMaterialAmount, materialLegacyOnly);
         applyAggregates(row::setSubcontractAmount, supRows, DbsDailySupervisor::getSubcontractAmount);
         applyAggregates(row::setBoqForTheDayAmount, supRows, DbsDailySupervisor::getBoqForTheDayAmount);
+        applyAggregates(row::setOtherAmount, supRows, DbsDailySupervisor::getOtherAmount);
 
         // BOQ cumulative is DEDUPED at project scope (null filter = project-wide). Summing
         // supervisor rows would double-count whenever two supervisors share a BOQ item.
@@ -445,7 +473,8 @@ public class DbsAggregationService {
 
         BigDecimal totalExpense = sum(
             nz(row.getManpowerAmount()), nz(row.getAdminAmount()), nz(row.getMachineryAmount()),
-            nz(row.getFuelAmount()), nz(row.getMaterialAmount()), nz(row.getSubcontractAmount()));
+            nz(row.getFuelAmount()), nz(row.getMaterialAmount()), nz(row.getSubcontractAmount()),
+            nz(row.getOtherAmount()));
         BigDecimal totalIncome = nz(row.getBoqForTheDayAmount());
         row.setTotalExpense(totalExpense);
         row.setTotalIncome(totalIncome);
@@ -557,5 +586,82 @@ public class DbsAggregationService {
 
     private static int safeHash(SectionResult result) {
         return result == null || result.lines() == null ? 0 : result.lines().hashCode();
+    }
+
+    // ── manual expense merge ───────────────────────────────────────────────────
+
+    /**
+     * Loads APPROVED manual expenses for a (project, date, supervisor) scope and groups them
+     * by the category's DBS section letter (A–G). Used by the supervisor recompute to merge
+     * ad-hoc expenses into the existing section totals.
+     */
+    private ManualExpenseBuckets loadManualBuckets(UUID projectId, UUID supervisorUserId, LocalDate date) {
+        List<DbsManualExpense> rows;
+        if (supervisorUserId == null) {
+            rows = manualExpenseRepo.findByProjectIdAndReportDate(projectId, date).stream()
+                .filter(e -> e.getSupervisorUserId() == null)
+                .filter(e -> e.getApprovalStatus() == DbsManualExpense.ApprovalStatus.APPROVED)
+                .toList();
+        } else {
+            rows = manualExpenseRepo.findByProjectIdAndReportDateAndSupervisorUserId(
+                    projectId, date, supervisorUserId).stream()
+                .filter(e -> e.getApprovalStatus() == DbsManualExpense.ApprovalStatus.APPROVED)
+                .toList();
+        }
+        if (rows.isEmpty()) return new ManualExpenseBuckets(Map.of(), Map.of());
+
+        // Load category metadata once per recompute.
+        List<UUID> catIds = rows.stream().map(DbsManualExpense::getCategoryId).distinct().toList();
+        Map<UUID, ExpenseCategory> cats = expenseCategoryRepo.findAllById(catIds).stream()
+            .collect(Collectors.toMap(ExpenseCategory::getId, c -> c));
+
+        Map<Character, BigDecimal> totals = new HashMap<>();
+        Map<Character, List<SectionLine>> linesBySection = new HashMap<>();
+        for (DbsManualExpense e : rows) {
+            ExpenseCategory c = cats.get(e.getCategoryId());
+            char section = c == null || c.getDbsSection() == null
+                ? 'G'
+                : c.getDbsSection().charAt(0);
+            BigDecimal amt = nz(e.getAmount()).setScale(2, RoundingMode.HALF_UP);
+            totals.merge(section, amt, BigDecimal::add);
+            linesBySection.computeIfAbsent(section, k -> new ArrayList<>())
+                .add(new SectionLine(
+                    (c == null ? "Manual" : c.getName()) + " — " + e.getDescription(),
+                    c == null ? "" : (c.getDbsSection() == null ? "" : c.getDbsSection()),
+                    null, BigDecimal.ONE, amt));
+        }
+        return new ManualExpenseBuckets(totals, linesBySection);
+    }
+
+    /**
+     * Result of {@link #loadManualBuckets}. Holds per-section totals and serialised line
+     * arrays used to populate {@code other_lines_json} on the supervisor row.
+     */
+    private final class ManualExpenseBuckets {
+        private final Map<Character, BigDecimal> totals;
+        private final Map<Character, List<SectionLine>> lines;
+
+        ManualExpenseBuckets(Map<Character, BigDecimal> totals,
+                             Map<Character, List<SectionLine>> lines) {
+            this.totals = totals;
+            this.lines = lines;
+        }
+
+        BigDecimal section(char letter) {
+            BigDecimal v = totals.getOrDefault(letter, BigDecimal.ZERO);
+            return v.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        String linesJsonForSection(char letter) {
+            List<SectionLine> ls = lines.get(letter);
+            if (ls == null || ls.isEmpty()) return "[]";
+            try {
+                return objectMapper.writeValueAsString(ls);
+            } catch (JsonProcessingException ex) {
+                log.warn("Failed to serialise manual-expense lines for section {}: {}",
+                    letter, ex.toString());
+                return "[]";
+            }
+        }
     }
 }

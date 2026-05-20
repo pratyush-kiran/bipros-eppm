@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Ad-hoc expenses · planned side. One row per (project, activity, category) holding
+      the PM-set planned amount. Frozen when the activity is LOCKED (same lock check that
+      gates Resource Plan edits — enforced in ActivityExpenseBudgetService).
+
+      The actuals roll up from dbs.dbs_manual_expenses; variance is computed at read time.
+    -->
+
+    <changeSet id="activity-expense-budget-1-create" author="claude">
+        <createTable schemaName="activity" tableName="activity_expense_budget">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="activity_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="planned_amount" type="NUMERIC(14,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="notes" type="VARCHAR(500)"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="version" type="BIGINT"/>
+        </createTable>
+
+        <addUniqueConstraint schemaName="activity"
+                             tableName="activity_expense_budget"
+                             columnNames="project_id, activity_id, category_id"
+                             constraintName="uk_activity_expense_budget_unique"/>
+
+        <createIndex schemaName="activity"
+                     tableName="activity_expense_budget"
+                     indexName="idx_aeb_activity">
+            <column name="activity_id"/>
+        </createIndex>
+
+        <createIndex schemaName="activity"
+                     tableName="activity_expense_budget"
+                     indexName="idx_aeb_project_category">
+            <column name="project_id"/>
+            <column name="category_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable schemaName="activity" tableName="activity_expense_budget"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

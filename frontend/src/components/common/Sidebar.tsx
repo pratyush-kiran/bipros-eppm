@@ -132,6 +132,7 @@ const groups: NavGroup[] = [
           { name: "Material Categories", href: "/admin/material-categories", icon: FolderTree, adminOnly: true, permission: "ADMIN_MASTER.READ" },
           /* { name: "Rate Master", href: "/admin/rate-master", icon: Banknote, adminOnly: true, permission: "ADMIN_MASTER.READ" }, */
           { name: "Project Categories", href: "/admin/project-categories", icon: Tag, adminOnly: true, permission: "ADMIN_MASTER.READ" },
+          { name: "Expense Categories", href: "/admin/expense-categories", icon: Tag, adminOnly: true, permission: "ADMIN_MASTER.READ" },
           {
             name: "Permits", href: "/permits", icon: ShieldCheck,
             requireRoles: ["FOREMAN", "SITE_ENGINEER", "HSE_OFFICER", "PROJECT_MANAGER", "ADMIN"],

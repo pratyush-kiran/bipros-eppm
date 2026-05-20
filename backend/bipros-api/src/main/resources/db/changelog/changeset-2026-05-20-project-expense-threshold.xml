@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Per-project expense approval threshold. Replaces the global @Value-bound
+      threshold for projects that override it. Null = fall back to global default.
+    -->
+
+    <changeSet id="project-expense-threshold-1-add-column" author="claude">
+        <addColumn schemaName="project" tableName="projects">
+            <column name="expense_approval_threshold" type="NUMERIC(14,2)"/>
+        </addColumn>
+
+        <rollback>
+            <dropColumn schemaName="project" tableName="projects"
+                        columnName="expense_approval_threshold"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

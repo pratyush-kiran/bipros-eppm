@@ -9,10 +9,15 @@ import { TabTip } from "@/components/common/TabTip";
 import { budgetApi } from "@/lib/api/budgetApi";
 import type { DbsPeriodType } from "@/lib/api/dbsApi";
 
+import { Plus } from "lucide-react";
+
+import { AddExpenseDialog } from "./components/AddExpenseDialog";
 import { CmDbsTab } from "./components/CmDbsTab";
 import { EngineerDbsTab } from "./components/EngineerDbsTab";
+import { PendingExpensesPanel } from "./components/PendingExpensesPanel";
 import { PmDbsTab } from "./components/PmDbsTab";
 import { SupervisorDbsTab } from "./components/SupervisorDbsTab";
+import { ExpenseThresholdDialog } from "./components/ExpenseThresholdDialog";
 
 /**
  * Phase C — Daily Balance Sheet (DBS) dashboard.
@@ -118,6 +123,10 @@ function DbsPageInner() {
   const [supervisorUserId, setSupervisorUserId] = useState(supervisorParam);
   const [engineerUserId, setEngineerUserId] = useState(engineerParam);
   const [cmUserId, setCmUserId] = useState(cmParam);
+  /** Section letter passed to the Add Expense dialog; null = closed. */
+  const [addExpenseSection, setAddExpenseSection] = useState<string | null>(null);
+  /** Approval-threshold settings dialog. */
+  const [thresholdOpen, setThresholdOpen] = useState(false);
 
   // Sync local state ← URL when the user navigates externally (e.g. via the
   // chip-click on the Engineer tab).
@@ -189,6 +198,22 @@ function DbsPageInner() {
         description={headerDescription}
         actions={
           <div className="flex flex-wrap items-end gap-3">
+            <button
+              type="button"
+              onClick={() => setAddExpenseSection("G")}
+              className="inline-flex items-center gap-2 self-end rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground hover:bg-accent/90"
+              title="Add an ad-hoc expense for this date"
+            >
+              <Plus size={14} /> Add Expense
+            </button>
+            <button
+              type="button"
+              onClick={() => setThresholdOpen(true)}
+              className="inline-flex items-center gap-2 self-end rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover"
+              title="Configure the per-project approval threshold for expenses"
+            >
+              Threshold…
+            </button>
             <div>
               <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-text-secondary">
                 Date
@@ -224,6 +249,22 @@ function DbsPageInner() {
           </div>
         }
       />
+
+      <AddExpenseDialog
+        projectId={projectId}
+        defaultDate={date}
+        defaultSection={addExpenseSection}
+        open={addExpenseSection !== null}
+        onClose={() => setAddExpenseSection(null)}
+      />
+
+      <ExpenseThresholdDialog
+        projectId={projectId}
+        open={thresholdOpen}
+        onClose={() => setThresholdOpen(false)}
+      />
+
+      <PendingExpensesPanel projectId={projectId} currency={currency} />
 
       {/* Tabs — button strip pattern reused from risk-analysis page. No shadcn
           Tabs component exists in this repo; the manual strip keeps the bundle

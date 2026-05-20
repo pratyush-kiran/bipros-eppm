@@ -93,6 +93,10 @@ public class DbsDailyCm extends BaseEntity {
     @Column(name = "pct_achieved", precision = 8, scale = 4)
     private BigDecimal pctAchieved;
 
+    /** Section G — sum of contributing supervisor rows' otherAmount. */
+    @Column(name = "other_amount", precision = 19, scale = 4)
+    private BigDecimal otherAmount;
+
     @Column(name = "site_manager_ids", columnDefinition = "uuid[]")
     private UUID[] siteManagerIds;
 

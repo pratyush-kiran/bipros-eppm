@@ -98,6 +98,10 @@ public class DbsDailyProject extends BaseEntity {
     @Column(name = "contribution_pct", precision = 9, scale = 4)
     private BigDecimal contributionPct;
 
+    /** Section G — sum of contributing supervisor rows' otherAmount. */
+    @Column(name = "other_amount", precision = 19, scale = 4)
+    private BigDecimal otherAmount;
+
     @Column(name = "recomputed_at")
     private Instant recomputedAt;
 }

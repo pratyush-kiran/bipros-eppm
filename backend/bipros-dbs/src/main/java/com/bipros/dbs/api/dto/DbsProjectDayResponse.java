@@ -27,6 +27,7 @@ public record DbsProjectDayResponse(
     BigDecimal machineryAmount,
     BigDecimal fuelAmount,
     BigDecimal subcontractAmount,
+    BigDecimal otherAmount,
     BigDecimal boqForTheDayAmount,
     BigDecimal boqPlannedAmount,
     BigDecimal boqAchievedAmount,

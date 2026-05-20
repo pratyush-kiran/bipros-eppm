@@ -179,4 +179,14 @@ public class Project extends BaseEntity {
     /** Timestamp of the last approved budget change. */
     @Column(name = "budget_updated_at")
     private Instant budgetUpdatedAt;
+
+    /**
+     * Per-project approval threshold for DBS manual expenses. Expenses with absolute
+     * amount &gt;= this value land as PENDING and need a project-update permission holder
+     * to approve before they roll up into DBS / Activity AC. {@code null} = fall back to
+     * the global default from {@code bipros.dbs.expense.approval-threshold} (currently
+     * ₹10,000).
+     */
+    @Column(name = "expense_approval_threshold", precision = 14, scale = 2)
+    private BigDecimal expenseApprovalThreshold;
 }

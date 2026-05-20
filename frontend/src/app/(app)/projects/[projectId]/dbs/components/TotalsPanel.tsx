@@ -20,6 +20,8 @@ export interface TotalsPanelProps {
   machineryAmount: number;
   fuelAmount: number;
   subcontractAmount: number;
+  /** Section G — sum of approved ad-hoc / manual expenses. */
+  otherAmount?: number;
   totalExpense: number;
   totalIncome: number;
   contribution: number;
@@ -34,6 +36,7 @@ export function TotalsPanel({
   machineryAmount,
   fuelAmount,
   subcontractAmount,
+  otherAmount = 0,
   totalExpense,
   totalIncome,
   contribution,
@@ -74,7 +77,7 @@ export function TotalsPanel({
       </div>
 
       {/* Second row — per-section breakdown. Smaller default tiles. */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
         <KpiTile label="Material" value={formatCurrency(materialAmount, currency)} />
         <KpiTile label="Manpower" value={formatCurrency(manpowerAmount, currency)} />
         <KpiTile label="Admin / Catering" value={formatCurrency(adminAmount, currency)} />
@@ -83,7 +86,11 @@ export function TotalsPanel({
         <KpiTile
           label="Sub-Contractor"
           value={formatCurrency(subcontractAmount, currency)}
-          hint="v2"
+        />
+        <KpiTile
+          label="Other Expenses"
+          value={formatCurrency(otherAmount, currency)}
+          hint="Section G · ad-hoc"
         />
       </div>
     </div>

@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Ad-hoc expenses · actuals ledger. One row per manually-entered expense in the DBS.
+      Independent of DPR — captured directly on the DBS UI by engineers / CMs / PMs.
+
+      Activity link is OPTIONAL: null = project-level overhead (site office, rent, etc.).
+      Approval workflow: entries at or above the project threshold land as PENDING and are
+      excluded from rollups until APPROVED.
+
+      Also adds two new columns to each DBS rollup table so the manual expense merge can
+      surface a Section G total alongside the existing A/B/C/D/E sections.
+    -->
+
+    <changeSet id="dbs-manual-expenses-1-create" author="claude">
+        <createTable schemaName="dbs" tableName="dbs_manual_expenses">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="project_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="report_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="activity_id" type="UUID"/>
+            <column name="category_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="supervisor_user_id" type="UUID"/>
+            <column name="engineer_user_id" type="UUID"/>
+            <column name="cm_user_id" type="UUID"/>
+            <column name="description" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="NUMERIC(14,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="currency" type="VARCHAR(8)" defaultValue="INR">
+                <constraints nullable="false"/>
+            </column>
+            <column name="vendor_name" type="VARCHAR(255)"/>
+            <column name="receipt_no" type="VARCHAR(100)"/>
+            <column name="attachment_url" type="VARCHAR(500)"/>
+            <column name="tax_amount" type="NUMERIC(14,2)"/>
+            <column name="tax_rate_pct" type="NUMERIC(5,2)"/>
+            <column name="notes" type="VARCHAR(1000)"/>
+            <column name="approval_status" type="VARCHAR(16)" defaultValue="APPROVED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="approval_threshold_breached" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reversal_of_id" type="UUID"/>
+            <column name="created_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"
+                    defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by" type="VARCHAR(255)"/>
+            <column name="updated_by" type="VARCHAR(255)"/>
+            <column name="version" type="BIGINT"/>
+        </createTable>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_manual_expenses"
+                     indexName="idx_dme_project_date">
+            <column name="project_id"/>
+            <column name="report_date"/>
+        </createIndex>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_manual_expenses"
+                     indexName="idx_dme_activity">
+            <column name="activity_id"/>
+        </createIndex>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_manual_expenses"
+                     indexName="idx_dme_supervisor_date">
+            <column name="supervisor_user_id"/>
+            <column name="report_date"/>
+        </createIndex>
+
+        <createIndex schemaName="dbs"
+                     tableName="dbs_manual_expenses"
+                     indexName="idx_dme_category">
+            <column name="category_id"/>
+        </createIndex>
+
+        <sql>
+            ALTER TABLE dbs.dbs_manual_expenses
+            ADD CONSTRAINT ck_dme_approval_status
+            CHECK (approval_status IN ('PENDING','APPROVED','REJECTED'));
+        </sql>
+
+        <rollback>
+            <dropTable schemaName="dbs" tableName="dbs_manual_expenses"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="dbs-manual-expenses-2-add-other-cols" author="claude">
+        <comment>Add other_amount + other_lines_json to all 4 DBS rollup tables for Section G total.</comment>
+        <addColumn schemaName="dbs" tableName="dbs_daily_supervisor">
+            <column name="other_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+            <column name="other_lines_json" type="TEXT"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_engineer">
+            <column name="other_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_cm">
+            <column name="other_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+        </addColumn>
+        <addColumn schemaName="dbs" tableName="dbs_daily_project">
+            <column name="other_amount" type="NUMERIC(18,4)" defaultValueNumeric="0"/>
+        </addColumn>
+
+        <rollback>
+            <dropColumn schemaName="dbs" tableName="dbs_daily_supervisor" columnName="other_amount"/>
+            <dropColumn schemaName="dbs" tableName="dbs_daily_supervisor" columnName="other_lines_json"/>
+            <dropColumn schemaName="dbs" tableName="dbs_daily_engineer" columnName="other_amount"/>
+            <dropColumn schemaName="dbs" tableName="dbs_daily_cm" columnName="other_amount"/>
+            <dropColumn schemaName="dbs" tableName="dbs_daily_project" columnName="other_amount"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
