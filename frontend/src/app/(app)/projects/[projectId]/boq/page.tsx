@@ -272,14 +272,14 @@ export default function BoqPage() {
       },
       {
         accessorKey: "boqQty",
-        header: "BOQ Qty",
+        header: () => <span className="flex flex-col leading-tight">BOQ Qty<span className="text-[10px] font-normal text-text-muted">(from client)</span></span>,
         size: 90,
         meta: { className: "text-right tabular-nums" },
         cell: (info) => formatAmount(info.getValue() as number | null | undefined),
       },
       {
         accessorKey: "boqRate",
-        header: "BOQ Rate",
+        header: () => <span className="flex flex-col leading-tight">BOQ Rate<span className="text-[10px] font-normal text-text-muted">(from client)</span></span>,
         size: 100,
         meta: { className: "text-right tabular-nums" },
         cell: (info) => formatAmount(info.getValue() as number | null | undefined),
