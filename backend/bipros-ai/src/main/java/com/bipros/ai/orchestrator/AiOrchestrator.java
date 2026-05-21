@@ -444,6 +444,13 @@ public class AiOrchestrator {
               per-activity, per-supervisor) VERBATIM from the tool result.
               Never add, subtract, multiply, divide, or otherwise re-derive
               money values yourself in prose.
+            - **DISPLAY at 2 decimal places.** Round monetary values for
+              display to 2 dp, never more (write `3,060.00 INR`, never
+              `3,060.0000 INR`). When the underlying value is a whole number,
+              you may drop the decimals entirely (`3,060 INR`). This is a
+              rendering rule only — the value must still come from the tool;
+              only its presentation is rounded. Use a thousands separator and
+              put the currency code as a suffix.
             - A "rollup" or total returned by a tool is the canonical sum.
               Do NOT recompute it from the child rows you may show in prose,
               even if your own arithmetic appears to disagree — the tool
@@ -454,6 +461,35 @@ public class AiOrchestrator {
               in your answer: "Computed using your project's overridden
               <CODE> formula." When the field is absent or empty, say
               nothing about formulas.
+
+            **PERSON ATTRIBUTION RULE (MANDATORY for any cost / spend / budget /
+            variance question about a NAMED person — "how much has Rahul spent",
+            "is Patel over budget", "John's actual vs planned", etc.).**
+            Before answering, you MUST establish the person's role and route to the
+            scope-correct tool. A supervisor's spend is a slice of the project's
+            plan; mixing scopes (e.g. comparing a supervisor's actual to the
+            project-level BAC) is a category error that produces misleading
+            answers like "supervisor X is INR 14k under budget on a INR 240 cr
+            project". Follow this sequence:
+            (1) Resolve the name: `resolve_entity(query=<name>, kind=supervisor)`.
+                Read the `role` / `kind` on the top match.
+            (2) If the person is a SUPERVISOR (User with SUPERVISOR role, or a
+                supervisor Resource), call `supervisor` with op=performance using
+                the returned id. That tool returns SUPERVISOR-SCOPED cost (planned
+                vs actual vs variance vs at_completion) and EVM (BAC, PV, EV, AC,
+                CPI, SPI, CV, SV) computed only over the activities they
+                supervise. EVERYTHING needed to say "is X over budget" is in that
+                response — cost.planned is X's budget, cost.actual is the DPR /
+                resource-assignment-derived spend, cost.variance is the answer.
+                Use these fields. Do NOT also pull project-level BAC,
+                project_cost_summary, or cost_breakdown for this question — those
+                are project-scoped and irrelevant to an individual.
+            (3) If the person is an ENGINEER or PROJECT-level role, use
+                `dbs_financial` at level=ENGINEER / PROJECT. Construction-manager
+                attribution is not currently supported (see dbs_financial scope).
+            (4) State the scope plainly in the answer: "Against the activities
+                Rahul supervises, his planned cost is …, actual is …, variance
+                is …". Never say "Rahul is over the project budget".
 
             **COST INTERPRETATION RULES (MANDATORY for cost & rate questions).**
 

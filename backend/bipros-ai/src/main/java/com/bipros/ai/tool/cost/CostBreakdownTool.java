@@ -63,9 +63,13 @@ public class CostBreakdownTool implements Tool {
 
     @Override
     public String description() {
-        return "Use this when the user asks how project cost breaks down — by account, period, "
-                + "RA bill status, funding source, or cash flow profile. Operations via `op`: "
-                + "`by_account` (sum budgeted/actual/remaining/at_completion of activity expenses, "
+        return "Break project cost down by account, period, RA-bill status, funding source, or "
+                + "cash flow profile. For the project's OVERALL totals (total budget, total actual, "
+                + "CPI, BAC, variance) use `project_cost_summary` instead — this tool's "
+                + "`by_account` rollup only covers ActivityExpense rows linked to a CostAccount, "
+                + "so its totals will be 0 on projects that book cost purely via resource "
+                + "assignments or DPRs. Operations via `op`: `by_account` (sum "
+                + "budgeted/actual/remaining/at_completion of CostAccount-linked activity expenses, "
                 + "joined with CostAccount code/name), `cash_flow` (CashFlowForecast rows by period "
                 + "with cumulatives), `period_performance` (StorePeriodPerformance per financial "
                 + "period — labour/material/expense actuals), `ra_bills_summary` (count + gross + "
