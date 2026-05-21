@@ -12,8 +12,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 # Cache dependency layer — only re-downloaded when lockfile changes
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml .npmrc ./
+# pnpm 10 blocks native build scripts by default; allow them for Docker builds
+RUN echo "dangerously-allow-all-builds=true" >> .npmrc && \
+    pnpm install --frozen-lockfile
 
 # NEXT_PUBLIC_* vars are baked into the JS bundle at build time.
 # Leave empty so axios uses relative URLs proxied by nginx.
