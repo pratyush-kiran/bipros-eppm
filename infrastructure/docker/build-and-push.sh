@@ -122,9 +122,16 @@ do_prebuild() {
   success "  Backend JAR ready."
 
   # Frontend — Next.js standalone
+  # NEXT_PUBLIC_* vars are baked into the JS bundle at build time — Docker runtime env cannot
+  # override them. Production builds must use an empty string so axios uses relative URLs
+  # (proxied by nginx). Only non-empty non-localhost values are forwarded to the build.
   info "  [2/3] Building Next.js frontend…"
   local api_url
   api_url="$(grep -E '^NEXT_PUBLIC_API_URL=' "${SCRIPT_DIR}/.env" | cut -d= -f2- | tr -d '"' || true)"
+  if [[ "$api_url" == *"localhost"* || "$api_url" == *"127.0.0.1"* ]]; then
+    warn "  NEXT_PUBLIC_API_URL contains a localhost address ('${api_url}') — clearing it for production build."
+    api_url=""
+  fi
   (cd "${REPO_ROOT}/frontend" && \
     NEXT_PUBLIC_API_URL="${api_url:-}" \
     NEXT_TELEMETRY_DISABLED=1 \
