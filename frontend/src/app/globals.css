@@ -218,6 +218,86 @@
   --logo-secondary: #E5C458;
 }
 
+/* "Project Command" palette — dark navy surface + orange accent.
+   Scoped to a wrapper element (e.g. the per-project workspace) so the
+   legacy White & Gold identity remains the default across home / login /
+   admin surfaces. Repoints the canonical tokens (--paper, --gold, etc.)
+   so existing components automatically re-skin without component edits. */
+.theme-command {
+  /* surfaces */
+  --paper: #070D1A;
+  --ivory: #0C1929;
+  --parchment: #0F2237;
+  --background: #070D1A;
+  --surface: #070D1A;
+  --surface-hover: #0C1929;
+  --surface-active: #0F2237;
+
+  /* text */
+  --charcoal: #F1F5F9;
+  --slate: #94A3B8;
+  --ash: #475569;
+  --foreground: #F1F5F9;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #475569;
+  --muted-foreground: #94A3B8;
+
+  /* borders */
+  --hairline: rgba(148, 163, 184, 0.10);
+  --divider: rgba(148, 163, 184, 0.14);
+  --border: rgba(148, 163, 184, 0.10);
+  --border-subtle: rgba(148, 163, 184, 0.14);
+  --input: rgba(148, 163, 184, 0.18);
+
+  /* accent — orange */
+  --accent: #FF6B35;
+  --accent-foreground: #070D1A;
+  --accent-hover: #E5572C;
+  --accent-glow: rgba(255, 107, 53, 0.22);
+  --gold: #FF6B35;
+  --gold-deep: #E5572C;
+  --gold-ink: #FFD3BD;
+  --gold-tint: rgba(255, 107, 53, 0.12);
+  --ring: #FF6B35;
+
+  /* semantic */
+  --emerald: #10B981;
+  --success: #10B981;
+  --bronze-warn: #F59E0B;
+  --warning: #F59E0B;
+  --burgundy: #EF4444;
+  --danger: #EF4444;
+  --steel: #3B82F6;
+  --info: #3B82F6;
+  --amber-flame: #FF8E5A;
+
+  /* extra chart slots (no analogue in the White & Gold palette) */
+  --cmd-violet: #8B5CF6;
+  --cmd-cyan: #06B6D4;
+  --cmd-rose: #F43F5E;
+
+  /* glass / scrollbar / selection / grid */
+  --glass-bg: rgba(7, 13, 26, 0.75);
+  --glass-border: rgba(241, 245, 249, 0.06);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.25);
+  --scrollbar-track: #070D1A;
+  --selection-bg: rgba(255, 107, 53, 0.30);
+  --selection-color: #F1F5F9;
+  --grid-color: rgba(241, 245, 249, 0.04);
+  --logo-primary: #F1F5F9;
+  --logo-secondary: #FF6B35;
+
+  background: var(--background);
+  color: var(--foreground);
+}
+
+@theme inline {
+  --color-cmd-violet: var(--cmd-violet);
+  --color-cmd-cyan: var(--cmd-cyan);
+  --color-cmd-rose: var(--cmd-rose);
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);

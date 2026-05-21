@@ -96,6 +96,43 @@ export const CHART_COLORS = {
   goldDeep: "#B8962E",
 };
 
+/** Navy / orange palette used by the Project Command dashboards. Recharts
+ *  takes stroke/fill as props rather than CSS, so these hex values are kept
+ *  in sync with the .theme-command block in globals.css. */
+export const CHART_COLORS_COMMAND = {
+  primary: "#FF6B35",
+  success: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+  info: "#3B82F6",
+  violet: "#8B5CF6",
+  cyan: "#06B6D4",
+  rose: "#F43F5E",
+  muted: "#94A3B8",
+  grid: "rgba(148, 163, 184, 0.12)",
+  surface: "#0C1929",
+  surfaceDeep: "#070D1A",
+  textPrimary: "#F1F5F9",
+  textSecondary: "#94A3B8",
+  // common chart slots
+  planned: "#3B82F6",
+  actual: "#FF6B35",
+  forecast: "#F59E0B",
+  pv: "#3B82F6",
+  ev: "#10B981",
+  ac: "#EF4444",
+};
+
+export const CHART_TOOLTIP_STYLE_COMMAND = {
+  backgroundColor: "#0C1929",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "0.625rem",
+  color: "#F1F5F9",
+  boxShadow: "0 12px 32px -8px rgba(0,0,0,0.45)",
+  padding: "10px 12px",
+  fontSize: "12px",
+};
+
 export function formatCrore(n: number | null | undefined, digits = 2): string {
   if (n == null || Number.isNaN(n)) return "—";
   return `₹ ${n.toLocaleString("en-IN", { maximumFractionDigits: digits })} Cr`;

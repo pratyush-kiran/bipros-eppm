@@ -61,6 +61,15 @@ export default function ProjectDetailPage() {
   const isUuid = UUID_REGEX.test(projectId);
   const tab = searchParams.get("tab") || "overview";
 
+  // Hub-and-spoke pivot: when a user lands on /projects/[id] with no explicit
+  // tab in the URL, send them to the new Dashboard surface (the central command
+  // hub). Explicit ?tab=overview / ?tab=gantt / etc. still render in-place.
+  useEffect(() => {
+    if (searchParams.get("tab") === null) {
+      router.replace(`/projects/${projectId}/dashboard`);
+    }
+  }, [searchParams, projectId, router]);
+
   // Redirect legacy activities tab to the dedicated activities page
   useEffect(() => {
     if (tab === "activities") {

@@ -81,15 +81,17 @@ function ProjectDetailLayoutInner({
   // financial analysis → schedule views → cross-cutting. Team is promoted out of
   // the More dropdown because it's load-bearing for the DBS Engineer/CM/PM rollup.
   const allTabs: ProjectTab[] = [
+    { id: "dashboard", label: "Dashboard", href: `/projects/${projectId}/dashboard` },
     { id: "overview", label: "Overview", href: null },
     { id: "wbs", label: "WBS", href: null },
     { id: "activities", label: "Activities", href: `/projects/${projectId}/activities` },
-    /* { id: "resources", label: "Resources", href: null }, */
+    { id: "resources", label: "Resources", href: `/projects/${projectId}/resources` },
     { id: "boq", label: "BOQ", href: `/projects/${projectId}/boq` },
     { id: "team", label: "Team", href: `/projects/${projectId}/team` },
     { id: "dpr", label: "DPR", href: `/projects/${projectId}/dpr` },
     { id: "general-expenses", label: "General Expenses", href: `/projects/${projectId}/general-expenses` },
     { id: "dbs", label: "DBS", href: `/projects/${projectId}/dbs` },
+    { id: "finance", label: "Finance", href: `/projects/${projectId}/finance`, permission: "COST.READ" },
     { id: "costs", label: "Costs", href: null, permission: "COST.READ" },
     { id: "evm", label: "EVM", href: null, permission: "EVM.READ" },
 
@@ -97,7 +99,9 @@ function ProjectDetailLayoutInner({
     { id: "gantt", label: "Gantt", href: null },
     { id: "network", label: "Network", href: null },
     { id: "insights", label: "Insights", href: `/projects/${projectId}/insights` },
+    { id: "reports", label: "Reports", href: `/projects/${projectId}/reports` },
     { id: "risks", label: "Risks", href: `/projects/${projectId}/risks`, permission: "RISK.READ" },
+    { id: "risks-dashboard", label: "Risk Dashboard", href: `/projects/${projectId}/risks-dashboard`, permission: "RISK.READ" },
 
     { id: "gis", label: "GIS", href: `/projects/${projectId}/gis-viewer` },
     { id: "baselines", label: "Baselines", href: null, permission: "BASELINE.READ" },
@@ -172,7 +176,10 @@ function ProjectDetailLayoutInner({
   };
 
   return (
-    <div className="min-w-0" style={{ ["--tab-nav-h" as string]: "53px" }}>
+    <div
+      className="theme-command min-w-0 bg-paper text-text-primary"
+      style={{ ["--tab-nav-h" as string]: "53px" }}
+    >
       <div className="mb-6 flex items-start justify-between gap-4 px-6 pt-6">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-text-primary">{project.name}</h1>
