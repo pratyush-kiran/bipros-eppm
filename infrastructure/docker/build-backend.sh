@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # infrastructure/docker/build-backend.sh
-# Build the backend JAR on the host and package it into a Docker image.
+# Build the backend Docker image (Maven compile happens inside Docker)
+# and push it to Docker Hub. No host Maven installation required.
 #
 # Usage:
 #   ./build-backend.sh [TAG]
@@ -18,6 +19,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+DOCKERFILE="${SCRIPT_DIR}/services/backend/Dockerfile.build"
 
 # ── Colour helpers ─────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -35,7 +37,7 @@ die()     { error "$*"; exit 1; }
 
 # ── Registry / image config ────────────────────────────────────────────────
 REGISTRY="supportbipros"
-SOURCE_IMAGE="bipros-eppm/backend:latest"
+LOCAL_IMAGE="bipros-eppm/backend:latest"
 TARGET_REPO="${REGISTRY}/bipros-eppm-backend"
 
 # ── Dynamic default tag ────────────────────────────────────────────────────
@@ -60,67 +62,33 @@ fi
 # ── Prerequisite checks ────────────────────────────────────────────────────
 check_prerequisites() {
   command -v docker &>/dev/null || die "Docker is not installed or not in PATH."
-  command -v mvn    &>/dev/null || die "Maven (mvn) is not installed or not in PATH."
 
-  if docker compose version &>/dev/null 2>&1; then
-    COMPOSE_CMD="docker compose"
-  elif command -v docker-compose &>/dev/null; then
-    COMPOSE_CMD="docker-compose"
-  else
-    die "Docker Compose is not installed."
-  fi
-
-  info "Docker:  $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'unknown')"
-  info "Compose: $(${COMPOSE_CMD} version --short 2>/dev/null || echo 'unknown')"
-  info "Maven:   $(mvn -q --version 2>/dev/null | head -1 || echo 'unknown')"
+  info "Docker: $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'unknown')"
 }
 
-# ── Ensure .env exists ─────────────────────────────────────────────────────
-setup_env() {
-  local env_file="${SCRIPT_DIR}/.env"
-  local env_example="${SCRIPT_DIR}/.env.example"
-
-  if [[ ! -f "$env_file" ]]; then
-    if [[ -f "$env_example" ]]; then
-      warn ".env not found — copying from .env.example"
-      cp "$env_example" "$env_file"
-      warn "Review ${env_file} before building for production!"
-    else
-      die ".env not found at ${env_file} and no .env.example to fall back to."
-    fi
-  fi
-}
-
-# ── Pre-build: compile JAR on host ─────────────────────────────────────────
-do_prebuild() {
-  echo ""
-  info "Building Spring Boot JAR on host…"
-  (cd "${REPO_ROOT}" && mvn -B -pl backend/bipros-api -am \
-    -Dmaven.test.skip=true \
-    --no-transfer-progress \
-    package) || die "Maven build failed."
-  success "Backend JAR ready."
-}
-
-# ── Docker build ───────────────────────────────────────────────────────────
+# ── Docker build (multi-stage: Maven compile + JRE runtime) ───────────────
 do_build() {
   echo ""
-  info "Packaging backend Docker image (no cache)…"
-  ${COMPOSE_CMD} \
-    -f "${SCRIPT_DIR}/docker-compose.yml" \
-    -f "${SCRIPT_DIR}/docker-compose.override.yml" \
-    --env-file "${SCRIPT_DIR}/.env" \
-    -p bipros-eppm \
-    build --no-cache backend
-  success "Docker image built: ${SOURCE_IMAGE}"
+  info "Building backend image (Maven compiles inside Docker)…"
+  info "Build context: ${REPO_ROOT}"
+  info "Dockerfile:   ${DOCKERFILE}"
+  echo ""
+
+  docker build \
+    --no-cache \
+    -f "${DOCKERFILE}" \
+    -t "${LOCAL_IMAGE}" \
+    "${REPO_ROOT}"
+
+  success "Docker image built: ${LOCAL_IMAGE}"
 }
 
 # ── Tag & push ─────────────────────────────────────────────────────────────
 do_tag_and_push() {
   local full_target="${TARGET_REPO}:${TAG}"
   echo ""
-  info "Tagging: ${SOURCE_IMAGE}  →  ${full_target}"
-  docker tag "${SOURCE_IMAGE}" "${full_target}"
+  info "Tagging: ${LOCAL_IMAGE}  →  ${full_target}"
+  docker tag "${LOCAL_IMAGE}" "${full_target}"
   docker push "${full_target}"
   success "Pushed ${full_target}"
 }
@@ -144,8 +112,6 @@ main() {
   echo ""
 
   check_prerequisites
-  setup_env
-  do_prebuild
   do_build
   do_tag_and_push
   print_summary

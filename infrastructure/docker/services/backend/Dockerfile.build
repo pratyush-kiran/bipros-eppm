@@ -1,0 +1,65 @@
+# Multi-stage build — no host Maven required.
+# Build context: repo root (bipros-eppm/)
+#
+# Stage 1: compile the Spring Boot fat-JAR inside Docker
+# Stage 2: copy the JAR into a lean JRE runtime image
+
+# ── Stage 1: build ─────────────────────────────────────────────────────────
+FROM maven:3.9-eclipse-temurin-23 AS builder
+
+WORKDIR /workspace
+
+# Cache dependency layer — only re-downloaded when pom files change
+COPY pom.xml ./
+COPY backend/pom.xml backend/
+COPY backend/bipros-common/pom.xml          backend/bipros-common/
+COPY backend/bipros-security/pom.xml        backend/bipros-security/
+COPY backend/bipros-project/pom.xml         backend/bipros-project/
+COPY backend/bipros-calendar/pom.xml        backend/bipros-calendar/
+COPY backend/bipros-activity/pom.xml        backend/bipros-activity/
+COPY backend/bipros-scheduling/pom.xml      backend/bipros-scheduling/
+COPY backend/bipros-resource/pom.xml        backend/bipros-resource/
+COPY backend/bipros-cost/pom.xml            backend/bipros-cost/
+COPY backend/bipros-evm/pom.xml             backend/bipros-evm/
+COPY backend/bipros-baseline/pom.xml        backend/bipros-baseline/
+COPY backend/bipros-udf/pom.xml             backend/bipros-udf/
+COPY backend/bipros-risk/pom.xml            backend/bipros-risk/
+COPY backend/bipros-portfolio/pom.xml       backend/bipros-portfolio/
+COPY backend/bipros-contract/pom.xml        backend/bipros-contract/
+COPY backend/bipros-document/pom.xml        backend/bipros-document/
+COPY backend/bipros-api/pom.xml             backend/bipros-api/
+
+RUN mvn -B -pl backend/bipros-api -am dependency:go-offline --no-transfer-progress -q
+
+# Copy source and build
+COPY backend/ backend/
+
+RUN mvn -B -pl backend/bipros-api -am \
+    -Dmaven.test.skip=true \
+    --no-transfer-progress \
+    package
+
+# ── Stage 2: runtime ───────────────────────────────────────────────────────
+FROM eclipse-temurin:23-jre-alpine AS runtime
+
+RUN addgroup -S -g 1000 spring && \
+    adduser -S -u 1000 -G spring spring
+
+WORKDIR /app
+
+COPY --from=builder --chown=spring:spring \
+    /workspace/backend/bipros-api/target/bipros-api-*.jar app.jar
+
+RUN mkdir -p /app/storage/documents /app/data/satellite /tmp && \
+    chown -R spring:spring /app /tmp
+
+USER spring:spring
+
+EXPOSE 8080
+
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
+  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
