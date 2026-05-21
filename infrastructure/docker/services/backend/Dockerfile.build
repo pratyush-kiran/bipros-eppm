@@ -9,29 +9,7 @@ FROM maven:3.9-eclipse-temurin-23 AS builder
 
 WORKDIR /workspace
 
-# Cache dependency layer — only re-downloaded when pom files change
 COPY pom.xml ./
-COPY backend/pom.xml backend/
-COPY backend/bipros-common/pom.xml          backend/bipros-common/
-COPY backend/bipros-security/pom.xml        backend/bipros-security/
-COPY backend/bipros-project/pom.xml         backend/bipros-project/
-COPY backend/bipros-calendar/pom.xml        backend/bipros-calendar/
-COPY backend/bipros-activity/pom.xml        backend/bipros-activity/
-COPY backend/bipros-scheduling/pom.xml      backend/bipros-scheduling/
-COPY backend/bipros-resource/pom.xml        backend/bipros-resource/
-COPY backend/bipros-cost/pom.xml            backend/bipros-cost/
-COPY backend/bipros-evm/pom.xml             backend/bipros-evm/
-COPY backend/bipros-baseline/pom.xml        backend/bipros-baseline/
-COPY backend/bipros-udf/pom.xml             backend/bipros-udf/
-COPY backend/bipros-risk/pom.xml            backend/bipros-risk/
-COPY backend/bipros-portfolio/pom.xml       backend/bipros-portfolio/
-COPY backend/bipros-contract/pom.xml        backend/bipros-contract/
-COPY backend/bipros-document/pom.xml        backend/bipros-document/
-COPY backend/bipros-api/pom.xml             backend/bipros-api/
-
-RUN mvn -B -pl backend/bipros-api -am dependency:go-offline --no-transfer-progress -q
-
-# Copy source and build
 COPY backend/ backend/
 
 RUN mvn -B -pl backend/bipros-api -am \
