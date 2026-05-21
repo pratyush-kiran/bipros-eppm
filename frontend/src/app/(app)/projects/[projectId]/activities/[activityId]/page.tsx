@@ -364,16 +364,18 @@ export default function ActivityDetailPage() {
         actions={
           <div className="flex items-center gap-2">
             <ActivityEditStatusBadge editStatus={activity.editStatus} />
-            <button
-              type="button"
-              onClick={() =>
-                router.push(`/projects/${projectId}/dpr?new=1&activityId=${activityId}`)
-              }
-              className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-hover"
-              title="Create a Daily Progress Report pre-filled with this activity"
-            >
-              Create DPR
-            </button>
+            {isLocked && (
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(`/projects/${projectId}/dpr?new=1&activityId=${activityId}`)
+                }
+                className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-text-primary hover:bg-surface-hover"
+                title="Create a Daily Progress Report pre-filled with this activity"
+              >
+                Create DPR
+              </button>
+            )}
             {isLocked && canUnlockActivity && (
               <button
                 type="button"

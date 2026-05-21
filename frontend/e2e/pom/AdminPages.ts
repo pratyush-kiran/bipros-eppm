@@ -226,9 +226,20 @@ export class WorkActivitiesAdminPage {
       .filter({ has: this.page.locator('option', { hasText: /select a unit/i }) })
       .first();
     await unitSelect.selectOption(uiUnit).catch(async () => {
-      await unitSelect
-        .selectOption({ label: new RegExp(uiUnit, 'i') })
-        .catch(() => undefined);
+      const matchedLabel = await unitSelect
+        .locator('option')
+        .evaluateAll((opts, needle) => {
+          const re = new RegExp(needle, 'i');
+          const hit = (opts as HTMLOptionElement[]).find((o) =>
+            re.test(o.textContent ?? ''),
+          );
+          return hit?.textContent ?? null;
+        }, uiUnit);
+      if (matchedLabel) {
+        await unitSelect
+          .selectOption({ label: matchedLabel })
+          .catch(() => undefined);
+      }
     });
 
     await this.page.getByRole('button', { name: /save activity/i }).click();

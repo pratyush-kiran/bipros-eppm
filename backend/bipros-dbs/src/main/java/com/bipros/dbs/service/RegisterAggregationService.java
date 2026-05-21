@@ -166,18 +166,33 @@ public class RegisterAggregationService {
     @SuppressWarnings("unchecked")
     private List<DbsManpowerRegisterRow> aggregateManpower(UUID projectId, LocalDate date,
                                                             Map<UUID, UUID> cmBySupervisor) {
+        // Scalar subqueries for the rate fallback so each DPR manpower row produces
+        // exactly ONE result row. The previous LEFT JOIN onto manpower_rate_masters
+        // used {@code mrm.role_id = mp.role_id}, which multiplies the DPR row by N
+        // when a role has N grade variants in the rate-master table (e.g. Foreman
+        // with Skilled / Semi-skilled / Unskilled grades). Without this fix, the
+        // register's count_nos accumulates nos × N for those rows.
         String sql = """
             SELECT mp.trade                                          AS trade,
                    COALESCE(mp.shift, 'DAY')                         AS shift,
                    COALESCE(mp.nos, 0)                               AS nos,
                    COALESCE(mp.working_hours, 0)                     AS hrs,
-                   COALESCE(mp.unit_rate, rrr.rate, mrm.rate, 0)     AS rate,
+                   COALESCE(
+                     mp.unit_rate,
+                     (SELECT rrr.rate
+                        FROM resource.manpower_role_rates rrr
+                       WHERE rrr.id = mp.manpower_role_rate_id),
+                     (SELECT mrm.rate
+                        FROM resource.manpower_rate_masters mrm
+                       WHERE mrm.role_id = mp.role_id AND mrm.active
+                       ORDER BY mrm.rate DESC
+                       LIMIT 1),
+                     0
+                   )                                                  AS rate,
                    COALESCE(mp.line_cost, 0)                         AS line_cost,
                    d.supervisor_user_id                              AS supervisor_user_id
             FROM project.dpr_manpower mp
             JOIN project.daily_progress_reports d ON d.id = mp.dpr_id
-            LEFT JOIN resource.manpower_role_rates rrr ON rrr.id = mp.manpower_role_rate_id
-            LEFT JOIN resource.manpower_rate_masters mrm ON mrm.role_id = mp.role_id
             WHERE d.project_id = cast(:pid as uuid)
               AND d.report_date = :dt
               AND mp.trade IS NOT NULL

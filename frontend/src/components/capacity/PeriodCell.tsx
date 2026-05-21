@@ -8,6 +8,10 @@ function fmt(n: number | null | undefined, digits = 2): string {
   return n.toLocaleString("en-IN", { maximumFractionDigits: digits });
 }
 
+function fmtMoney(n: number): string {
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
 export function utilBand(util: number | null | undefined): string {
   if (util === null || util === undefined)
     return "bg-surface/30 text-text-muted";
@@ -16,16 +20,8 @@ export function utilBand(util: number | null | undefined): string {
   return "bg-danger/15 text-danger ring-1 ring-danger/30";
 }
 
-/**
- * Hover-tooltip text on the Util % badge. Explains the norm-tracked-role rule so users
- * don't perceive the governing role's util % as unfair credit — supporting roles without
- * norms contribute to cost but aren't measured against output, by design.
- */
-const UTIL_TOOLTIP =
-  "Util % measures how efficiently this role was used against the activity's total output. " +
-  "Output ÷ the role's productivity norm gives the Budget days; comparing against actual gives this %. " +
-  "Supporting roles without norms (helpers, finishers, etc.) contribute to cost but aren't measured " +
-  "against output — they only show Qty done and Actual, no Util %.";
+const EFFICIENCY_TOOLTIP =
+  "Output vs the productivity norm per resource-day. Not deployment utilization.";
 
 function sideLabel(side: "MANPOWER" | "EQUIPMENT" | null | undefined): string {
   if (side === "MANPOWER") return "Manpower";
@@ -35,8 +31,10 @@ function sideLabel(side: "MANPOWER" | "EQUIPMENT" | null | undefined): string {
 
 /**
  * SC180-style cell for one bucket of a role row. Shared between the project-level capacity
- * utilization view and the multi-period aggregate view. Renders Budget / Planned / Actual /
- * Untracked / %Util / Cost in a tight stack.
+ * utilization view and the multi-period aggregate view. Renders Qty done / Budget / Actual /
+ * Untracked / Efficiency % / Cost in a tight stack. "Planned" is intentionally hidden — the
+ * activity-plan headcount commitment seeded too much "why didn't we use all 100?" confusion
+ * when shown next to a single-day Actual.
  */
 export const PeriodCell = memo(function PeriodCell({
   period,
@@ -56,11 +54,6 @@ export const PeriodCell = memo(function PeriodCell({
       <div>
         <span className="text-text-muted">Budget:</span> {fmt(period.budgetDays, 1)}
       </div>
-      {period.plannedDays != null && (
-        <div>
-          <span className="text-text-muted">Planned:</span> {fmt(period.plannedDays, 1)} nos
-        </div>
-      )}
       <div>
         <span className="text-text-muted">Actual:</span> {fmt(period.actualDays, 1)}
       </div>
@@ -69,27 +62,30 @@ export const PeriodCell = memo(function PeriodCell({
           ({fmt(period.actualDaysUntracked, 1)} day{period.actualDaysUntracked === 1 ? "" : "s"} on activities not tracking productivity)
         </div>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <span
           className={`inline-block px-2 py-0.5 rounded text-xs font-semibold cursor-help ${utilBand(period.utilizationPct)}`}
-          title={UTIL_TOOLTIP}
+          title={EFFICIENCY_TOOLTIP}
         >
+          Eff:{" "}
           {period.utilizationPct == null ? "—" : `${fmt(period.utilizationPct, 1)} %`}
         </span>
-        {period.costImplication != null && (
+        {period.costImplication != null && period.costImplication !== 0 && (
           <span
-            className={`text-xs ${period.costImplication < 0 ? "text-success" : period.costImplication > 0 ? "text-danger" : "text-text-muted"}`}
+            className={`text-xs ${period.costImplication < 0 ? "text-success" : "text-danger"}`}
           >
-            ₹{fmt(period.costImplication, 0)}
+            {period.costImplication < 0
+              ? `Cost saved: ₹${fmtMoney(Math.abs(period.costImplication))}`
+              : `Cost overrun: ₹${fmtMoney(period.costImplication)}`}
           </span>
         )}
       </div>
       {period.constrainedDays != null && period.constrainedDays > 0 && (
         <div className="mt-1 text-warning italic">
-          ⚠ {fmt(period.constrainedDays, 1)} day{period.constrainedDays === 1 ? "" : "s"} constrained by{" "}
-          {sideLabel(period.constrainedBySide)} side (SERIES) — that side's norm capped the
-          activity's output, so this row's low util % is the bottleneck, not the role's
-          efficiency.
+          {fmt(period.constrainedDays, 1)} day{period.constrainedDays === 1 ? "" : "s"} constrained by{" "}
+          {sideLabel(period.constrainedBySide)} side (SERIES) — that side&apos;s norm capped the
+          activity&apos;s output, so this row&apos;s low Efficiency % is the bottleneck, not the role&apos;s
+          underperformance.
         </div>
       )}
     </div>

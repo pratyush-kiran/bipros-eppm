@@ -414,13 +414,17 @@ public class ReportDataService {
               "  WHERE a.project_id = ?1 AND a.resource_id IS NOT NULL " +
               "  GROUP BY r.id, r.code, r.name, rt.code " +
               "), role_only AS (" +
+              // nos × rate cost model: planned = Σ headcount (one row per assignment),
+              // actual = Σ DPR nos (already aggregated in actual_units). Duration is excluded
+              // so this matches the Workforce Deployment / Equipment Utilisation tiles on the
+              // Insights tab.
               "  SELECT COALESCE(rr.code, rr.name) AS code, rr.name AS name, " +
               "         CASE WHEN a.manpower_role_rate_id  IS NOT NULL THEN 'MANPOWER' " +
               "              WHEN a.equipment_role_variant_id IS NOT NULL THEN 'EQUIPMENT' " +
               "              WHEN a.material_role_variant_id  IS NOT NULL THEN 'MATERIAL' " +
               "              ELSE '' END AS type_code, " +
-              "         COALESCE(SUM(a.planned_units), 0) AS planned_units, " +
-              "         COALESCE(SUM(a.actual_units), 0)  AS actual_units " +
+              "         COALESCE(SUM(a.headcount), 0)    AS planned_units, " +
+              "         COALESCE(SUM(a.actual_units), 0) AS actual_units " +
               "  FROM resource.resource_assignments a " +
               "  JOIN resource.resource_roles rr ON rr.id = a.role_id " +
               "  WHERE a.project_id = ?1 AND a.resource_id IS NULL AND a.role_id IS NOT NULL " +

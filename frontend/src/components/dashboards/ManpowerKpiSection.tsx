@@ -85,7 +85,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
   const wu = kpis.workforceUtilization;
   const dq = kpis.dataQuality;
 
-  const totalLabourCost = kpis.labourCostPerUnit.reduce((sum, r) => sum + r.labourCost, 0);
+  const totalLabourCost = kpis.labourCostSummary?.actualLabourCost ?? 0;
   const productivityRows = kpis.productivityFactor.filter(
     (p) => p.normOutputPerManPerDay > 0 && !p.unitMismatch,
   );
@@ -122,7 +122,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           <ul className="list-disc list-inside space-y-0.5">
             {dq.missingRateResourceCount > 0 && (
               <li>
-                {dq.missingRateResourceCount} manpower resource(s) have no rate set — affects Total Labour Cost and Cost / Unit. <a className="underline" href="/admin/labour-master">Fix in Admin → Labour Master</a>
+                {dq.missingRateResourceCount} manpower resource(s) have no rate set — affects Total Manpower Cost and Cost / Unit. <a className="underline" href="/admin/labour-master">Fix in Admin → Manpower Master</a>
               </li>
             )}
             {dq.missingAttendanceResourceCount > 0 && (
@@ -158,18 +158,18 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           </div>
           <div
             className="mt-1 text-xs text-text-secondary"
-            title="KPI 1.1 — Productive Man-hrs / Available Man-hrs × 100. Available = active resources × deployment days × workingHoursPerDay (8h fallback). Capped at 100%; overflow flag indicates data quality issue."
+            title="Σ actual nos (DPR deployment) ÷ Σ planned headcount across manpower assignments × 100. Hours are logging-only and do not enter this metric."
           >
-            {formatNumber(wu.actualHours)} of {formatNumber(wu.availableHours)} hrs
+            {wu.actualNos} of {wu.plannedNos} nos
             {wu.overflow && ` · raw ${formatPct(wu.rawUtilizationPct)}`}
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface/50 p-4">
-          <div className="text-xs uppercase tracking-wide text-text-muted">Total Labour Cost</div>
+          <div className="text-xs uppercase tracking-wide text-text-muted">Total Manpower Cost</div>
           <div className="mt-1 text-2xl font-semibold text-text-primary">{formatRupees(totalLabourCost)}</div>
           <div
             className="mt-1 text-xs text-text-secondary"
-            title="Σ (hours worked × hourly rate) across all manpower resources, normalised by salary type."
+            title="Σ DPR line_cost across all manpower rows in the window (each row = nos × rate). Hours are logging-only."
           >
             {dq.missingRateResourceCount > 0
               ? `${dq.missingRateResourceCount} resource(s) missing rate`
@@ -212,59 +212,38 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
         </div>
       </div>
 
-      {/* New NH-48 KPIs — second strip */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="rounded-lg border border-border bg-surface/50 p-4">
-          <div className="text-xs uppercase tracking-wide text-text-muted">Idle Time Ratio</div>
-          <div
-            className={`mt-1 text-2xl font-semibold ${
-              kpis.idleTimeRatioPct > 0.15 ? "text-warning" : "text-text-primary"
-            }`}
-          >
-            {formatPct(kpis.idleTimeRatioPct)}
-          </div>
-          <div className="mt-1 text-xs text-text-secondary" title="KPI 1.2 — Idle Man-hrs ÷ Total Deployed Man-hrs × 100">
-            idle ÷ (idle + productive)
-          </div>
-        </div>
-        <div className="rounded-lg border border-border bg-surface/50 p-4">
-          <div className="text-xs uppercase tracking-wide text-text-muted">Overtime Ratio</div>
-          <div
-            className={`mt-1 text-2xl font-semibold ${
-              kpis.overtimeRatioPct > 0.1 ? "text-warning" : "text-text-primary"
-            }`}
-          >
-            {formatPct(kpis.overtimeRatioPct)}
-          </div>
-          <div className="mt-1 text-xs text-text-secondary" title="KPI 1.3 — OT Hrs ÷ Total Working Hrs × 100">
-            OT ÷ (regular + OT)
-          </div>
-        </div>
+      {/* Second strip: qty-based KPIs (idle/OT removed — hours are logging-only in nos × rate model) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-lg border border-border bg-surface/50 p-4">
           <div className="text-xs uppercase tracking-wide text-text-muted">Cost per Unit Output</div>
           <div className="mt-1 text-2xl font-semibold text-text-primary">
             {kpis.weightedAvgCostPerUnit > 0 ? formatRupees(kpis.weightedAvgCostPerUnit, 2) : "—"}
           </div>
-          <div className="mt-1 text-xs text-text-secondary" title="KPI 3.5 — Σ labour cost ÷ Σ qty executed (weighted)">
+          <div className="mt-1 text-xs text-text-secondary" title="KPI 3.5 — Σ manpower cost ÷ Σ qty executed (weighted)">
             weighted across BOQ items
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface/50 p-4">
           <div className="text-xs uppercase tracking-wide text-text-muted">Output Achievement</div>
           <div className="mt-1 text-2xl font-semibold text-text-primary">
-            {kpis.outputAchievement.length}
+            {kpis.outputAchievement.length === 0
+              ? "—"
+              : formatPct(
+                  kpis.outputAchievement.reduce((s, r) => s + r.achievementPct, 0)
+                    / kpis.outputAchievement.length,
+                )}
           </div>
-          <div className="mt-1 text-xs text-text-secondary" title="KPI 2.2 — activities with planned daily output baseline">
-            activities tracked
+          <div className="mt-1 text-xs text-text-secondary" title="Average BOQ % complete across tracked activities (qtyExecuted ÷ boqQty per BOQ item).">
+            {kpis.outputAchievement.length} activit{kpis.outputAchievement.length === 1 ? "y" : "ies"} tracked
           </div>
         </div>
       </div>
 
-      {/* NH-48 Cost block — KPIs 3.1 / 3.3 / 3.4 / 3.7 + 2.7 */}
+      {/* NH-48 Cost block — KPIs 3.1 / 3.3 / 3.4 + 2.7 (OT Cost % dropped — hours are logging-only) */}
       {kpis.labourCostSummary && (
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="rounded-lg border border-border bg-surface/50 p-4">
-          <div className="text-xs uppercase tracking-wide text-text-muted">Planned Labour Cost</div>
+          <div className="text-xs uppercase tracking-wide text-text-muted">Planned Manpower Cost</div>
           <div className="mt-1 text-2xl font-semibold text-text-primary">
             {kpis.labourCostSummary.plannedLabourCost > 0
               ? formatRupees(kpis.labourCostSummary.plannedLabourCost)
@@ -272,14 +251,14 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           </div>
           <div
             className="mt-1 text-xs text-text-secondary"
-            title="KPI 3.1 — Σ over MANPOWER resource assignments of (planned man-hours × hourly rate × overlap-with-window). planned_units stored as man-hours."
+            title="KPI 3.1 — Σ planned_cost across MANPOWER assignments (= headcount × rate, mirrors Resource Plan)."
           >
             {kpis.labourCostSummary.activityCoverageCount} activities planned
             {kpis.labourCostSummary.missingPlanCount > 0 && ` · ${kpis.labourCostSummary.missingPlanCount} skipped`}
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface/50 p-4">
-          <div className="text-xs uppercase tracking-wide text-text-muted">Labour Cost Variance</div>
+          <div className="text-xs uppercase tracking-wide text-text-muted">Manpower Cost Variance</div>
           <div
             className={`mt-1 text-2xl font-semibold ${
               kpis.labourCostSummary.plannedLabourCost === 0
@@ -312,28 +291,8 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           >
             {kpis.labourCostSummary.lcpi > 0 ? formatNumber(kpis.labourCostSummary.lcpi, 2) : "—"}
           </div>
-          <div className="mt-1 text-xs text-text-secondary" title="KPI 3.4 — Budgeted Labour Cost ÷ Actual Labour Cost. ≥ 1.0 = on budget.">
+          <div className="mt-1 text-xs text-text-secondary" title="KPI 3.4 — Budgeted Manpower Cost ÷ Actual Manpower Cost. ≥ 1.0 = on budget.">
             PLC ÷ ALC
-          </div>
-        </div>
-        <div className="rounded-lg border border-border bg-surface/50 p-4">
-          <div className="text-xs uppercase tracking-wide text-text-muted">OT Cost % of Wage Bill</div>
-          <div
-            className={`mt-1 text-2xl font-semibold ${
-              kpis.labourCostSummary.otCostPct > 0.15
-                ? "text-danger"
-                : kpis.labourCostSummary.otCostPct > 0.10
-                  ? "text-warning"
-                  : "text-text-primary"
-            }`}
-          >
-            {formatPct(kpis.labourCostSummary.otCostPct)}
-          </div>
-          <div
-            className="mt-1 text-xs text-text-secondary"
-            title="KPI 3.7 — OT premium pay ÷ total wage bill × 100. Premium = OT hrs × rate × 2.0× per Indian Factories Act §59."
-          >
-            premium @ 2.0× base
           </div>
         </div>
         <div className="rounded-lg border border-border bg-surface/50 p-4">
@@ -410,7 +369,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
 
           <div className="rounded-lg border border-border bg-surface/40 p-4">
             <h3 className="text-sm font-semibold text-text-primary mb-2">
-              Labour Cost / Unit — top 5 BOQ items
+              Manpower Cost / Unit — top 5 BOQ items
             </h3>
             <table className="w-full text-xs">
               <thead className="text-text-muted">
@@ -445,8 +404,8 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
               <thead className="text-text-muted">
                 <tr>
                   <th className="text-left pb-1">Activity</th>
-                  <th className="text-right pb-1">Actual / day</th>
-                  <th className="text-right pb-1">Planned / day</th>
+                  <th className="text-right pb-1">Qty executed</th>
+                  <th className="text-right pb-1">BOQ qty</th>
                   <th className="text-right pb-1">%</th>
                 </tr>
               </thead>
@@ -454,7 +413,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
                 {worstAchievement.length === 0 && (
                   <tr>
                     <td colSpan={4} className="py-2 text-center text-text-muted">
-                      No baseline — set planned units on resource assignments to enable.
+                      No BOQ linkage on DPRs in this window.
                     </td>
                   </tr>
                 )}

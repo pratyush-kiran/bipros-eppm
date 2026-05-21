@@ -155,9 +155,15 @@ public class DbsController {
     @GetMapping("/supervisors")
     public ResponseEntity<ApiResponse<List<DbsSupervisorSummaryDto>>> listSupervisors(
         @PathVariable UUID projectId,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(required = false) String periodType) {
 
-        return ResponseEntity.ok(ApiResponse.ok(queryService.listSupervisorsForDay(projectId, date)));
+        // periodType is optional — omit / DAY = single-day list (legacy behaviour);
+        // WEEK / MONTH expands to the period bounds so the Supervisor tab roster matches
+        // the period scope. Previously the roster was empty whenever the focal date had
+        // no DPRs but the surrounding week/month did, hiding all data on the Supervisor tab.
+        return ResponseEntity.ok(
+            ApiResponse.ok(queryService.listSupervisorsForScope(projectId, date, periodType)));
     }
 
     /**

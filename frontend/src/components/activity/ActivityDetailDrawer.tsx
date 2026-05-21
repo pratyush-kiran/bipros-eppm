@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { X, ExternalLink, FilePlus2, RefreshCw, Lock, AlertTriangle } from "lucide-react";
@@ -310,7 +310,7 @@ function DrawerInner({
           Open full detail page
           <ExternalLink size={14} />
         </Link>
-        {activity && (
+        {activity && isLocked && (
           <button
             type="button"
             onClick={() => {
@@ -378,97 +378,95 @@ function DrawerMasterPanel({
     />
   );
 
+  // All branches MUST render the same root tree shape (`<>section + dialog</>`) so that the
+  // dialog component instance is preserved across status transitions. If we return `dialog`
+  // alone in any branch (e.g. during a brief LOADING state right after master creation),
+  // React unmounts the fragment subtree and remounts the dialog with fresh state —
+  // dropping the "advance to NORM step" that createMasterMutation just performed.
+  let section: ReactNode = null;
   if (status.state === "UNLINKED") {
-    return (
-      <>
-        <section className="rounded-lg border border-warning/40 bg-warning/5 p-4">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
-            <AlertTriangle size={16} className="text-warning" />
-            Work Activity (master) — not mapped
-          </h3>
-          <p className="text-sm text-text-secondary">
-            This activity is not mapped to any Master Work Activity. Productivity Norms are not
-            configured for this activity, therefore Capacity Utilization calculations may be
-            inaccurate.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => openDialog("LINK_OR_CREATE")}
-              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
-            >
-              Link / Create Master
-            </button>
-          </div>
-        </section>
-        {dialog}
-      </>
+    section = (
+      <section className="rounded-lg border border-warning/40 bg-warning/5 p-4">
+        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
+          <AlertTriangle size={16} className="text-warning" />
+          Work Activity (master) — not mapped
+        </h3>
+        <p className="text-sm text-text-secondary">
+          This activity is not mapped to any Master Work Activity. Productivity Norms are not
+          configured for this activity, therefore Capacity Utilization calculations may be
+          inaccurate.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => openDialog("LINK_OR_CREATE")}
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
+          >
+            Link / Create Master
+          </button>
+        </div>
+      </section>
     );
-  }
-
-  if (status.state === "LINKED_NO_NORMS") {
-    return (
-      <>
-        <section className="rounded-lg border border-danger/40 bg-danger/5 p-4">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
-            <AlertTriangle size={16} className="text-danger" />
-            Work Activity (master) — no Productivity Norms
-          </h3>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
-            <span className="font-medium">{status.master?.name ?? "—"}</span>
-            {status.master?.code && (
-              <span className="font-mono text-xs text-text-muted">{status.master.code}</span>
-            )}
-            {status.master?.defaultUnit && (
-              <span className="rounded bg-info/10 px-2 py-0.5 text-xs text-info ring-1 ring-info/20">
-                {status.master.defaultUnit}
-              </span>
-            )}
-          </div>
-          <p className="mt-2 text-sm text-text-secondary">
-            No productivity norms are configured for this master. Capacity Utilization cannot
-            compute expected output until at least one norm exists.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => openDialog("CONFIGURE_NORMS_ONLY")}
-              className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
-            >
-              Configure Productivity Norms
-            </button>
-          </div>
-        </section>
-        {dialog}
-      </>
-    );
-  }
-
-  if (status.state === "OK" && status.master) {
-    return (
-      <>
-        <section className="rounded-lg border border-border bg-surface/50 p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
-            Work Activity (master)
-          </h3>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
-            <span className="font-medium">{status.master.name}</span>
+  } else if (status.state === "LINKED_NO_NORMS") {
+    section = (
+      <section className="rounded-lg border border-danger/40 bg-danger/5 p-4">
+        <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
+          <AlertTriangle size={16} className="text-danger" />
+          Work Activity (master) — no Productivity Norms
+        </h3>
+        <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
+          <span className="font-medium">{status.master?.name ?? "—"}</span>
+          {status.master?.code && (
             <span className="font-mono text-xs text-text-muted">{status.master.code}</span>
-            {status.master.defaultUnit && (
-              <span className="rounded bg-info/10 px-2 py-0.5 text-xs text-info ring-1 ring-info/20">
-                {status.master.defaultUnit}
-              </span>
-            )}
-            {status.master.discipline && (
-              <span className="text-xs text-text-secondary">· {status.master.discipline}</span>
-            )}
-          </div>
-          <WorkActivityCoverageChip workActivityId={activity.workActivityId} />
-        </section>
-        {dialog}
-      </>
+          )}
+          {status.master?.defaultUnit && (
+            <span className="rounded bg-info/10 px-2 py-0.5 text-xs text-info ring-1 ring-info/20">
+              {status.master.defaultUnit}
+            </span>
+          )}
+        </div>
+        <p className="mt-2 text-sm text-text-secondary">
+          No productivity norms are configured for this master. Capacity Utilization cannot
+          compute expected output until at least one norm exists.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => openDialog("CONFIGURE_NORMS_ONLY")}
+            className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover"
+          >
+            Configure Productivity Norms
+          </button>
+        </div>
+      </section>
+    );
+  } else if (status.state === "OK" && status.master) {
+    section = (
+      <section className="rounded-lg border border-border bg-surface/50 p-4">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+          Work Activity (master)
+        </h3>
+        <div className="flex flex-wrap items-center gap-3 text-sm text-text-primary">
+          <span className="font-medium">{status.master.name}</span>
+          <span className="font-mono text-xs text-text-muted">{status.master.code}</span>
+          {status.master.defaultUnit && (
+            <span className="rounded bg-info/10 px-2 py-0.5 text-xs text-info ring-1 ring-info/20">
+              {status.master.defaultUnit}
+            </span>
+          )}
+          {status.master.discipline && (
+            <span className="text-xs text-text-secondary">· {status.master.discipline}</span>
+          )}
+        </div>
+        <WorkActivityCoverageChip workActivityId={activity.workActivityId} />
+      </section>
     );
   }
 
-  return dialog;
+  return (
+    <>
+      {section}
+      {dialog}
+    </>
+  );
 }

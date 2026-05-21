@@ -33,7 +33,7 @@ public class PeriodPerformanceInsightsCollector implements InsightDataCollector 
     public JsonNode collect(UUID projectId) {
         List<StorePeriodPerformanceDto> records = costService.getProjectPeriodPerformance(projectId);
 
-        Map<UUID, FinancialPeriod> periodMap = financialPeriodRepository.findAllByOrderBySortOrder().stream()
+        Map<UUID, FinancialPeriod> periodMap = financialPeriodRepository.findByProjectIdOrderBySortOrderAsc(projectId).stream()
                 .collect(Collectors.toMap(FinancialPeriod::getId, p -> p));
 
         Map<UUID, List<StorePeriodPerformanceDto>> byPeriod = records.stream()
@@ -134,7 +134,7 @@ public class PeriodPerformanceInsightsCollector implements InsightDataCollector 
         }
 
         List<StorePeriodPerformanceDto> records = costService.getProjectPeriodPerformance(projectId);
-        Map<UUID, FinancialPeriod> periodMap = financialPeriodRepository.findAllByOrderBySortOrder().stream()
+        Map<UUID, FinancialPeriod> periodMap = financialPeriodRepository.findByProjectIdOrderBySortOrderAsc(projectId).stream()
                 .collect(Collectors.toMap(FinancialPeriod::getId, p -> p));
 
         Map<UUID, List<StorePeriodPerformanceDto>> byPeriod = records.stream()

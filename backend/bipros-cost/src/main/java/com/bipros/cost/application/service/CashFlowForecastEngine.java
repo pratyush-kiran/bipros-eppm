@@ -1,7 +1,6 @@
 package com.bipros.cost.application.service;
 
 import com.bipros.cost.application.dto.CashFlowForecastDto;
-import com.bipros.cost.domain.entity.ActivityExpense;
 import com.bipros.cost.domain.entity.FinancialPeriod;
 import com.bipros.cost.domain.entity.StorePeriodPerformance;
 import org.springframework.stereotype.Component;
@@ -24,7 +23,8 @@ public class CashFlowForecastEngine {
     public List<CashFlowForecastDto> generateForecast(
             UUID projectId,
             List<FinancialPeriod> periods,
-            List<ActivityExpense> expenses,
+            Map<UUID, BigDecimal> periodBudgets,
+            Map<UUID, BigDecimal> periodActuals,
             List<StorePeriodPerformance> performances,
             ForecastMethod method) {
 
@@ -36,12 +36,9 @@ public class CashFlowForecastEngine {
             return List.of();
         }
 
-        BigDecimal totalBudget = expenses.stream()
-                .map(e -> e.getBudgetedCost() != null ? e.getBudgetedCost() : BigDecimal.ZERO)
+        BigDecimal totalBudget = periodBudgets.values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalActual = expenses.stream()
-                .map(e -> e.getActualCost() != null ? e.getActualCost() : BigDecimal.ZERO)
+        BigDecimal totalActual = periodActuals.values().stream()
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal totalRemaining = totalBudget.subtract(totalActual).max(BigDecimal.ZERO);
@@ -69,12 +66,9 @@ public class CashFlowForecastEngine {
                 ? cumulativeEV.divide(cumulativePV, 4, RoundingMode.HALF_UP)
                 : BigDecimal.ONE;
 
-        // Distribute budget across periods proportionally by duration
-        Map<UUID, BigDecimal> periodBudgets = distributeBudgetAcrossPeriods(sortedPeriods, totalBudget);
-
-        // Identify which periods are past (have actuals) vs future
+        // periodBudgets / periodActuals are pre-computed by CostService — they already combine
+        // the manual ActivityExpense ledger with the operational DPR / ResourceAssignment ledger.
         LocalDate today = LocalDate.now();
-        Map<UUID, BigDecimal> periodActuals = mapActualsToPeriods(sortedPeriods, expenses);
 
         // Build forecast rows
         List<CashFlowForecastDto> results = new ArrayList<>();
@@ -164,39 +158,4 @@ public class CashFlowForecastEngine {
         return remaining.multiply(proportion).divide(composite, 2, RoundingMode.HALF_UP);
     }
 
-    private Map<UUID, BigDecimal> distributeBudgetAcrossPeriods(List<FinancialPeriod> periods, BigDecimal totalBudget) {
-        long totalDays = periods.stream()
-                .mapToLong(p -> java.time.temporal.ChronoUnit.DAYS.between(p.getStartDate(), p.getEndDate()) + 1)
-                .sum();
-
-        if (totalDays == 0) {
-            return Map.of();
-        }
-
-        Map<UUID, BigDecimal> result = new LinkedHashMap<>();
-        for (var period : periods) {
-            long days = java.time.temporal.ChronoUnit.DAYS.between(period.getStartDate(), period.getEndDate()) + 1;
-            BigDecimal proportion = BigDecimal.valueOf(days).divide(BigDecimal.valueOf(totalDays), 6, RoundingMode.HALF_UP);
-            result.put(period.getId(), totalBudget.multiply(proportion).setScale(2, RoundingMode.HALF_UP));
-        }
-        return result;
-    }
-
-    private Map<UUID, BigDecimal> mapActualsToPeriods(List<FinancialPeriod> periods, List<ActivityExpense> expenses) {
-        Map<UUID, BigDecimal> result = new LinkedHashMap<>();
-        for (var period : periods) {
-            BigDecimal periodActual = BigDecimal.ZERO;
-            for (var expense : expenses) {
-                if (expense.getActualStartDate() != null && expense.getActualCost() != null) {
-                    // If expense actual date falls within this period
-                    if (!expense.getActualStartDate().isBefore(period.getStartDate())
-                            && !expense.getActualStartDate().isAfter(period.getEndDate())) {
-                        periodActual = periodActual.add(expense.getActualCost());
-                    }
-                }
-            }
-            result.put(period.getId(), periodActual);
-        }
-        return result;
-    }
 }

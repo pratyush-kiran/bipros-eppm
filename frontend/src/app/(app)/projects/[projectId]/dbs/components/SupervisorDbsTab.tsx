@@ -55,8 +55,12 @@ export function SupervisorDbsTab({
   // Roster of supervisors with data on the chosen date. Backend returns a
   // summary row per supervisor; we feed the picker from this.
   const { data: rosterData, isLoading: rosterLoading } = useQuery({
-    queryKey: ["dbs-supervisor-roster", projectId, date],
-    queryFn: () => dbsApi.listSupervisorsForDay(projectId, date),
+    // periodType included in the key so WEEK / MONTH share their own cache slot — and so
+    // the roster widens to "supervisors with activity in the period" when not in DAY mode.
+    // Without this, the focal-date roster was empty whenever the day itself had no DPRs
+    // even if the week/month had data.
+    queryKey: ["dbs-supervisor-roster", projectId, date, periodType],
+    queryFn: () => dbsApi.listSupervisorsForDay(projectId, date, periodType),
     enabled: !!projectId && !!date,
   });
   const roster = useMemo(() => rosterData?.data ?? [], [rosterData]);

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +70,41 @@ public class DprActualCostLookup {
         accumulate(out, "project.dpr_equipment", projectId);
         accumulate(out, "project.dpr_material", projectId);
         return out;
+    }
+
+    /**
+     * Per-day sum of DPR child {@code line_cost} for the project. Used by Cost-tab Period
+     * Breakdown and Cash Flow S-Curve to bucket DPR actuals into financial periods by
+     * {@code report_date}. Days with zero cost are absent from the map (callers treat as zero).
+     */
+    public Map<LocalDate, BigDecimal> sumByProjectGroupedByDate(UUID projectId) {
+        Map<LocalDate, BigDecimal> out = new HashMap<>();
+        if (projectId == null) return out;
+        accumulateByDate(out, "project.dpr_manpower", projectId);
+        accumulateByDate(out, "project.dpr_equipment", projectId);
+        accumulateByDate(out, "project.dpr_material", projectId);
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void accumulateByDate(Map<LocalDate, BigDecimal> sink, String childTable, UUID projectId) {
+        String sql = "SELECT d.report_date, COALESCE(SUM(c.line_cost), 0) "
+                + "FROM " + childTable + " c "
+                + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
+                + "WHERE d.project_id = :projectId "
+                + "  AND d.report_date IS NOT NULL "
+                + "  AND c.line_cost IS NOT NULL "
+                + "GROUP BY d.report_date";
+        List<Object[]> rows = em.createNativeQuery(sql)
+                .setParameter("projectId", projectId)
+                .getResultList();
+        for (Object[] r : rows) {
+            LocalDate date = (r[0] instanceof LocalDate ld) ? ld
+                    : (r[0] instanceof java.sql.Date sd ? sd.toLocalDate() : null);
+            if (date == null) continue;
+            BigDecimal amount = r[1] instanceof BigDecimal b ? b : new BigDecimal(r[1].toString());
+            sink.merge(date, amount, BigDecimal::add);
+        }
     }
 
     /** Project-level total — used by {@code CostService.getCostSummary} for the actual rollup. */

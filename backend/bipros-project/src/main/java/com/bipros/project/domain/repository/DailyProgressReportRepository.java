@@ -85,4 +85,7 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
       + "AND d.supervisorUserId IS NOT NULL")
   List<UUID> findDistinctSupervisorUserIdsByProjectAndDate(
       @Param("projectId") UUID projectId, @Param("date") LocalDate date);
+
+  /** Actual DPR count for the (project, date) — drives the PM-tab "DPRs" KPI honestly. */
+  long countByProjectIdAndReportDate(UUID projectId, LocalDate reportDate);
 }

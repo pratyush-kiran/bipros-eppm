@@ -192,17 +192,19 @@ public class CostController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("hasPermission(null, 'COST.READ')")
+    @PreAuthorize("hasPermission(#projectId, 'COST.READ')")
     @GetMapping("/financial-periods")
-    public ResponseEntity<ApiResponse<List<FinancialPeriodDto>>> getAllFinancialPeriods() {
-        List<FinancialPeriodDto> response = costService.getAllFinancialPeriods();
+    public ResponseEntity<ApiResponse<List<FinancialPeriodDto>>> getAllFinancialPeriods(
+            @RequestParam UUID projectId) {
+        List<FinancialPeriodDto> response = costService.getAllFinancialPeriods(projectId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @PreAuthorize("hasPermission(null, 'COST.READ')")
+    @PreAuthorize("hasPermission(#projectId, 'COST.READ')")
     @GetMapping("/financial-periods/open")
-    public ResponseEntity<ApiResponse<List<FinancialPeriodDto>>> getOpenFinancialPeriods() {
-        List<FinancialPeriodDto> response = costService.getOpenFinancialPeriods();
+    public ResponseEntity<ApiResponse<List<FinancialPeriodDto>>> getOpenFinancialPeriods(
+            @RequestParam UUID projectId) {
+        List<FinancialPeriodDto> response = costService.getOpenFinancialPeriods(projectId);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 

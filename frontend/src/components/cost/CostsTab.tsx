@@ -356,7 +356,7 @@ export function CostsTab({ projectId }: { projectId: string }) {
 
   const summaryCards: SummaryCard[] = [
     {
-      label: "Project Budget (P6)",
+      label: "Budget at Completion (BAC)",
       value: projectBudgetData?.data?.currentBudget != null
         ? fmt(projectBudgetData.data.currentBudget)
         : "Not set",

@@ -53,7 +53,7 @@ class WorkActivityServiceTest {
       });
 
       WorkActivityResponse r = service.create(new CreateWorkActivityRequest(
-          null, "Clearing & Grubbing", "Sqm", null, null, 10, true));
+          null, "Clearing & Grubbing", "Sqm", null, null, 10, true, null));
 
       assertThat(r.code()).isEqualTo("CLEARING_GRUBBING");
       assertThat(r.name()).isEqualTo("Clearing & Grubbing");
@@ -67,7 +67,7 @@ class WorkActivityServiceTest {
       when(repository.findByCode("CLEAR")).thenReturn(Optional.of(existing));
 
       assertThatThrownBy(() -> service.create(new CreateWorkActivityRequest(
-          "clear", "Clear", "Sqm", null, null, null, true)))
+          "clear", "Clear", "Sqm", null, null, null, true, null)))
           .isInstanceOf(BusinessRuleException.class)
           .hasMessageContaining("already exists");
     }
@@ -83,7 +83,7 @@ class WorkActivityServiceTest {
       });
 
       WorkActivityResponse r = service.create(new CreateWorkActivityRequest(
-          "x", "X", null, null, null, null, null));
+          "x", "X", null, null, null, null, null, null));
 
       assertThat(r.active()).isTrue();
     }

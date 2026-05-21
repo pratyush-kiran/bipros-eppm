@@ -6,6 +6,7 @@ import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.project.domain.model.DailyProgressReport;
 import com.bipros.project.domain.model.DprEquipment;
 import com.bipros.project.domain.model.DprManpower;
+import com.bipros.project.domain.model.SafetyIncidentType;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.DprEquipmentRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
@@ -127,8 +128,11 @@ public class FieldDashboardSummaryService {
             .filter(java.util.Objects::nonNull)
             .mapToDouble(BigDecimal::doubleValue)
             .sum();
+    // NONE = supervisor explicitly confirmed "no safety issue" — should NOT be counted as an
+    // incident. Only NEAR_MISS and INCIDENT contribute to the safety count.
     int safetyIncidents = (int) dprsWindow.stream()
-        .filter(d -> d.getSafetyIncidentType() != null)
+        .map(DailyProgressReport::getSafetyIncidentType)
+        .filter(t -> t != null && t != SafetyIncidentType.NONE)
         .count();
 
     // ---- Active site cards ----
@@ -321,7 +325,8 @@ public class FieldDashboardSummaryService {
       int equipment = 0;
       int incidents = 0;
       for (DailyProgressReport d : e.getValue()) {
-        if (d.getSafetyIncidentType() != null) incidents++;
+        SafetyIncidentType t = d.getSafetyIncidentType();
+        if (t != null && t != SafetyIncidentType.NONE) incidents++;
         for (DprManpower m : manpowerByDpr.getOrDefault(d.getId(), List.of())) {
           if (m.getNos() != null) workers += m.getNos();
         }

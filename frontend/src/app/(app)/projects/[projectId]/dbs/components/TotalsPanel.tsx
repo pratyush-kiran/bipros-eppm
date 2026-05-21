@@ -20,6 +20,10 @@ export interface TotalsPanelProps {
   machineryAmount: number;
   fuelAmount: number;
   subcontractAmount: number;
+  /** Section G — daily-prorated overhead on the PM tab. Other tabs pass undefined. */
+  generalExpenseAmount?: number | null;
+  /** Section G — month total for the row's yearMonth; shown as the tile hint. */
+  generalExpenseMonthlyTotal?: number | null;
   totalExpense: number;
   totalIncome: number;
   contribution: number;
@@ -34,6 +38,8 @@ export function TotalsPanel({
   machineryAmount,
   fuelAmount,
   subcontractAmount,
+  generalExpenseAmount,
+  generalExpenseMonthlyTotal,
   totalExpense,
   totalIncome,
   contribution,
@@ -74,17 +80,27 @@ export function TotalsPanel({
       </div>
 
       {/* Second row — per-section breakdown. Smaller default tiles. */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <KpiTile label="Material" value={formatCurrency(materialAmount, currency)} />
-        <KpiTile label="Manpower" value={formatCurrency(manpowerAmount, currency)} />
-        <KpiTile label="Admin / Catering" value={formatCurrency(adminAmount, currency)} />
-        <KpiTile label="Machinery" value={formatCurrency(machineryAmount, currency)} />
-        <KpiTile label="Fuel" value={formatCurrency(fuelAmount, currency)} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
+        <KpiTile label="A. Manpower" value={formatCurrency(manpowerAmount, currency)} />
+        <KpiTile label="B. Admin / Catering" value={formatCurrency(adminAmount, currency)} />
+        <KpiTile label="C. Machinery" value={formatCurrency(machineryAmount, currency)} />
+        <KpiTile label="D. Fuel" value={formatCurrency(fuelAmount, currency)} />
+        <KpiTile label="E. Material" value={formatCurrency(materialAmount, currency)} />
         <KpiTile
-          label="Sub-Contractor"
+          label="F. Sub-Contractor"
           value={formatCurrency(subcontractAmount, currency)}
-          hint="v2"
         />
+        {generalExpenseAmount !== undefined && generalExpenseAmount !== null && (
+          <KpiTile
+            label="G. General Expenses"
+            value={formatCurrency(generalExpenseAmount, currency)}
+            hint={
+              generalExpenseMonthlyTotal
+                ? `Month total ${formatCurrency(generalExpenseMonthlyTotal, currency)}`
+                : "Monthly overhead, prorated per day"
+            }
+          />
+        )}
       </div>
     </div>
   );

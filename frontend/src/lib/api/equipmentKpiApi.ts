@@ -65,10 +65,17 @@ export interface EquipmentKpiResponse {
   availabilityPerformance: AvailabilityPerformanceRow[];
   ownedVsRented: OwnedRentedSlice[];
   serviceDue: ServiceDueRow[];
+  /** Always 0 in nos × rate model — kept for back-compat. */
   mechanicalAvailabilityPct: number;
   equipmentProductivityIndexPct: number;
-  /** KPI 7.1 project total. */
+  /** Always 0 in nos × rate model — kept for back-compat. */
   idleMachineCostTotal: number;
+  /** Σ DPR nos for equipment in window. */
+  actualNos: number;
+  /** Σ headcount across equipment assignments. */
+  plannedNos: number;
+  /** actualNos ÷ plannedNos, capped at 1.0. Replaces the old hours-based Avg Utilisation %. */
+  nosUtilizationPct: number;
 }
 
 export const equipmentKpiApi = {

@@ -88,6 +88,7 @@ function ProjectDetailLayoutInner({
     { id: "boq", label: "BOQ", href: `/projects/${projectId}/boq` },
     { id: "team", label: "Team", href: `/projects/${projectId}/team` },
     { id: "dpr", label: "DPR", href: `/projects/${projectId}/dpr` },
+    { id: "general-expenses", label: "General Expenses", href: `/projects/${projectId}/general-expenses` },
     { id: "dbs", label: "DBS", href: `/projects/${projectId}/dbs` },
     { id: "costs", label: "Costs", href: null, permission: "COST.READ" },
     { id: "evm", label: "EVM", href: null, permission: "EVM.READ" },
@@ -127,8 +128,8 @@ function ProjectDetailLayoutInner({
     { label: "P&L vs BOQ Rates", href: `/projects/${projectId}/pnl/boq` },
     { label: "Material Consumption", href: `/projects/${projectId}/material-consumption` },
     { label: "Material Consumption Report", href: `/projects/${projectId}/reports/material-consumption` },
-    { label: "Material Reconciliation", href: `/projects/${projectId}/material-reconciliation` },
-    { label: "Resource Deployment", href: `/projects/${projectId}/resource-deployment` },
+    /* { label: "Material Reconciliation", href: `/projects/${projectId}/material-reconciliation` },
+    { label: "Resource Deployment", href: `/projects/${projectId}/resource-deployment` }, */
     { label: "Weather Log", href: `/projects/${projectId}/weather-log` },
     { label: "Next Day Plan", href: `/projects/${projectId}/next-day-plan` },
     { label: "Schedule Health", href: `/projects/${projectId}/schedule-health` },

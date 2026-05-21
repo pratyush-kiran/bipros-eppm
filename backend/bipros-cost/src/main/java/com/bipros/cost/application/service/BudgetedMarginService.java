@@ -74,7 +74,7 @@ public class BudgetedMarginService {
 
     @Transactional(readOnly = true)
     public List<MarginPeriodDto> marginByPeriod(UUID projectId, String periodType) {
-        List<FinancialPeriod> periods = periodAggregator.findPeriods(periodType);
+        List<FinancialPeriod> periods = periodAggregator.findPeriods(projectId, periodType);
         if (periods.isEmpty()) return List.of();
 
         DailyCostReportResponse report = dailyCostReportService.generate(projectId, null, null);

@@ -61,6 +61,23 @@ public class DbsDailyProject extends BaseEntity {
     @Column(name = "subcontract_amount", precision = 19, scale = 2)
     private BigDecimal subcontractAmount;
 
+    /**
+     * Section G — General Expenses (monthly overheads), prorated to this day.
+     * Computed as {@code monthlyTotal / yearMonth.lengthOfMonth()} so that the
+     * day-view sum across the month equals the logged monthly total. PM tier
+     * only — supervisor/engineer/CM rollups intentionally do not carry this.
+     */
+    @Column(name = "general_expense_amount", precision = 19, scale = 2)
+    private BigDecimal generalExpenseAmount;
+
+    /** Snapshot of the month total used to derive the daily proration. */
+    @Column(name = "general_expense_monthly_total", precision = 19, scale = 2)
+    private BigDecimal generalExpenseMonthlyTotal;
+
+    /** Serialised list of {@code SectionLine} entries used by the PM DBS UI. */
+    @Column(name = "general_expense_lines_json", columnDefinition = "TEXT")
+    private String generalExpenseLinesJson;
+
     @Column(name = "boq_for_the_day_amount", precision = 19, scale = 2)
     private BigDecimal boqForTheDayAmount;
 

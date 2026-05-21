@@ -180,6 +180,7 @@ public class RoleRateService {
                 .model(req.model())
                 .unit(req.unit())
                 .rate(req.rate())
+                .standardOutputPerDay(req.standardOutputPerDay())
                 .active(req.active() == null ? Boolean.TRUE : req.active())
                 .build());
     return toEquipmentResponse(saved, role);
@@ -195,6 +196,7 @@ public class RoleRateService {
     v.setModel(req.model());
     v.setUnit(req.unit());
     v.setRate(req.rate());
+    v.setStandardOutputPerDay(req.standardOutputPerDay());
     if (req.active() != null) v.setActive(req.active());
     EquipmentRoleVariant saved = equipmentRepo.save(v);
     ResourceRole role =
@@ -422,6 +424,7 @@ public class RoleRateService {
         v.getModel(),
         v.getUnit(),
         v.getRate(),
+        v.getStandardOutputPerDay(),
         v.getActive());
   }
 
@@ -629,6 +632,7 @@ public class RoleRateService {
                     .model(in.model())
                     .unit(in.unit())
                     .rate(in.rate())
+                    .standardOutputPerDay(in.standardOutputPerDay())
                     .active(in.active() == null ? Boolean.TRUE : in.active())
                     .build());
           } else {
@@ -643,6 +647,7 @@ public class RoleRateService {
             v.setModel(in.model());
             v.setUnit(in.unit());
             v.setRate(in.rate());
+            v.setStandardOutputPerDay(in.standardOutputPerDay());
             if (in.active() != null) v.setActive(in.active());
             equipmentRepo.save(v);
           }

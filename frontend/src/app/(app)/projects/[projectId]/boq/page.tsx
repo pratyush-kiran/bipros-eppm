@@ -15,8 +15,7 @@ import { TabTip } from "@/components/common/TabTip";
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import { getErrorMessage } from "@/lib/utils/error";
 import { cn } from "@/lib/utils/cn";
-
-const UNIT_OPTIONS = ["Cum", "MT", "Rm", "Each", "Sqm", "LS"] as const;
+import { unitOptionsWithFallback, STANDARD_UNITS } from "@/lib/constants/units";
 
 type EditableField = "qtyExecutedToDate" | "actualRate";
 
@@ -42,7 +41,7 @@ interface BoqForm {
 const initialFormState: BoqForm = {
   itemNo: "",
   description: "",
-  unit: "Cum",
+  unit: "",
   boqQty: "",
   boqRate: "",
   budgetedRate: "",
@@ -469,9 +468,11 @@ export default function BoqPage() {
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                   className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
                 >
-                  {UNIT_OPTIONS.map((u) => (
+                  <option value="">— select a unit —</option>
+                  {unitOptionsWithFallback(formData.unit).map((u) => (
                     <option key={u} value={u}>
                       {u}
+                      {!(STANDARD_UNITS as readonly string[]).includes(u) ? " (legacy)" : ""}
                     </option>
                   ))}
                 </select>

@@ -130,7 +130,7 @@ export default function ProjectFieldInsightsPage() {
 
       <section className="mb-6">
         <SectionHeading
-          kicker="Last 4 shifts"
+          kicker="Last 4 days"
           title="Daily worklogs"
           icon={<Clock size={14} strokeWidth={1.75} />}
         />

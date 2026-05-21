@@ -167,9 +167,11 @@ public class SectionFBoqCalculator {
                       AND d.report_date = :dt
                     """;
             } else {
-                // Hibernate's IN-list expansion is straightforward when we pass a Collection
-                // — but we cast UUIDs to text first because the column is UUID and the param
-                // list arrives as java.util.UUID values, which the driver maps cleanly.
+                // The supervisor_user_id column is UUID. Use ANY(cast(? as uuid[])) so we can
+                // pass the supervisor list as a string-formatted Postgres array literal and let
+                // Postgres do the uuid cast — sidesteps Hibernate's IN-expansion which was
+                // binding each element as varchar and failing the operator lookup
+                // ("operator does not exist: uuid = character varying").
                 sql = """
                     SELECT DISTINCT b.id,
                            COALESCE(b.boq_amount, 0)            AS planned_amount,
@@ -179,7 +181,7 @@ public class SectionFBoqCalculator {
                     JOIN project.boq_items b ON b.id = d.boq_item_id
                     WHERE d.project_id = cast(:pid as uuid)
                       AND d.report_date = :dt
-                      AND d.supervisor_user_id IN (:sups)
+                      AND d.supervisor_user_id = ANY (cast(:sups as uuid[]))
                     """;
             }
 
@@ -187,8 +189,10 @@ public class SectionFBoqCalculator {
                 .setParameter("pid", projectId.toString())
                 .setParameter("dt", date);
             if (supervisorIds != null) {
-                q.setParameter("sups", supervisorIds.stream()
-                    .map(UUID::toString).collect(Collectors.toList()));
+                String arr = supervisorIds.stream()
+                    .map(UUID::toString)
+                    .collect(Collectors.joining(",", "{", "}"));
+                q.setParameter("sups", arr);
             }
             List<Object[]> rows = q.getResultList();
 

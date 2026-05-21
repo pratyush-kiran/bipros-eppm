@@ -13,6 +13,11 @@ import java.util.UUID;
  *
  * <p>Phase 7: {@code directCost} / {@code prelimCost} / {@code totalCostInclPrelims} /
  * {@code pctAchieved} carry the project-wide prelim split and progress KPI.
+ *
+ * <p>Section G: {@code generalExpenseAmount} is the daily-prorated value
+ * ({@code monthlyTotal / daysInMonth}). {@code generalExpenseMonthlyTotal} carries
+ * the raw month total for the UI, and {@code generalExpenseLinesJson} is the
+ * per-item accordion payload.
  */
 public record DbsProjectDayResponse(
     UUID id,
@@ -27,6 +32,9 @@ public record DbsProjectDayResponse(
     BigDecimal machineryAmount,
     BigDecimal fuelAmount,
     BigDecimal subcontractAmount,
+    BigDecimal generalExpenseAmount,
+    BigDecimal generalExpenseMonthlyTotal,
+    String generalExpenseLinesJson,
     BigDecimal boqForTheDayAmount,
     BigDecimal boqPlannedAmount,
     BigDecimal boqAchievedAmount,

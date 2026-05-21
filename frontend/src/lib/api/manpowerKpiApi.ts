@@ -2,8 +2,8 @@ import { apiClient } from "./client";
 import type { ApiResponse } from "../types";
 
 export interface WorkforceUtilization {
-  actualHours: number;
-  availableHours: number;
+  actualNos: number;
+  plannedNos: number;
   utilizationPct: number;
   rawUtilizationPct: number;
   overflow: boolean;

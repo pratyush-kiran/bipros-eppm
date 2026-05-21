@@ -4,8 +4,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record CreateFinancialPeriodRequest(
+        @NotNull(message = "Project is required")
+        UUID projectId,
+
         @NotBlank(message = "Name is required")
         String name,
 

@@ -433,10 +433,53 @@ public class ActivityService {
       if (b.getCreatedAt() == null) return 1;
       return a.getCreatedAt().compareTo(b.getCreatedAt());
     });
+
+    // Resolve display names for any row missing a snapshot (pure-API callers, legacy data).
+    Set<UUID> needName = new java.util.HashSet<>();
+    for (ActivitySupervisor s : rows) {
+      if (s.getUserNameSnapshot() == null || s.getUserNameSnapshot().isBlank()) {
+        if (s.getUserId() != null) needName.add(s.getUserId());
+      }
+    }
+    Map<UUID, String> resolved = needName.isEmpty() ? Map.of() : bulkResolveUserDisplayNames(needName);
+
     Map<UUID, List<SupervisorEntry>> out = new HashMap<>();
     for (ActivitySupervisor s : rows) {
+      String name = s.getUserNameSnapshot();
+      if ((name == null || name.isBlank()) && s.getUserId() != null) {
+        name = resolved.get(s.getUserId());
+      }
       out.computeIfAbsent(s.getActivityId(), k -> new ArrayList<>())
-          .add(new SupervisorEntry(s.getUserId(), s.getUserNameSnapshot()));
+          .add(new SupervisorEntry(s.getUserId(), name));
+    }
+    return out;
+  }
+
+  /**
+   * Best-effort lookup of "{first_name} {last_name}" (falling back to {@code username}) from
+   * {@code public.users} for the given user ids. Used to backfill display names when the
+   * snapshot column on {@code activity_supervisors} wasn't populated at write time.
+   */
+  @SuppressWarnings("unchecked")
+  private Map<UUID, String> bulkResolveUserDisplayNames(Set<UUID> userIds) {
+    if (em == null || userIds == null || userIds.isEmpty()) return Map.of();
+    java.util.List<Object[]> rows = em.createNativeQuery(
+            "SELECT id, first_name, last_name, username FROM public.users WHERE id IN (:ids)")
+        .setParameter("ids", userIds)
+        .getResultList();
+    Map<UUID, String> out = new HashMap<>(rows.size());
+    for (Object[] r : rows) {
+      UUID id = (UUID) r[0];
+      String fn = r[1] == null ? null : r[1].toString().trim();
+      String ln = r[2] == null ? null : r[2].toString().trim();
+      String un = r[3] == null ? null : r[3].toString().trim();
+      String full;
+      if ((fn != null && !fn.isEmpty()) || (ln != null && !ln.isEmpty())) {
+        full = ((fn == null ? "" : fn) + " " + (ln == null ? "" : ln)).trim();
+      } else {
+        full = un;
+      }
+      if (full != null && !full.isEmpty()) out.put(id, full);
     }
     return out;
   }

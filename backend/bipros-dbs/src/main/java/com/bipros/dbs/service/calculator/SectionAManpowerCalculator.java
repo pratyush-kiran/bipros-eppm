@@ -43,18 +43,42 @@ public class SectionAManpowerCalculator {
         BigDecimal total = BigDecimal.ZERO;
 
         // ── (1) DPR manpower rows (the real cost source) ──────────────────────────
+        // Scalar subqueries for the rate fallback so each DPR row produces exactly
+        // ONE result row. The previous LEFT JOIN onto manpower_rate_masters used
+        // {@code mrm.role_id = m.role_id}, which multiplies the DPR row by N
+        // whenever a role has N grade variants in the rate-master table
+        // (e.g. Foreman with Skilled/Semi-skilled/Unskilled grades). Scalar
+        // subqueries cap each fallback at one match by construction.
         try {
             String dprSql = """
                 SELECT m.trade,
                        COALESCE(m.nos, 0)                                     AS nos,
                        m.unit_rate                                            AS row_rate,
                        m.line_cost                                            AS row_line_cost,
-                       COALESCE(rrr.rate, mrm.rate, 0)                        AS fallback_rate,
-                       COALESCE(rrr.unit, mrm.unit, 'Day')                    AS unit
+                       COALESCE(
+                         (SELECT rrr.rate
+                            FROM resource.manpower_role_rates rrr
+                           WHERE rrr.id = m.manpower_role_rate_id),
+                         (SELECT mrm.rate
+                            FROM resource.manpower_rate_masters mrm
+                           WHERE mrm.role_id = m.role_id AND mrm.active
+                           ORDER BY mrm.rate DESC
+                           LIMIT 1),
+                         0
+                       )                                                      AS fallback_rate,
+                       COALESCE(
+                         (SELECT rrr.unit
+                            FROM resource.manpower_role_rates rrr
+                           WHERE rrr.id = m.manpower_role_rate_id),
+                         (SELECT mrm.unit
+                            FROM resource.manpower_rate_masters mrm
+                           WHERE mrm.role_id = m.role_id AND mrm.active
+                           ORDER BY mrm.rate DESC
+                           LIMIT 1),
+                         'Day'
+                       )                                                      AS unit
                 FROM project.dpr_manpower m
                 JOIN project.daily_progress_reports d ON d.id = m.dpr_id
-                LEFT JOIN resource.manpower_role_rates rrr ON rrr.id = m.manpower_role_rate_id
-                LEFT JOIN resource.manpower_rate_masters mrm ON mrm.role_id = m.role_id
                 WHERE d.project_id = cast(:pid as uuid)
                   AND d.report_date = :dt
                   AND (cast(:sup as uuid) IS NULL OR d.supervisor_user_id = cast(:sup as uuid))
@@ -92,15 +116,31 @@ public class SectionAManpowerCalculator {
         }
 
         // ── (2) Legacy DRD rows — project-only attribution (no supervisor FK). ────
+        // Same scalar-subquery pattern as the DPR branch above — avoids row
+        // multiplication when a role has multiple grade variants in the
+        // rate-master table.
         if (supervisorUserId == null) {
             try {
                 String drdSql = """
                     SELECT d.resource_description,
                            COALESCE(d.nos_deployed, 0)   AS nos,
-                           COALESCE(r.rate, 0)           AS rate,
-                           COALESCE(r.unit, 'Day')       AS unit
+                           COALESCE(
+                             (SELECT r.rate
+                                FROM resource.manpower_rate_masters r
+                               WHERE r.role_id = d.resource_role_id AND r.active
+                               ORDER BY r.rate DESC
+                               LIMIT 1),
+                             0
+                           )                              AS rate,
+                           COALESCE(
+                             (SELECT r.unit
+                                FROM resource.manpower_rate_masters r
+                               WHERE r.role_id = d.resource_role_id AND r.active
+                               ORDER BY r.rate DESC
+                               LIMIT 1),
+                             'Day'
+                           )                              AS unit
                     FROM project.daily_resource_deployments d
-                    LEFT JOIN resource.manpower_rate_masters r ON r.role_id = d.resource_role_id
                     WHERE d.project_id = :pid
                       AND d.log_date = :dt
                       AND d.resource_type IN ('LABOR', 'MANPOWER')

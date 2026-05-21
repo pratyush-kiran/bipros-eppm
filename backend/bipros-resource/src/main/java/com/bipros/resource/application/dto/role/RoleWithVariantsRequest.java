@@ -39,6 +39,7 @@ public record RoleWithVariantsRequest(
       String model,
       String unit,
       BigDecimal rate,
+      BigDecimal standardOutputPerDay,
       Boolean active) {}
 
   public record MaterialVariantInput(

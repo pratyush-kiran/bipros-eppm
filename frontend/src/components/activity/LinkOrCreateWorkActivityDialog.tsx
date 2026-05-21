@@ -6,6 +6,7 @@ import { X, AlertTriangle, Library, Gauge } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   workActivityApi,
+  type NormCombination,
   type WorkActivityResponse,
 } from "@/lib/api/workActivityApi";
 import {
@@ -15,7 +16,7 @@ import {
 import { activityApi } from "@/lib/api/activityApi";
 import { resourceRoleApi } from "@/lib/api/resourceRoleApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
-import { STANDARD_UNITS, unitOptionsWithFallback } from "@/lib/constants/units";
+import { unitOptionsWithFallback } from "@/lib/constants/units";
 import { useAuthStore } from "@/lib/state/store";
 import { notificationHelpers } from "@/lib/notificationHelpers";
 
@@ -47,6 +48,28 @@ interface Props {
 
 type Step = "CHOOSE" | "NORM";
 type Tab = "LINK" | "CREATE";
+
+const NORM_COMBINATION_OPTIONS: ReadonlyArray<{
+  value: NormCombination;
+  title: string;
+  hint: string;
+}> = [
+  {
+    value: "SERIES",
+    title: "Series — bottleneck (default)",
+    hint: "Manpower and equipment work on the same unit in sequence. Expected = min(MP, EQ). Use for excavation, concreting, paving.",
+  },
+  {
+    value: "PARALLEL",
+    title: "Parallel — independent teams",
+    hint: "Teams work independently on different stretches. Expected = MP + EQ. Use for side clearance, brush cutting, survey.",
+  },
+  {
+    value: "SUBSTITUTE",
+    title: "Substitute — either alone",
+    hint: "Either side alone finishes the unit. Expected = max(MP, EQ). Rare — e.g. demolition.",
+  },
+];
 
 /**
  * Two-step inline workflow that closes the Activity → Master Work Activity gap:
@@ -82,12 +105,20 @@ export function LinkOrCreateWorkActivityDialog({
   const [linkMasterId, setLinkMasterId] = useState<string>("");
 
   // step 1 — create state
-  const [createForm, setCreateForm] = useState({
+  const [createForm, setCreateForm] = useState<{
+    code: string;
+    name: string;
+    defaultUnit: string;
+    discipline: string;
+    description: string;
+    normCombination: NormCombination;
+  }>({
     code: defaultCode ?? "",
     name: defaultName ?? "",
     defaultUnit: defaultUnit ?? "",
     discipline: "",
     description: "",
+    normCombination: "SERIES",
   });
 
   // The master that step 2 operates on. Populated from {@code existingMasterId}
@@ -134,6 +165,7 @@ export function LinkOrCreateWorkActivityDialog({
       defaultUnit: defaultUnit ?? "",
       discipline: "",
       description: "",
+      normCombination: "SERIES",
     });
     setResolvedMaster(
       existingMasterId
@@ -257,6 +289,7 @@ export function LinkOrCreateWorkActivityDialog({
         defaultUnit: createForm.defaultUnit.trim() || null,
         discipline: createForm.discipline.trim() || null,
         description: createForm.description.trim() || null,
+        normCombination: createForm.normCombination,
         active: true,
       });
       const newMaster = created.data;
@@ -362,7 +395,7 @@ export function LinkOrCreateWorkActivityDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-xl rounded-xl border border-border bg-surface p-6 shadow-xl">
+      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-xl flex-col overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 text-warning">
@@ -516,6 +549,42 @@ export function LinkOrCreateWorkActivityDialog({
                     className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-text-secondary">
+                    Norm combination
+                  </label>
+                  <p className="mt-1 text-xs text-text-muted">
+                    How Manpower + Equipment norms combine on the DPR preview when this activity
+                    has <em>both</em>. Ignored when only one side has a norm.
+                  </p>
+                  <div className="mt-2 flex flex-col gap-2">
+                    {NORM_COMBINATION_OPTIONS.map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`flex items-start gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer ${
+                          createForm.normCombination === opt.value
+                            ? "border-accent bg-accent/10"
+                            : "border-border bg-surface-hover"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="create-norm-combination"
+                          value={opt.value}
+                          checked={createForm.normCombination === opt.value}
+                          onChange={() =>
+                            setCreateForm((p) => ({ ...p, normCombination: opt.value }))
+                          }
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-text-primary">{opt.title}</div>
+                          <div className="mt-0.5 text-xs text-text-muted">{opt.hint}</div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -601,42 +670,32 @@ export function LinkOrCreateWorkActivityDialog({
                 Unit <span className="text-danger">*</span>
               </label>
               <select
-                value={normUnit}
-                onChange={(e) => setNormUnit(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                value={resolvedMaster.defaultUnit ?? ""}
+                disabled
+                aria-readonly="true"
+                className="mt-1 block w-full cursor-not-allowed rounded-md border border-border bg-surface-hover/50 px-3 py-2 text-sm text-text-secondary opacity-80"
               >
-                <option value="">— select —</option>
-                {unitOptionsWithFallback(normUnit).map((u) => (
-                  <option key={u} value={u}>
-                    {u}
+                {resolvedMaster.defaultUnit ? (
+                  <option value={resolvedMaster.defaultUnit}>
+                    {resolvedMaster.defaultUnit}
                   </option>
-                ))}
-                {/* If the master's default unit isn't in STANDARD_UNITS, surface it too. */}
-                {resolvedMaster.defaultUnit &&
-                  !(STANDARD_UNITS as readonly string[]).includes(
-                    resolvedMaster.defaultUnit,
-                  ) &&
-                  resolvedMaster.defaultUnit !== normUnit && (
-                    <option value={resolvedMaster.defaultUnit}>
-                      {resolvedMaster.defaultUnit}
-                    </option>
-                  )}
-              </select>
-              {resolvedMaster.defaultUnit &&
-                normUnit &&
-                normUnit.trim() !== resolvedMaster.defaultUnit && (
-                  <p className="mt-1 flex items-start gap-1.5 text-xs text-warning">
-                    <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
-                    <span>
-                      Master Work Activity unit is{" "}
-                      <span className="font-semibold">{resolvedMaster.defaultUnit}</span> but
-                      this norm uses{" "}
-                      <span className="font-semibold">{normUnit}</span>. Capacity Utilization
-                      compares DPR workdone against the norm in matching units — a mismatch
-                      will skew the productivity %.
-                    </span>
-                  </p>
+                ) : (
+                  <option value="">— not set on master —</option>
                 )}
+              </select>
+              <p className="mt-1 text-xs text-text-muted">
+                Locked to the master&apos;s default unit so Capacity Utilization can compare DPR
+                workdone against the norm in matching units.
+              </p>
+              {!resolvedMaster.defaultUnit && (
+                <p className="mt-1 flex items-start gap-1.5 text-xs text-danger">
+                  <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+                  <span>
+                    The master has no default unit. Cancel, set a default unit on the master,
+                    then return here.
+                  </span>
+                </p>
+              )}
             </div>
 
             {/* Manpower section */}

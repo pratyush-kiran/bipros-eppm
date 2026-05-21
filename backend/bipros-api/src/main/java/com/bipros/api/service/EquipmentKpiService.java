@@ -10,6 +10,8 @@ import com.bipros.resource.domain.model.ResourceEquipmentDetails;
 import com.bipros.resource.domain.model.ResourceOwnership;
 import com.bipros.resource.domain.model.ResourceRole;
 import com.bipros.resource.domain.model.role.EquipmentRoleVariant;
+import com.bipros.resource.domain.model.ResourceAssignment;
+import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
 import com.bipros.resource.domain.repository.ResourceEquipmentDetailsRepository;
 import com.bipros.resource.domain.repository.ResourceRepository;
 import com.bipros.resource.domain.repository.ResourceRoleRepository;
@@ -55,6 +57,7 @@ public class EquipmentKpiService {
   private final DprEquipmentRepository dprEquipmentRepository;
   private final EquipmentRoleVariantRepository equipmentRoleVariantRepository;
   private final ResourceRoleRepository resourceRoleRepository;
+  private final ResourceAssignmentRepository resourceAssignmentRepository;
 
   // ---------- Response shapes (unchanged) ----------
 
@@ -70,7 +73,10 @@ public class EquipmentKpiService {
       List<ServiceDueRow> serviceDue,
       double mechanicalAvailabilityPct,
       double equipmentProductivityIndexPct,
-      double idleMachineCostTotal
+      double idleMachineCostTotal,
+      int actualNos,
+      int plannedNos,
+      double nosUtilizationPct
   ) {}
 
   /**
@@ -147,7 +153,7 @@ public class EquipmentKpiService {
    * is the per-(hour|day) rate used for idle-cost math (Resource.costPerUnit for legacy,
    * EquipmentRoleVariant.rate for role-only).
    */
-  private record MachineDisplay(UUID key, String code, String name, double costPerUnit) {}
+  private record MachineDisplay(UUID key, String code, String name, double costPerUnit, double standardOutputPerDay) {}
 
   /** Returns the key used to identify a machine across DPR rows. */
   private static UUID pickMachineKey(DprEquipment row) {
@@ -190,7 +196,6 @@ public class EquipmentKpiService {
     Map<UUID, MachineDisplay> machinesByKey = resolveMachineDisplay(equipmentRows, resourcesById);
 
     List<UtilizationRow> utilization = computeUtilization(enriched, machinesByKey);
-    List<IdleAlertRow> idleAlerts = computeIdleAlerts(enriched, machinesByKey);
     List<FuelPerOutputRow> fuelPerOutput = computeFuelPerOutput(enriched, machinesByKey);
     List<AvailabilityPerformanceRow> availPerf =
         computeAvailabilityPerformance(enriched, machinesByKey, detailsById);
@@ -198,16 +203,42 @@ public class EquipmentKpiService {
         computeOwnedVsRented(enriched, resourcesById, detailsById);
     List<ServiceDueRow> serviceDue = computeServiceDue(projectId, resourcesById, detailsById);
 
-    double maPct = computeMechanicalAvailabilityHeadline(utilization);
     double epiPct = computeEpiHeadline(availPerf);
-    double idleCostTotal = utilization.stream().mapToDouble(UtilizationRow::idleCost).sum();
 
+    // Nos-based equipment utilisation: Σ actual nos (DPR) ÷ Σ planned headcount (assignments).
+    // Mirrors the Workforce Deployment metric in ManpowerKpiService.
+    List<ResourceAssignment> assignments = resourceAssignmentRepository.findByProjectId(projectId);
+    int actualNos = equipmentRows.stream()
+        .mapToInt(r -> r.getNos() != null ? r.getNos() : 0).sum();
+    int plannedNos = assignments.stream()
+        .filter(ra -> isEquipmentAssignment(ra, resourcesById))
+        .mapToInt(ra -> ra.getHeadcount() != null ? ra.getHeadcount() : 0).sum();
+    double nosUtilPct = plannedNos > 0 ? Math.min(1.0d, (double) actualNos / plannedNos) : 0d;
+
+    // Idle / breakdown / mechanical-availability KPIs were removed when those DPR fields were
+    // dropped from the supervisor UI. Return zero so back-compat clients still parse the shape.
     return new EquipmentKpiResponse(
-        projectId, from, to, utilization, idleAlerts, fuelPerOutput,
+        projectId, from, to, utilization, List.of(), fuelPerOutput,
         availPerf, ownedVsRented, serviceDue,
-        round4(maPct),
+        0d,                          // mechanicalAvailabilityPct — n/a in nos × rate model
         round4(epiPct),
-        round2(idleCostTotal));
+        0d,                          // idleMachineCostTotal — n/a in nos × rate model
+        actualNos,
+        plannedNos,
+        round4(nosUtilPct));
+  }
+
+  /** True iff the assignment is equipment — role-only path OR legacy EQUIPMENT resource path. */
+  private boolean isEquipmentAssignment(ResourceAssignment ra, Map<UUID, Resource> resourcesById) {
+    if (ra.getEquipmentRoleVariantId() != null) return true;
+    if (ra.getResourceId() == null) return false;
+    Resource r = resourcesById.get(ra.getResourceId());
+    if (r == null) {
+      r = resourceRepository.findById(ra.getResourceId()).orElse(null);
+      if (r != null) resourcesById.put(r.getId(), r);
+    }
+    return r != null && r.getResourceType() != null
+        && EQUIPMENT_TYPE_CODE.equalsIgnoreCase(r.getResourceType().getCode());
   }
 
   // ---------- Enrichment ----------
@@ -260,7 +291,8 @@ public class EquipmentKpiService {
             key,
             r != null ? r.getCode() : "?",
             r != null ? r.getName() : (row.getEquipmentType() != null ? row.getEquipmentType() : "Unknown"),
-            cpu));
+            cpu,
+            0d));    // legacy resource standardOutput lives on ResourceEquipmentDetails, looked up at perf time
       } else if (row.getEquipmentRoleVariantId() != null) {
         variantIds.add(row.getEquipmentRoleVariantId());
       }
@@ -282,9 +314,8 @@ public class EquipmentKpiService {
         if (variantId == null || out.containsKey(variantId)) continue;
         EquipmentRoleVariant v = variantsById.get(variantId);
         if (v == null) {
-          // Still emit a row so the supervisor sees activity even when the variant got deleted.
           String fallback = row.getEquipmentType() != null ? row.getEquipmentType() : "Unknown";
-          out.put(variantId, new MachineDisplay(variantId, fallback, fallback, 0d));
+          out.put(variantId, new MachineDisplay(variantId, fallback, fallback, 0d, 0d));
           continue;
         }
         ResourceRole role = rolesById.get(v.getRoleId());
@@ -294,7 +325,8 @@ public class EquipmentKpiService {
             variantId,
             v.getMake() + "/" + v.getModel(),
             name,
-            v.getRate() != null ? v.getRate().doubleValue() : 0d));
+            v.getRate() != null ? v.getRate().doubleValue() : 0d,
+            v.getStandardOutputPerDay() != null ? v.getStandardOutputPerDay().doubleValue() : 0d));
       }
     }
     return out;
@@ -444,8 +476,13 @@ public class EquipmentKpiService {
       double total = v[0] + v[1] + v[2];
       double availability = total > 0 ? (v[0] + v[1]) / total : 0d;
 
-      double standardPerDay = d != null && d.getStandardOutputPerDay() != null
-          ? d.getStandardOutputPerDay().doubleValue() : 0d;
+      // Prefer the role-only EquipmentRoleVariant.standardOutputPerDay (carried on MachineDisplay);
+      // fall back to legacy ResourceEquipmentDetails.standardOutputPerDay when the role-only path
+      // didn't supply one.
+      double standardPerDay = m != null && m.standardOutputPerDay() > 0
+          ? m.standardOutputPerDay()
+          : (d != null && d.getStandardOutputPerDay() != null
+              ? d.getStandardOutputPerDay().doubleValue() : 0d);
       double daysCount = daysSeen.getOrDefault(e.getKey(), Set.of()).size();
       double actualPerDay = daysCount > 0 ? v[3] / daysCount : 0d;
       double performance = standardPerDay > 0 ? actualPerDay / standardPerDay : 0d;
@@ -539,7 +576,8 @@ public class EquipmentKpiService {
     return new EquipmentKpiResponse(
         projectId, from, to,
         List.of(), List.of(), List.of(), List.of(), List.of(), List.of(),
-        0d, 0d, 0d);
+        0d, 0d, 0d,
+        0, 0, 0d);
   }
 
   // ---------- Misc ----------

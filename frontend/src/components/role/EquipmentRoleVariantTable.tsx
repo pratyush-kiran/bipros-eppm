@@ -23,6 +23,7 @@ export function EquipmentRoleVariantTable({ roleId }: Props) {
     model: "",
     unit: "Day",
     rate: 0,
+    standardOutputPerDay: null,
     active: true,
   });
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export function EquipmentRoleVariantTable({ roleId }: Props) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["equipment-role-variants", roleId] });
       setShowForm(false);
-      setForm({ make: "", model: "", unit: "Day", rate: 0, active: true });
+      setForm({ make: "", model: "", unit: "Day", rate: 0, standardOutputPerDay: null, active: true });
       setError(null);
     },
     onError: (e: unknown) =>
@@ -114,6 +115,25 @@ export function EquipmentRoleVariantTable({ roleId }: Props) {
                 }
               />
             </label>
+            <label className="block text-sm">
+              <span className="text-text-secondary">Standard Output / Day</span>
+              <input
+                type="number"
+                step="0.01"
+                className="mt-1 w-full rounded-md border border-border bg-paper text-text-primary px-2 py-1.5"
+                value={form.standardOutputPerDay ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    standardOutputPerDay: e.target.value === "" ? null : parseFloat(e.target.value),
+                  })
+                }
+                placeholder="e.g. 200 (m³/day)"
+              />
+              <span className="mt-0.5 block text-[11px] text-text-muted">
+                Drives Equipment Productivity Index on Insights tab. Leave blank to hide that metric.
+              </span>
+            </label>
           </div>
           <div className="mt-3 flex gap-2">
             <button
@@ -140,6 +160,7 @@ export function EquipmentRoleVariantTable({ roleId }: Props) {
             <th className="py-2 text-left">Model</th>
             <th className="py-2 text-left">Unit</th>
             <th className="py-2 text-right">Rate</th>
+            <th className="py-2 text-right" title="Standard daily output — drives Equipment Productivity Index">Std Output / Day</th>
             <th className="py-2 text-center">Active</th>
             <th className="py-2 text-right">Actions</th>
           </tr>
@@ -147,7 +168,7 @@ export function EquipmentRoleVariantTable({ roleId }: Props) {
         <tbody>
           {variants.length === 0 && (
             <tr>
-              <td colSpan={6} className="py-6 text-center text-text-muted">
+              <td colSpan={7} className="py-6 text-center text-text-muted">
                 No variants defined yet
               </td>
             </tr>
@@ -158,6 +179,7 @@ export function EquipmentRoleVariantTable({ roleId }: Props) {
               <td className="py-2">{v.model}</td>
               <td className="py-2">{v.unit}</td>
               <td className="py-2 text-right">{v.rate}</td>
+              <td className="py-2 text-right">{v.standardOutputPerDay ?? "—"}</td>
               <td className="py-2 text-center">{v.active ? "✓" : "—"}</td>
               <td className="py-2 text-right">
                 <button

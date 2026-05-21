@@ -679,7 +679,10 @@ export default function CapacityUtilizationPage() {
             </div>
           </div>
           <div className="mt-2 text-xs text-text-muted">
-            Color band: ≥100% green · 80–99% yellow · &lt;80% red · no norm grey
+            <span className="font-semibold text-text-secondary">Efficiency %</span>
+            {" "}color bands: ≥100 % green · 80–99 % yellow · &lt;80 % red · no norm grey.
+            <br />
+            Efficiency = output vs the productivity norm per resource-day — not deployment utilization.
             {compareMode && compareIds.length < 2 && (
               <span className="ml-3 text-warning">
                 Pick at least 2 supervisors to compare.

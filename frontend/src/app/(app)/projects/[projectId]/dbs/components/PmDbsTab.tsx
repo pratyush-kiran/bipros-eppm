@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   FileText,
 } from "lucide-react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 
 import { EmptyState } from "@/components/common/EmptyState";
@@ -383,12 +384,26 @@ export function PmDbsTab({
             machineryAmount={day.machineryAmount}
             fuelAmount={day.fuelAmount}
             subcontractAmount={day.subcontractAmount}
+            generalExpenseAmount={day.generalExpenseAmount ?? 0}
+            generalExpenseMonthlyTotal={day.generalExpenseMonthlyTotal ?? null}
             totalExpense={day.totalExpense}
             totalIncome={day.totalIncome}
             contribution={day.contribution}
             contributionPct={day.contributionPct * 100}
             currency={currency}
           />
+
+          {/* Quick link to the Section G entry page — the totals panel surfaces
+              the daily-prorated value, but editing the plan / monthly actual
+              lives on a dedicated page. */}
+          <div className="flex items-center justify-end text-xs text-text-secondary">
+            <Link
+              href={`/projects/${projectId}/general-expenses`}
+              className="rounded border border-hairline px-2 py-1 hover:bg-surface-hover/40"
+            >
+              Edit General Expenses (Section G) →
+            </Link>
+          </div>
 
           {/* Cumulative tiles — only render when backend included them (DAY mode
               typically; period mode rolls cumulative differently). */}

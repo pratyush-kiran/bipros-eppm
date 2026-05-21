@@ -33,7 +33,7 @@ public class PerformanceRollupService {
 
     @Transactional(readOnly = true)
     public List<PeriodPerformanceRollupDto> rollup(UUID projectId, String periodType) {
-        List<FinancialPeriod> periods = periodAggregator.findPeriods(periodType);
+        List<FinancialPeriod> periods = periodAggregator.findPeriods(projectId, periodType);
         if (periods.isEmpty()) return List.of();
 
         Map<UUID, List<StorePeriodPerformance>> rowsByPeriod = new HashMap<>();

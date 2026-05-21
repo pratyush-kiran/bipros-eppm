@@ -11,6 +11,7 @@ import type { DprEquipmentRow } from "@/lib/types/dpr";
 const blank = (): DprEquipmentRow => ({
   equipmentType: "",
   fleetNo: null,
+  ownership: null,
   shift: "DAY",
   nos: null,
   workingHours: null,
@@ -129,6 +130,28 @@ export function EquipmentGrid({ projectId, activityId, rows, onChange }: Props) 
         <CellInput
           value={r.fleetNo ?? ""}
           onChange={(v) => u({ fleetNo: v.trim() === "" ? null : v })}
+        />
+      ),
+    },
+    {
+      key: "ownership",
+      label: "Ownership",
+      minWidth: 130,
+      render: (r, _i, u) => (
+        <CellSelect
+          value={r.ownership ?? ""}
+          onChange={(v) =>
+            u({
+              ownership:
+                v === "OWNED" || v === "HIRED" || v === "SUBCONTRACTOR" ? v : null,
+            })
+          }
+          options={[
+            { value: "", label: "—" },
+            { value: "OWNED", label: "Owned" },
+            { value: "HIRED", label: "Hired" },
+            { value: "SUBCONTRACTOR", label: "Subcontractor" },
+          ]}
         />
       ),
     },

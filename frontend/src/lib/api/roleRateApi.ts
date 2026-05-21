@@ -32,6 +32,8 @@ export interface EquipmentRoleVariant {
   model: string;
   unit: string;
   rate: number;
+  /** Standard daily output of this variant in the activity's quantity unit (e.g. m³/day). Drives the Equipment Productivity Index. */
+  standardOutputPerDay?: number | null;
   active: boolean;
 }
 
@@ -40,6 +42,7 @@ export interface EquipmentRoleVariantRequest {
   model: string;
   unit: string;
   rate: number;
+  standardOutputPerDay?: number | null;
   active?: boolean;
 }
 
@@ -109,6 +112,7 @@ export interface EquipmentVariantInput {
   model: string;
   unit: string;
   rate: number;
+  standardOutputPerDay?: number | null;
   active?: boolean;
 }
 

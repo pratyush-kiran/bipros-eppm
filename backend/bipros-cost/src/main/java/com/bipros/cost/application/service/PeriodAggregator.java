@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Resolves a {@code periodType ∈ {D, W, M}} request into the project's existing
@@ -21,9 +22,9 @@ public class PeriodAggregator {
 
     private final FinancialPeriodRepository financialPeriodRepository;
 
-    public List<FinancialPeriod> findPeriods(String periodType) {
+    public List<FinancialPeriod> findPeriods(UUID projectId, String periodType) {
         String normalized = normalize(periodType);
-        return financialPeriodRepository.findAllByOrderBySortOrder().stream()
+        return financialPeriodRepository.findByProjectIdOrderBySortOrderAsc(projectId).stream()
             .filter(p -> normalized.equals(normalize(p.getPeriodType())))
             .sorted(Comparator.comparing(FinancialPeriod::getStartDate,
                 Comparator.nullsLast(Comparator.naturalOrder())))

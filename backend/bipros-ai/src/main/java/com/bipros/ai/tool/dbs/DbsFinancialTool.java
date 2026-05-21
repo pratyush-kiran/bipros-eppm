@@ -3,6 +3,7 @@ package com.bipros.ai.tool.dbs;
 import com.bipros.ai.context.AiContext;
 import com.bipros.ai.tool.ProjectScopedTool;
 import com.bipros.ai.tool.ToolResult;
+import com.bipros.dbs.api.dto.DbsCmDayResponse;
 import com.bipros.dbs.api.dto.DbsEngineerDayResponse;
 import com.bipros.dbs.api.dto.DbsEngineerPeriodResponse;
 import com.bipros.dbs.api.dto.DbsProjectDayResponse;
@@ -48,7 +49,7 @@ public class DbsFinancialTool extends ProjectScopedTool {
     public String description() {
         return "Financial Daily Balance Sheet for a project — expense (material/manpower/admin/"
                 + "machinery/fuel/subcontract), income (BOQ achieved), contribution margin, and "
-                + "contribution %, at PROJECT / ENGINEER / SUPERVISOR level for a DAY / WEEK / "
+                + "contribution %, at PROJECT / ENGINEER / CM / SUPERVISOR level for a DAY / WEEK / "
                 + "MONTH window. Use for questions like 'what was the contribution margin yesterday', "
                 + "'show me the expense breakdown for last week', 'what did supervisor X spend on "
                 + "fuel this month'. This is NOT the manpower/equipment headcount ledger — for "
@@ -67,8 +68,8 @@ public class DbsFinancialTool extends ProjectScopedTool {
 
         ObjectNode level = objectMapper.createObjectNode()
                 .put("type", "string")
-                .put("description", "Aggregation level. PROJECT rolls up all engineers; ENGINEER rolls up that engineer's supervisors; SUPERVISOR is the leaf row.");
-        level.putArray("enum").add("PROJECT").add("ENGINEER").add("SUPERVISOR");
+                .put("description", "Aggregation level. PROJECT rolls up everything; CM rolls up that CM's engineers + their supervisors; ENGINEER rolls up that engineer's supervisors; SUPERVISOR is the leaf row.");
+        level.putArray("enum").add("PROJECT").add("ENGINEER").add("SUPERVISOR").add("CM");
         level.put("default", "PROJECT");
         props.set("level", level);
 
@@ -88,6 +89,9 @@ public class DbsFinancialTool extends ProjectScopedTool {
         props.set("supervisorUserId", objectMapper.createObjectNode()
                 .put("type", "string").put("format", "uuid")
                 .put("description", "Supervisor user UUID — required when level=SUPERVISOR."));
+        props.set("cmUserId", objectMapper.createObjectNode()
+                .put("type", "string").put("format", "uuid")
+                .put("description", "Construction Manager user UUID — required when level=CM."));
         props.set("includeLines", objectMapper.createObjectNode()
                 .put("type", "boolean")
                 .put("description", "When true and level=SUPERVISOR + periodType=DAY, includes the per-section line arrays (material/manpower/admin/machinery/fuel/BOQ/subcontract). Default false to keep responses small.")
@@ -112,6 +116,7 @@ public class DbsFinancialTool extends ProjectScopedTool {
         if (date == null) date = LocalDate.now();
         UUID engineerUserId = parseUuid(input.path("engineerUserId").asText(null));
         UUID supervisorUserId = parseUuid(input.path("supervisorUserId").asText(null));
+        UUID cmUserId = parseUuid(input.path("cmUserId").asText(null));
         boolean includeLines = input.path("includeLines").asBoolean(false);
 
         Object payload;
@@ -130,6 +135,16 @@ public class DbsFinancialTool extends ProjectScopedTool {
                     payload = r;
                     summary = summariseEngineerDay(r.totals(), "ENGINEER", periodType);
                 }
+            }
+            case "CM" -> {
+                if (cmUserId == null) {
+                    return ToolResult.error("level=CM requires cmUserId.");
+                }
+                DbsCmDayResponse r = "DAY".equals(periodType)
+                        ? dbsQueryService.getCmDay(projectId, cmUserId, date)
+                        : dbsQueryService.getCmPeriod(projectId, cmUserId, periodType, date);
+                payload = r;
+                summary = summariseCmDay(r, "CM", periodType);
             }
             case "SUPERVISOR" -> {
                 if (supervisorUserId == null) {
@@ -191,12 +206,34 @@ public class DbsFinancialTool extends ProjectScopedTool {
                 fmt(r.contribution()), fmt(scalePct(r.contributionPct())));
     }
 
+    private String summariseCmDay(DbsCmDayResponse r, String level, String periodType) {
+        // CM DTO doesn't carry totalExpense/totalIncome/contribution (see DBS Finding 9);
+        // derive expense from the section amounts and income from boqForTheDayAmount.
+        // contributionPct is persisted as a percentage on the CM tier (Finding 8) —
+        // unlike supervisor/engineer/project which store a fraction — so do NOT call scalePct.
+        BigDecimal expense = nz(r.materialAmount())
+                .add(nz(r.manpowerAmount()))
+                .add(nz(r.adminAmount()))
+                .add(nz(r.machineryAmount()))
+                .add(nz(r.fuelAmount()));
+        BigDecimal income = nz(r.boqForTheDayAmount());
+        BigDecimal contribution = income.subtract(expense);
+        return String.format(Locale.ROOT,
+                "DBS %s/%s %s: expense=%s income=%s contribution=%s (%s%%)",
+                level, periodType, r.reportDate(),
+                fmt(expense), fmt(income), fmt(contribution), fmt(r.contributionPct()));
+    }
+
     private String summariseSupervisorDay(DbsSupervisorDayResponse r, String level, String periodType) {
         return String.format(Locale.ROOT,
                 "DBS %s/%s %s: expense=%s income=%s contribution=%s (%s%%)",
                 level, periodType, r.reportDate(),
                 fmt(r.totalExpense()), fmt(r.totalIncome()),
                 fmt(r.contribution()), fmt(scalePct(r.contributionPct())));
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
     }
 
     private static String fmt(BigDecimal v) {

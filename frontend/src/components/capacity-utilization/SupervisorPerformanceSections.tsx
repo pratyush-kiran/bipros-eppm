@@ -16,6 +16,20 @@ function fmt(n: number | null | undefined, digits = 2): string {
   return n.toLocaleString("en-IN", { maximumFractionDigits: digits });
 }
 
+function fmtMoney(n: number): string {
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function CostLabel({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined || value === 0) {
+    return <span className="text-text-muted">—</span>;
+  }
+  if (value < 0) {
+    return <span className="text-success">Cost saved: ₹{fmtMoney(Math.abs(value))}</span>;
+  }
+  return <span className="text-danger">Cost overrun: ₹{fmtMoney(value)}</span>;
+}
+
 function utilBand(util: number | null | undefined): string {
   if (util === null || util === undefined)
     return "bg-surface/30 text-text-muted";
@@ -78,7 +92,7 @@ function ManpowerUtilizationTableInner({ rows }: { rows: TradeRollup[] }) {
             <th className="px-3 py-2 text-right">Qty Done</th>
             <th className="px-3 py-2 text-right">Bud. Man-days</th>
             <th className="px-3 py-2 text-right">Act. Man-days</th>
-            <th className="px-3 py-2 text-center">% Util.</th>
+            <th className="px-3 py-2 text-center">Efficiency %</th>
             <th className="px-3 py-2 text-right">Cost Implication</th>
           </tr>
         </thead>
@@ -111,7 +125,7 @@ function ManpowerUtilizationTableInner({ rows }: { rows: TradeRollup[] }) {
                 <UtilCell util={r.utilizationPct} />
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.costImplication)}
+                <CostLabel value={r.costImplication} />
               </td>
             </tr>
           ))}
@@ -153,7 +167,7 @@ function EquipmentUtilizationTableInner({
             <th className="px-3 py-2 text-right">Qty Done</th>
             <th className="px-3 py-2 text-right">Bud. Eqpt-days</th>
             <th className="px-3 py-2 text-right">Act. Eqpt-days</th>
-            <th className="px-3 py-2 text-center">% Util.</th>
+            <th className="px-3 py-2 text-center">Efficiency %</th>
             <th className="px-3 py-2 text-right">Cost Implication</th>
           </tr>
         </thead>
@@ -186,7 +200,7 @@ function EquipmentUtilizationTableInner({
                 <UtilCell util={r.utilizationPct} />
               </td>
               <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.costImplication)}
+                <CostLabel value={r.costImplication} />
               </td>
             </tr>
           ))}

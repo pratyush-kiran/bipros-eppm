@@ -1,6 +1,7 @@
 package com.bipros.dbs.listener;
 
 import com.bipros.common.event.DprSubmittedEvent;
+import com.bipros.common.event.GeneralExpenseLoggedEvent;
 import com.bipros.common.event.MaterialConsumptionLoggedEvent;
 import com.bipros.common.event.ResourceDeploymentSavedEvent;
 import com.bipros.dbs.service.DbsAggregationService;
@@ -14,6 +15,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -83,6 +85,31 @@ public class DbsRecomputeListener {
         log.debug("DbsRecomputeListener.onMaterial received projectId={} date={}",
             e.projectId(), e.logDate());
         recomputeProjectForDate(e.projectId(), e.logDate());
+    }
+
+    /**
+     * Section G monthly-entry change: the daily-prorated overhead value changes
+     * for every day in the affected year-month, so we recompute the project row
+     * for every date in that month. Supervisor/CM/engineer tiers are untouched
+     * since Section G is PM-tier only.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onGeneralExpense(GeneralExpenseLoggedEvent e) {
+        log.info("DbsRecomputeListener.onGeneralExpense received projectId={} yearMonth={} item={} type={}",
+            e.projectId(), e.yearMonth(), e.planItemId(), e.mutationType());
+        try {
+            int ym = e.yearMonth();
+            YearMonth yearMonth = YearMonth.of(ym / 100, ym % 100);
+            LocalDate cur = yearMonth.atDay(1);
+            LocalDate end = yearMonth.atEndOfMonth();
+            while (!cur.isAfter(end)) {
+                aggregationService.recomputeProjectDay(e.projectId(), cur);
+                cur = cur.plusDays(1);
+            }
+        } catch (Exception ex) {
+            log.warn("Section G recompute failed projectId={} yearMonth={}",
+                e.projectId(), e.yearMonth(), ex);
+        }
     }
 
     private void recomputeChain(UUID projectId, UUID supervisorUserId, LocalDate date) {

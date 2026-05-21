@@ -9,6 +9,10 @@ import java.util.UUID;
 
 @Repository
 public interface FinancialPeriodRepository extends JpaRepository<FinancialPeriod, UUID> {
-    List<FinancialPeriod> findAllByOrderBySortOrder();
-    List<FinancialPeriod> findByIsClosedFalseOrderBySortOrder();
+
+    /** All financial periods owned by the given project, oldest first. */
+    List<FinancialPeriod> findByProjectIdOrderBySortOrderAsc(UUID projectId);
+
+    /** Open (not yet closed) financial periods for the given project, oldest first. */
+    List<FinancialPeriod> findByProjectIdAndIsClosedFalseOrderBySortOrderAsc(UUID projectId);
 }

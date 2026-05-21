@@ -55,6 +55,14 @@ public class EquipmentRoleVariant extends BaseEntity {
   @Column(nullable = false, precision = 19, scale = 4)
   private BigDecimal rate;
 
+  /**
+   * Standard / norm output of this variant per day in the activity's quantity unit (e.g. m³/day
+   * for an excavator, m/day for a paver). Drives the Equipment Productivity Index KPI:
+   * {@code actual_per_day ÷ standardOutputPerDay}. Nullable — Perf shows "—" when not set.
+   */
+  @Column(name = "standard_output_per_day", precision = 12, scale = 4)
+  private BigDecimal standardOutputPerDay;
+
   @Column(nullable = false)
   @Default
   private Boolean active = true;

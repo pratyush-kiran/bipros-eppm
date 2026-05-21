@@ -11,4 +11,5 @@ public record EquipmentRoleVariantRequest(
     @NotBlank String model,
     @NotBlank String unit,
     @NotNull @Positive BigDecimal rate,
+    BigDecimal standardOutputPerDay,
     Boolean active) {}

@@ -152,6 +152,12 @@ export interface DbsProjectDayResponse {
   machineryAmount: number;
   fuelAmount: number;
   subcontractAmount: number;
+  /** Section G — daily-prorated overhead (= monthlyTotal / daysInMonth). */
+  generalExpenseAmount?: number | null;
+  /** Snapshot of the month total for the row's `reportDate.yearMonth`. */
+  generalExpenseMonthlyTotal?: number | null;
+  /** JSON-serialised SectionLine[] for the Section G accordion. */
+  generalExpenseLinesJson?: string | null;
   boqForTheDayAmount: number;
   boqPlannedAmount: number;
   boqAchievedAmount: number;
@@ -353,11 +359,11 @@ export const dbsApi = {
       })
       .then((r) => r.data),
 
-  listSupervisorsForDay: (projectId: string, date: string) =>
+  listSupervisorsForDay: (projectId: string, date: string, periodType?: string) =>
     apiClient
       .get<ApiResponse<DbsSupervisorSummaryDto[]>>(
         `${base(projectId)}/supervisors`,
-        { params: { date } },
+        { params: periodType && periodType !== "DAY" ? { date, periodType } : { date } },
       )
       .then((r) => r.data),
 

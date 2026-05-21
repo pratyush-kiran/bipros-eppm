@@ -242,7 +242,7 @@ export default function ProjectOperationalInsightsPage() {
         <SectionHeading
           kicker="Capacity"
           title="Resource utilisation"
-          subtitle="Actual vs planned hours rolled up by resource category"
+          subtitle="Actual vs planned nos rolled up by resource category"
           icon={<Wrench size={14} strokeWidth={1.75} />}
         />
         <div className="rounded-2xl border border-hairline bg-paper p-5">
@@ -259,7 +259,7 @@ export default function ProjectOperationalInsightsPage() {
                     </div>
                     <span className="text-xs text-slate tabular-nums">
                       <span className="font-semibold text-charcoal">{resource.utilized.toFixed(0)}</span>
-                      {" "}/ {resource.allocated.toFixed(0)} hrs ·{" "}
+                      {" "}/ {resource.allocated.toFixed(0)} nos ·{" "}
                       <span className="font-semibold text-charcoal">{resource.percentage.toFixed(1)}%</span>
                     </span>
                   </div>

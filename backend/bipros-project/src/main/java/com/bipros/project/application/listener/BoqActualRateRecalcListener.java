@@ -2,6 +2,7 @@ package com.bipros.project.application.listener;
 
 import com.bipros.common.event.DprMutationType;
 import com.bipros.common.event.DprSubmittedEvent;
+import com.bipros.common.event.MaterialConsumptionLoggedEvent;
 import com.bipros.project.application.service.BoqCalculator;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.repository.BoqItemRepository;
@@ -71,6 +72,38 @@ public class BoqActualRateRecalcListener {
       } catch (Exception ex) {
         // One bad row mustn't take the whole DPR write with it — log and move on.
         log.warn("[BoqActualRateRecalc] project={} boqItemId={} recompute failed: {}",
+            event.projectId(), boqItemId, ex.getMessage(), ex);
+      }
+    }
+  }
+
+  /**
+   * MCLs landing after a DPR also change the actualRate denominator-included cost.
+   * Fan out from the MCL's activity to every BOQ item touched by DPRs on that activity
+   * and recompute each.
+   */
+  @EventListener
+  @Transactional
+  public void onMaterialConsumption(MaterialConsumptionLoggedEvent event) {
+    if (event == null || event.projectId() == null || event.activityId() == null) return;
+
+    Query q = em.createNativeQuery(
+        "SELECT DISTINCT boq_item_id FROM project.daily_progress_reports "
+            + "WHERE activity_id = :activityId AND boq_item_id IS NOT NULL");
+    q.setParameter("activityId", event.activityId());
+    @SuppressWarnings("unchecked")
+    java.util.List<Object> rows = q.getResultList();
+    if (rows.isEmpty()) {
+      log.debug("[BoqActualRateRecalc] MCL activity={} has no DPRs yet; nothing to recompute",
+          event.activityId());
+      return;
+    }
+    for (Object o : rows) {
+      UUID boqItemId = (o instanceof UUID u) ? u : UUID.fromString(o.toString());
+      try {
+        recompute(event.projectId(), boqItemId);
+      } catch (Exception ex) {
+        log.warn("[BoqActualRateRecalc] MCL fanout project={} boqItemId={} failed: {}",
             event.projectId(), boqItemId, ex.getMessage(), ex);
       }
     }

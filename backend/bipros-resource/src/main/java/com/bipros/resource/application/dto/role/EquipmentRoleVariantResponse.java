@@ -11,4 +11,5 @@ public record EquipmentRoleVariantResponse(
     String model,
     String unit,
     BigDecimal rate,
+    BigDecimal standardOutputPerDay,
     Boolean active) {}

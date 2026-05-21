@@ -11,6 +11,20 @@ function fmt(n: number | null | undefined, digits = 2): string {
   return n.toLocaleString("en-IN", { maximumFractionDigits: digits });
 }
 
+function fmtMoney(n: number): string {
+  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+}
+
+function CostLine({ value }: { value: number | null | undefined }) {
+  if (value === null || value === undefined || value === 0) {
+    return <span className="text-text-muted">—</span>;
+  }
+  if (value < 0) {
+    return <span className="text-success">Cost saved: ₹{fmtMoney(Math.abs(value))}</span>;
+  }
+  return <span className="text-danger">Cost overrun: ₹{fmtMoney(value)}</span>;
+}
+
 function utilBand(util: number | null | undefined): string {
   if (util === null || util === undefined)
     return "bg-surface/30 text-text-muted";
@@ -19,11 +33,16 @@ function utilBand(util: number | null | undefined): string {
   return "bg-danger/15 text-danger ring-1 ring-danger/30";
 }
 
+const EFFICIENCY_TOOLTIP =
+  "Output vs the productivity norm per resource-day. Not deployment utilization.";
+
 function UtilCell({ util }: { util: number | null | undefined }) {
   return (
     <span
-      className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${utilBand(util)}`}
+      className={`inline-block px-2 py-0.5 rounded text-xs font-semibold cursor-help ${utilBand(util)}`}
+      title={EFFICIENCY_TOOLTIP}
     >
+      Eff:{" "}
       {util === null || util === undefined ? "—" : `${fmt(util, 1)} %`}
     </span>
   );
@@ -75,10 +94,7 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
                   </span>
                 </div>
                 <div>
-                  Cost:{" "}
-                  <span className="tabular-nums">
-                    {fmt(rollup.costImplication)}
-                  </span>
+                  <CostLine value={rollup.costImplication} />
                 </div>
                 <div>
                   <UtilCell util={rollup.utilizationPct} />
@@ -125,10 +141,7 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
                   </span>
                 </div>
                 <div>
-                  Cost:{" "}
-                  <span className="tabular-nums">
-                    {fmt(rollup.costImplication)}
-                  </span>
+                  <CostLine value={rollup.costImplication} />
                 </div>
                 <div>
                   <UtilCell util={rollup.utilizationPct} />
