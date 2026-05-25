@@ -17,7 +17,7 @@ PLAN = json.load(open(os.environ.get("BIPROS_WORK_DIR", "/tmp/khasab") + "/activ
 ACT_IDS = json.load(open(os.environ.get("BIPROS_WORK_DIR", "/tmp/khasab") + "/activity-ids.json"))
 
 PSQL = os.environ.get("BIPROS_PSQL", "psql")
-PG_BASE = ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL, "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"), "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
+PG_BASE = ["docker", "exec", "-i", "-e", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", os.environ.get("BIPROS_PG_CONTAINER", "bipros-postgres"), "psql", "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
 
 
 def sql(q):
@@ -156,12 +156,17 @@ for code, p in PLAN.items():
         if not role_id or not variant_id:
             fails[f"mp_no_match:{m['trade']}"] += 1
             continue
+        hc = int(m.get("count") or 0)
+        dur = float(m.get("duration_days") or 0)
+        if hc <= 0 or dur <= 0:
+            fails["mp_skip_zero"] += 1
+            continue
         sc, resp = http("POST", f"/v1/projects/{PROJECT_ID}/role-assignments", {
             "activityId": aid,
             "roleId": role_id,
             "manpowerRoleRateId": variant_id,
-            "headcount": m["count"],
-            "duration": m["duration_days"],
+            "headcount": hc,
+            "duration": dur,
             "rateType": "STANDARD",
         })
         if sc in (200, 201):
@@ -178,12 +183,17 @@ for code, p in PLAN.items():
         if not role_id or not variant_id:
             fails[f"eq_no_match:{e['name']}"] += 1
             continue
+        hc = int(e.get("count") or 0)
+        dur = float(e.get("duration_days") or 0)
+        if hc <= 0 or dur <= 0:
+            fails["eq_skip_zero"] += 1
+            continue
         sc, resp = http("POST", f"/v1/projects/{PROJECT_ID}/role-assignments", {
             "activityId": aid,
             "roleId": role_id,
             "equipmentRoleVariantId": variant_id,
-            "headcount": e["count"],
-            "duration": e["duration_days"],
+            "headcount": hc,
+            "duration": dur,
             "rateType": "STANDARD",
         })
         if sc in (200, 201):
@@ -208,6 +218,9 @@ WHERE rr.name = '{mat_name}' LIMIT 1
             if not rows:
                 fails[f"mat_no_match:{mat_name}"] += 1
                 continue
+            if qty <= 0:
+                fails["mat_skip_zero"] += 1
+                continue
             sc, resp = http("POST", f"/v1/projects/{PROJECT_ID}/role-assignments", {
                 "activityId": aid,
                 "roleId": rows[0][0],
@@ -220,8 +233,11 @@ WHERE rr.name = '{mat_name}' LIMIT 1
             else:
                 fails[f"mat_post_{sc}"] += 1
 
-print(f"\n=== Total role-assignments created: {total} ===")
+skip_zero    = fails.get("mp_skip_zero", 0) + fails.get("eq_skip_zero", 0) + fails.get("mat_skip_zero", 0)
+no_match     = sum(v for k, v in fails.items() if "no_match" in k)
+http_fail    = sum(v for k, v in fails.items() if "_post_" in k)
+print(f"\n[STAGE9] OK | created={total} skip_zero={skip_zero} no_match={no_match} http_fail={http_fail}")
 if fails:
-    print(f"Failures/skips:")
-    for k, n in sorted(fails.items(), key=lambda x: -x[1]):
-        print(f"  {k}: {n}")
+    print("  Detail:")
+    for k, n in sorted(fails.items(), key=lambda x: -x[1])[:20]:
+        print(f"    {k}: {n}")

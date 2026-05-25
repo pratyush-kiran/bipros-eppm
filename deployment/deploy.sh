@@ -452,8 +452,14 @@ run_import_pre_dpr() {
   python3 "$imp/analyze_resource_demand.py" 2>&1 | tail -3 | tee -a "$DEPLOY_LOG" >&2
   log_info "  rebuild_demo.py (project + users + team + WBS + 33 activities)"
   python3 "$imp/rebuild_demo.py" 2>&1 | tail -15 | tee -a "$DEPLOY_LOG" >&2
-  log_info "  fix_role_assignments.py (229 role-assignments)"
-  python3 "$imp/fix_role_assignments.py" 2>&1 | grep -E "Total|created" | tee -a "$DEPLOY_LOG" >&2 || true
+  log_info "  seed_resource_rates.py (every role gets a rate)"
+  python3 "$imp/seed_resource_rates.py" 2>&1 | tail -5 | tee -a "$DEPLOY_LOG" >&2 || true
+  log_info "  seed_productivity_norms.py (one MANPOWER + one EQUIPMENT norm per work_activity)"
+  python3 "$imp/seed_productivity_norms.py" 2>&1 | tail -5 | tee -a "$DEPLOY_LOG" >&2 || true
+  log_info "  fix_role_assignments.py (role-assignments with planned_units > 0)"
+  python3 "$imp/fix_role_assignments.py" 2>&1 | grep -E "\[STAGE9\]|Detail" | tee -a "$DEPLOY_LOG" >&2 || true
+  log_info "  seed_boq_items.py (one BOQ per activity, name = activity name)"
+  python3 "$imp/seed_boq_items.py" 2>&1 | tail -5 | tee -a "$DEPLOY_LOG" >&2 || true
 
   # fix_role_assignments unlocks activities; re-lock so DPRs can post
   log_info "  Re-locking activities for DPR ingest"
@@ -568,6 +574,37 @@ ${C_BOLD}Next steps:${C_RESET}
 
 Deploy log: $DEPLOY_LOG
 EOF
+
+  # ─── Data-quality assertions ────────────────────────────────────────────
+  if docker ps --filter "name=bipros-postgres" --filter "status=running" -q | grep -q .; then
+    printf '\n%sData-quality assertions:%s\n' "$C_BOLD" "$C_RESET"
+    local _bad=0
+    while IFS='|' read -r k n; do
+      [ -z "$k" ] && continue
+      n="${n## }"; n="${n%% }"     # trim whitespace
+      local _ok=1 _label=""
+      case "$k" in
+        dpr_zero_01)        [ "$n" = "0" ] || _ok=0; _label="DPRs with qty=0.01     : $n (expect 0)" ;;
+        dpr_no_boq)         [ "$n" = "0" ] || _ok=0; _label="DPRs without BOQ link  : $n (expect 0)" ;;
+        boq_items)          [ "$n" -gt 0 ] 2>/dev/null || _ok=0; _label="BOQ items              : $n (expect > 0)" ;;
+        productivity_norms) [ "$n" -gt 0 ] 2>/dev/null || _ok=0; _label="Productivity norms     : $n (expect > 0)" ;;
+        *)                  _label="$k = $n" ;;
+      esac
+      if [ "$_ok" = "1" ]; then
+        printf '  %s[OK]%s   %s\n' "$C_GREEN" "$C_RESET" "$_label"
+      else
+        printf '  %s[BAD]%s  %s\n' "$C_RED"   "$C_RESET" "$_label"
+        _bad=1
+      fi
+    done < <(docker exec bipros-postgres psql -U "${POSTGRES_USER:-bipros}" -d "${POSTGRES_DB:-bipros}" -At -F '|' -c "
+SELECT 'dpr_zero_01', COUNT(*) FROM project.daily_progress_reports WHERE qty_executed = 0.01
+UNION ALL SELECT 'dpr_no_boq', COUNT(*) FROM project.daily_progress_reports WHERE boq_item_id IS NULL
+UNION ALL SELECT 'boq_items', COUNT(*) FROM project.boq_items
+UNION ALL SELECT 'productivity_norms', COUNT(*) FROM resource.productivity_norms
+" 2>/dev/null)
+    [ "$_bad" = "1" ] && log_warn "One or more data-quality assertions failed — investigate before shipping the demo."
+    printf '\n'
+  fi
 }
 
 # ─── Main ───────────────────────────────────────────────────────────────────

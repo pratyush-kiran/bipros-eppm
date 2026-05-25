@@ -16,9 +16,11 @@ services:
       POSTGRES_USER: bipros
       POSTGRES_INITDB_ARGS: ""
     ports:
-      # Host port 5433 → container port 5432 so this can coexist with native
-      # Postgres.app on 5432. Backend connects via DATABASE_URL on 5433.
-      - "5433:5432"
+      # Host port 5432 → container port 5432. Matches backend application.yml
+      # default (DATABASE_URL=jdbc:postgresql://127.0.0.1:5432/bipros) so IntelliJ
+      # runs without overrides. If you ever install native Postgres on 5432,
+      # flip this back to "5433:5432" and set DATABASE_URL accordingly.
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql

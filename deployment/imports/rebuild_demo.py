@@ -8,6 +8,7 @@
 - DBS aggregates
 """
 import json
+import sys
 import re
 import os
 import subprocess
@@ -20,7 +21,7 @@ from datetime import date, timedelta
 BASE = os.environ.get("BIPROS_API_BASE", "http://localhost:8080")
 PSQL = os.environ.get("BIPROS_PSQL", "psql")
 PG_DUMP = "/Applications/Postgres.app/Contents/Versions/latest/bin/pg_restore"
-PG_BASE = ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL, "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"), "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
+PG_BASE = ["docker", "exec", "-i", "-e", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", os.environ.get("BIPROS_PG_CONTAINER", "bipros-postgres"), "psql", "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
 BACKUP = "/tmp/bipros-backup-2026-05-24.dump"
 TOKEN_FILE = os.environ.get("BIPROS_TOKEN_FILE", os.environ.get("BIPROS_WORK_DIR", "/tmp/khasab") + "/admin-token.txt")
 
@@ -97,7 +98,7 @@ print("STEP 2: CREATE 16 USERS")
 print("=" * 70)
 os.makedirs(os.environ.get("BIPROS_WORK_DIR", "/tmp/khasab"), exist_ok=True)
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-result = subprocess.run(["python3", os.path.join(_SCRIPT_DIR, "create_khasab_users.py")], capture_output=True, text=True, timeout=120)
+result = subprocess.run([sys.executable, os.path.join(_SCRIPT_DIR, "create_khasab_users.py")], capture_output=True, text=True, timeout=120)
 print(result.stdout[-800:])
 USER_IDS = json.load(open(os.environ.get("BIPROS_WORK_DIR", "/tmp/khasab") + "/user-ids.json"))
 
@@ -156,10 +157,10 @@ print(f"  Budget set to ₹5 Cr")
 print("\n" + "=" * 70)
 print("STEP 4: PROJECT TEAM + WBS")
 print("=" * 70)
-result = subprocess.run(["python3", os.path.join(_SCRIPT_DIR, "create_project_team.py")], capture_output=True, text=True, timeout=60)
+result = subprocess.run([sys.executable, os.path.join(_SCRIPT_DIR, "create_project_team.py")], capture_output=True, text=True, timeout=60)
 print(result.stdout.split("===")[-1][:500])
 
-result = subprocess.run(["python3", os.path.join(_SCRIPT_DIR, "create_wbs_and_activities.py")], capture_output=True, text=True, timeout=60)
+result = subprocess.run([sys.executable, os.path.join(_SCRIPT_DIR, "create_wbs_and_activities.py")], capture_output=True, text=True, timeout=60)
 print(result.stdout.split("=== Building WBS")[-1][:1500])
 WBS_IDS = json.load(open(os.environ.get("BIPROS_WORK_DIR", "/tmp/khasab") + "/wbs-ids.json"))
 

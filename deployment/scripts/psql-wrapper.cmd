@@ -1,25 +1,23 @@
 @echo off
-REM Windows counterpart of psql-wrapper.sh.
-REM Forwards `psql ...` to `docker exec -i bipros-postgres psql ...`,
-REM dropping -h/-p args (in-container psql uses the local socket).
+REM Debug-instrumented version - logs to a temp file what it received.
 setlocal enabledelayedexpansion
-
-set "CONTAINER=bipros-postgres"
-if not "%BIPROS_PG_CONTAINER%"=="" set "CONTAINER=%BIPROS_PG_CONTAINER%"
-
-set "ARGS="
+set "DBGF=%TEMP%\psql-wrapper-debug.log"
+echo --- invocation %TIME% --- > "%DBGF%"
+echo %%0 = %0 >> "%DBGF%"
+echo %%* = %* >> "%DBGF%"
+echo dp0 = %~dp0 >> "%DBGF%"
+set PSQL_ARGC=0
 :loop
 if "%~1"=="" goto done
-if /I "%~1"=="-h" ( shift & shift & goto loop )
-if /I "%~1"=="-p" ( shift & shift & goto loop )
-set "ARGS=%ARGS% %1"
+set /a PSQL_ARGC+=1
+set "PSQL_ARG_!PSQL_ARGC!=%~1"
+echo arg[!PSQL_ARGC!] = [%~1] >> "%DBGF%"
 shift
 goto loop
 :done
-
-if "%PGPASSWORD%"=="" (
-  docker exec -i %CONTAINER% psql%ARGS%
-) else (
-  docker exec -i -e PGPASSWORD=%PGPASSWORD% %CONTAINER% psql%ARGS%
-)
-endlocal
+echo PSQL_ARGC=%PSQL_ARGC% >> "%DBGF%"
+echo calling: powershell.exe -File "%~dp0psql-wrapper.ps1" >> "%DBGF%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0psql-wrapper.ps1"
+set RC=%ERRORLEVEL%
+echo RC=%RC% >> "%DBGF%"
+exit /b %RC%

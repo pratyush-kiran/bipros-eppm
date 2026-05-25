@@ -1,4 +1,4 @@
-# Requires: PowerShell 5.1+ and Docker Desktop.
+﻿# Requires: PowerShell 5.1+ and Docker Desktop.
 # Equivalent of deploy.sh for Windows.
 # Usage:
 #   .\deploy.ps1                # full deploy
@@ -13,7 +13,7 @@ param(
   [string]$EnvFile
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ScriptDir
 
@@ -122,7 +122,10 @@ function PreflightPorts {
   foreach ($p in $needed) {
     $conn = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue
     if ($conn) {
-      $byUs = (docker ps --format '{{.Ports}}' 2>$null) -match ":${p}->"
+      # Match single-port form ":9000->" AND range forms where the port appears
+      # either as the start (":9000-9001->") or the end (":9000-9001->" for 9001)
+      # of a contiguous range (e.g. MinIO 9000-9001).
+      $byUs = (docker ps --format '{{.Ports}}' 2>$null) -match ":(\d+-)?${p}(-\d+)?->"
       if (-not $byUs) { $inUse += $p }
     }
   }
@@ -178,7 +181,11 @@ function Wait-Url([string]$Url, [int]$TimeoutSec = 180) {
   while ($t -lt $TimeoutSec) {
     try {
       $r = Invoke-WebRequest -UseBasicParsing $Url -TimeoutSec 5
-      if ($r.Content -match 'UP') { return $true }
+      # PS 5.1 returns Content as byte[] when the response MIME isn't a known text
+      # type. /actuator/health uses application/vnd.spring-boot.actuator.v3+json,
+      # which falls through that classifier — decode explicitly so -match works.
+      $body = if ($r.Content -is [byte[]]) { [System.Text.Encoding]::UTF8.GetString($r.Content) } else { $r.Content }
+      if ($body -match 'UP') { return $true }
     } catch {}
     Start-Sleep -Seconds 5; $t += 5
     if ($t % 30 -eq 0) { Write-Info "  …still waiting (${t}s)" }
@@ -208,7 +215,9 @@ function StartBackend {
   Write-Stage "Start bipros-api (profile: $Profiles)"
   & docker compose up -d bipros-api 2>&1 | Out-File -Append $DeployLog
   Write-Info 'Waiting for backend health (up to 3 min)…'
-  if (-not (Wait-Url "http://localhost:$ApiPort/actuator/health" 180)) {
+  # Cold first boot needs >180s on Windows/Docker Desktop (21 modules + DDL +
+  # all seeders). Bumped to 360s; subsequent boots return in ~30s.
+  if (-not (Wait-Url "http://localhost:$ApiPort/actuator/health" 360)) {
     Write-Err 'Backend did not become healthy — last log lines:'
     & docker logs bipros-api --tail 20
     Die 'Backend boot failure'
@@ -269,6 +278,10 @@ function RunImportPreDpr {
   $env:BIPROS_EXCEL_DIR  = Join-Path $ScriptDir 'data\khasab-excel'
   # On Windows, the python scripts use `docker exec` via this wrapper.
   $env:BIPROS_PSQL       = Join-Path $ScriptDir 'scripts\psql-wrapper.cmd'
+  # Force python to use UTF-8 for stdout/stderr — Windows console codepage
+  # (cp1252) can't encode unicode glyphs the import scripts print (→, ✓, etc.),
+  # and a UnicodeEncodeError mid-loop kills user/activity creation silently.
+  $env:PYTHONIOENCODING  = 'utf-8'
 
   # Ensure openpyxl
   & python -c 'import openpyxl' 2>$null
@@ -279,7 +292,10 @@ function RunImportPreDpr {
   Write-Info '  parse_master_sheet.py';      & python "$imp\parse_master_sheet.py"      2>&1 | Select-Object -Last 3
   Write-Info '  analyze_resource_demand.py'; & python "$imp\analyze_resource_demand.py" 2>&1 | Select-Object -Last 3
   Write-Info '  rebuild_demo.py';            & python "$imp\rebuild_demo.py"            2>&1 | Select-Object -Last 15
-  Write-Info '  fix_role_assignments.py';    & python "$imp\fix_role_assignments.py"    2>&1 | Select-String -Pattern 'Total|created'
+  Write-Info '  seed_resource_rates.py';     & python "$imp\seed_resource_rates.py"     2>&1 | Select-Object -Last 5
+  Write-Info '  seed_productivity_norms.py'; & python "$imp\seed_productivity_norms.py" 2>&1 | Select-Object -Last 5
+  Write-Info '  fix_role_assignments.py';    & python "$imp\fix_role_assignments.py"    2>&1 | Select-String -Pattern '\[STAGE9\]|Detail'
+  Write-Info '  seed_boq_items.py';          & python "$imp\seed_boq_items.py"          2>&1 | Select-Object -Last 5
 
   Write-Info '  Re-locking activities for DPR ingest'
   $token = Get-Content -Raw (Join-Path $WorkDir 'admin-token.txt')
@@ -340,12 +356,44 @@ SELECT
   Write-Host "URLs:" -ForegroundColor White
   Write-Host "  Backend health:  http://localhost:$ApiPort/actuator/health"
   Write-Host "  Swagger UI:      http://localhost:$ApiPort/swagger-ui.html"
-  Write-Host "  pgAdmin:         http://localhost:$PgAdminPort   ($($env:PGADMIN_EMAIL ?? 'admin@bipros.io') / $($env:PGADMIN_PASSWORD ?? 'admin'))"
+  $pgEmail = if ($env:PGADMIN_EMAIL)    { $env:PGADMIN_EMAIL }    else { 'admin@bipros.io' }
+  $pgPass  = if ($env:PGADMIN_PASSWORD) { $env:PGADMIN_PASSWORD } else { 'admin' }
+  Write-Host "  pgAdmin:         http://localhost:$PgAdminPort   ($pgEmail / $pgPass)"
   Write-Host ""
   Write-Host "Admin login:      admin / admin123  " -NoNewline
   Write-Host "(change immediately for prod)" -ForegroundColor Yellow
   Write-Host ""
   Write-Host "Frontend: not in this stack — run `pnpm dev` in ..\frontend\"
+  Write-Host ""
+  # ─── Data-quality assertions ────────────────────────────────────────────
+  $qrows = (& docker exec bipros-postgres psql -U $PgUser -d $PgDb -At -F '|' -c @'
+SELECT 'dpr_zero_01', COUNT(*) FROM project.daily_progress_reports WHERE qty_executed = 0.01
+UNION ALL SELECT 'dpr_no_boq', COUNT(*) FROM project.daily_progress_reports WHERE boq_item_id IS NULL
+UNION ALL SELECT 'boq_items', COUNT(*) FROM project.boq_items
+UNION ALL SELECT 'productivity_norms', COUNT(*) FROM resource.productivity_norms
+'@ 2>$null) -split "`n" | Where-Object { $_ }
+
+  Write-Host ""
+  Write-Host "Data-quality assertions:" -ForegroundColor White
+  $bad = $false
+  foreach ($r in $qrows) {
+    $parts = $r -split '\|'
+    if ($parts.Count -lt 2) { continue }
+    $k = $parts[0].Trim()
+    $n = [int]$parts[1].Trim()
+    switch ($k) {
+      'dpr_zero_01'         { $ok = ($n -eq 0); if (-not $ok) { $bad = $true }; $label = "DPRs with qty=0.01     : $n (expect 0)" }
+      'dpr_no_boq'          { $ok = ($n -eq 0); if (-not $ok) { $bad = $true }; $label = "DPRs without BOQ link  : $n (expect 0)" }
+      'boq_items'           { $ok = ($n -gt 0); if (-not $ok) { $bad = $true }; $label = "BOQ items              : $n (expect > 0)" }
+      'productivity_norms'  { $ok = ($n -gt 0); if (-not $ok) { $bad = $true }; $label = "Productivity norms     : $n (expect > 0)" }
+      default               { $ok = $true; $label = "$k = $n" }
+    }
+    if ($ok) { Write-Host "  [OK]   $label" -ForegroundColor Green }
+    else     { Write-Host "  [BAD]  $label" -ForegroundColor Red }
+  }
+  if ($bad) {
+    Write-Warn "One or more data-quality assertions failed — investigate before shipping the demo."
+  }
   Write-Host ""
   Write-Host "Deploy log: $DeployLog"
 }

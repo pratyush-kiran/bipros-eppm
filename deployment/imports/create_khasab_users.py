@@ -56,11 +56,29 @@ for u in USERS:
         "lastName": u["lastName"] or " ",
     }
     code, resp = http("POST", "/v1/users", body)
-    if code != 200 and code != 201:
+    if code == 200 or code == 201:
+        uid = resp.get("data", {}).get("id")
+    else:
+        # User likely already exists from a prior partial run — look up the id
+        # via docker exec psql (any host that can reach this script can reach
+        # the bipros-postgres container).
         msg = resp.get("error", {}).get("message", resp.get("error") if isinstance(resp.get("error"), str) else "")
+        import subprocess as _sp
+        _container = os.environ.get("BIPROS_PG_CONTAINER", "bipros-postgres")
+        _pg_user = os.environ.get("BIPROS_PG_USER", "bipros")
+        _pg_db = os.environ.get("BIPROS_PG_DB", "bipros")
+        _pg_pass = os.environ.get("BIPROS_PG_PASS", "bipros_dev")
+        _out = _sp.run(["docker", "exec", "-i", "-e", f"PGPASSWORD={_pg_pass}", _container,
+                        "psql", "-U", _pg_user, "-d", _pg_db, "-At", "-c",
+                        f"SELECT id FROM public.users WHERE username='{u['username']}'"],
+                       capture_output=True, text=True, timeout=15)
+        uid = _out.stdout.strip()
+        if uid:
+            user_ids[u["username"]] = uid
+            print(f"  {u['username']}: existing {uid} (was: {code} {msg})")
+            continue
         print(f"  {u['username']}: CREATE FAIL {code} {msg}")
         continue
-    uid = resp.get("data", {}).get("id")
     user_ids[u["username"]] = uid
 
     # Assign role
