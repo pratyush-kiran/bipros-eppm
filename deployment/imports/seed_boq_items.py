@@ -83,11 +83,15 @@ def load_project_id():
 def load_activities(project_id):
     """Return list of dicts: {id, code, name, unit, wbs_node_id, wbs_code, planned_qty,
                               wa_id, mp_norm, eq_norm}."""
+    # activity.activities has neither `unit` nor `planned_quantity` columns
+    # (verified against live schema 2026-05-25). Fall back to work_activity's
+    # default_unit and 0 — main() then resolves planned_qty via observed DPR
+    # totals or DEFAULT_BOQ_QTY.
     rows = sql(f"""
 SELECT a.id::text, a.code, a.name,
-       COALESCE(wa.default_unit, a.unit, 'Nos') AS unit,
+       COALESCE(wa.default_unit, 'Nos') AS unit,
        a.wbs_node_id::text, w.code,
-       COALESCE(a.planned_quantity, 0)::float,
+       0::float AS planned_qty,
        a.work_activity_id::text
 FROM activity.activities a
 LEFT JOIN project.wbs_nodes w  ON w.id = a.wbs_node_id

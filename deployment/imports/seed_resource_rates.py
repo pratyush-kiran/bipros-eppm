@@ -117,29 +117,29 @@ def resolve_or_create_category(name_or_code):
         raw = "Skilled"
     upper = raw.upper()
     # Prefer name match (Java Stage 2 behaviour: human-readable name wins)
-    rows = sql(f"SELECT id::text FROM resource.manpower_category_masters "
+    rows = sql(f"SELECT id::text FROM resource.manpower_category_master "
                f"WHERE upper(name) = upper('{sql_escape(raw)}') LIMIT 1")
     if rows:
         return rows[0][0]
-    rows = sql(f"SELECT id::text FROM resource.manpower_category_masters "
+    rows = sql(f"SELECT id::text FROM resource.manpower_category_master "
                f"WHERE upper(code) = upper('{sql_escape(upper)}') LIMIT 1")
     if rows:
         return rows[0][0]
     # Create
-    rows = sql(f"INSERT INTO resource.manpower_category_masters "
+    rows = sql(f"INSERT INTO resource.manpower_category_master "
                f"(id, created_at, updated_at, active, code, name, sort_order) "
                f"VALUES (gen_random_uuid(), now(), now(), true, '{sql_escape(upper)}', "
                f"'{sql_escape(raw.title())}', 0) RETURNING id::text")
     return rows[0][0] if rows else None
 
 def resolve_or_create_grade(code):
-    """Resolve grade_masters by CODE, create if missing. Returns id (str) or None."""
+    """Resolve grade_master by CODE, create if missing. Returns id (str) or None."""
     raw = (code or "A").strip().upper()
-    rows = sql(f"SELECT id::text FROM resource.grade_masters "
+    rows = sql(f"SELECT id::text FROM resource.grade_master "
                f"WHERE upper(code) = upper('{sql_escape(raw)}') LIMIT 1")
     if rows:
         return rows[0][0]
-    rows = sql(f"INSERT INTO resource.grade_masters "
+    rows = sql(f"INSERT INTO resource.grade_master "
                f"(id, created_at, updated_at, active, code, name, sort_order) "
                f"VALUES (gen_random_uuid(), now(), now(), true, '{sql_escape(raw)}', "
                f"'Grade {sql_escape(raw)}', 0) RETURNING id::text")
