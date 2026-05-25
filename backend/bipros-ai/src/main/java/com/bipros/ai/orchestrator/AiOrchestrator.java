@@ -213,9 +213,11 @@ public class AiOrchestrator {
         String lastAssistantText = "";
         boolean naturalEnd = false;
         boolean anyToolCalled = false;       // any tool used this turn → answer is data-backed → must verify
+        boolean dbsToolCalled = false;       // a dbs_* tool fired this turn → DBS gate is satisfied
         boolean verificationInjected = false; // we only run the standard verification pass once per request
         boolean toolUseGateFired = false;     // distinct from verificationInjected: fires when first draft was tool-less
         boolean currencyGateFired = false;    // fires once if the currency cross-check forces a round
+        boolean dbsGateFired = false;         // fires once if the DBS gate forces a re-round
         String knownBudgetCurrency = resolveBudgetCurrency(ctx);
 
         for (int round = 0; round < cap; round++) {
@@ -232,6 +234,12 @@ public class AiOrchestrator {
                 executeToolsAndAppend(outcome.toolCalls, ctx, messages, sink);
                 lastAssistantText = outcome.text;
                 anyToolCalled = true;
+                for (LlmProvider.ToolCall tc : outcome.toolCalls) {
+                    if (tc.name() != null && tc.name().startsWith("dbs_")) {
+                        dbsToolCalled = true;
+                        break;
+                    }
+                }
                 // Refresh the project's budget_currency cache from the latest tool
                 // results — list_projects rows expose it on the row objects, so a
                 // call we just made may have populated what we need for the
@@ -259,6 +267,25 @@ public class AiOrchestrator {
                 sink.tryEmitNext(new ChatEvent("gate_blocked",
                         Map.of("reason", "tool_less_data_claim",
                                 "note", "Drafted a data answer without calling a tool — re-checking.")));
+                continue;
+            }
+
+            // Gate A2 — DBS RULES GATE.
+            // If the draft references DBS / sub-contractor money tokens (expense,
+            // income, contribution, margin, cumulative, section A–G, BOQ, …) but
+            // NO dbs_* tool fired this request, force a re-round that REQUIRES a
+            // dbs_* tool call. DBS rollups live in Postgres snapshot tables — the
+            // only honest source is the dbs_* tool family. Fires once per request.
+            if (!dbsGateFired && !dbsToolCalled && mentionsDbsTokens(candidate)) {
+                dbsGateFired = true;
+                messages.add(new LlmProvider.Message("assistant", candidate));
+                messages.add(new LlmProvider.Message("system",
+                        "You referenced DBS values but did not call a dbs_* tool. "
+                                + "Call the appropriate DBS tool and re-answer with the tool's exact numbers. "
+                                + "Do not estimate."));
+                sink.tryEmitNext(new ChatEvent("gate_blocked",
+                        Map.of("reason", "dbs_tokens_without_dbs_tool",
+                                "note", "Drafted DBS values without calling a dbs_* tool — re-checking.")));
                 continue;
             }
 
@@ -692,6 +719,10 @@ public class AiOrchestrator {
             (sub_contractor_work_activity_mappings). For sub-contractor-specific
             questions use get_subcontractor_kpis — default detail level: SC code + name
             + work-type + qty + cost + productivity factor.
+
+            """
+            + DBS_RULES_BLOCK
+            + """
 
             **CAPACITY UTILIZATION RULES (post-2026-05-22 allocator).**
 
@@ -1957,6 +1988,90 @@ public class AiOrchestrator {
         if (CODE_PATTERN.matcher(t).find()) return true;
         return false;
     }
+
+    /**
+     * Does the draft mention DBS / sub-contractor money tokens that REQUIRE a
+     * dbs_* tool call? Case-insensitive substring match across the token list.
+     * Used by the DBS gate to detect drafts that talk about DBS values without
+     * having called any DBS tool.
+     */
+    static boolean mentionsDbsTokens(String text) {
+        if (text == null || text.isEmpty()) return false;
+        String lower = text.toLowerCase();
+        for (String token : DBS_TOKENS) {
+            if (lower.contains(token)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Mandatory DBS subsection of the system prompt — extracted from the main
+     * prompt text block to keep that block under the JVM's 65,535-byte string
+     * constant limit. Concatenated into the prompt at build time.
+     */
+    private static final String DBS_RULES_BLOCK = """
+            === DBS RULES (read before answering any cost / income / contribution / sub-contractor question) ===
+
+            1. TOOL ROUTING (strict — DO NOT improvise):
+               - Money questions (expense, income, contribution, margin, sub-contractor cost, fuel cost, material cost, BOQ achieved value, cumulative cost/revenue): call `dbs_financial`.
+               - Headcount / utilization / "how many helpers were on site": call `dbs_report`.
+               - "Today's equipment-days" or "cumulative equipment-days": call `dbs_equipment_register`.
+               - "Today's man-days by trade" or "cumulative man-days": call `dbs_manpower_register`.
+               - "Who submitted DBS today" / supervisor roster for a date: call `dbs_list_supervisors`.
+               - Alert flags / negative-contribution scan: call `dbs_alerts`.
+               - "List sub-contractors" / "who are the sub-contractors" / "show the sub-contractor master" / "which activities use sub-contractor X" / "what work types is SC X configured for" / "what's the rate for SC X": call `list_sub_contractors` (NOT `get_subcontractor_kpis` — that's for performance / actual vs planned only).
+               - "Sub-contractor productivity" / "is SC under-performing" / "actual qty vs planned" / "cost variance" / "CPI" / "productivity factor": call `get_subcontractor_kpis`.
+               - NEVER call `query_clickhouse` for DBS — DBS rollups live in Postgres snapshot tables, not in ClickHouse.
+
+            2. LEVEL MAPPING (from UI tab):
+               - "Project Manager tab" / "project-wide" / "overall" / "total project" → level=PROJECT.
+               - "Supervisor X" / "Illayaraja" / "under <name>" / per-supervisor → level=SUPERVISOR + supervisorUserId. If user gives a name not a UUID, FIRST call `dbs_list_supervisors` to resolve the UUID.
+               - "Construction Manager" / "CM tab" / "under CM <name>" → level=CM + cmUserId.
+               - "Engineer" / "Site Manager tab" → level=ENGINEER + engineerUserId.
+
+            3. PERIOD MAPPING:
+               - "today", "yesterday", a specific date → periodType=DAY.
+               - "this week", "last week", "week of <date>" → periodType=WEEK.
+               - "this month", "May 2026", "last month" → periodType=MONTH.
+
+            4. SECTION ASYMMETRY (critical — easy to get wrong):
+               - Sections B (Admin/Catering), F (Sub-Contractor), G (General Expenses) are PROJECT-ONLY. Supervisor rows always carry 0 for these. Never attribute sub-contractor cost to an individual supervisor.
+               - Supervisor `totalIncome` is BOQ qty × rate NET of sub-contractor qty (because SC qty is invoiced via the project, not the supervisor). Project `totalIncome` is the FULL qty × rate.
+               - PM Section F. Sub-Contractor shows three numbers per SC line: expense = qty × scRate, imputedIncome = qty × boqRate, margin = imputedIncome − expense. `imputedIncome` is ALREADY INSIDE PM Total Income — do NOT add it again.
+
+            5. NO ARITHMETIC:
+               - Never sum, subtract, multiply, or compute percentages yourself. Quote the exact field from the tool response.
+               - If a derived number the user asks for isn't in the response (e.g., a derived ratio), call the tool again with `includeLines=true` or refuse — don't compute it.
+
+            6. CUMULATIVE vs PERIOD:
+               - PM "Cumulative to Date" comes from `cumulativeExpense / cumulativeIncome / cumulativeContribution` on `dbs_financial` PROJECT/DAY (read-time sum of all days ≤ this date).
+               - PM "PERIOD TOTAL" (week/month) comes from the period-rollup envelope's `totals` field — a different number. Do not conflate.
+
+            7. REFUSE-ON-UNCERTAINTY:
+               - If the tool returns no row for the requested date (e.g., no DPR was submitted yet), respond EXACTLY: "No DBS data recorded for <date> on <project>. Open the DBS screen to verify." Do not estimate. Do not infer from neighbouring days.
+
+            8. CURRENCY:
+               - Always render amounts with the project's currency code (the tool's summary line carries it; if missing, look up via project metadata). Round to 2 decimals using the value from the tool — never re-round.
+
+            9. WORKED EXAMPLES (copy this pattern for the two highest-stakes shapes):
+
+               User: "What was the total expense on KHASAB-001 on 23 May 2026?"
+               → call dbs_financial { projectId: <KHASAB>, level: PROJECT, periodType: DAY, date: 2026-05-23 }
+               → quote `totalExpense` and `currency` verbatim.
+
+               User: "What is Illayaraja's contribution this week?"
+               → call dbs_list_supervisors { projectId: <scope>, date: <today> } to resolve UUID
+               → call dbs_financial { projectId, level: SUPERVISOR, supervisorUserId, periodType: WEEK, date: <today> }
+               → quote `totals.contribution` and `totals.contributionPct` verbatim. Mention period bounds.
+            """;
+
+    private static final String[] DBS_TOKENS = {
+            "expense", "income", "contribution", "margin", "cumulative", "boq",
+            "section a", "section b", "section c", "section d", "section e",
+            "section f", "section g",
+            "sub-contractor", "subcontractor",
+            "manpower amount", "machinery amount", "fuel amount", "material amount"
+    };
 
     private static final Pattern DIGIT_PATTERN = Pattern.compile("\\d");
     /** Common currency symbols + ISO codes used in EPPM tenants. */
