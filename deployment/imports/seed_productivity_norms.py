@@ -97,16 +97,24 @@ def upsert_unscoped_norm(work_activity_id, activity_name, default_unit, norm_typ
 
     if rows:
         nid = rows[0][0]
+        # COALESCE on version/created_by heals pre-existing rows whose audit
+        # columns were left NULL by earlier runs of this script.
         if norm_type == "MANPOWER":
             result = sql(f"""UPDATE resource.productivity_norms
                     SET output_per_man_per_day = {value}, working_hours_per_day = {WORKING_HOURS_PER_DAY},
-                        unit = '{(default_unit or 'Nos').replace("'","''")}', updated_at = now()
+                        unit = '{(default_unit or 'Nos').replace("'","''")}', updated_at = now(),
+                        updated_by = 'SYSTEM',
+                        version = COALESCE(version, 0),
+                        created_by = COALESCE(created_by, 'SYSTEM')
                     WHERE id = '{nid}'""")
         else:
             result = sql(f"""UPDATE resource.productivity_norms
                     SET output_per_hour = {value}, output_per_day = {safe_lit(eq_per_day)},
                         working_hours_per_day = {WORKING_HOURS_PER_DAY},
-                        unit = '{(default_unit or 'Nos').replace("'","''")}', updated_at = now()
+                        unit = '{(default_unit or 'Nos').replace("'","''")}', updated_at = now(),
+                        updated_by = 'SYSTEM',
+                        version = COALESCE(version, 0),
+                        created_by = COALESCE(created_by, 'SYSTEM')
                     WHERE id = '{nid}'""")
         if result is None:
             counters[f"{norm_type.lower()}_failed"] += 1
@@ -114,9 +122,10 @@ def upsert_unscoped_norm(work_activity_id, activity_name, default_unit, norm_typ
             counters[f"{norm_type.lower()}_updated"] += 1
         return
 
-    cols = ["id", "created_at", "updated_at", "norm_type", "work_activity_id",
+    cols = ["id", "version", "created_at", "updated_at", "created_by", "updated_by",
+            "norm_type", "work_activity_id",
             "activity_name", "unit", "working_hours_per_day"]
-    vals = ["gen_random_uuid()", "now()", "now()",
+    vals = ["gen_random_uuid()", "0", "now()", "now()", "'SYSTEM'", "'SYSTEM'",
             f"'{norm_type}'", f"'{work_activity_id}'",
             f"'{(activity_name or '').replace(chr(39), chr(39)*2)}'",
             f"'{(default_unit or 'Nos').replace(chr(39), chr(39)*2)}'",
@@ -133,8 +142,20 @@ def upsert_unscoped_norm(work_activity_id, activity_name, default_unit, norm_typ
         counters[f"{norm_type.lower()}_inserted"] += 1
 
 
+def heal_audit_nulls():
+    """Backfill NULL version/created_by/updated_by on rows inserted by earlier
+    runs before the audit-column fix. Hibernate's @Version cannot be NULL —
+    leaving it NULL causes NullPointerException in any auto-flush path."""
+    sql("UPDATE resource.productivity_norms SET "
+        "version = COALESCE(version, 0), "
+        "created_by = COALESCE(created_by, 'SYSTEM'), "
+        "updated_by = COALESCE(updated_by, 'SYSTEM') "
+        "WHERE version IS NULL OR created_by IS NULL OR updated_by IS NULL")
+
+
 def main():
     from collections import defaultdict
+    heal_audit_nulls()
     counters = defaultdict(int)
 
     rows = sql("SELECT id::text, code, name, default_unit FROM resource.work_activities "

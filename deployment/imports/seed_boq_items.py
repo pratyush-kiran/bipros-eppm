@@ -156,6 +156,10 @@ def upsert_boq_item(project_id, item_no, description, unit, chapter, wbs_node_id
         return None
     if rows:
         bid = rows[0][0]
+        # COALESCE on version/created_by heals pre-existing rows whose audit
+        # columns were left NULL by earlier runs of this script. Hibernate's
+        # @Version field cannot be NULL — NULL trips a NullPointerException in
+        # DprBoqSyncListener → BoqService.addExecutedQty during DPR ingest.
         result = sql(f"""UPDATE project.boq_items SET
                   description    = '{sql_escape(description)}',
                   unit           = '{sql_escape(unit)}',
@@ -166,7 +170,10 @@ def upsert_boq_item(project_id, item_no, description, unit, chapter, wbs_node_id
                   boq_amount     = {boq_amount},
                   budgeted_rate  = {budgeted_rate},
                   budgeted_amount= {budgeted_amount},
-                  updated_at     = now()
+                  updated_at     = now(),
+                  updated_by     = 'SYSTEM',
+                  version        = COALESCE(version, 0),
+                  created_by     = COALESCE(created_by, 'SYSTEM')
                 WHERE id = '{bid}'""")
         if result is None:
             counters["failed"] += 1
@@ -175,10 +182,11 @@ def upsert_boq_item(project_id, item_no, description, unit, chapter, wbs_node_id
         return bid
 
     ins = sql(f"""INSERT INTO project.boq_items
-        (id, created_at, updated_at, project_id, item_no, description, unit, chapter,
+        (id, version, created_at, updated_at, created_by, updated_by,
+         project_id, item_no, description, unit, chapter,
          wbs_node_id, boq_qty, boq_rate, boq_amount, budgeted_rate, budgeted_amount,
          qty_executed_to_date, actual_rate, actual_amount, status)
-        VALUES (gen_random_uuid(), now(), now(),
+        VALUES (gen_random_uuid(), 0, now(), now(), 'SYSTEM', 'SYSTEM',
                 '{project_id}', '{sql_escape(item_no)}', '{sql_escape(description)}', '{sql_escape(unit)}',
                 {chap_lit}, {wbs_lit},
                 {boq_qty}, {boq_rate}, {boq_amount}, {budgeted_rate}, {budgeted_amount},
@@ -191,10 +199,25 @@ def upsert_boq_item(project_id, item_no, description, unit, chapter, wbs_node_id
     return ins[0][0]
 
 
+# ─────────────────────────── Audit-column heal ───────────────────────────
+
+def heal_audit_nulls():
+    """Backfill NULL version/created_by/updated_by on BOQ rows inserted by
+    earlier runs before the audit-column fix. Hibernate's @Version cannot be
+    NULL — leaving it NULL crashes DprBoqSyncListener.applyCreate during DPR
+    ingest with: 'Cannot invoke java.lang.Long.longValue() because current is null'."""
+    sql("UPDATE project.boq_items SET "
+        "version = COALESCE(version, 0), "
+        "created_by = COALESCE(created_by, 'SYSTEM'), "
+        "updated_by = COALESCE(updated_by, 'SYSTEM') "
+        "WHERE version IS NULL OR created_by IS NULL OR updated_by IS NULL")
+
+
 # ─────────────────────────── Main ───────────────────────────
 
 def main():
     from collections import defaultdict
+    heal_audit_nulls()
     counters = defaultdict(int)
 
     project_id = load_project_id()

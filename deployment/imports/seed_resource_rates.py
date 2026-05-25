@@ -127,9 +127,11 @@ def resolve_or_create_category(name_or_code):
         return rows[0][0]
     # Create
     rows = sql(f"INSERT INTO resource.manpower_category_master "
-               f"(id, created_at, updated_at, active, code, name, sort_order) "
-               f"VALUES (gen_random_uuid(), now(), now(), true, '{sql_escape(upper)}', "
-               f"'{sql_escape(raw.title())}', 0) RETURNING id::text")
+               f"(id, version, created_at, updated_at, created_by, updated_by, "
+               f"active, code, name, sort_order) "
+               f"VALUES (gen_random_uuid(), 0, now(), now(), 'SYSTEM', 'SYSTEM', "
+               f"true, '{sql_escape(upper)}', '{sql_escape(raw.title())}', 0) "
+               f"RETURNING id::text")
     return rows[0][0] if rows else None
 
 def resolve_or_create_grade(code):
@@ -140,9 +142,11 @@ def resolve_or_create_grade(code):
     if rows:
         return rows[0][0]
     rows = sql(f"INSERT INTO resource.grade_master "
-               f"(id, created_at, updated_at, active, code, name, sort_order) "
-               f"VALUES (gen_random_uuid(), now(), now(), true, '{sql_escape(raw)}', "
-               f"'Grade {sql_escape(raw)}', 0) RETURNING id::text")
+               f"(id, version, created_at, updated_at, created_by, updated_by, "
+               f"active, code, name, sort_order) "
+               f"VALUES (gen_random_uuid(), 0, now(), now(), 'SYSTEM', 'SYSTEM', "
+               f"true, '{sql_escape(raw)}', 'Grade {sql_escape(raw)}', 0) "
+               f"RETURNING id::text")
     return rows[0][0] if rows else None
 
 
@@ -161,17 +165,23 @@ def upsert_manpower_rate(role_id, role_code, cat_name, grade_code, counters):
     if rows:
         existing_rate = float(rows[0][1]) if rows[0][1] else 0.0
         if abs(existing_rate - rate) > 0.001:
+            # COALESCE on version/created_by heals any pre-existing rows that
+            # were inserted before the audit-column fix (where version=NULL).
             sql(f"UPDATE resource.manpower_role_rates SET rate = {rate}, "
-                f"unit = '{UNIT_DAY}', active = true, updated_at = now() "
+                f"unit = '{UNIT_DAY}', active = true, updated_at = now(), "
+                f"updated_by = 'SYSTEM', "
+                f"version = COALESCE(version, 0), "
+                f"created_by = COALESCE(created_by, 'SYSTEM') "
                 f"WHERE id = '{rows[0][0]}'")
             counters["mp_updated"] += 1
         else:
             counters["mp_unchanged"] += 1
         return
     sql(f"INSERT INTO resource.manpower_role_rates "
-        f"(id, created_at, updated_at, active, role_id, category_id, grade_id, unit, rate) "
-        f"VALUES (gen_random_uuid(), now(), now(), true, '{role_id}', "
-        f"'{cat_id}', '{grade_id}', '{UNIT_DAY}', {rate})")
+        f"(id, version, created_at, updated_at, created_by, updated_by, "
+        f"active, role_id, category_id, grade_id, unit, rate) "
+        f"VALUES (gen_random_uuid(), 0, now(), now(), 'SYSTEM', 'SYSTEM', "
+        f"true, '{role_id}', '{cat_id}', '{grade_id}', '{UNIT_DAY}', {rate})")
     counters["mp_inserted"] += 1
 
 def upsert_equipment_variant(role_id, role_code, make, model, counters):
@@ -185,16 +195,20 @@ def upsert_equipment_variant(role_id, role_code, make, model, counters):
         existing_rate = float(rows[0][1]) if rows[0][1] else 0.0
         if abs(existing_rate - rate) > 0.001:
             sql(f"UPDATE resource.equipment_role_variants SET rate = {rate}, "
-                f"unit = '{UNIT_DAY}', active = true, updated_at = now() "
+                f"unit = '{UNIT_DAY}', active = true, updated_at = now(), "
+                f"updated_by = 'SYSTEM', "
+                f"version = COALESCE(version, 0), "
+                f"created_by = COALESCE(created_by, 'SYSTEM') "
                 f"WHERE id = '{rows[0][0]}'")
             counters["eq_updated"] += 1
         else:
             counters["eq_unchanged"] += 1
         return
     sql(f"INSERT INTO resource.equipment_role_variants "
-        f"(id, created_at, updated_at, active, role_id, make, model, unit, rate) "
-        f"VALUES (gen_random_uuid(), now(), now(), true, '{role_id}', "
-        f"'{sql_escape(safe_make)}', '{sql_escape(safe_model)}', "
+        f"(id, version, created_at, updated_at, created_by, updated_by, "
+        f"active, role_id, make, model, unit, rate) "
+        f"VALUES (gen_random_uuid(), 0, now(), now(), 'SYSTEM', 'SYSTEM', "
+        f"true, '{role_id}', '{sql_escape(safe_make)}', '{sql_escape(safe_model)}', "
         f"'{UNIT_DAY}', {rate})")
     counters["eq_inserted"] += 1
 
@@ -208,16 +222,20 @@ def upsert_material_variant(role_id, role_code, spec_grade, counters):
         existing_rate = float(rows[0][1]) if rows[0][1] else 0.0
         if abs(existing_rate - rate) > 0.001:
             sql(f"UPDATE resource.material_role_variants SET rate = {rate}, "
-                f"unit = '{sql_escape(unit)}', active = true, updated_at = now() "
+                f"unit = '{sql_escape(unit)}', active = true, updated_at = now(), "
+                f"updated_by = 'SYSTEM', "
+                f"version = COALESCE(version, 0), "
+                f"created_by = COALESCE(created_by, 'SYSTEM') "
                 f"WHERE id = '{rows[0][0]}'")
             counters["mt_updated"] += 1
         else:
             counters["mt_unchanged"] += 1
         return
     sql(f"INSERT INTO resource.material_role_variants "
-        f"(id, created_at, updated_at, active, role_id, spec_grade, unit, rate) "
-        f"VALUES (gen_random_uuid(), now(), now(), true, '{role_id}', "
-        f"'{sql_escape(safe_spec)}', '{sql_escape(unit)}', {rate})")
+        f"(id, version, created_at, updated_at, created_by, updated_by, "
+        f"active, role_id, spec_grade, unit, rate) "
+        f"VALUES (gen_random_uuid(), 0, now(), now(), 'SYSTEM', 'SYSTEM', "
+        f"true, '{role_id}', '{sql_escape(safe_spec)}', '{sql_escape(unit)}', {rate})")
     counters["mt_inserted"] += 1
 
 
@@ -254,10 +272,34 @@ def load_observed_combos():
     return mp_combos, eq_combos, mt_combos
 
 
+# ─────────────────────────── Audit-column heal (idempotent) ───────────────────────────
+
+def heal_audit_nulls():
+    """Backfill NULL version/created_by/updated_by on rows inserted by earlier
+    runs of these scripts before the audit-column fix was added. Hibernate's
+    @Version field cannot be NULL — leaving it NULL causes a NullPointerException
+    in any code path that auto-flushes a dirty entity (e.g. DPR submit →
+    DprBoqSyncListener → BoqService.addExecutedQty). One-shot fix; subsequent
+    runs are no-ops once all NULLs are healed."""
+    for table in [
+        "resource.manpower_category_master",
+        "resource.grade_master",
+        "resource.manpower_role_rates",
+        "resource.equipment_role_variants",
+        "resource.material_role_variants",
+    ]:
+        sql(f"UPDATE {table} SET "
+            f"version = COALESCE(version, 0), "
+            f"created_by = COALESCE(created_by, 'SYSTEM'), "
+            f"updated_by = COALESCE(updated_by, 'SYSTEM') "
+            f"WHERE version IS NULL OR created_by IS NULL OR updated_by IS NULL")
+
+
 # ─────────────────────────── Main ───────────────────────────
 
 def main():
     counters = defaultdict(int)
+    heal_audit_nulls()
 
     rows = sql("SELECT rr.id::text, rr.code, rr.name, rt.code "
                "FROM resource.resource_roles rr "
