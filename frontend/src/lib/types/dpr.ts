@@ -82,6 +82,24 @@ export interface DprMaterialRow {
   roleId?: string | null;
 }
 
+export interface DprSubContractorRow {
+  id?: string | null;
+  /** Required FK to a planned ActivitySubContractorAssignment for this activity. */
+  activitySubContractorAssignmentId: string;
+  // Snapshots — populated by server on read.
+  subContractorMasterId?: string | null;
+  subContractorName?: string | null;
+  subContractorCode?: string | null;
+  workActivityName?: string | null;
+  unit?: string | null;
+  ratePerUnit?: number | null;
+  /** Required — units delivered by this sub-contractor on this DPR's date. */
+  quantity: number;
+  /** Computed = quantity × ratePerUnit. Response-only. */
+  lineCost?: number | null;
+  remarks?: string | null;
+}
+
 export type IssueCategory =
   | "SAFETY"
   | "QUALITY"
@@ -199,6 +217,7 @@ export interface DprBaseFields {
   manpower?: DprManpowerRow[];
   equipment?: DprEquipmentRow[];
   materials?: DprMaterialRow[];
+  subContractors?: DprSubContractorRow[];
   issues?: DprIssueRow[];
 }
 
@@ -226,6 +245,7 @@ export interface DailyProgressReportResponse extends DprBaseFields {
   manpower: DprManpowerRow[];
   equipment: DprEquipmentRow[];
   materials: DprMaterialRow[];
+  subContractors: DprSubContractorRow[];
   attachments?: DprAttachment[];
   issues?: DprIssueRow[];
   /** Server-side warnings (e.g. rate-missing:trade-name, assignment-not-found:uuid). */
@@ -234,3 +254,42 @@ export interface DailyProgressReportResponse extends DprBaseFields {
 
 export type CreateDailyProgressReportRequest = DprBaseFields;
 export type UpdateDailyProgressReportRequest = DprBaseFields;
+
+/**
+ * Slim DPR list row returned by the paginated list endpoint. Carries parent fields used by the
+ * Day → Activity → Work-front grouping + collapsed row, plus precomputed child aggregates. Full
+ * child detail (manpower/equipment/material/sub-contractor/issue rows, cumulativeQty, landmark,
+ * remarks) comes from GET /dpr/{id} on row expand — see DailyProgressReportResponse.
+ */
+export interface DprSummaryRow {
+  id: string;
+  projectId: string;
+  reportDate: string;
+  supervisorUserId?: string | null;
+  supervisorName: string;
+  chainageFromM?: number | null;
+  chainageToM?: number | null;
+  activityId?: string | null;
+  activityName: string;
+  boqItemNo?: string | null;
+  unit: string;
+  qtyExecuted?: number | null;
+  side?: Side | null;
+  approvalStatus?: DprApprovalStatus | null;
+  weatherCondition?: string | null;
+  manpowerNos: number;
+  equipmentNos: number;
+  materialCount: number;
+  photoCount: number;
+  issueCount: number;
+  openIssueCount: number;
+  hasCriticalOpen: boolean;
+}
+
+/** One page of the day-cursored DPR list. */
+export interface DprPage {
+  items: DprSummaryRow[];
+  /** Oldest report date in this batch; pass as `before` for the next page. Null when no more. */
+  nextCursor: string | null;
+  hasMore: boolean;
+}

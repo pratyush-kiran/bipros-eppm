@@ -58,6 +58,7 @@ class DailyProgressReportServiceIssuesTest {
     @Mock private DprManpowerRepository manpowerRepository;
     @Mock private DprEquipmentRepository equipmentRepository;
     @Mock private DprMaterialRepository materialRepository;
+    @Mock private com.bipros.project.domain.repository.DprSubContractorRepository subContractorRepository;
     @Mock private DprAttachmentRepository attachmentRepository;
     @Mock private DprIssueRepository issueRepository;
     @Mock private DprAttachmentStorageService attachmentStorage;
@@ -78,8 +79,11 @@ class DailyProgressReportServiceIssuesTest {
     void setUp() {
         service = new DailyProgressReportService(
                 dprRepository, manpowerRepository, equipmentRepository, materialRepository,
-                attachmentRepository, issueRepository, attachmentStorage,
+                subContractorRepository, attachmentRepository, issueRepository, attachmentStorage,
                 projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
+        lenient().when(subContractorRepository.findByDprIdOrderBySubContractorNameAsc(any()))
+                .thenReturn(java.util.List.of());
+        lenient().when(subContractorRepository.findByDprIdIn(any())).thenReturn(java.util.List.of());
         lenient().when(projectRepository.existsById(projectId)).thenReturn(true);
         lenient().when(dprRepository.findById(dprId)).thenReturn(Optional.of(baseDpr()));
         lenient().when(dprRepository.sumQtyExecutedThroughDate(any(), any(), any())).thenReturn(BigDecimal.ZERO);
@@ -278,7 +282,7 @@ class DailyProgressReportServiceIssuesTest {
                 null, null, activityId, "Bench Cutting", null, null, null, "Cum",
                 new BigDecimal("80.0"), null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null,
+                null, null, null, null,
                 issues);
     }
 

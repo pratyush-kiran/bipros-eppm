@@ -62,6 +62,15 @@ public class DbsDailyProject extends BaseEntity {
     private BigDecimal subcontractAmount;
 
     /**
+     * Serialised list of {@code SubContractLine} entries used by the PM tab's
+     * F. Sub-Contractor accordion. PM scope only — supervisor / engineer / CM
+     * rollups intentionally do not carry sub-contractor breakdowns
+     * (different domain entity, not attributed under a supervisor).
+     */
+    @Column(name = "subcontract_lines_json", columnDefinition = "TEXT")
+    private String subcontractLinesJson;
+
+    /**
      * Section G — General Expenses (monthly overheads), prorated to this day.
      * Computed as {@code monthlyTotal / yearMonth.lengthOfMonth()} so that the
      * day-view sum across the month equals the logged monthly total. PM tier

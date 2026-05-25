@@ -14,6 +14,18 @@ import {
   roleAssignmentApi,
   type RoleAssignmentResponse,
 } from "@/lib/api/roleAssignmentApi";
+import {
+  subContractorMasterApi,
+  type SubContractorMaster,
+  type SubContractorWorkActivityMappingRow,
+} from "@/lib/api/subContractorMasterApi";
+import {
+  activitySubContractorApi,
+  type ActivitySubContractorAssignment,
+} from "@/lib/api/activitySubContractorApi";
+import { activityApi } from "@/lib/api/activityApi";
+import { extractApiError } from "@/lib/api/extractApiError";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 
 interface Props {
   projectId: string;
@@ -59,9 +71,38 @@ export function RoleDemandSections({
     [assignmentsResp],
   );
 
+  const { data: subContractorResp, refetch: refetchSubContractors } = useQuery({
+    queryKey: ["sub-contractor-assignments", projectId, activityId],
+    queryFn: () => activitySubContractorApi.listForActivity(projectId, activityId),
+  });
+  const subContractorAssignments = useMemo<ActivitySubContractorAssignment[]>(
+    () => (Array.isArray(subContractorResp?.data) ? subContractorResp.data : []),
+    [subContractorResp],
+  );
+
+  const { data: mastersResp } = useQuery({
+    queryKey: ["sub-contractor-masters"],
+    queryFn: () => subContractorMasterApi.list(),
+  });
+  const subContractorMasters = useMemo<SubContractorMaster[]>(
+    () => (Array.isArray(mastersResp?.data) ? mastersResp.data : []),
+    [mastersResp],
+  );
+
+  // The activity's workdone unit (mirror of WorkActivity.defaultUnit) is needed to
+  // filter the sub-contractor's work-activity dropdown so only mappings with the
+  // matching unit are offered for planning.
+  const { data: activityResp } = useQuery({
+    queryKey: ["activity", projectId, activityId],
+    queryFn: () => activityApi.getActivity(projectId, activityId),
+  });
+  const activityUnit = activityResp?.data?.workActivityDefaultUnit ?? null;
+
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["role-assignments", projectId, activityId] });
+    qc.invalidateQueries({ queryKey: ["sub-contractor-assignments", projectId, activityId] });
     void refetch();
+    void refetchSubContractors();
     onChanged?.();
   };
 
@@ -116,6 +157,15 @@ export function RoleDemandSections({
         activityId={activityId}
         roles={materialRoles}
         rows={materialAssignments}
+        onChanged={refresh}
+        locked={locked}
+      />
+      <SubContractorSection
+        projectId={projectId}
+        activityId={activityId}
+        masters={subContractorMasters}
+        rows={subContractorAssignments}
+        activityUnit={activityUnit}
         onChanged={refresh}
         locked={locked}
       />
@@ -181,13 +231,13 @@ function ManpowerSection({
       onChanged();
     },
     onError: (e: unknown) =>
-      setError(e instanceof Error ? e.message : "Failed to add manpower"),
+      setError(extractApiError(e, "Failed to add manpower")),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => roleAssignmentApi.delete(id),
     onSuccess: () => onChanged(),
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to remove row"),
+    onError: (e: unknown) => setError(extractApiError(e, "Failed to remove row")),
   });
 
   const update = useMutation({
@@ -205,7 +255,7 @@ function ManpowerSection({
         headcount: value,
       }),
     onSuccess: () => onChanged(),
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
+    onError: (e: unknown) => setError(extractApiError(e, "Failed to update row")),
   });
 
   return (
@@ -348,13 +398,13 @@ function EquipmentSection({
       onChanged();
     },
     onError: (e: unknown) =>
-      setError(e instanceof Error ? e.message : "Failed to add equipment"),
+      setError(extractApiError(e, "Failed to add equipment")),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => roleAssignmentApi.delete(id),
     onSuccess: () => onChanged(),
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to remove row"),
+    onError: (e: unknown) => setError(extractApiError(e, "Failed to remove row")),
   });
 
   const update = useMutation({
@@ -372,7 +422,7 @@ function EquipmentSection({
         headcount: value,
       }),
     onSuccess: () => onChanged(),
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
+    onError: (e: unknown) => setError(extractApiError(e, "Failed to update row")),
   });
 
   return (
@@ -513,13 +563,13 @@ function MaterialSection({
       onChanged();
     },
     onError: (e: unknown) =>
-      setError(e instanceof Error ? e.message : "Failed to add material"),
+      setError(extractApiError(e, "Failed to add material")),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => roleAssignmentApi.delete(id),
     onSuccess: () => onChanged(),
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to remove row"),
+    onError: (e: unknown) => setError(extractApiError(e, "Failed to remove row")),
   });
 
   const update = useMutation({
@@ -531,7 +581,7 @@ function MaterialSection({
         quantity: value,
       }),
     onSuccess: () => onChanged(),
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Failed to update row"),
+    onError: (e: unknown) => setError(extractApiError(e, "Failed to update row")),
   });
 
   return (
@@ -615,6 +665,235 @@ function MaterialSection({
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />
+    </section>
+  );
+}
+
+// =============================================================================
+// Sub-Contractor
+// =============================================================================
+
+interface SubContractorSectionProps {
+  projectId: string;
+  activityId: string;
+  masters: SubContractorMaster[];
+  rows: ActivitySubContractorAssignment[];
+  /** Activity's workdone unit (from WorkActivity.defaultUnit). When set, the
+   *  Work Activity dropdown is filtered to mappings whose unit matches
+   *  (case-insensitive). Null means "no filter" (e.g. activity has no linked
+   *  work activity). */
+  activityUnit: string | null;
+  onChanged: () => void;
+  locked: boolean;
+}
+
+function SubContractorSection({
+  projectId,
+  activityId,
+  masters,
+  rows,
+  activityUnit,
+  onChanged,
+  locked,
+}: SubContractorSectionProps) {
+  const [masterId, setMasterId] = useState("");
+  const [scWorkTypeId, setScWorkTypeId] = useState("");
+  const [plannedUnits, setPlannedUnits] = useState<number>(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const activeMasters = useMemo(
+    () => masters.filter((m) => m.active),
+    [masters],
+  );
+
+  const selectedMaster = useMemo(
+    () => activeMasters.find((m) => m.id === masterId),
+    [activeMasters, masterId],
+  );
+
+  const mappings = useMemo<SubContractorWorkActivityMappingRow[]>(
+    () => {
+      const all = selectedMaster?.workActivityMappings ?? [];
+      if (!activityUnit) return all;
+      return all.filter(
+        (m) => m.unit && m.unit.toLowerCase() === activityUnit.toLowerCase(),
+      );
+    },
+    [selectedMaster, activityUnit],
+  );
+
+  const noMatchingMappings =
+    !!selectedMaster && !!activityUnit && mappings.length === 0;
+
+  const mappingOptions = useMemo(
+    () =>
+      mappings.map((m) => {
+        const name = m.workTypeName ?? m.scWorkTypeId;
+        const tail: string[] = [];
+        if (m.unit) tail.push(m.unit);
+        if (m.ratePerUnit != null) tail.push(`@ ₹${m.ratePerUnit.toFixed(2)}`);
+        return {
+          value: m.scWorkTypeId,
+          label: tail.length ? `${name} — ${tail.join(" ")}` : name,
+        };
+      }),
+    [mappings],
+  );
+
+  const selectedMapping = useMemo(
+    () => mappings.find((m) => m.scWorkTypeId === scWorkTypeId),
+    [mappings, scWorkTypeId],
+  );
+
+  const rate = selectedMapping?.ratePerUnit ?? 0;
+  const plannedCost = rate * plannedUnits;
+
+  const create = useMutation({
+    mutationFn: () =>
+      activitySubContractorApi.create(projectId, {
+        activityId,
+        subContractorMasterId: masterId,
+        scWorkTypeId,
+        plannedUnits,
+      }),
+    onSuccess: () => {
+      setMasterId("");
+      setScWorkTypeId("");
+      setPlannedUnits(0);
+      setError(null);
+      onChanged();
+    },
+    onError: (e: unknown) =>
+      setError(extractApiError(e, "Failed to add sub-contractor")),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => activitySubContractorApi.delete(id),
+    onSuccess: () => onChanged(),
+    onError: (e: unknown) => setError(extractApiError(e, "Failed to remove row")),
+  });
+
+  return (
+    <section className="rounded-md border border-border bg-surface p-3">
+      <h4 className="mb-2 text-sm font-semibold">Sub-Contractor Requirements</h4>
+      {error && <div className="mb-2 text-xs text-danger">{error}</div>}
+      <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+        <label className="text-xs">
+          <span className="text-text-muted">Sub-Contractor</span>
+          <SearchableSelect
+            className="w-56"
+            options={activeMasters.map((m) => ({
+              value: m.id,
+              label: `${m.name} (${m.code})`,
+            }))}
+            value={masterId}
+            onChange={(val) => {
+              setMasterId(val);
+              setScWorkTypeId("");
+            }}
+            placeholder="— pick sub-contractor —"
+            disabled={locked}
+          />
+        </label>
+        <label className="text-xs">
+          <span className="text-text-muted">Work Type</span>
+          <SearchableSelect
+            className="w-56"
+            options={mappingOptions}
+            value={scWorkTypeId}
+            onChange={(val) => setScWorkTypeId(val)}
+            placeholder={masterId ? "— pick work type —" : "Select sub-contractor first"}
+            disabled={locked || !masterId || noMatchingMappings}
+          />
+          {noMatchingMappings && (
+            <span className="mt-1 block text-[11px] text-danger">
+              This sub-contractor has no work type mappings with unit
+              {" "}&quot;{activityUnit}&quot;.
+            </span>
+          )}
+        </label>
+        <label className="text-xs">
+          <span className="text-text-muted">
+            Quantity {selectedMapping?.unit ? `(${selectedMapping.unit})` : ""}
+          </span>
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            value={plannedUnits}
+            onChange={(e) => setPlannedUnits(parseFloat(e.target.value) || 0)}
+            disabled={locked}
+            className="w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm disabled:opacity-50"
+          />
+        </label>
+        <button
+          disabled={locked || !masterId || !scWorkTypeId || !plannedUnits || create.isPending}
+          onClick={() => create.mutate()}
+          className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+        >
+          <Plus className="h-3.5 w-3.5" /> Add
+        </button>
+      </div>
+
+      {selectedMapping && (
+        <div className="mt-2 text-xs text-text-muted">
+          Rate: <b>₹{rate.toFixed(2)}</b> per {selectedMapping.unit ?? "unit"}
+          {plannedUnits > 0 && (
+            <>
+              {" "}· Planned: <b>{plannedUnits}</b> · Cost:{" "}
+              <b>₹{plannedCost.toFixed(2)}</b>
+            </>
+          )}
+        </div>
+      )}
+
+      {rows.length === 0 ? (
+        <p className="mt-3 text-xs text-text-muted">No rows added yet.</p>
+      ) : (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="border-b border-border text-text-muted">
+              <tr>
+                <th className="py-1.5 pr-2 text-left font-medium">Sub-Contractor</th>
+                <th className="py-1.5 pr-2 text-left font-medium">Work Activity</th>
+                <th className="py-1.5 pr-2 text-left font-medium">Unit</th>
+                <th className="py-1.5 pr-2 text-right font-medium">Qty</th>
+                <th className="py-1.5 pr-2 text-right font-medium">Rate</th>
+                <th className="py-1.5 pr-2 text-right font-medium">Cost</th>
+                <th className="py-1.5 text-right" />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-b border-border/40">
+                  <td className="py-1.5 pr-2">{r.subContractorName ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{r.workTypeName ?? "—"}</td>
+                  <td className="py-1.5 pr-2">{r.unit ?? "—"}</td>
+                  <td className="py-1.5 pr-2 text-right">
+                    {r.plannedUnits != null ? r.plannedUnits.toFixed(2) : "—"}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right">
+                    {r.ratePerUnit != null ? `₹${r.ratePerUnit.toFixed(2)}` : "—"}
+                  </td>
+                  <td className="py-1.5 pr-2 text-right">
+                    {r.plannedCost != null ? `₹${r.plannedCost.toFixed(2)}` : "—"}
+                  </td>
+                  <td className="py-1.5 text-right">
+                    <button
+                      onClick={() => remove.mutate(r.id)}
+                      disabled={locked}
+                      className="text-danger hover:opacity-80 disabled:opacity-40"
+                      title={locked ? "Activity is locked" : "Remove"}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 inline" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

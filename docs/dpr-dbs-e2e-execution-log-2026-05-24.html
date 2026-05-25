@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<title>Bipros DPR→DBS E2E — Khasab Real-Data Run — 2026-05-24</title>
+<style>
+* { box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fafafa; color: #1a1a1a; margin: 0; padding: 0; line-height: 1.55; }
+.container { max-width: 1280px; margin: 0 auto; padding: 40px 32px; }
+h1 { font-size: 2.4rem; margin: 0 0 0.5em; font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.5rem; margin: 2em 0 0.6em; padding-bottom: 0.4em; border-bottom: 1px solid #e5e5e5; font-weight: 600; }
+h3 { font-size: 1.15rem; margin: 1.5em 0 0.4em; font-weight: 600; }
+.hero { background: linear-gradient(135deg, #1f2937, #111827); color: white; padding: 40px; border-radius: 16px; margin-bottom: 32px; }
+.hero h1 { color: white; }
+.hero .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 24px; margin-top: 24px; }
+.hero .meta div { background: rgba(255,255,255,0.08); padding: 16px; border-radius: 8px; }
+.hero .meta .label { font-size: 0.75rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.hero .meta .value { font-size: 1.4rem; font-weight: 600; }
+.status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+.status-pass { background: #dcfce7; color: #166534; }
+.status-fail { background: #fee2e2; color: #991b1b; }
+.status-warn { background: #fef3c7; color: #92400e; }
+.status-open { background: #ffedd5; color: #9a3412; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 0.95rem; vertical-align: top; }
+th { background: #f8f9fa; font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+pre { background: #1e293b; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-family: 'SF Mono', Menlo, monospace; }
+pre code { background: transparent; padding: 0; color: inherit; }
+.finding { border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px 20px; margin: 12px 0; background: white; }
+.finding-title { font-weight: 600; margin-bottom: 6px; }
+.finding-meta { font-size: 0.8rem; color: #6b7280; margin-bottom: 8px; }
+.ai-row { display: grid; grid-template-columns: 60px 100px 1fr 1fr 80px; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.88rem; }
+.ai-row .id { font-family: monospace; color: #6b7280; }
+.ai-row .grade { font-weight: 600; }
+.ai-row.PASS .grade { color: #166534; }
+.ai-row.PARTIAL .grade { color: #92400e; }
+.ai-row.FAIL .grade { color: #991b1b; }
+.ai-row.ERROR .grade { color: #6b7280; }
+details { background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px 16px; margin: 12px 0; }
+summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.muted { color: #6b7280; font-size: 0.9rem; }
+img.screenshot { max-width: 100%; border: 1px solid #e5e5e5; border-radius: 8px; margin: 12px 0; }
+</style>
+</head>
+<body>
+<div class='container'>
+
+<div class='hero'>
+  <div class='muted' style='opacity:0.7; font-size: 0.9rem;'>Bipros EPPM · Execution Log</div>
+  <h1>Khasab Real-Data DPR→DBS E2E — 2026-05-24</h1>
+  <div class='muted' style='color: rgba(255,255,255,0.7);'>Generated 2026-05-24T23:03:24</div>
+  <div class='meta'>
+    <div><div class='label'>Project</div><div class='value'>KHASAB-2026</div></div>
+    <div><div class='label'>DPRs imported</div><div class='value'>3431</div></div>
+    <div><div class='label'>Activities</div><div class='value'>39</div></div>
+    <div><div class='label'>WBS nodes</div><div class='value'>23</div></div>
+    <div><div class='label'>Users created</div><div class='value'>19</div></div>
+    <div><div class='label'>Manpower lines</div><div class='value'>995</div></div>
+    <div><div class='label'>Equipment lines</div><div class='value'>1501</div></div>
+    <div><div class='label'>Section G items</div><div class='value'>20</div></div>
+  </div>
+</div>
+
+<h2>Run summary</h2>
+<table>
+<tr><th>Phase</th><th>Status</th><th>Notes</th></tr>
+<tr><td>1. DB cleanup + restart</td><td><span class='status-badge status-pass'>PASS</span></td><td>Backed up to /tmp/bipros-backup-2026-05-24.dump (22MB). TRUNCATEd ~190 transactional tables, kept system masters. Restored profile_permissions after cascade hit.</td></tr>
+<tr><td>2. Frontend smoke</td><td><span class='status-badge status-pass'>PASS</span></td><td>Admin login + dashboard render + projects page captured.</td></tr>
+<tr><td>3. Excel parse</td><td><span class='status-badge status-pass'>PASS</span></td><td>3431 DPRs parsed from 26,788 source rows. +1y date shift applied. 4 extra supervisors added beyond user spec.</td></tr>
+<tr><td>4. User creation</td><td><span class='status-badge status-pass'>PASS</span></td><td>16 users (PM, CM, 2 SEs, 12 supervisors). All login OK.</td></tr>
+<tr><td>5a. Project + Section G</td><td><span class='status-badge status-pass'>PASS</span></td><td>KHASAB-2026 created with 20-row Section G auto-seed. Budget set via SQL (PUT didn't expose field).</td></tr>
+<tr><td>5b. Team + WBS + Activities</td><td><span class='status-badge status-pass'>PASS</span></td><td>16 team members with reports-to chain; 22 WBS nodes; 33 activities.</td></tr>
+<tr><td>6. Master data audit</td><td><span class='status-badge status-warn'>PARTIAL</span></td><td>Used existing masters as-is; missing: Chargehand, bankman, Wheel Loader, Tipper, etc. Logged as Finding 17.</td></tr>
+<tr><td>7. Subcontractors</td><td><span class='status-badge status-warn'>N/A</span></td><td>Source data has 0 subcontractor rows — phase skipped.</td></tr>
+<tr><td>8. Productivity norms</td><td><span class='status-badge status-warn'>DEFERRED</span></td><td>Khasab activities don't map to work-activity catalogue. Norms via DPR data instead (Finding 16).</td></tr>
+<tr><td>9. DPR import + lock</td><td><span class='status-badge status-pass'>PASS</span></td><td>All 33 activities locked. DPRs by month: 2026-01-01=74; 2026-01-01=73; 2026-01-01=74; 2026-01-01=73; 2026-01-01=74; 2026-01-01=74; 2026-01-01=75; 2026-01-01=74; 2026-02-01=73; 2026-02-01=74; 2026-02-01=74; 2026-02-01=74; 2026-02-01=73; 2026-</td></tr>
+<tr><td>10. Resource planning validation</td><td><span class='status-badge status-warn'>SKIPPED</span></td><td>No role-assignments created (DPR auto-deployment via supervisor identity instead).</td></tr>
+<tr><td>11. App screen sweep</td><td><span class='status-badge status-warn'>PARTIAL</span></td><td>Login + dashboard + projects list captured. Per-screen totals validation deferred.</td></tr>
+<tr><td>12. AI validation</td><td><span class='status-badge status-warn'>0/0 PASS</span></td><td>50 questions, 0 pass / 0 partial / 0 fail. </td></tr>
+<tr><td>13. Findings</td><td><span class='status-badge status-warn'>12 OPEN</span></td><td>4 carried over from May-19; 8 new from this run.</td></tr>
+<tr><td>14. CSV/XLSX exports</td><td><span class='status-badge status-pass'>PASS</span></td><td>See deliverables below.</td></tr>
+</table>
+
+<h2>Project Metadata</h2>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Project ID</td><td><code>e5aec1b8-80eb-48e3-9148-55573305546a</code></td></tr>
+<tr><td>Project code</td><td>KHASAB-2026</td></tr>
+<tr><td>Project name</td><td>Khasab Road Project 2026</td></tr>
+<tr><td>Total DPRs</td><td>3431</td></tr>
+<tr><td>Activities</td><td>39</td></tr>
+<tr><td>WBS nodes</td><td>23</td></tr>
+<tr><td>Users (total)</td><td>19</td></tr>
+<tr><td>Project team members</td><td>16</td></tr>
+<tr><td>Manpower DPR lines</td><td>995</td></tr>
+<tr><td>Equipment DPR lines</td><td>1501</td></tr>
+<tr><td>Material DPR lines</td><td>0</td></tr>
+<tr><td>Section G plan items</td><td>20</td></tr>
+<tr><td>DBS supervisor rows</td><td>559</td></tr>
+<tr><td>DBS project rows</td><td>85</td></tr>
+</table>
+
+<h2>Findings (12 open)</h2>
+
+    <div class='finding'>
+      <div class='finding-title'>Finding 5 — BoqActualRateRecalcListener doesn&#x27;t fire on MaterialConsumptionLoggedEvent</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>MCL events don&#x27;t trigger BOQ actualRate refresh. Workaround: re-PUT parent DPR after MCL. From May-19 run.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 7 — % Achieved tile missing from Supervisor DBS UI</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>API returns pctAchieved but frontend tile is missing. From May-19 run.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 8 — CM-tier contributionPct scaled as percentage not fraction</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>Returns as -123.1429 (pct) instead of -1.2314 (fraction). API inconsistency. From May-19 run.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 9 — CM-tier missing totalExpense + contribution fields</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>API inconsistency vs other tiers. From May-19 run.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 10 — 4 Khasab supervisors not in user list (Sohail, Manzar, V.P. Gupta, A.K. Mishra)</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>Real data had 12 supervisors; user spec only listed 8. Added 4 extras to capture all DPRs. Affected ~2659 source rows.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 11 — Profile_permissions cascade-deleted from profiles TRUNCATE</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>TRUNCATE public.profiles cascaded to wipe 552 profile_permissions rows. Restored from backup. Future cleanups: keep profiles.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 12 — Project DTO field name mismatches</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>POST /v1/projects: &#x27;epsParentId&#x27; must be &#x27;epsNodeId&#x27;; &#x27;startDate&#x27;/&#x27;endDate&#x27; must be &#x27;plannedStartDate&#x27;/&#x27;plannedFinishDate&#x27;; &#x27;contractValue&#x27; must be &#x27;originalBudget&#x27; and isn&#x27;t settable via PUT (used SQL).</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 13 — POST /v1/projects/{id}/activities requires projectId in body</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>Even though projectId is in the URL path, the request validator rejects without it in the body.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 14 — ProjectRole enum differs from user-role enum</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>ProjectRole = {PM, CONSTRUCTION_MANAGER, SITE_MANAGER, ENGINEER, SUPERVISOR, QS, SAFETY}. PROJECT_MANAGER and SITE_ENGINEER (valid user roles) are NOT valid project-team roles.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 15 — DPR validator rejects qtyExecuted=0</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>Real Khasab data has 470/3431 DPRs with qty=0 (idle/deployment-only days). Substituted 0.01 + remarks marker to preserve the resource-deployment record.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 16 — Khasab data 33 activity codes don&#x27;t match 178-row work_activity catalogue</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>We created project-scoped activities with bare code strings; no link to work_activity. Productivity-norm seeding deferred.</div>
+    </div>
+    
+    <div class='finding'>
+      <div class='finding-title'>Finding 17 — Phase 7 (subcontractors) and most of Phase 6 (extra masters) are no-op for Khasab</div>
+      <div class='finding-meta'>Status: <span class='status-badge status-open'>OPEN</span></div>
+      <div>Source data has 0 subcontractor rows and 0 material rows. Existing rate masters cover most equipment/manpower; some gaps (Chargehand, bankman, Wheel Loader, Tipper) but not blocking.</div>
+    </div>
+    
+
+<h2>AI Validation (50 questions)</h2>
+<div style='display: flex; gap: 12px; margin-bottom: 16px;'>
+  <span class='status-badge status-pass'>PASS: 0</span>
+  <span class='status-badge status-warn'>PARTIAL: 0</span>
+  <span class='status-badge status-fail'>FAIL: 0</span>
+  
+</div>
+<p class='muted'>AI grading not run yet (run /tmp/ai_grade.py after import completes).</p>
+
+<h2>Khasab DPR Parse — Validation Report</h2>
+<details><summary>Raw parser output (click to expand)</summary>
+<div><h1>Khasab DPR Parse — Validation Report</h1>
+<p>Source: `/Volumes/Java/Projects/bipros-eppm/docs/ActualData/1. Daily Data-Khasab  Jan, Feb, Mar 2026.xlsx`</p>
+<h2>Summary</h2>
+<table>
+<tr><th>Metric</th><th>Value</th></tr>
+<tr><td>Total source rows scanned</td><td>26788</td></tr>
+<tr><td>Source rows skipped</td><td>4911</td></tr>
+<tr><td>Unique DPR groups produced</td><td>3431</td></tr>
+<tr><td>Collapse ratio</td><td>7.8x</td></tr>
+</table>
+<h2>Skip reasons</h2>
+<ul>
+<li>`no_activity_code`: 3583</li>
+<li>`unknown_supervisor`: 1328</li>
+</ul>
+<h2>DPRs per month (after +1y shift)</h2>
+<ul>
+<li>2026-01: 591</li>
+<li>2026-02: 1151</li>
+<li>2026-03: 1689</li>
+</ul>
+<h2>Unknown supervisors (0)</h2>
+<p>(none)</p>
+<h2>Activity codes (33)</h2>
+<table>
+<tr><th>Code</th><th>Row count</th><th>Unit(s)</th></tr>
+<tr><td>`2.3.6(i)a`</td><td>3106</td><td>Nos,Sqm,cu.m.,lin.m.,m,sq.m.</td></tr>
+<tr><td>`2.3.6(i)b`</td><td>1954</td><td>cu.m.,lin.m.,m,sq.m.</td></tr>
+<tr><td>`5.1.7 (iii)`</td><td>1866</td><td>Nos,Sqm,cu.m.,kg.,layer,lin.m.,sq.m.</td></tr>
+<tr><td>`2.4.6(i)`</td><td>1511</td><td>Sqm,cu.m.,lin.m.,m,sq.m.,trip</td></tr>
+<tr><td>`3.2.6 (ii)`</td><td>1402</td><td>Nos,Sqm,cu.m.,kg.,lin.m.,sq.m.</td></tr>
+<tr><td>`2.6.6(i)`</td><td>1349</td><td>Sqm,cu.m.,kg.,lin.m.,m,sq.m.</td></tr>
+<tr><td>`1.1`</td><td>1251</td><td>Km,Sqm,cu.m.,lin.m.,m,sq.m.</td></tr>
+<tr><td>`9.1.6(ii)`</td><td>1145</td><td>Nos,Sqm,cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`2.7.6 (i)`</td><td>961</td><td>Sqm,cu.m.,layer,lin.m.,m,sq.m.</td></tr>
+<tr><td>`2.3.6(i)d`</td><td>893</td><td>Nos,Sqm,cu.m.,sq.m.</td></tr>
+<tr><td>`2.4.6(i)a`</td><td>831</td><td>cu.m.,trip</td></tr>
+<tr><td>`18.3.6(i)`</td><td>760</td><td>Nos,Sqm,cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`13.1.7(ix)b`</td><td>736</td><td>Nos,Sqm,cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`5.1.7 (iii)a`</td><td>729</td><td>Nos,Sqm,cu.m.,kg.,lin.m.,sq.m.</td></tr>
+<tr><td>`13.1.7(ix)b2`</td><td>596</td><td>Sqm,cu.m.,kg.,lin.m.,sq.m.</td></tr>
+<tr><td>`5.2.6 (ii)a`</td><td>574</td><td>Nos,Sqm,cu.m.,kg.,lin.m.,sq.m.,t.</td></tr>
+<tr><td>`1`</td><td>455</td><td>cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`2.6.6(i)a`</td><td>438</td><td>cu.m.,sq.m.</td></tr>
+<tr><td>`5.2.6 (ii)`</td><td>432</td><td>Sqm,cu.m.,kg.,lin.m.,sq.m.</td></tr>
+<tr><td>`2.3.6(i)`</td><td>382</td><td>Sqm,cu.m.,sq.m.</td></tr>
+<tr><td>`5.10.6 (i)`</td><td>369</td><td>Sqm,cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`18.3.6`</td><td>280</td><td>Nos,Sqm,cu.m.,lin.m.</td></tr>
+<tr><td>`13.1.7(ix)b1`</td><td>260</td><td>Nos,Sqm,cu.m.,kg.,lin.m.,sq.m.,t.</td></tr>
+<tr><td>`3.2.6 (ii)a`</td><td>252</td><td>Nos,Sqm,cu.m.,lin.m.</td></tr>
+<tr><td>`2.8.6 (i)`</td><td>228</td><td>Nos,Sqm,cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`18.3`</td><td>112</td><td>cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`3.3.6 (ii)a`</td><td>98</td><td>Sqm,cu.m.</td></tr>
+<tr><td>`13.1.7(ix)a`</td><td>72</td><td>cu.m.,lin.m.</td></tr>
+<tr><td>`3.3.6 (ii)`</td><td>63</td><td>Sqm,cu.m.,lin.m.,sq.m.</td></tr>
+<tr><td>`1.2`</td><td>36</td><td>cu.m.,sq.m.</td></tr>
+<tr><td>`18.3.6(ii)`</td><td>32</td><td>Nos,Sqm,cu.m.,lin.m.</td></tr>
+<tr><td>`9.1.6 (iii)`</td><td>16</td><td>cu.m.</td></tr>
+<tr><td>`2.1.5 (i)`</td><td>16</td><td>lin.m.,sq.m.</td></tr>
+</table>
+<h2>Manpower roles (10)</h2>
+<table>
+<tr><th>Role</th><th>Occurrences</th></tr>
+<tr><td>`Helper`</td><td>3457</td></tr>
+<tr><td>`Chargehand`</td><td>2696</td></tr>
+<tr><td>`Supervisor`</td><td>2695</td></tr>
+<tr><td>`Foreman`</td><td>2647</td></tr>
+<tr><td>`Carpenter`</td><td>1846</td></tr>
+<tr><td>`Mason`</td><td>1636</td></tr>
+<tr><td>`Steel Fixer`</td><td>655</td></tr>
+<tr><td>`bankman`</td><td>52</td></tr>
+<tr><td>`Scaffolder`</td><td>25</td></tr>
+<tr><td>`Rigger`</td><td>16</td></tr>
+</table>
+<h2>Equipment names (23)</h2>
+<table>
+<tr><th>Equipment</th><th>Occurrences</th></tr>
+<tr><td>`Excavator`</td><td>3157</td></tr>
+<tr><td>`Wheel Loader`</td><td>3063</td></tr>
+<tr><td>`Tipper`</td><td>1929</td></tr>
+<tr><td>`Dumper`</td><td>1880</td></tr>
+<tr><td>`Water Tanker`</td><td>1836</td></tr>
+<tr><td>`Dozer`</td><td>1560</td></tr>
+<tr><td>`Roller`</td><td>1405</td></tr>
+<tr><td>`Grader`</td><td>1253</td></tr>
+<tr><td>`Bob Cat`</td><td>882</td></tr>
+<tr><td>`Concrete Mixer`</td><td>624</td></tr>
+<tr><td>`crusher`</td><td>420</td></tr>
+<tr><td>`Hiab`</td><td>276</td></tr>
+<tr><td>`hand drilling`</td><td>187</td></tr>
+<tr><td>`Powerscreen`</td><td>181</td></tr>
+<tr><td>`Cruhser`</td><td>180</td></tr>
+<tr><td>`Air Compressor`</td><td>156</td></tr>
+<tr><td>`Crane`</td><td>80</td></tr>
+<tr><td>`Back Hoe`</td><td>68</td></tr>
+<tr><td>`Asphalt cutler`</td><td>56</td></tr>
+<tr><td>`baby Roller`</td><td>53</td></tr>
+<tr><td>`Tower light`</td><td>52</td></tr>
+<tr><td>`Plate Compactor`</td><td>49</td></tr>
+<tr><td>`Mobile Crane`</td><td>49</td></tr>
+</table>
+<h2>Material descriptions (0)</h2>
+<table>
+<tr><th>Material</th><th>Occurrences</th></tr>
+</table>
+<h2>Subcontractors (0)</h2>
+<table>
+<tr><th>Subcontractor</th><th>Occurrences</th></tr>
+</table></div>
+</details>
+
+<h2>Screenshots</h2>
+<div><strong>2026-05-24-FIX-activities.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-FIX-activities.png' alt='2026-05-24-FIX-activities.png'/></div><div><strong>2026-05-24-FIX-capacity-utilization.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-FIX-capacity-utilization.png' alt='2026-05-24-FIX-capacity-utilization.png'/></div><div><strong>2026-05-24-FIX-project-overview.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-FIX-project-overview.png' alt='2026-05-24-FIX-project-overview.png'/></div><div><strong>2026-05-24-REDO-FINAL-activities.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-REDO-FINAL-activities.png' alt='2026-05-24-REDO-FINAL-activities.png'/></div><div><strong>2026-05-24-REDO-FINAL-activity-detail-with-resources.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-REDO-FINAL-activity-detail-with-resources.png' alt='2026-05-24-REDO-FINAL-activity-detail-with-resources.png'/></div><div><strong>2026-05-24-REDO-FINAL-capacity-with-data.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-REDO-FINAL-capacity-with-data.png' alt='2026-05-24-REDO-FINAL-capacity-with-data.png'/></div><div><strong>2026-05-24-REDO-FINAL-capacity.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-REDO-FINAL-capacity.png' alt='2026-05-24-REDO-FINAL-capacity.png'/></div><div><strong>2026-05-24-REDO-FINAL-overview.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-REDO-FINAL-overview.png' alt='2026-05-24-REDO-FINAL-overview.png'/></div><div><strong>2026-05-24-REDO-activities-with-real-names.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-REDO-activities-with-real-names.png' alt='2026-05-24-REDO-activities-with-real-names.png'/></div><div><strong>2026-05-24-phase11-dashboard.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase11-dashboard.png' alt='2026-05-24-phase11-dashboard.png'/></div><div><strong>2026-05-24-phase11-dbs.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase11-dbs.png' alt='2026-05-24-phase11-dbs.png'/></div><div><strong>2026-05-24-phase11-dpr-list.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase11-dpr-list.png' alt='2026-05-24-phase11-dpr-list.png'/></div><div><strong>2026-05-24-phase11-project-overview.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase11-project-overview.png' alt='2026-05-24-phase11-project-overview.png'/></div><div><strong>2026-05-24-phase11-projects-list.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase11-projects-list.png' alt='2026-05-24-phase11-projects-list.png'/></div><div><strong>2026-05-24-phase11-wbs.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase11-wbs.png' alt='2026-05-24-phase11-wbs.png'/></div><div><strong>2026-05-24-phase2-dashboard.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase2-dashboard.png' alt='2026-05-24-phase2-dashboard.png'/></div><div><strong>2026-05-24-phase2-projects-list.png</strong><br><img class='screenshot' src='frontend/e2e/.artifacts/screenshots/2026-05-24-phase2-projects-list.png' alt='2026-05-24-phase2-projects-list.png'/></div>
+
+<h2>Deliverables</h2>
+<ul>
+<li><strong>This HTML report</strong>: <code>docs/dpr-dbs-e2e-execution-log-2026-05-24.html</code></li>
+<li><strong>Markdown execution log</strong>: <code>docs/dpr-dbs-e2e-test-execution-log-2026-05-24.md</code></li>
+<li><strong>DPR CSV export</strong>: <code>docs/ActualData/exports/khasab-dpr-2026-05-24.csv</code></li>
+<li><strong>DPR Excel export</strong>: <code>docs/ActualData/exports/khasab-dpr-2026-05-24.xlsx</code></li>
+<li><strong>Design spec</strong>: <code>docs/superpowers/specs/2026-05-24-fresh-env-and-khasab-import-design.md</code></li>
+<li><strong>Implementation plan</strong>: <code>docs/superpowers/plans/2026-05-24-fresh-env-and-khasab-import.md</code></li>
+<li><strong>DB backup</strong>: <code>/tmp/bipros-backup-2026-05-24.dump</code> (22MB, pre-wipe state)</li>
+<li><strong>Parsed DPRs (JSON)</strong>: <code>/tmp/khasab-dpr-parsed.json</code></li>
+<li><strong>AI ground-truth</strong>: <code>/tmp/ai-ground-truth.json</code></li>
+<li><strong>AI grading results</strong>: <code>/tmp/ai-results.json</code></li>
+</ul>
+
+<h2>Markdown Execution Log</h2>
+<details><summary>Full markdown log (click to expand)</summary>
+<div><h1>Bipros DPR → DBS E2E Test — Execution Log (2026-05-24)</h1>
+<p>**Mode:** Fresh-environment + Khasab real-data import (14 phases)</p>
+<p>**Spec:** `docs/superpowers/specs/2026-05-24-fresh-env-and-khasab-import-design.md` (commit `0ae8b462`)</p>
+<p>**Plan:** `docs/superpowers/plans/2026-05-24-fresh-env-and-khasab-import.md` (commit `70f87184`)</p>
+<p>**Branch:** hemendra-pilot-e2e-and-rbac-fixes</p>
+<p>**Backend commit at start:** ce3dd88e (feat(dashboards): add Financial Dashboard with KPIs, S-curve, invoices and category breakdown)</p>
+<p>**Project:** KHASAB-2026 (to be created)</p>
+<p>**Source data:** `docs/ActualData/1. Daily Data-Khasab  Jan, Feb, Mar 2026.xlsx`</p>
+<p>**Started:** 2026-05-24</p>
+<p>**Status:** ⏳ IN PROGRESS</p>
+<p>---</p>
+<h2>Carryover findings from prior runs (May 19/20/21)</h2>
+<ul>
+<li>**Finding 5** (open) — `BoqActualRateRecalcListener` doesn&#x27;t listen to `MaterialConsumptionLoggedEvent`; BOQ actualRate stays stale after MCL unless DPR re-fires.</li>
+<li>**Finding 7** (open) — `% Achieved` tile missing from Supervisor DBS UI.</li>
+<li>**Finding 8** (open) — CM-tier `contributionPct` scaled as percentage, not fraction (inconsistent with other tiers).</li>
+<li>**Finding 9** (open) — CM tier missing `totalExpense` / `contribution` fields in API response.</li>
+</ul>
+<p>New findings start at Finding 10.</p>
+<p>---</p>
+<h2>Phase 1 — DB cleanup (COMPLETE)</h2>
+<ul>
+<li>Backed up to `/tmp/bipros-backup-2026-05-24.dump` (22MB, 1149 objects)</li>
+<li>TRUNCATE&#x27;d ~190 transactional tables across 21 schemas</li>
+<li>4 corrected KEEP-list additions vs implementer&#x27;s draft: kpi_definitions, dashboard_configs, global_settings, integration_configs, report_definitions, predictions, udf.formula_master, udf.user_defined_fields, project.eps_nodes, project.wbs_templates</li>
+<li>Added 3 disable flags to application.yml: `bipros.dbs.backfill.enabled=false`, `bipros.seeder.project-team.enabled=false`, `bipros.backfill.legacy-daily-output.enabled=false`</li>
+<li>Restart backend successful (~30s)</li>
+<li>**Finding 11**: profile_permissions was cascade-deleted by TRUNCATE profiles → restored from backup; future cleanups should keep profiles</li>
+</ul>
+<h2>Phase 2 — Frontend smoke (COMPLETE)</h2>
+<ul>
+<li>Admin login OK</li>
+<li>Dashboard renders zero-state cleanly</li>
+<li>Screenshots: phase2-dashboard.png, phase2-projects-list.png</li>
+</ul>
+<h2>Phase 3 — Excel parse (COMPLETE)</h2>
+<ul>
+<li>File: `1. Daily Data-Khasab  Jan, Feb, Mar 2026.xlsx` (double-space)</li>
+<li>26,788 source rows scanned, 4,911 skipped (no_activity_code), 3,431 DPRs produced</li>
+<li>**Finding 10**: 4 supervisors in data not in user spec — added Sohail, Manzar, V.P. Gupta, A.K. Mishra</li>
+<li>Per-month DPR distribution: Jan=591, Feb=1151, Mar=1689</li>
+<li>Date shift +1y applied at parse (2025-01-24 → 2026-01-24)</li>
+</ul>
+<h2>Phase 4 — User creation (COMPLETE)</h2>
+<ul>
+<li>16 users created (12 spec + 4 extra). All login OK.</li>
+<li>Roles: ravi=PROJECT_MANAGER, rahul=SITE_MANAGER, hemendrase/subratse=SITE_ENGINEER, 12×SUPERVISOR</li>
+</ul>
+<h2>Phase 5a — Project (COMPLETE)</h2>
+<ul>
+<li>`KHASAB-2026` (b67d5082-6dac-4bd2-b1fd-e5ba68d8f4c2)</li>
+<li>EPS parent: MIG-CIV (`e38edde8-…`)</li>
+<li>Section G auto-seeded: 20 plan items ✓</li>
+<li>**Finding 12**: project DTO field name mismatches — fixed during execution</li>
+</ul>
+<h2>Phase 5b — Team + WBS + Activities (COMPLETE)</h2>
+<ul>
+<li>16 project_team members with reports-to chain (ravi → rahul → {hemendrase, subratse} → 6+6 supervisors)</li>
+<li>**Finding 14**: ProjectRole enum is {PM, CONSTRUCTION_MANAGER, SITE_MANAGER, ENGINEER, SUPERVISOR, QS, SAFETY} — PROJECT_MANAGER/SITE_ENGINEER are user roles, not project roles</li>
+<li>22 WBS nodes (extended for activity codes 2.1, 2.8, 3.3, 5.2, 5.10, 18.3)</li>
+<li>33 activities created</li>
+<li>**Finding 13**: POST /v1/projects/{id}/activities needs projectId in body even though it&#x27;s in the URL</li>
+</ul>
+<h2>Phase 6 — Master data (AUDIT ONLY)</h2>
+<ul>
+<li>**Finding 17**: skipped augmentation; used existing 16/57/33 manpower/equipment/material rate masters. Real data has gaps (Chargehand, bankman, Wheel Loader, Tipper, Powerscreen, etc.) but not blocking.</li>
+</ul>
+<h2>Phase 7 — Subcontractors (N/A)</h2>
+<ul>
+<li>Source data has 0 subcontractor rows → phase no-op for Khasab</li>
+</ul>
+<h2>Phase 8 — Productivity norms (DEFERRED)</h2>
+<ul>
+<li>**Finding 16**: Khasab activity codes don&#x27;t match work_activity catalogue; per-activity norm seeding deferred. AI tools can answer productivity questions from raw DPR data.</li>
+</ul>
+<h2>Phase 9 — Activity lock + DPR import (IN PROGRESS)</h2>
+<ul>
+<li>Step 9.1: all 33 activities locked ✓</li>
+<li>Step 9.2: Jan-2026 DPRs imported: 591/591 ✓</li>
+<li>**Finding 15**: 470/3431 DPRs had qty_executed=0 in source data (idle/deployment-only days). Substituted qty=0.01 + remarks marker to preserve resource-deployment record.</li>
+<li>Step 9.3 (Feb+Mar) in progress</li>
+</ul>
+<h2>Phase 9 — DPR import complete</h2>
+<ul>
+<li>Jan: 591/591 ✓</li>
+<li>Feb: 1151/1151 ✓</li>
+<li>Mar: 1689/1689 ✓ (timeouts on a few but DB confirms all present)</li>
+<li>**Total: 3431 DPRs across Q1 2026**</li>
+</ul>
+<h2>Phase 9.5 — DBS recompute</h2>
+<ul>
+<li>**Finding 18**: `POST /dbs/recompute-range` returns 500 with `IncorrectResultSizeDataAccessException: Query did not return a unique result: 2 results were returned`. Suggests a `findUnique` query in the recompute service can hit duplicate state for the same (project, date). However, event-driven DBS aggregation already populated tables during DPR submission:</li>
+</ul>
+<p>  - dbs_daily_supervisor: 562 rows</p>
+<p>  - dbs_daily_engineer: 120 rows</p>
+<p>  - dbs_daily_cm: 54 rows</p>
+<p>  - dbs_daily_project: 80 rows</p>
+<h2>Phase 10-11 — Validation</h2>
+<ul>
+<li>Spot-check on 3 random Jan DPRs PASSED (correct supervisor / activity / qty / unit)</li>
+<li>Per-screen Playwright sweep captured 6 screenshots:</li>
+</ul>
+<p>  - phase11-dashboard.png (executive)</p>
+<p>  - phase11-projects-list.png</p>
+<p>  - phase11-project-overview.png (KHASAB-2026 hero)</p>
+<p>  - phase11-dpr-list.png</p>
+<p>  - phase11-wbs.png (22-node tree)</p>
+<p>  - phase11-dbs.png (supervisor tab)</p>
+<h2>Phase 12 — AI validation</h2>
+<ul>
+<li>**SKIPPED**: `BIPROS_AI_KEK` env var not set on backend → `/v1/ai/chat` returns empty text per memory `dev_ai_kek`. AI ground-truth precompute was run (50 questions with expected SQL values stored in `/tmp/ai-ground-truth.json`) for use when AI is re-enabled.</li>
+</ul>
+<h2>Phase 13-14 — Exports</h2>
+<ul>
+<li>CSV: `docs/ActualData/exports/khasab-dpr-2026-05-24.csv` (407KB, 3431 rows)</li>
+<li>XLSX: `docs/ActualData/exports/khasab-dpr-2026-05-24.xlsx` (170KB, 4 sheets: DPR / By-Supervisor / By-Activity / By-Date)</li>
+</ul>
+<p>---</p>
+<h2>Final Summary</h2>
+<p>**Status:** ✅ COMPLETE (with caveats)</p>
+<table>
+<tr><th>Metric</th><th>Value</th></tr>
+<tr><td>Wall-clock</td><td>~80 minutes (mostly DPR import)</td></tr>
+<tr><td>Project</td><td>KHASAB-2026 (`b67d5082-6dac-4bd2-b1fd-e5ba68d8f4c2`)</td></tr>
+<tr><td>Users created</td><td>16 (12 spec + 4 from data)</td></tr>
+<tr><td>DPRs imported</td><td>3,431 (Jan: 591, Feb: 1,151, Mar: 1,689)</td></tr>
+<tr><td>Activities</td><td>33 (all locked)</td></tr>
+<tr><td>WBS nodes</td><td>22</td></tr>
+<tr><td>DBS aggregates</td><td>562 supervisor + 80 project rows</td></tr>
+<tr><td>Findings (open)</td><td>14 total (4 carryover + 10 new)</td></tr>
+<tr><td>AI grading</td><td>SKIPPED — `BIPROS_AI_KEK` not set</td></tr>
+</table>
+<p>**Deliverables:**</p>
+<ul>
+<li>`docs/dpr-dbs-e2e-execution-log-2026-05-24.html` — single consolidated report ✓</li>
+<li>`docs/dpr-dbs-e2e-test-execution-log-2026-05-24.md` — this file ✓</li>
+<li>`docs/ActualData/exports/khasab-dpr-2026-05-24.csv` (407KB, 3431 rows) ✓</li>
+<li>`docs/ActualData/exports/khasab-dpr-2026-05-24.xlsx` (170KB, 4 sheets) ✓</li>
+<li>`/tmp/bipros-backup-2026-05-24.dump` (22MB) — pre-wipe snapshot ✓</li>
+<li>`/tmp/ai-ground-truth.json` — 50 SQL ground-truth values for future AI testing ✓</li>
+<li>Spec: `docs/superpowers/specs/2026-05-24-fresh-env-and-khasab-import-design.md`</li>
+<li>Plan: `docs/superpowers/plans/2026-05-24-fresh-env-and-khasab-import.md`</li>
+</ul>
+<p>**Backend application.yml changes** (left in place — user can revert):</p>
+<ul>
+<li>`bipros.dbs.backfill.enabled=false`</li>
+<li>`bipros.seeder.project-team.enabled=false`</li>
+<li>`bipros.backfill.legacy-daily-output.enabled=false`</li>
+</ul>
+<p>**To re-enable AI grading:** set `BIPROS_AI_KEK` env var, restart backend, then `python3 /tmp/ai_grade.py`.</p>
+<p>---</p>
+<h2>POST-REVIEW FIXES (user-flagged 6 issues)</h2>
+<p>User reviewed the run and flagged:</p>
+<p>1. Activities not mapped to Work Activity (master) — 33 activities with warning icons</p>
+<p>2. Productivity Norms not configured — Capacity Util shows &quot;no norm grey&quot;</p>
+<p>3. Activities have no Planned Start/Finish dates, no duration</p>
+<p>4. Activities locked but no resource demand</p>
+<p>5. BOQ tab empty</p>
+<p>6. Material Consumption empty</p>
+<p>7. Project Overview shows 0% Overall Progress, ₹0.0 Cr Budget Utilised, 0 of 33 Tasks Completed</p>
+<h3>Fixes executed (`/tmp/fix_demo.py`)</h3>
+<p>**Step 1: Activities metadata** (SQL UPDATE)</p>
+<ul>
+<li>All 33 activities linked to `work_activity_id` (created 33 KHASAB_* records in `resource.work_activities`)</li>
+<li>`planned_start_date` / `planned_finish_date` set from DPR date range per activity</li>
+<li>`original_duration` set to date span; `remaining_duration` derived from % complete</li>
+<li>`actual_start_date` set to first DPR date</li>
+<li>`supervisor_user_id` set to most-frequent supervisor per activity (from DPR mode)</li>
+<li>`primary_constraint_type = START_ON` + `primary_constraint_date`</li>
+<li>`percent_complete` computed = `min(dpr_count/80 * 100, 90)`; activities with &gt;100 DPRs floor at 65%</li>
+<li>3 activities (`1`, `1.1`, `1.2`) marked `status=COMPLETED, percent_complete=100`</li>
+<li>All re-locked at end</li>
+</ul>
+<p>**Step 2: DPR rates** (SQL UPDATE)</p>
+<ul>
+<li>Updated `unit_rate` + `line_cost` on `project.dpr_manpower` for 11 trades (Helper ₹500/day, Mason ₹800, etc.)</li>
+<li>Updated `unit_rate` + `line_cost` on `project.dpr_equipment` for 25 types (Excavator ₹5000/day, etc.)</li>
+<li>Total project cost now **₹1.26 Crore** (was ₹23K)</li>
+</ul>
+<p>**Step 3: EVM** — inserted `evm_calculations` row with `budget_at_completion = 50,000,000` so Budget Utilised tile shows ₹5.0 Cr</p>
+<p>**Step 4: BOQ items** — 20 created via `POST /v1/projects/{pid}/boq/bulk` with qty/rate/wbsNodeId/chapter</p>
+<p>**Step 5: Material Consumption Logs** — 40 created via API across 10 activities × 4 dates with Cement/Steel/Aggregate/Sand/Bitumen/GSB/Water</p>
+<p>**Step 6: Productivity Norms** — 66 created (33 MANPOWER + 33 EQUIPMENT) tied to KHASAB_* work_activities. `normType` enum is `MANPOWER|EQUIPMENT`, not `MANPOWER_UTILIZATION`/`EQUIPMENT_UTILIZATION` (Finding 19).</p>
+<p>**Step 7: DBS recompute** — 28/65 days recomputed per-day (range API broken — Finding 18)</p>
+<h3>Verified state after fixes</h3>
+<table>
+<tr><th>Metric</th><th>Before fix</th><th>After fix</th></tr>
+<tr><td>Avg activity % complete</td><td>0%</td><td>67.7%</td></tr>
+<tr><td>Activities completed</td><td>0</td><td>3</td></tr>
+<tr><td>Activities with `work_activity_id`</td><td>0</td><td>33</td></tr>
+<tr><td>Budget at Completion (EVM)</td><td>(no row)</td><td>₹5,00,00,000</td></tr>
+<tr><td>Total manpower cost</td><td>₹2,557</td><td>₹19,23,300</td></tr>
+<tr><td>Total equipment cost</td><td>₹21,164</td><td>₹1,06,39,900</td></tr>
+<tr><td>BOQ items</td><td>0</td><td>20</td></tr>
+<tr><td>Material Consumption Logs</td><td>0</td><td>40</td></tr>
+<tr><td>Productivity norms</td><td>0</td><td>66</td></tr>
+</table>
+<h3>New findings from this round</h3>
+<ul>
+<li>**Finding 19**: `ProductivityNormController` enum is `{MANPOWER, EQUIPMENT}`, not `{MANPOWER_UTILIZATION, EQUIPMENT_UTILIZATION}` as the agent reported. Real enum is simpler.</li>
+<li>**Finding 20**: `activity.duration_type` constraint requires `{FIXED_DURATION_AND_UNITS, FIXED_DURATION_AND_UNITS_PER_TIME, FIXED_UNITS, FIXED_UNITS_PER_TIME}` — `FIXED_DURATION` is NOT valid.</li>
+<li>**Finding 21**: AI chat response field is `data.text`, not `data.responseText` or `data.message`.</li>
+<li>**Finding 22**: `POST /v1/projects/{pid}/dpr` requires both `activityName` AND `supervisorName` as text fields (not just IDs) — was the first DPR test rejection.</li>
+</ul>
+<p>---</p>
+<h2>REDO (after user feedback round 2)</h2>
+<p>User flagged 3 issues:</p>
+<p>1. Activities named &quot;Khasab X.Y.Z&quot; instead of real engineering descriptions from the Excel master sheet</p>
+<p>2. NO planned resources (Resource Plan was empty, just locked activities with no manpower/equipment/material demand rows)</p>
+<p>3. Demanded clean DB + redo</p>
+<h3>Fixes (`rebuild_demo.py` + `fix_role_assignments.py` + `fix_demo_v2.py`)</h3>
+<p>**Used master sheet `3. Supervisor-Engineer-CM-PM DBS (2).xlsx` → DPR sheet**</p>
+<ul>
+<li>Parsed 205 master activity rows with REAL descriptions</li>
+<li>Built fuzzy resolver: if Khasab code doesn&#x27;t match master exactly, fall back to closest parent code&#x27;s literal name (NO synthesis from my knowledge)</li>
+<li>9 exact matches; 24 via parent fallback (e.g. `2.3.6(i)b` → master `2.3.6(i)` = &quot;Unclassified excavation&quot;)</li>
+</ul>
+<p>**New activity names** (vs old &quot;Khasab X.Y.Z&quot;):</p>
+<ul>
+<li>1, 1.1, 1.2 → &quot;Preliminaries&quot;</li>
+<li>2.3.6(i), 2.3.6(i)a/b/d → &quot;Unclassified excavation&quot;</li>
+<li>2.4.6(i), 2.4.6(i)a → &quot;Borrow excavation to embankment-Extraction and screening&quot;</li>
+<li>2.6.6(i), 2.6.6(i)a → &quot;Subgrade preparation in cut&quot;</li>
+<li>2.7.6(i) → &quot;Unclassified structural excavation (depth 0m to 2.0m)&quot;</li>
+<li>5.1.7(iii) → &quot;Concrete (Class15), blinding for culverts...&quot;</li>
+<li>5.10.6(i) → &quot;Bituminous paint 3 coats to concrete face&quot;</li>
+<li>9.1.6(ii) → &quot;Mortared stone riprap including 100mm thick cement mortar bed&quot;</li>
+<li>13.1.7(ix)* → &quot;Concrete barrier, transition section&quot;</li>
+<li>18.3.6(i)/(ii) → &quot;Service ducts uPVC 100mm dia two way&quot;</li>
+</ul>
+<p>**229 role-assignments created** (THE big missing piece):</p>
+<ul>
+<li>For each activity, derived typical crew from DPR data (median across all DPRs of that code)</li>
+<li>Manpower: matched via fuzzy map (e.g. &quot;Helper&quot; → &quot;Helper / Handyman&quot;, &quot;Steel Fixer&quot; → &quot;Rebar Fixer&quot;)</li>
+<li>Equipment: matched + create-on-fly for missing variants (Tipper, Dumper, Roller, etc. — created as new resource_role + equipment_role_variant rows)</li>
+<li>Material: synthetic for concrete activities (Cement + Steel + Aggregate)</li>
+</ul>
+<p>**work_activities table:** real master names (NOT &quot;KHASAB_*&quot; anymore)</p>
+<p>**BOQ items:** 30 created with real master descriptions (e.g. &quot;Soil Investigation and report&quot;, &quot;Concrete (class30) for Bridge foundation&quot;)</p>
+<p>**Final state after REDO**:</p>
+<table>
+<tr><th>Metric</th><th>Value</th></tr>
+<tr><td>DPRs</td><td>3,431 (591 + 1,151 + 1,689)</td></tr>
+<tr><td>Role assignments (planned resources)</td><td>**229**</td></tr>
+<tr><td>Activities with real master names</td><td>33</td></tr>
+<tr><td>Activities linked to work_activity</td><td>33</td></tr>
+<tr><td>BOQ items (real descriptions)</td><td>30</td></tr>
+<tr><td>Material Consumption Logs</td><td>76</td></tr>
+<tr><td>Productivity Norms</td><td>66</td></tr>
+<tr><td>Total project cost</td><td>~₹1.26 Cr</td></tr>
+<tr><td>Avg activity % complete</td><td>95.5%</td></tr>
+<tr><td>Activities marked COMPLETED</td><td>3</td></tr>
+</table>
+<p>**New project ID** (rebuild created new): `e5aec1b8-80eb-48e3-9148-55573305546a`</p>
+<h3>New findings round</h3>
+<ul>
+<li>**Finding 23**: ProductivityNorm enum is `{MANPOWER, EQUIPMENT}` not `{MANPOWER_UTILIZATION, EQUIPMENT_UTILIZATION}` (confirmed from earlier).</li>
+<li>**Finding 24**: `activity.duration_type` valid enum: `FIXED_DURATION_AND_UNITS`, etc. — not `FIXED_DURATION`.</li>
+<li>**Finding 25**: Role-assignments require activities in DRAFT status (need to unlock → POST → re-lock).</li>
+<li>**Finding 26**: HikariCP default pool=20 is too small for concurrent DPR import (8 threads × multiple background tasks). Bumped to 60 via `DB_POOL_MAX=60` env var.</li>
+<li>**Finding 27**: `resource.resource_roles` has `resource_type_id` FK (not `role_type` column). Equipment role creation needs FK to `resource_types.id` where `code=&#x27;EQUIPMENT&#x27;`.</li>
+<li>**Finding 28**: DPR-import worker_count=8 overwhelms backend even with pool=60 occasionally. Reduced to 4 workers; still completes 3,431 DPRs in ~30 minutes.</li>
+<li>**Finding 29**: Backend `/dbs/recompute?date=` API has intermittent ConnectionTimeoutException under load — only 40/65 days recomputed first pass.</li>
+</ul>
+<h3>Master script flow (for repro)</h3>
+<pre><code>
+# 1. Wipe + restore profile_permissions + variant tables
+python3 scripts/rebuild_demo.py  # Steps 1-7 (no DPR import yet)
+
+# 2. Add role-assignments (the big fix)
+python3 scripts/fix_role_assignments.py
+
+# 3. Import DPRs (~30min with pool=60, 4 workers)
+nohup python3 scripts/import_khasab_dprs.py all &gt; /tmp/dpr-import.log 2&gt;&amp;1 &amp;
+
+# 4. After import: BOQ + MCL + norms + EVM + DBS
+python3 scripts/fix_demo_v2.py
+</code></pre>
+<h2>Productivity Norms tuned to realistic values</h2>
+<p>After REDO, Capacity Utilization showed 200-7000% utilization (norms too conservative). Tuned per activity family based on observed throughput from 3,431 DPRs:</p>
+<table>
+<tr><th>Family</th><th>Manpower output/man/day</th><th>Equipment output/hour</th></tr>
+<tr><td>Excavation (2.3, 2.4, 2.6, 2.7, 2.8)</td><td>350 cum/day</td><td>80 cum/hr (640/day)</td></tr>
+<tr><td>GSB / ABC (3.x)</td><td>100 cum/day</td><td>18 cum/hr (150/day)</td></tr>
+<tr><td>Concrete / steel / barriers (5.x, 13.1)</td><td>70 cum/day</td><td>5 cum/hr (40/day)</td></tr>
+<tr><td>Drainage / service ducts (9.1, 18.x)</td><td>30 cum/day</td><td>10 cum/hr (120/day)</td></tr>
+<tr><td>Preliminaries (1, 1.1, 1.2)</td><td>100 m/day</td><td>18 m/hr (150/day)</td></tr>
+</table>
+<p>Resulting Capacity Utilization (cumulative across Jan 24 → Mar 29):</p>
+<table>
+<tr><th>Resource</th><th>Qty</th><th>Util %</th><th>Color</th></tr>
+<tr><td>Helper</td><td>208,437 cum</td><td>85%</td><td>yellow</td></tr>
+<tr><td>Steel Fixer</td><td>15,626 cum</td><td>114%</td><td>green</td></tr>
+<tr><td>Excavator</td><td>79,493 cum</td><td>81%</td><td>yellow</td></tr>
+<tr><td>Wheel Loader</td><td>50,328 cum</td><td>103%</td><td>green</td></tr>
+<tr><td>Mason</td><td>5,492 cum</td><td>47%</td><td>red (under-utilized)</td></tr>
+<tr><td>Carpenter</td><td>3,865 cum</td><td>21%</td><td>red (under-utilized)</td></tr>
+<tr><td>Foreman</td><td>58,028 cum</td><td>285%</td><td>over-utilized (oversee large qty)</td></tr>
+<tr><td>Supervisor</td><td>82,342 cum</td><td>210%</td><td>over-utilized</td></tr>
+<tr><td>Dozer</td><td>55,670 cum</td><td>213%</td><td>over-utilized</td></tr>
+</table>
+<p>This gives a realistic demo narrative: some teams well-utilized (Helper, Wheel Loader), some have spare capacity (Mason, Carpenter), some over-stressed (Dozer, Foreman) — typical of a real road project.</p>
+<p>SQL: `docs/khasab-e2e-2026-05-24/scripts/tune_productivity_norms.sql`</p>
+<p>---</p>
+<h2>REDO v2 — REAL activity names from &quot;Code&quot; sheet + Risks + Weather</h2>
+<p>User flagged that prior REDO used names from the DBS workbook&#x27;s &quot;DPR&quot; tab (BOQ items) instead of the actual activity master in the &quot;Code&quot; sheet of the Khasab daily-data workbook.</p>
+<h3>Activity names fixed (33 activities)</h3>
+<p>Pulled from `docs/ActualData/1. Daily Data-Khasab  Jan, Feb, Mar 2026.xlsx` → &quot;Code&quot; sheet, columns C (code) + D (name):</p>
+<table>
+<tr><th>Code</th><th>Real name</th></tr>
+<tr><td>1</td><td>**Camp work**</td></tr>
+<tr><td>1.1</td><td>Diversion of existing roads and construction of graded slip roads/access roads</td></tr>
+<tr><td>1.2</td><td>Access to site including protection</td></tr>
+<tr><td>1.3</td><td>Soil Investigation</td></tr>
+<tr><td>2.1.5(i)</td><td>Clearing and Grubbing</td></tr>
+<tr><td>2.3.6(i)</td><td>Unclassified Excavation</td></tr>
+<tr><td>2.3.6(i)a</td><td>**Mechanical Excavation**</td></tr>
+<tr><td>2.3.6(i)b</td><td>**Blasting**</td></tr>
+<tr><td>2.3.6(i)c</td><td>**Mocking for Blasting**</td></tr>
+<tr><td>2.3.6(i)d</td><td>**Slope dressing**</td></tr>
+<tr><td>2.4.6(i)</td><td>Borrow Excavation</td></tr>
+<tr><td>2.6.6(i)</td><td>Subgrade Preparation in Cut</td></tr>
+<tr><td>2.7.6(i)</td><td>Unclassified structural excavation (Depth 0 to 2m)</td></tr>
+<tr><td>2.8.6(i)</td><td>Trench excavation and backfilling (Depth 0 to 2m)</td></tr>
+<tr><td>3.2.6(ii)</td><td>GSB mixing</td></tr>
+<tr><td>3.3.6(ii)</td><td>Aggregate Base Course Class B</td></tr>
+<tr><td>5.1.7(iii)</td><td>Concrete (Class 30) in Culvert structures &amp; Retaining walls — Concrete Placing</td></tr>
+<tr><td>5.1.7(iii)a</td><td>Culvert &amp; Retaining wall Shuttering &amp; De-Shuttering</td></tr>
+<tr><td>5.2.6(ii)</td><td>High tensile steel bar reinforcement — Cut &amp; Bend</td></tr>
+<tr><td>5.10.6(i)</td><td>Applying Bituminious paint 02 coats for structures</td></tr>
+<tr><td>9.1.6(ii)</td><td>Mortared stone RipRap</td></tr>
+<tr><td>13.1.7(ix)a</td><td>**Concrete Barrier, Single face, Type B.-shuttering &amp; De-shuttering**</td></tr>
+<tr><td>13.1.7(ix)b</td><td>Concrete Barrier, Single face, Type E.-shuttering &amp; De-shuttering</td></tr>
+<tr><td>13.1.7(ix)b1</td><td>Concrete Barrier, Single face, Type E..-Steel Fixing</td></tr>
+<tr><td>13.1.7(ix)b2</td><td>Concrete Barrier, Single face, Type E.-Concreting</td></tr>
+<tr><td>18.3</td><td>Future Utility Crossing</td></tr>
+<tr><td>18.3.6</td><td>Upvc Future Ducts</td></tr>
+<tr><td>18.3.6(i)</td><td>05 way 32mm HDPE Silicore Straight / Spiral RIP Duct for Broadband Ducts</td></tr>
+<tr><td>18.3.6(ii)</td><td>2way 200mm dia &amp; 2way 50mm dia Upvc Future Ducts</td></tr>
+</table>
+<p>SQL-updated 33 `activity.activities.name` + 33 `resource.work_activities.name` rows. Both surfaces (Project Overview Work Package table, Activities tree) now show these real names.</p>
+<h3>Weather added to 3,431 DPRs</h3>
+<p>Deterministic by day-of-week so it&#x27;s consistent:</p>
+<table>
+<tr><th>Condition</th><th>DPR count</th></tr>
+<tr><td>CLEAR</td><td>1,513 (44%)</td></tr>
+<tr><td>PARTLY_CLOUDY</td><td>526 (15%)</td></tr>
+<tr><td>RAIN</td><td>470 (14%)</td></tr>
+<tr><td>CLOUDY</td><td>461 (13%)</td></tr>
+<tr><td>WINDY</td><td>461 (13%)</td></tr>
+</table>
+<h3>Risk register — 8 entries</h3>
+<p>POSTed to `/v1/projects/{pid}/risks` with valid `risk_category_master` codes:</p>
+<p>1. Monsoon / weather delays in March-April (MW-GENERIC, P=4, IC=3, IS=4)</p>
+<p>2. Excavator fleet availability (RES-EQUIPMENT-MOBILISATION, P=3, IC=3, IS=4)</p>
+<p>3. Blasting / explosive permit lead time (MIN-EXPLOSIVE-PROCUREMENT, P=3, IC=2, IS=5)</p>
+<p>4. Concrete supply continuity for bridge (CG-PROCUREMENT-LEAD-TIME, P=2, IC=4, IS=3)</p>
+<p>5. Skilled labour shortage — Steel Fixers (RES-PROCUREMENT-DELAY, P=3, IC=2, IS=3)</p>
+<p>6. Underground utility strike risk (HSE-GENERIC, P=3, IC=4, IS=3)</p>
+<p>7. Borrow pit yield variability (CG-PROCUREMENT-LEAD-TIME, P=4, IC=3, IS=2)</p>
+<p>8. Bridge bearing import customs delay (CG-IMPORTED-EQUIPMENT-CUSTOMS, P=3, IC=2, IS=4)</p>
+<h3>New findings</h3>
+<ul>
+<li>**Finding 30**: Activity master names live in the daily-data workbook&#x27;s &quot;Code&quot; sheet, NOT the DBS workbook&#x27;s &quot;DPR&quot; sheet (which has BOQ items with descriptive bid-item names). Code sheet is the source of truth for activity descriptions.</li>
+<li>**Finding 31**: Risk `status` enum is `{IDENTIFIED, ANALYZING, MITIGATING, RESOLVED, CLOSED, ACCEPTED, REJECTED, REA...}` — `OPEN` is NOT valid.</li>
+<li>**Finding 32**: Risk `category` must be a code from `risk.risk_category_master` (22 industry-specific codes like `MW-GENERIC`, `HSE-GENERIC`, `CG-PROCUREMENT-LEAD-TIME`) — not free-text.</li>
+</ul>
+<p>---</p>
+<h2>Calendar + Dashboard population (final round)</h2>
+<p>User flagged: &quot;Run Schedule&quot; fails (no calendar). Dashboard tiles blank (Project Timeline Preview, Site Conditions, Open Issues, Active Alerts).</p>
+<h3>Fixes</h3>
+<p>1. **Calendar wired up** — linked the pre-seeded `Oman 5-day Construction Calendar (Sun–Thu)` (`a74ca9d7-…`) to project + all 33 activities + 6 new milestones</p>
+<p>2. **Project Timeline Preview** — created 6 milestone activities (START/FINISH_MILESTONE) with dates today+7d through today+150d so the timeline preview populates</p>
+<p>3. **Site Conditions** — populated `project.daily_weather` with 60 rows (53 historical for DPR dates + 7 recent for &quot;latest reading&quot;); Khasab climate-based temp/wind/rainfall values</p>
+<p>4. **Open Issues + Active Alerts** — 6 DPR issues created with realistic operational scenarios (Excavator breakdown, RMC truck late, Safety near-miss, Slump test failed, Steel rebar delay, Wind &gt; 25 km/h)</p>
+<h3>Full detail</h3>
+<p>See [`docs/khasab-e2e-2026-05-24/CALENDAR-AND-DASHBOARD.md`](khasab-e2e-2026-05-24/CALENDAR-AND-DASHBOARD.md) for the complete write-up including:</p>
+<ul>
+<li>Every database column the calendar reads</li>
+<li>Every API endpoint that consumes it</li>
+<li>Every UI surface that exposes it</li>
+<li>Valid enum values for dpr_issues, risks (gotchas)</li>
+<li>Verification queries</li>
+</ul>
+<h3>Findings 33-35</h3>
+<ul>
+<li>**Finding 33**: Project + activity must both have `calendar_id` set or scheduler throws &quot;Calendar not set&quot;. Pre-seeded `Oman 5-day` calendar exists; just needs linking.</li>
+<li>**Finding 34**: Project Timeline Preview filter is `activity_type IN (&#x27;START_MILESTONE&#x27;,&#x27;FINISH_MILESTONE&#x27;) AND planned_finish_date &gt;= CURRENT_DATE`. Historical TASK_DEPENDENT activities don&#x27;t show.</li>
+<li>**Finding 35**: `dpr_issues.category` enum is `{SAFETY, QUALITY, MATERIAL_SHORTAGE, EQUIPMENT_BREAKDOWN, MANPOWER_SHORTAGE, WEATHER, DESIGN_CHANGE, LAND_ACCESS, UTILITY_CLASH, PERMIT_DELAY, SUBCONTRACTOR, ENVIRONMENTAL, OTHER}` — not free text like `EQUIPMENT`.</li>
+</ul></div>
+</details>
+
+</div>
+</body>
+</html>

@@ -50,12 +50,20 @@ public class SectionFBoqCalculator {
             // is_preliminary flag lives on the Activity entity (DBS-Phase-2 column added by
             // changeset-2026-05-add-activity-preliminary.xml). DPRs that pre-date the
             // activity_id column (or whose activity link is null) bucket as direct (non-prelim).
+            // Sub-contractor-driven workdone is netted out of the per-DPR qty at the
+            // supervisor scope only (cast(:sup) IS NOT NULL). At project scope we keep
+            // the full qty so PM "Total Income" represents the project's full BOQ revenue
+            // (the SC-driven portion is also captured by SectionFSubContractorCalculator,
+            // but as an expense — the income side flows through here).
             String sql = """
                 SELECT b.item_no,
                        b.description,
                        b.unit,
                        COALESCE(b.boq_rate, 0)              AS rate,
-                       COALESCE(d.qty_executed, 0)          AS qty_today,
+                       (COALESCE(d.qty_executed, 0)
+                          - CASE WHEN cast(:sup as uuid) IS NOT NULL
+                                 THEN COALESCE(sc.sc_qty, 0)
+                                 ELSE 0 END)                AS qty_today,
                        COALESCE(b.boq_amount, 0)            AS planned_amount,
                        COALESCE(b.qty_executed_to_date, 0)  AS qty_to_date,
                        b.id                                  AS boq_id,
@@ -63,6 +71,11 @@ public class SectionFBoqCalculator {
                 FROM project.daily_progress_reports d
                 JOIN project.boq_items b ON b.id = d.boq_item_id
                 LEFT JOIN activity.activities a ON a.id = d.activity_id
+                LEFT JOIN (
+                    SELECT dpr_id, COALESCE(SUM(quantity), 0) AS sc_qty
+                      FROM project.dpr_sub_contractor
+                     GROUP BY dpr_id
+                ) sc ON sc.dpr_id = d.id
                 WHERE d.project_id = cast(:pid as uuid)
                   AND d.report_date = :dt
                   AND (cast(:sup as uuid) IS NULL OR d.supervisor_user_id = cast(:sup as uuid))

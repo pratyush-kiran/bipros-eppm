@@ -65,7 +65,7 @@ class ChatControllerTest {
 
         // Request: existing conversation, projectId=null (general mode page).
         ChatController.ChatRequest req = new ChatController.ChatRequest(
-                convId, null, "general", "hi", null);
+                convId, null, "general", "hi", null, null);
 
         // First resolve() call (from request) returns a null-projectId context.
         AiContext generalCtx = new AiContext(userId, null, "general", "USER", "PM", List.of(p1));
@@ -103,7 +103,7 @@ class ChatControllerTest {
 
         // No conversationId → brand-new conversation, no rebind should happen.
         ChatController.ChatRequest req = new ChatController.ChatRequest(
-                null, null, "general", "list my projects", null);
+                null, null, "general", "list my projects", null, null);
 
         AiContext generalCtx = new AiContext(userId, null, "general", "USER", "PM", List.of(p1));
         AiConversation conv = new AiConversation();

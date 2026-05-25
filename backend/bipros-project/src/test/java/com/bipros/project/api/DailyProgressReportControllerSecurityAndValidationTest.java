@@ -168,7 +168,7 @@ class DailyProgressReportControllerSecurityAndValidationTest {
                 new BigDecimal("10.0"),
                 null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 
     private static UpdateDailyProgressReportRequest updateReq(LocalDate reportDate) {
@@ -184,6 +184,6 @@ class DailyProgressReportControllerSecurityAndValidationTest {
                 new BigDecimal("10.0"),
                 null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
     }
 }

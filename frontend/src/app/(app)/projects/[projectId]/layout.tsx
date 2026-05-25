@@ -84,8 +84,6 @@ function ProjectDetailLayoutInner({
     { id: "overview",           label: "Overview",            href: null },
     { id: "wbs",                label: "WBS",                 href: null },
     { id: "activities",         label: "Activities",          href: `/projects/${projectId}/activities` },
-    { id: "gantt",              label: "Gantt",               href: null },
-    { id: "network",            label: "Network",             href: null },
     { id: "boq",                label: "BOQ",                 href: `/projects/${projectId}/boq` },
     { id: "team",               label: "Team",                href: `/projects/${projectId}/team` },
     { id: "general-expenses",   label: "General Expenses",    href: `/projects/${projectId}/general-expenses` },

@@ -38,7 +38,17 @@ public record SupervisorPerformanceReport(
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Summary(
       List<TradeRollup> manpower,
-      List<EquipmentRollup> equipment) {}
+      List<EquipmentRollup> equipment,
+      /** Per-activity banner notes for the manpower table — activities where manpower side was
+       *  suppressed by the allocator. Reuses the SC180 HiddenSideNote shape. */
+      List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> manpowerHiddenNotes,
+      /** Same as {@link #manpowerHiddenNotes} but for the equipment table. */
+      List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> equipmentHiddenNotes) {
+    /** Back-compat ctor — pre-existing call sites that don't yet supply hidden notes. */
+    public Summary(List<TradeRollup> manpower, List<EquipmentRollup> equipment) {
+      this(manpower, equipment, List.of(), List.of());
+    }
+  }
 
   /** One row of the SC180 "Manpower Utilization" table. */
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -46,12 +56,27 @@ public record SupervisorPerformanceReport(
       String tradeKey,            // canonical: ResourceRole.code or UPPER(TRIM(dpr_manpower.trade))
       String tradeLabel,          // ResourceRole.name or raw trade text
       BigDecimal mmRate,          // Σ(line_cost) / Σ(actualManDays)
-      BigDecimal qtyDone,         // activity output executed where this trade was present
-      BigDecimal budgetedManDays, // Σ over activities (qty / output_per_man_per_day)
-      BigDecimal actualManDays,   // Σ(nos) — raw headcount-days, hours ignored
-      BigDecimal utilizationPct,  // (budgetedManDays / actualManDays) × 100, capped 999
-      BigDecimal costImplication, // (actualManDays - budgetedManDays) × mmRate
-      String normSource) {}        // SPECIFIC_RESOURCE | RESOURCE_TYPE | RESOURCE_LEGACY | NONE
+      BigDecimal qtyDone,         // ALLOCATED qty for this trade (per-DPR allocator share, not raw DPR qty)
+      BigDecimal budgetedManDays, // Σ over (DPR,activity) (allocatedQty / output_per_man_per_day)
+      BigDecimal actualManDays,   // Σ(nos) — raw headcount-days, hours ignored. Includes tracked + suppressed + untracked.
+      /** Portion of {@link #actualManDays} on (DPR, activity) where this trade's manpower side was
+       *  suppressed by the allocator (SERIES/SUBSTITUTE governed by equipment). Norm exists but
+       *  this side didn't drive output. Null when zero. */
+      BigDecimal actualDaysOnHiddenSides,
+      /** Portion of {@link #actualManDays} where the trade's norm didn't resolve for the activity.
+       *  Null when zero. */
+      BigDecimal actualDaysUntracked,
+      BigDecimal utilizationPct,  // (budgetedManDays / trackedManDays) × 100, capped 999
+      BigDecimal costImplication, // (trackedManDays - budgetedManDays) × mmRate
+      String normSource) {       // SPECIFIC_RESOURCE | RESOURCE_TYPE | RESOURCE_LEGACY | NONE
+    /** Back-compat ctor — older callers can omit hidden/untracked breakdown. */
+    public TradeRollup(String tradeKey, String tradeLabel, BigDecimal mmRate, BigDecimal qtyDone,
+                       BigDecimal budgetedManDays, BigDecimal actualManDays,
+                       BigDecimal utilizationPct, BigDecimal costImplication, String normSource) {
+      this(tradeKey, tradeLabel, mmRate, qtyDone, budgetedManDays, actualManDays,
+          null, null, utilizationPct, costImplication, normSource);
+    }
+  }
 
   /** One row of the SC180 "Equipment Utilization" table. */
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -59,12 +84,24 @@ public record SupervisorPerformanceReport(
       String equipmentKey,
       String equipmentLabel,
       BigDecimal hourRate,        // Σ(line_cost) / Σ(actualDays)
-      BigDecimal qtyDone,
+      BigDecimal qtyDone,         // ALLOCATED qty (per-DPR allocator share)
       BigDecimal budgetedDays,
-      BigDecimal actualDays,      // Σ(nos) — raw equipment-days, hours ignored
+      BigDecimal actualDays,      // Σ(nos) — raw equipment-days, hours ignored. Includes tracked + suppressed + untracked.
+      /** See {@link TradeRollup#actualDaysOnHiddenSides}. */
+      BigDecimal actualDaysOnHiddenSides,
+      /** See {@link TradeRollup#actualDaysUntracked}. */
+      BigDecimal actualDaysUntracked,
       BigDecimal utilizationPct,
       BigDecimal costImplication,
-      String normSource) {}
+      String normSource) {
+    /** Back-compat ctor — older callers can omit hidden/untracked breakdown. */
+    public EquipmentRollup(String equipmentKey, String equipmentLabel, BigDecimal hourRate,
+                           BigDecimal qtyDone, BigDecimal budgetedDays, BigDecimal actualDays,
+                           BigDecimal utilizationPct, BigDecimal costImplication, String normSource) {
+      this(equipmentKey, equipmentLabel, hourRate, qtyDone, budgetedDays, actualDays,
+          null, null, utilizationPct, costImplication, normSource);
+    }
+  }
 
   /** Per-activity drill-down — mirrors the SC180 "PR for MP and Eqt" sheet. */
   @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -73,9 +110,22 @@ public record SupervisorPerformanceReport(
       String activityCode,
       String activityName,
       String unit,
+      /** Total activity output for the window — sum of dpr.qty_executed across DPRs. Includes
+       *  sub-contractor share. The frontend pairs this with {@link #subContractorQty} to show
+       *  "200 Nos (170 own + 30 sub-contractor)". */
       BigDecimal qtyForMonth,
+      /** Σ dpr_sub_contractor.quantity across DPRs in the window. Null when no sub-contractor
+       *  rows exist (frontend then renders just the total qty without the breakdown). */
+      BigDecimal subContractorQty,
       List<ResourceLine> resources,
-      String remarks) {}
+      String remarks) {
+    /** Back-compat ctor — older callers that don't pass subContractorQty. */
+    public ActivityDrillDown(UUID activityId, String activityCode, String activityName,
+                             String unit, BigDecimal qtyForMonth,
+                             List<ResourceLine> resources, String remarks) {
+      this(activityId, activityCode, activityName, unit, qtyForMonth, null, resources, remarks);
+    }
+  }
 
   /** One row inside an {@link ActivityDrillDown}: either a manpower trade or an equipment type. */
   @JsonInclude(JsonInclude.Include.NON_NULL)

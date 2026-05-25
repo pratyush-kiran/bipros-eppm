@@ -14,6 +14,7 @@ import {
   type RoleWithVariantsRequest,
 } from "@/lib/api/roleRateApi";
 import { getErrorMessage } from "@/lib/utils/error";
+import { rateUnitOptionsWithFallback } from "@/lib/constants/resourceUnits";
 
 const UNITS_MP = ["Day", "Hour"];
 const UNITS_EQ = ["Day", "Hour"];
@@ -374,7 +375,10 @@ export function RoleWithVariantsEditor({ editingRoleId, onSaved, onCancel }: Pro
                         onChange={(e) => updateMP(r._rowKey, { unit: e.target.value })}
                         className="w-full rounded-md border border-hairline bg-ivory/40 px-2 py-1"
                       >
-                        {UNITS_MP.map((u) => (
+                        {/* Use the shared fallback helper so legacy values like
+                            "Hr" (used by seeded role rates) surface in the dropdown
+                            instead of silently falling back to the first option. */}
+                        {rateUnitOptionsWithFallback(r.unit).map((u) => (
                           <option key={u} value={u}>
                             {u}
                           </option>
@@ -465,7 +469,9 @@ export function RoleWithVariantsEditor({ editingRoleId, onSaved, onCancel }: Pro
                         onChange={(e) => updateEQ(r._rowKey, { unit: e.target.value })}
                         className="w-full rounded-md border border-hairline bg-ivory/40 px-2 py-1"
                       >
-                        {UNITS_EQ.map((u) => (
+                        {/* See note in the manpower section above — fallback helper
+                            ensures seeded "Hr" values display correctly. */}
+                        {rateUnitOptionsWithFallback(r.unit).map((u) => (
                           <option key={u} value={u}>
                             {u}
                           </option>

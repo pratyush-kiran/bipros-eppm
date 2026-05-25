@@ -101,6 +101,26 @@ export function formatCrore(n: number | null | undefined, digits = 2): string {
   return `₹ ${n.toLocaleString("en-IN", { maximumFractionDigits: digits })} Cr`;
 }
 
+/**
+ * Format raw INR rupees with the unit auto-selected from the magnitude.
+ * Used by surfaces that consume project-scoped APIs (cost-summary, BOQ, RA bills)
+ * which return rupees, unlike the portfolio endpoints that pre-convert to crores.
+ */
+export function formatINR(n: number | null | undefined, digits = 2): string {
+  if (n == null || Number.isNaN(n)) return "—";
+  const abs = Math.abs(n);
+  if (abs >= 1_00_00_000) {
+    return `₹ ${(n / 1_00_00_000).toLocaleString("en-IN", { maximumFractionDigits: digits })} Cr`;
+  }
+  if (abs >= 1_00_000) {
+    return `₹ ${(n / 1_00_000).toLocaleString("en-IN", { maximumFractionDigits: digits })} L`;
+  }
+  if (abs >= 1_000) {
+    return `₹ ${(n / 1_000).toLocaleString("en-IN", { maximumFractionDigits: digits })} k`;
+  }
+  return `₹ ${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
+
 export function formatPct(n: number | null | undefined, digits = 1): string {
   if (n == null || Number.isNaN(n)) return "—";
   return `${n.toFixed(digits)}%`;

@@ -27,7 +27,9 @@ import com.bipros.project.application.service.DprActualCostLookup;
 import com.bipros.project.domain.model.WbsNode;
 import com.bipros.project.domain.repository.ProjectRepository;
 import com.bipros.project.domain.repository.WbsNodeRepository;
+import com.bipros.resource.domain.model.ActivitySubContractorAssignment;
 import com.bipros.resource.domain.model.ResourceAssignment;
+import com.bipros.resource.domain.repository.ActivitySubContractorAssignmentRepository;
 import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
 import com.bipros.udf.application.service.FormulaEngine;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +56,7 @@ public class EvmService {
     private final ActivityRepository activityRepository;
     private final ActivityExpenseRepository activityExpenseRepository;
     private final ResourceAssignmentRepository resourceAssignmentRepository;
+    private final ActivitySubContractorAssignmentRepository activitySubContractorAssignmentRepository;
     private final CostAccountRepository costAccountRepository;
     private final WbsNodeRepository wbsNodeRepository;
     private final ProjectRepository projectRepository;
@@ -72,6 +75,8 @@ public class EvmService {
         List<Activity> activities = activityRepository.findByProjectId(projectId);
         List<ActivityExpense> allExpenses = activityExpenseRepository.findByProjectId(projectId);
         List<ResourceAssignment> allAssignments = resourceAssignmentRepository.findByProjectId(projectId);
+        List<ActivitySubContractorAssignment> allScAssignments =
+                activitySubContractorAssignmentRepository.findByProjectId(projectId);
 
         // Group cost data by activity
         Map<UUID, List<ActivityExpense>> expensesByActivity = allExpenses.stream()
@@ -79,6 +84,9 @@ public class EvmService {
                 .collect(Collectors.groupingBy(ActivityExpense::getActivityId));
         Map<UUID, List<ResourceAssignment>> assignmentsByActivity = allAssignments.stream()
                 .collect(Collectors.groupingBy(ResourceAssignment::getActivityId));
+        Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity = allScAssignments.stream()
+                .filter(s -> s.getActivityId() != null)
+                .collect(Collectors.groupingBy(ActivitySubContractorAssignment::getActivityId));
         Map<UUID, BigDecimal> dprAcByActivity = dprActualCostLookup.sumByActivity(projectId);
 
         EvmTechniqueStrategy strategy = EvmTechniqueFactory.getStrategy(request.technique());
@@ -94,7 +102,8 @@ public class EvmService {
             // hasn't run yet. Without this, the strategy reads a stale 0 and EV is 0 even though
             // the activity is partway through its planned duration.
             refreshPercentCompleteIfStale(activity, dataDate);
-            BigDecimal activityBac = EvmRollupService.getActivityBac(activity, expensesByActivity, assignmentsByActivity);
+            BigDecimal activityBac = EvmRollupService.getActivityBac(activity, expensesByActivity,
+                    assignmentsByActivity, scAssignmentsByActivity);
             BigDecimal activityPv = EvmRollupService.getActivityPv(activity, activityBac, dataDate);
             BigDecimal activityEv = strategy.calculateEarnedValue(activity, activityBac, activityPv);
             BigDecimal activityAc = EvmRollupService.getActivityAc(activity, expensesByActivity, assignmentsByActivity, dprAcByActivity);
@@ -187,13 +196,18 @@ public class EvmService {
 
         List<ActivityExpense> expenses = activityExpenseRepository.findByActivityId(activityId);
         List<ResourceAssignment> assignments = resourceAssignmentRepository.findByActivityId(activityId);
+        List<ActivitySubContractorAssignment> scAssignments =
+                activitySubContractorAssignmentRepository.findByProjectIdAndActivityId(projectId, activityId);
 
         Map<UUID, List<ActivityExpense>> expensesByActivity = expenses.stream()
                 .collect(Collectors.groupingBy(e -> activityId));
         Map<UUID, List<ResourceAssignment>> assignmentsByActivity = assignments.stream()
                 .collect(Collectors.groupingBy(r -> activityId));
+        Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity =
+                scAssignments.isEmpty() ? Map.of() : Map.of(activityId, scAssignments);
 
-        BigDecimal bac = EvmRollupService.getActivityBac(activity, expensesByActivity, assignmentsByActivity);
+        BigDecimal bac = EvmRollupService.getActivityBac(activity, expensesByActivity,
+                assignmentsByActivity, scAssignmentsByActivity);
         BigDecimal pv = EvmRollupService.getActivityPv(activity, bac, dataDate);
 
         EvmTechnique technique = resolveEvmTechnique(activity.getPercentCompleteType());
@@ -330,6 +344,8 @@ public class EvmService {
         List<Activity> activities = activityRepository.findByProjectId(projectId);
         List<ActivityExpense> allExpenses = activityExpenseRepository.findByProjectId(projectId);
         List<ResourceAssignment> allAssignments = resourceAssignmentRepository.findByProjectId(projectId);
+        List<ActivitySubContractorAssignment> allScAssignments =
+                activitySubContractorAssignmentRepository.findByProjectId(projectId);
 
         // Pre-load all WBS nodes for the project to support in-memory inheritance lookup (N+1 safe)
         Map<UUID, WbsNode> wbsById = wbsNodeRepository.findByProjectIdOrderBySortOrder(projectId)
@@ -342,6 +358,9 @@ public class EvmService {
                 .collect(Collectors.groupingBy(ActivityExpense::getActivityId));
         Map<UUID, List<ResourceAssignment>> assignmentsByActivity = allAssignments.stream()
                 .collect(Collectors.groupingBy(ResourceAssignment::getActivityId));
+        Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity = allScAssignments.stream()
+                .filter(s -> s.getActivityId() != null)
+                .collect(Collectors.groupingBy(ActivitySubContractorAssignment::getActivityId));
         Map<UUID, BigDecimal> dprAcByActivity = dprActualCostLookup.sumByActivity(projectId);
 
         // Accumulator per resolved cost account ID (null = unassigned)
@@ -374,7 +393,8 @@ public class EvmService {
             EvmTechnique technique = resolveEvmTechnique(activity.getPercentCompleteType());
             EvmTechniqueStrategy strategy = EvmTechniqueFactory.getStrategy(technique);
 
-            BigDecimal actBac = EvmRollupService.getActivityBac(activity, expensesByActivity, assignmentsByActivity);
+            BigDecimal actBac = EvmRollupService.getActivityBac(activity, expensesByActivity,
+                    assignmentsByActivity, scAssignmentsByActivity);
             BigDecimal actPv = EvmRollupService.getActivityPv(activity, actBac, dataDate);
             BigDecimal actEv = strategy.calculateEarnedValue(activity, actBac, actPv);
             BigDecimal actAc = EvmRollupService.getActivityAc(activity, expensesByActivity, assignmentsByActivity, dprAcByActivity);

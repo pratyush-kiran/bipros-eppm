@@ -6,6 +6,7 @@ import {
   BarChart3,
   Briefcase,
   Sparkles,
+  Wallet,
 } from "lucide-react";
 
 interface DashboardTier {
@@ -43,6 +44,14 @@ const dashboardTiers: DashboardTier[] = [
     description: "Cross-project performance — schedule, cost, cash-flow, funding, risks and compliance — at a glance.",
     highlights: ["EVM rollup", "Cost overruns", "Risk heatmap"],
     icon: Briefcase,
+  },
+  {
+    id: "FINANCIAL",
+    title: "Financial",
+    kicker: "Project · cost lens",
+    description: "Budget tracking, cost analysis and billing for a single project — contract value, expenditure, billing raised, S-curve and category breakdown.",
+    highlights: ["Cost S-curve", "Invoice summary", "Budget breakdown"],
+    icon: Wallet,
   },
 ];
 

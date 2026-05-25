@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { AlertTriangle, Briefcase, HardHat, Info, Package, Save, X } from "lucide-react";
+import { AlertTriangle, Briefcase, HardHat, Info, Package, Save, Users, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
 import { SearchableSelect, type SelectOption } from "@/components/common/SearchableSelect";
@@ -17,12 +17,14 @@ import type {
   DprIssueRow,
   DprManpowerRow,
   DprMaterialRow,
+  DprSubContractorRow,
   Shift,
   Side,
 } from "@/lib/types/dpr";
 import { ManpowerGrid } from "./ManpowerGrid";
 import { EquipmentGrid } from "./EquipmentGrid";
 import { MaterialGrid } from "./MaterialGrid";
+import { SubContractorGrid } from "./SubContractorGrid";
 import { IssuesGrid } from "./IssuesGrid";
 import { SafetyDelaySection } from "./SafetyDelaySection";
 import { DprTotalsBar } from "./DprTotalsBar";
@@ -36,7 +38,7 @@ import { ProductivityCoverageBanner } from "./ProductivityCoverageBanner";
 
 type FormError = string | null;
 
-type Tab = "manpower" | "equipment" | "material" | "issues";
+type Tab = "manpower" | "equipment" | "material" | "subcontractor" | "issues";
 
 interface FormState extends DprBaseFields {
   chainageFromRaw: string;
@@ -150,6 +152,7 @@ const initialState = (
       manpower: editing.manpower ?? [],
       equipment: editing.equipment ?? [],
       materials: editing.materials ?? [],
+      subContractors: editing.subContractors ?? [],
       issues: editing.issues ?? [],
     };
   }
@@ -193,6 +196,7 @@ const initialState = (
     manpower: [],
     equipment: [],
     materials: [],
+    subContractors: [],
     issues: [],
   };
 };
@@ -499,6 +503,13 @@ export function DprActivityForm({
       ).length,
     [state.materials],
   );
+  const subContractorsFilledCount = useMemo(
+    () =>
+      (state.subContractors ?? []).filter(
+        (r) => !!r.activitySubContractorAssignmentId,
+      ).length,
+    [state.subContractors],
+  );
   const issuesFilledCount = useMemo(
     () => (state.issues ?? []).filter((r) => !!r.title?.trim()).length,
     [state.issues]
@@ -525,11 +536,12 @@ export function DprActivityForm({
     const existingRows =
       (state.manpower?.length ?? 0) +
       (state.equipment?.length ?? 0) +
-      (state.materials?.length ?? 0);
+      (state.materials?.length ?? 0) +
+      (state.subContractors?.length ?? 0);
     if (newActivityId === state.activityId) return;
     if (existingRows > 0 && state.activityId !== null) {
       const ok = window.confirm(
-        `Switching the activity will clear all ${existingRows} manpower / equipment / material row(s). Continue?`
+        `Switching the activity will clear all ${existingRows} manpower / equipment / material / sub-contractor row(s). Continue?`
       );
       if (!ok) return;
     }
@@ -540,6 +552,7 @@ export function DprActivityForm({
       manpower: [],
       equipment: [],
       materials: [],
+      subContractors: [],
     };
     // Auto-fill the unit from the activity's WorkActivity.default_unit. Without this, the form
     // sticks to its hardcoded "Cum" default and DPRs end up with units that don't match the
@@ -618,6 +631,9 @@ export function DprActivityForm({
     const materials = (state.materials ?? []).filter(
       (r) => !!r.materialRoleVariantId || !!r.resourceAssignmentId,
     );
+    const subContractors = (state.subContractors ?? []).filter(
+      (r) => !!r.activitySubContractorAssignmentId,
+    );
     // Issues use merge-by-id server-side: rows present in the DB but absent from this
     // payload are deleted, so we must include EVERY issue the user can still see —
     // including ones with no title yet aren't sent (treated as cancelled add).
@@ -651,6 +667,7 @@ export function DprActivityForm({
       manpower,
       equipment,
       materials,
+      subContractors,
       issues,
     };
 
@@ -991,6 +1008,10 @@ export function DprActivityForm({
             <ProductivityPreviewBanner
               preview={preview}
               workdone={state.qtyExecuted ?? null}
+              subContractorQty={(state.subContractors ?? []).reduce(
+                (s, r) => s + (r.quantity ?? 0),
+                0,
+              )}
               unit={state.unit}
             />
           </Field>
@@ -1090,6 +1111,9 @@ export function DprActivityForm({
           <TabButton active={tab === "material"} onClick={() => setTab("material")}>
             <Package className="h-4 w-4" /> Material ({materialsFilledCount})
           </TabButton>
+          <TabButton active={tab === "subcontractor"} onClick={() => setTab("subcontractor")}>
+            <Users className="h-4 w-4" /> Sub-Contractor ({subContractorsFilledCount})
+          </TabButton>
           <TabButton active={tab === "issues"} onClick={() => setTab("issues")}>
             <AlertTriangle className="h-4 w-4" /> Issues ({issuesFilledCount})
           </TabButton>
@@ -1120,6 +1144,15 @@ export function DprActivityForm({
               reportDate={state.reportDate}
               rows={state.materials ?? []}
               onChange={(rows: DprMaterialRow[]) => patch({ materials: rows })}
+            />
+          )}
+          {tab === "subcontractor" && (
+            <SubContractorGrid
+              projectId={projectId}
+              activityId={state.activityId ?? null}
+              rows={state.subContractors ?? []}
+              onChange={(rows: DprSubContractorRow[]) => patch({ subContractors: rows })}
+              workdoneQty={state.qtyExecuted ?? null}
             />
           )}
           {tab === "issues" && (
@@ -1166,6 +1199,7 @@ export function DprActivityForm({
               manpower={state.manpower ?? []}
               equipment={state.equipment ?? []}
               materials={state.materials ?? []}
+              subContractors={state.subContractors ?? []}
               qtyExecuted={state.qtyExecuted}
               unit={state.unit}
             />

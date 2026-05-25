@@ -47,4 +47,8 @@ public interface DprManpowerRepository extends JpaRepository<DprManpower, UUID> 
           and d.projectId = :projectId
         """)
     BigDecimal sumLineCostByProject(@Param("projectId") UUID projectId);
+
+    /** Per-DPR sum of manpower headcount (nos) for the given dpr ids. Returns [dprId (UUID), total (Long)]. */
+    @Query("select m.dprId, coalesce(sum(m.nos), 0) from DprManpower m where m.dprId in :ids group by m.dprId")
+    List<Object[]> sumNosByDprIdIn(@Param("ids") Collection<UUID> ids);
 }

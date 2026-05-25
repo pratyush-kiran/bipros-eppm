@@ -5,6 +5,7 @@ import com.bipros.project.application.dto.CreateDailyProgressReportRequest;
 import com.bipros.project.application.dto.DailyProgressReportResponse;
 import com.bipros.project.application.dto.DprAttachmentResponse;
 import com.bipros.project.application.dto.SupervisorOption;
+import com.bipros.project.application.dto.DprPage;
 import com.bipros.project.application.dto.UpdateDailyProgressReportRequest;
 import com.bipros.project.application.service.DailyProgressReportService;
 import com.bipros.project.application.service.DprAttachmentService;
@@ -66,12 +67,14 @@ public class DailyProgressReportController {
 
   @GetMapping
   @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.READ')")
-  public ResponseEntity<ApiResponse<List<DailyProgressReportResponse>>> list(
+  public ResponseEntity<ApiResponse<DprPage>> list(
       @PathVariable UUID projectId,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-      @RequestParam(required = false) String activity) {
-    return ResponseEntity.ok(ApiResponse.ok(service.list(projectId, from, to, activity)));
+      @RequestParam(required = false) String activity,
+      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate before,
+      @RequestParam(defaultValue = "14") int days) {
+    return ResponseEntity.ok(ApiResponse.ok(service.listPaged(projectId, from, to, activity, before, days)));
   }
 
   @GetMapping("/{id}")

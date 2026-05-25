@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { dprApi } from "@/lib/api/dprApi";
 import type {
   DailyProgressReportResponse,
   DprBaseFields,
+  DprSummaryRow,
 } from "@/lib/types/dpr";
 import { projectApi } from "@/lib/api/projectApi";
 import { activityApi } from "@/lib/api/activityApi";
@@ -217,13 +218,42 @@ export default function DprPage() {
   // tab-nav-h is the page-shell tab strip above the filter bar; day headers park beneath both.
   const dayStickyOffset = 53 + stickyHeaderHeight;
 
-  const { data: listData, isLoading, isFetching } = useQuery({
+  const {
+    data: listPages,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteQuery({
     queryKey: ["dpr", projectId, from, to],
-    queryFn: () => dprApi.list(projectId, { from, to }),
+    queryFn: ({ pageParam }) =>
+      dprApi.list(projectId, { from, to, before: pageParam ?? undefined, days: 14 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.data?.hasMore ? lastPage.data.nextCursor ?? undefined : undefined,
     enabled: !!projectId && !!from && !!to,
   });
 
-  const rows: DailyProgressReportResponse[] = listData?.data ?? [];
+  const rows: DprSummaryRow[] = useMemo(
+    () => (listPages?.pages ?? []).flatMap((p) => p.data?.items ?? []),
+    [listPages],
+  );
+
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,11 +268,16 @@ export default function DprPage() {
     setPageError(null);
   };
 
-  const openEdit = (row: DailyProgressReportResponse) => {
-    setEditing(row);
-    setPrefill(null);
-    setShowForm(true);
+  const openEdit = async (row: DprSummaryRow) => {
     setPageError(null);
+    setPrefill(null);
+    try {
+      const full = await dprApi.get(projectId, row.id);
+      setEditing(full.data ?? null);
+      setShowForm(true);
+    } catch (err: unknown) {
+      setPageError(getErrorMessage(err, "Failed to load DPR for editing"));
+    }
   };
 
   const closeForm = () => {
@@ -261,10 +296,13 @@ export default function DprPage() {
       : await dprApi.create(projectId, payload);
     queryClient.invalidateQueries({ queryKey: ["dpr", projectId, from, to] });
     queryClient.invalidateQueries({ queryKey: ["boq", projectId] });
+    if (editing) {
+      queryClient.invalidateQueries({ queryKey: ["dpr-detail", projectId, editing.id] });
+    }
     return saved.data ?? undefined;
   };
 
-  const handleDelete = async (row: DailyProgressReportResponse) => {
+  const handleDelete = async (row: DprSummaryRow) => {
     if (
       !confirm(
         `Delete DPR for ${row.activityName} on ${row.reportDate}? Linked BOQ qty will be rolled back.`
@@ -276,6 +314,7 @@ export default function DprPage() {
       await dprApi.delete(projectId, row.id);
       queryClient.invalidateQueries({ queryKey: ["dpr", projectId, from, to] });
       queryClient.invalidateQueries({ queryKey: ["boq", projectId] });
+      queryClient.removeQueries({ queryKey: ["dpr-detail", projectId, row.id] });
     } catch (err: unknown) {
       setPageError(getErrorMessage(err, "Failed to delete DPR"));
     }
@@ -343,7 +382,7 @@ export default function DprPage() {
               type="submit"
               className="rounded-md border border-hairline bg-paper px-4 py-2 text-sm font-semibold text-charcoal hover:bg-ivory"
             >
-              {isFetching ? "Loading…" : "Refresh"}
+              {isFetchingNextPage ? "Loading…" : "Refresh"}
             </button>
           </form>
         </div>
@@ -380,10 +419,15 @@ export default function DprPage() {
 
         <DprDayList
           rows={rows}
+          projectId={projectId}
           onEdit={openEdit}
           onDelete={handleDelete}
           stickyOffset={dayStickyOffset}
         />
+        <div ref={sentinelRef} aria-hidden className="h-1" />
+        {isFetchingNextPage && (
+          <div className="py-6 text-center text-sm text-slate">Loading older days…</div>
+        )}
       </div>
     </div>
   );

@@ -1,27 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ChevronDown, ChevronRight, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { DailyProgressReportResponse } from "@/lib/types/dpr";
+import type { DprSummaryRow } from "@/lib/types/dpr";
+import type { ActivityGroup } from "./groupByDayThenActivity";
 import { AvatarStack } from "./AvatarStack";
 import { DprWorkFrontRow } from "./DprWorkFrontRow";
 
-export interface ActivityGroup {
-  /** Stable key for React. */
-  key: string;
-  boqItemNo: string | null;
-  activityName: string;
-  unit: string;
-  totalQty: number;
-  uniqueSupervisors: Array<{ id: string; name: string }>;
-  rows: DailyProgressReportResponse[]; // one per work-front, sorted by chainage asc
-}
-
 interface Props {
   group: ActivityGroup;
-  onEditRow: (row: DailyProgressReportResponse) => void;
-  onDeleteRow: (row: DailyProgressReportResponse) => void;
+  projectId: string;
+  onEditRow: (row: DprSummaryRow) => void;
+  onDeleteRow: (row: DprSummaryRow) => void;
 }
 
 const fmt = (n: number, digits = 2) =>
@@ -34,7 +25,7 @@ const fmt = (n: number, digits = 2) =>
  * {@link DprWorkFrontRow}s (one per supervisor's chainage), default-open when
  * the activity has more than one work front (the case the user flagged).
  */
-export function DprActivityGroup({ group, onEditRow, onDeleteRow }: Props) {
+function DprActivityGroupImpl({ group, projectId, onEditRow, onDeleteRow }: Props) {
   const multiFront = group.rows.length > 1;
   const [open, setOpen] = useState(multiFront);
 
@@ -94,6 +85,7 @@ export function DprActivityGroup({ group, onEditRow, onDeleteRow }: Props) {
             <DprWorkFrontRow
               key={row.id}
               row={row}
+              projectId={projectId}
               index={i}
               total={group.rows.length}
               onEdit={() => onEditRow(row)}
@@ -105,3 +97,5 @@ export function DprActivityGroup({ group, onEditRow, onDeleteRow }: Props) {
     </article>
   );
 }
+
+export const DprActivityGroup = memo(DprActivityGroupImpl);

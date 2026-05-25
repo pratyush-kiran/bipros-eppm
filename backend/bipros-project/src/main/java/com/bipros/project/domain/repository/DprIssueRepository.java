@@ -4,6 +4,8 @@ import com.bipros.project.domain.model.DprIssue;
 import com.bipros.project.domain.model.IssueStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -33,4 +35,9 @@ public interface DprIssueRepository extends JpaRepository<DprIssue, UUID> {
     List<DprIssue> findByProjectIdAndStatusInOrderByOpenedAtDesc(UUID projectId, Collection<IssueStatus> statuses);
 
     List<DprIssue> findByProjectIdAndReportDateBetweenOrderByOpenedAtDesc(UUID projectId, LocalDate from, LocalDate to);
+
+    /** Lightweight issue rows (status + severity only) for aggregating live/open/critical counts.
+     *  Returns [dprId (UUID), status (IssueStatus), severity (IssueSeverity)]. */
+    @Query("select i.dprId, i.status, i.severity from DprIssue i where i.dprId in :ids")
+    List<Object[]> findStatusSeverityByDprIdIn(@Param("ids") Collection<UUID> ids);
 }

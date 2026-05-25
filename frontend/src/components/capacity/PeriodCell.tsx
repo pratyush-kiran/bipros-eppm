@@ -23,10 +23,23 @@ export function utilBand(util: number | null | undefined): string {
 const EFFICIENCY_TOOLTIP =
   "Output vs the productivity norm per resource-day. Not deployment utilization.";
 
-function sideLabel(side: "MANPOWER" | "EQUIPMENT" | null | undefined): string {
-  if (side === "MANPOWER") return "Manpower";
-  if (side === "EQUIPMENT") return "Equipment";
-  return "the other";
+/**
+ * Builds the "Actual" breakdown line: "(115 tracked · 154 suppressed · 8 untracked)".
+ * Returns null when nothing was suppressed or untracked — the breakdown line is hidden
+ * in that case because Actual already tells the whole story.
+ */
+function actualBreakdown(p: RolePeriod): string | null {
+  const total = p.actualDays ?? 0;
+  if (total <= 0) return null;
+  const suppressed = p.actualDaysOnHiddenSides ?? 0;
+  const untracked = p.actualDaysUntracked ?? 0;
+  if (suppressed <= 0 && untracked <= 0) return null;
+  const tracked = total - suppressed - untracked;
+  const parts: string[] = [];
+  if (tracked > 0) parts.push(`${fmt(tracked, 1)} tracked`);
+  if (suppressed > 0) parts.push(`${fmt(suppressed, 1)} suppressed`);
+  if (untracked > 0) parts.push(`${fmt(untracked, 1)} untracked`);
+  return parts.join(" · ");
 }
 
 /**
@@ -44,6 +57,7 @@ export const PeriodCell = memo(function PeriodCell({
   if (!period) {
     return <span className="text-xs text-text-muted">—</span>;
   }
+  const untracked = period.normResolved === false;
   return (
     <div className="space-y-0.5 text-xs">
       {period.qty != null && period.qty > 0 && (
@@ -52,25 +66,31 @@ export const PeriodCell = memo(function PeriodCell({
         </div>
       )}
       <div>
-        <span className="text-text-muted">Budget:</span> {fmt(period.budgetDays, 1)}
+        <span className="text-text-muted">Budget:</span>{" "}
+        {untracked ? "—" : fmt(period.budgetDays, 1)}
       </div>
       <div>
         <span className="text-text-muted">Actual:</span> {fmt(period.actualDays, 1)}
       </div>
-      {period.actualDaysUntracked != null && period.actualDaysUntracked > 0 && (
-        <div className="text-text-muted italic">
-          ({fmt(period.actualDaysUntracked, 1)} day{period.actualDaysUntracked === 1 ? "" : "s"} on activities not tracking productivity)
+      {actualBreakdown(period) && (
+        <div
+          className="text-text-muted italic"
+          title="Tracked = counted toward Efficiency on this side. Suppressed = on activities where the other side governs (SERIES / SUBSTITUTE) — see banner. Untracked = on activities with no productivity norm for this role."
+        >
+          ({actualBreakdown(period)})
         </div>
       )}
       <div className="flex items-center gap-2 flex-wrap">
         <span
-          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold cursor-help ${utilBand(period.utilizationPct)}`}
+          className={`inline-block px-2 py-0.5 rounded text-xs font-semibold cursor-help ${utilBand(untracked ? null : period.utilizationPct)}`}
           title={EFFICIENCY_TOOLTIP}
         >
           Eff:{" "}
-          {period.utilizationPct == null ? "—" : `${fmt(period.utilizationPct, 1)} %`}
+          {untracked || period.utilizationPct == null
+            ? "—"
+            : `${fmt(period.utilizationPct, 1)} %`}
         </span>
-        {period.costImplication != null && period.costImplication !== 0 && (
+        {!untracked && period.costImplication != null && period.costImplication !== 0 && (
           <span
             className={`text-xs ${period.costImplication < 0 ? "text-success" : "text-danger"}`}
           >
@@ -80,12 +100,9 @@ export const PeriodCell = memo(function PeriodCell({
           </span>
         )}
       </div>
-      {period.constrainedDays != null && period.constrainedDays > 0 && (
-        <div className="mt-1 text-warning italic">
-          {fmt(period.constrainedDays, 1)} day{period.constrainedDays === 1 ? "" : "s"} constrained by{" "}
-          {sideLabel(period.constrainedBySide)} side (SERIES) — that side&apos;s norm capped the
-          activity&apos;s output, so this row&apos;s low Efficiency % is the bottleneck, not the role&apos;s
-          underperformance.
+      {untracked && (
+        <div className="mt-1 text-text-muted italic">
+          No productivity norm for this role on this activity.
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-type AccentKey = "emerald" | "bronze" | "steel";
+type AccentKey = "emerald" | "bronze" | "steel" | "slate";
 
 interface Props {
   title: string;
@@ -17,6 +17,7 @@ const ACCENT_VAR: Record<AccentKey, string> = {
   emerald: "var(--emerald)",
   bronze: "var(--bronze-warn)",
   steel: "var(--steel)",
+  slate: "var(--slate)",
 };
 
 /**

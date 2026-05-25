@@ -40,4 +40,8 @@ public interface DprEquipmentRepository extends JpaRepository<DprEquipment, UUID
           and d.projectId = :projectId
         """)
     BigDecimal sumLineCostByProject(@Param("projectId") UUID projectId);
+
+    /** Per-DPR sum of equipment count (nos) for the given dpr ids. Returns [dprId (UUID), total (Long)]. */
+    @Query("select e.dprId, coalesce(sum(e.nos), 0) from DprEquipment e where e.dprId in :ids group by e.dprId")
+    List<Object[]> sumNosByDprIdIn(@Param("ids") Collection<UUID> ids);
 }

@@ -127,6 +127,18 @@ export interface ScheduleQuality {
   failingChecks: string[];
 }
 
+export interface SnapshotDeltas {
+  physicalPctDelta: number | null;
+  bacCroresDelta: number | null;
+  activeRisksDelta: number | null;
+  tasksCompletedDelta: number | null;
+}
+
+export interface ProjectStatusSnapshotWithTrend {
+  current: ProjectStatusSnapshot;
+  deltas: SnapshotDeltas;
+}
+
 export interface MilestoneRow {
   milestoneId: string;
   code: string;
@@ -144,6 +156,13 @@ export const projectInsightsApi = {
   getStatusSnapshot: (projectId: string) =>
     apiClient
       .get<ApiResponse<ProjectStatusSnapshot>>(`/v1/projects/${projectId}/status-snapshot`)
+      .then((r) => r.data.data),
+
+  getStatusSnapshotWithTrend: (projectId: string) =>
+    apiClient
+      .get<ApiResponse<ProjectStatusSnapshotWithTrend>>(
+        `/v1/projects/${projectId}/status-snapshot-with-trend`,
+      )
       .then((r) => r.data.data),
 
   getCostVariance: (projectId: string) =>

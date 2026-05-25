@@ -90,6 +90,7 @@ class DbsExcelWriterRegisterSheetsTest {
                 /*cumulativeExpense*/ null,
                 /*cumulativeIncome*/ null,
                 /*cumulativeContribution*/ null,
+                /*subcontractLines*/ List.of(),
                 /*recomputedAt*/ null,
                 /*alerts*/ List.of()));
         when(queryService.listSupervisorsForDay(eq(projectId), eq(date)))

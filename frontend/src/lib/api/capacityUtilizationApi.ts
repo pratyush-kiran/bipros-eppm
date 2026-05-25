@@ -29,17 +29,31 @@ export interface RolePeriod {
    * portion, not the role's full deployment.
    */
   actualDaysUntracked: number | null;
+  /** Of `actualDays`, how many were on activities where THIS role had a resolvable norm but
+   *  the allocator suppressed this side (SERIES losing side or SUBSTITUTE redundant side).
+   *  The frontend renders a "suppressed by other side" note instead of "not tracking". */
+  actualDaysOnHiddenSides?: number | null;
   utilizationPct: number | null;
   costImplication: number | null;
-  /**
-   * Portion of actualDays spent on SERIES-configured activities where this role's side was NOT
-   * the governing one — the other side's norm capped expected output, so the low util % is the
-   * constraint, not the role's efficiency. Null when no such days exist.
-   */
-  constrainedDays: number | null;
-  /** The side that governed expected output on the constrained activities: MANPOWER | EQUIPMENT.
-   *  Null when {@link #constrainedDays} is null. */
-  constrainedBySide: "MANPOWER" | "EQUIPMENT" | null;
+  /** True when at least one of the role's activities in this period had a resolvable norm.
+   *  Null on legacy / synthesised rows where the dimension isn't meaningful. */
+  normResolved?: boolean | null;
+  /** @deprecated Replaced by per-activity hiddenSideNotes on the Section. */
+  constrainedDays?: number | null;
+  /** @deprecated See {@link constrainedDays}. */
+  constrainedBySide?: "MANPOWER" | "EQUIPMENT" | null;
+}
+
+/**
+ * Per-activity annotation for a side that was suppressed in a SERIES/SUBSTITUTE allocation.
+ * The frontend renders one banner per note in the section the activity belongs to.
+ */
+export interface HiddenSideNote {
+  activityId: string;
+  workActivityName: string | null;
+  /** The side that DID govern (won). */
+  governingSide: "MANPOWER" | "EQUIPMENT";
+  mode: "SERIES" | "SUBSTITUTE";
 }
 
 export interface CapacityRoleRow {
@@ -58,6 +72,8 @@ export interface CapacitySection {
   totalForTheDay: RolePeriod | null;
   totalForTheMonth: RolePeriod | null;
   totalCumulative: RolePeriod | null;
+  /** Activities where this section's side was hidden by the allocator. May be empty or absent. */
+  hiddenSideNotes?: HiddenSideNote[];
 }
 
 /** @deprecated Legacy flat-row shape — kept for older consumers; new code uses {@link CapacitySection}. */
@@ -127,13 +143,18 @@ export interface TradeRollup {
   tradeKey: string;
   tradeLabel: string;
   mmRate: number | null;
-  /** Activity output executed where this trade was present — the source of budgetedManDays
-   *  (= qtyDone ÷ productivity norm). Surfaced as its own column so users can see the math. */
+  /** ALLOCATED qty for this trade (per-DPR CapacityAllocator share, not raw DPR qty).
+   *  budgetedManDays = qtyDone ÷ productivity norm. */
   qtyDone: number | null;
   budgetedManDays: number | null;
-  /** Raw sum of headcount (nos) across DPRs — DAY-basis, hours ignored. Same scale as
-   *  budgetedManDays so % Util = budgeted ÷ actual × 100 is dimensionally honest. */
+  /** Raw sum of headcount (nos) across DPRs — DAY-basis, hours ignored. Includes tracked +
+   *  suppressed + untracked. Util uses (actual − suppressed − untracked) as denominator. */
   actualManDays: number | null;
+  /** Portion of actualManDays where this trade's manpower side was suppressed by the allocator
+   *  (SERIES/SUBSTITUTE governed by equipment). Norm exists but this side didn't drive output. */
+  actualDaysOnHiddenSides?: number | null;
+  /** Portion of actualManDays where the trade's norm didn't resolve for the activity. */
+  actualDaysUntracked?: number | null;
   utilizationPct: number | null;
   costImplication: number | null;
   normSource: BudgetedSource;
@@ -146,6 +167,10 @@ export interface EquipmentRollup {
   qtyDone: number | null;
   budgetedDays: number | null;
   actualDays: number | null;
+  /** See {@link TradeRollup.actualDaysOnHiddenSides}. */
+  actualDaysOnHiddenSides?: number | null;
+  /** See {@link TradeRollup.actualDaysUntracked}. */
+  actualDaysUntracked?: number | null;
   utilizationPct: number | null;
   costImplication: number | null;
   normSource: BudgetedSource;
@@ -179,7 +204,11 @@ export interface ActivityDrillDown {
   activityCode: string | null;
   activityName: string;
   unit: string | null;
+  /** Total activity output for the window — includes sub-contractor share. */
   qtyForMonth: number | null;
+  /** Σ sub-contractor qty for this activity in the window. Null when no sub-contractor rows.
+   *  Frontend renders "200 Nos (170 own + 30 sub-contractor)" when present. */
+  subContractorQty?: number | null;
   resources: ResourceLine[];
   remarks: string | null;
 }
@@ -199,6 +228,10 @@ export interface SupervisorPerformanceReport {
   summary: {
     manpower: TradeRollup[];
     equipment: EquipmentRollup[];
+    /** Activities where the manpower side was suppressed by the allocator. May be empty or absent. */
+    manpowerHiddenNotes?: HiddenSideNote[];
+    /** Activities where the equipment side was suppressed by the allocator. May be empty or absent. */
+    equipmentHiddenNotes?: HiddenSideNote[];
   };
   activities: ActivityDrillDown[];
 }

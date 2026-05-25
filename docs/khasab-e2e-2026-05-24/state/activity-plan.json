@@ -1,0 +1,1465 @@
+{
+  "2.3.6(i)b": {
+    "name": "Unclassified excavation",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 1263.89,
+    "qty_total": 116278.0,
+    "dpr_count": 245,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Carpenter",
+        "count": 12,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Excavator",
+        "count": 3,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 4,
+        "duration_days": 52
+      },
+      {
+        "name": "Mobile Crane",
+        "count": 2,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "2.3.6(i)a": {
+    "name": "Unclassified excavation",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 492.4,
+    "qty_total": 54656.0,
+    "dpr_count": 336,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Carpenter",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Mason",
+        "count": 4,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Excavator",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Water Tanker",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "crusher",
+        "count": 2,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "2.3.6(i)": {
+    "name": "Unclassified excavation",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 401.43,
+    "qty_total": 2810.0,
+    "dpr_count": 100,
+    "manpower_demand": [
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Helper",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 2,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "2.4.6(i)": {
+    "name": "Borrow excavation to embankment-Extraction and screening",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 440.41,
+    "qty_total": 35673.0,
+    "dpr_count": 259,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Mason",
+        "count": 4,
+        "duration_days": 52
+      },
+      {
+        "trade": "Carpenter",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Grader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Roller",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Bob Cat",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Water Tanker",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "hand drilling",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Air Compressor",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "1": {
+    "name": "Preliminaries",
+    "unit": "LS",
+    "rate": 0,
+    "duration_days": 43,
+    "qty_avg": 421.67,
+    "qty_total": 1265.0,
+    "dpr_count": 78,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 7,
+        "duration_days": 43
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Grader",
+        "count": 1,
+        "duration_days": 43
+      },
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 43
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 43
+      }
+    ],
+    "material_demand": []
+  },
+  "2.6.6(i)": {
+    "name": "Subgrade preparation in cut",
+    "unit": "Sqm",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 312.19,
+    "qty_total": 24663.0,
+    "dpr_count": 210,
+    "manpower_demand": [
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Steel Fixer",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "trade": "Carpenter",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Mason",
+        "count": 4,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Water Tanker",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Grader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Roller",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "crusher",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Bob Cat",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "1.1": {
+    "name": "Preliminaries",
+    "unit": "LS",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 227.71,
+    "qty_total": 17534.0,
+    "dpr_count": 253,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 52
+      },
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Air Compressor",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "hand drilling",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "3.3.6 (ii)": {
+    "name": "ABC  (Class A)-Extraction and Screening",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 8,
+    "qty_avg": 517.14,
+    "qty_total": 3620.0,
+    "dpr_count": 10,
+    "manpower_demand": [],
+    "equipment_demand": [
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 8
+      },
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 8
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 8
+      },
+      {
+        "name": "Dumper",
+        "count": 4,
+        "duration_days": 8
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 8
+      }
+    ],
+    "material_demand": []
+  },
+  "2.4.6(i)a": {
+    "name": "Borrow excavation to embankment-Extraction and screening",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 464.17,
+    "qty_total": 5570.0,
+    "dpr_count": 148,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "crusher",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "2.3.6(i)d": {
+    "name": "Unclassified excavation",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 254.33,
+    "qty_total": 7630.0,
+    "dpr_count": 206,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 4,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "3.2.6 (ii)": {
+    "name": "GSB (Class B)-Extraction and Screening",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 254.39,
+    "qty_total": 9158.0,
+    "dpr_count": 183,
+    "manpower_demand": [
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Helper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Grader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Roller",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Water Tanker",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Bob Cat",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "5.1.7 (iii)": {
+    "name": "Concrete (Class15),blinding for culverts,Bridges, retaining walls,under/overpass foundations, mass concrete   etc.",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 139.82,
+    "qty_total": 8389.5,
+    "dpr_count": 239,
+    "manpower_demand": [
+      {
+        "trade": "Steel Fixer",
+        "count": 5,
+        "duration_days": 52
+      },
+      {
+        "trade": "Helper",
+        "count": 4,
+        "duration_days": 52
+      },
+      {
+        "trade": "Mason",
+        "count": 4,
+        "duration_days": 52
+      },
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "trade": "Carpenter",
+        "count": 4,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Bob Cat",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Concrete Mixer",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "crusher",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Roller",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Grader",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "2.7.6 (i)": {
+    "name": "Unclassified structural excavation (depth 0m to 2.0m) (Excavation)",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 584.85,
+    "qty_total": 23394.0,
+    "dpr_count": 162,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Dozer",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "name": "Plate Compactor",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "baby Roller",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Roller",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Dumper",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Grader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Bob Cat",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "3.3.6 (ii)a": {
+    "name": "ABC  (Class A)-Extraction and Screening",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 10,
+    "qty_avg": 660.0,
+    "qty_total": 3300.0,
+    "dpr_count": 10,
+    "manpower_demand": [],
+    "equipment_demand": [
+      {
+        "name": "Excavator",
+        "count": 4,
+        "duration_days": 10
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 10
+      },
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 10
+      },
+      {
+        "name": "crusher",
+        "count": 1,
+        "duration_days": 10
+      },
+      {
+        "name": "Dumper",
+        "count": 1,
+        "duration_days": 10
+      }
+    ],
+    "material_demand": []
+  },
+  "9.1.6(ii)": {
+    "name": "Mortared stone riprap including 100mm thick cement mortar bed  as per drawing.",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 53,
+    "qty_avg": 160.53,
+    "qty_total": 6903.0,
+    "dpr_count": 138,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 53
+      },
+      {
+        "trade": "Mason",
+        "count": 6,
+        "duration_days": 53
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 2,
+        "duration_days": 53
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 53
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 53
+      },
+      {
+        "name": "Concrete Mixer",
+        "count": 1,
+        "duration_days": 53
+      },
+      {
+        "name": "Water Tanker",
+        "count": 1,
+        "duration_days": 53
+      }
+    ],
+    "material_demand": []
+  },
+  "18.3.6(i)": {
+    "name": "Service ducts  uPVC 100mm dia two way",
+    "unit": "lin.m",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 149.9,
+    "qty_total": 749.5,
+    "dpr_count": 104,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 6,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Concrete Mixer",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "13.1.7(ix)a": {
+    "name": "Concrete barrier, transition section",
+    "unit": "lin.m.",
+    "rate": 0,
+    "duration_days": 12,
+    "qty_avg": 0.0,
+    "qty_total": 0,
+    "dpr_count": 12,
+    "manpower_demand": [],
+    "equipment_demand": [],
+    "material_demand": []
+  },
+  "13.1.7(ix)b": {
+    "name": "Concrete barrier, transition section",
+    "unit": "lin.m.",
+    "rate": 0,
+    "duration_days": 45,
+    "qty_avg": 41.73,
+    "qty_total": 918.0,
+    "dpr_count": 97,
+    "manpower_demand": [
+      {
+        "trade": "Carpenter",
+        "count": 7,
+        "duration_days": 45
+      },
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 45
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 45
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Hiab",
+        "count": 1,
+        "duration_days": 45
+      },
+      {
+        "name": "Mobile Crane",
+        "count": 1,
+        "duration_days": 45
+      }
+    ],
+    "material_demand": []
+  },
+  "3.2.6 (ii)a": {
+    "name": "GSB (Class B)-Extraction and Screening",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 34,
+    "qty_avg": 427.69,
+    "qty_total": 5560.0,
+    "dpr_count": 35,
+    "manpower_demand": [
+      {
+        "trade": "Foreman",
+        "count": 1,
+        "duration_days": 34
+      },
+      {
+        "trade": "Helper",
+        "count": 4,
+        "duration_days": 34
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 34
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Excavator",
+        "count": 2,
+        "duration_days": 34
+      },
+      {
+        "name": "crusher",
+        "count": 2,
+        "duration_days": 34
+      },
+      {
+        "name": "Cruhser",
+        "count": 1,
+        "duration_days": 34
+      }
+    ],
+    "material_demand": []
+  },
+  "5.2.6 (ii)a": {
+    "name": "HYSD min tensile strength 420 Mpa for  culverts, bridge decks, pier foundations, abutments, approach slab,underpas /overpass etc.",
+    "unit": "tonne",
+    "rate": 0,
+    "duration_days": 44,
+    "qty_avg": 404.1,
+    "qty_total": 8486.0,
+    "dpr_count": 75,
+    "manpower_demand": [
+      {
+        "trade": "Steel Fixer",
+        "count": 5,
+        "duration_days": 44
+      },
+      {
+        "trade": "Carpenter",
+        "count": 1,
+        "duration_days": 44
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 44
+      },
+      {
+        "trade": "Helper",
+        "count": 6,
+        "duration_days": 44
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Hiab",
+        "count": 2,
+        "duration_days": 44
+      }
+    ],
+    "material_demand": []
+  },
+  "5.2.6 (ii)": {
+    "name": "HYSD min tensile strength 420 Mpa for  culverts, bridge decks, pier foundations, abutments, approach slab,underpas /overpass etc.",
+    "unit": "tonne",
+    "rate": 0,
+    "duration_days": 43,
+    "qty_avg": 99.5,
+    "qty_total": 1393.0,
+    "dpr_count": 53,
+    "manpower_demand": [
+      {
+        "trade": "Steel Fixer",
+        "count": 2,
+        "duration_days": 43
+      },
+      {
+        "trade": "Carpenter",
+        "count": 1,
+        "duration_days": 43
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 43
+      },
+      {
+        "trade": "Helper",
+        "count": 4,
+        "duration_days": 43
+      }
+    ],
+    "equipment_demand": [],
+    "material_demand": []
+  },
+  "5.1.7 (iii)a": {
+    "name": "Concrete (Class15),blinding for culverts,Bridges, retaining walls,under/overpass foundations, mass concrete   etc.",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 51,
+    "qty_avg": 55.33,
+    "qty_total": 2213.2,
+    "dpr_count": 124,
+    "manpower_demand": [
+      {
+        "trade": "Carpenter",
+        "count": 6,
+        "duration_days": 51
+      },
+      {
+        "trade": "Helper",
+        "count": 6,
+        "duration_days": 51
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 51
+      },
+      {
+        "trade": "Steel Fixer",
+        "count": 2,
+        "duration_days": 51
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 51
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 51
+      },
+      {
+        "name": "Hiab",
+        "count": 2,
+        "duration_days": 51
+      },
+      {
+        "name": "Mobile Crane",
+        "count": 1,
+        "duration_days": 51
+      }
+    ],
+    "material_demand": []
+  },
+  "13.1.7(ix)b2": {
+    "name": "Concrete barrier, transition section",
+    "unit": "lin.m.",
+    "rate": 0,
+    "duration_days": 52,
+    "qty_avg": 335.42,
+    "qty_total": 6373.0,
+    "dpr_count": 67,
+    "manpower_demand": [
+      {
+        "trade": "Mason",
+        "count": 6,
+        "duration_days": 52
+      },
+      {
+        "trade": "Helper",
+        "count": 2,
+        "duration_days": 52
+      },
+      {
+        "trade": "Steel Fixer",
+        "count": 4,
+        "duration_days": 52
+      },
+      {
+        "trade": "Carpenter",
+        "count": 4,
+        "duration_days": 52
+      },
+      {
+        "trade": "Supervisor",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 52
+      },
+      {
+        "name": "Asphalt cutler",
+        "count": 1,
+        "duration_days": 52
+      }
+    ],
+    "material_demand": []
+  },
+  "13.1.7(ix)b1": {
+    "name": "Concrete barrier, transition section",
+    "unit": "lin.m.",
+    "rate": 0,
+    "duration_days": 38,
+    "qty_avg": 375.4,
+    "qty_total": 1877.0,
+    "dpr_count": 38,
+    "manpower_demand": [
+      {
+        "trade": "Carpenter",
+        "count": 2,
+        "duration_days": 38
+      },
+      {
+        "trade": "Steel Fixer",
+        "count": 5,
+        "duration_days": 38
+      }
+    ],
+    "equipment_demand": [],
+    "material_demand": []
+  },
+  "9.1.6 (iii)": {
+    "name": "Mortared stone riprap including 100mm thick cement mortar bed  as per drawing.",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 16,
+    "qty_avg": 0.0,
+    "qty_total": 0,
+    "dpr_count": 16,
+    "manpower_demand": [],
+    "equipment_demand": [],
+    "material_demand": []
+  },
+  "2.1.5 (i)": {
+    "name": "Clear site of all trees less than 300mm",
+    "unit": "Sq.m",
+    "rate": 0,
+    "duration_days": 4,
+    "qty_avg": 200.0,
+    "qty_total": 200.0,
+    "dpr_count": 4,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 1,
+        "duration_days": 4
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 4
+      }
+    ],
+    "material_demand": []
+  },
+  "2.8.6 (i)": {
+    "name": "Trench excavation and Backfill depth (depth 0 to 2.0m)",
+    "unit": "Cum",
+    "rate": 0,
+    "duration_days": 20,
+    "qty_avg": 117.09,
+    "qty_total": 1288.0,
+    "dpr_count": 37,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 1,
+        "duration_days": 20
+      },
+      {
+        "trade": "Mason",
+        "count": 5,
+        "duration_days": 20
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 20
+      },
+      {
+        "name": "Concrete Mixer",
+        "count": 1,
+        "duration_days": 20
+      },
+      {
+        "name": "Water Tanker",
+        "count": 1,
+        "duration_days": 20
+      },
+      {
+        "name": "Excavator",
+        "count": 2,
+        "duration_days": 20
+      }
+    ],
+    "material_demand": []
+  },
+  "2.6.6(i)a": {
+    "name": "Subgrade preparation in cut",
+    "unit": "Sqm",
+    "rate": 0,
+    "duration_days": 37,
+    "qty_avg": 610.61,
+    "qty_total": 20150.0,
+    "dpr_count": 62,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 1,
+        "duration_days": 37
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 37
+      },
+      {
+        "name": "Excavator",
+        "count": 1,
+        "duration_days": 37
+      },
+      {
+        "name": "crusher",
+        "count": 1,
+        "duration_days": 37
+      },
+      {
+        "name": "Dozer",
+        "count": 1,
+        "duration_days": 37
+      },
+      {
+        "name": "Tipper",
+        "count": 1,
+        "duration_days": 37
+      },
+      {
+        "name": "Dumper",
+        "count": 2,
+        "duration_days": 37
+      }
+    ],
+    "material_demand": []
+  },
+  "18.3.6": {
+    "name": "Service ducts  uPVC 100mm dia two way",
+    "unit": "lin.m",
+    "rate": 0,
+    "duration_days": 35,
+    "qty_avg": 117.5,
+    "qty_total": 235.0,
+    "dpr_count": 35,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 35
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 35
+      }
+    ],
+    "material_demand": []
+  },
+  "18.3.6(ii)": {
+    "name": "Service ducts  uPVC 100mm dia two way",
+    "unit": "lin.m",
+    "rate": 0,
+    "duration_days": 4,
+    "qty_avg": 0.0,
+    "qty_total": 0,
+    "dpr_count": 4,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 4
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 4
+      }
+    ],
+    "material_demand": []
+  },
+  "5.10.6 (i)": {
+    "name": "Bituminous paint 3coats to concrete face in contact with soil as instructed.",
+    "unit": "Sqm",
+    "rate": 0,
+    "duration_days": 29,
+    "qty_avg": 79.4,
+    "qty_total": 397.0,
+    "dpr_count": 57,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 2,
+        "duration_days": 29
+      }
+    ],
+    "equipment_demand": [],
+    "material_demand": []
+  },
+  "18.3": {
+    "name": "Service ducts  uPVC 100mm dia two way",
+    "unit": "lin.m",
+    "rate": 0,
+    "duration_days": 28,
+    "qty_avg": 10.0,
+    "qty_total": 10.0,
+    "dpr_count": 28,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 3,
+        "duration_days": 28
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Wheel Loader",
+        "count": 1,
+        "duration_days": 28
+      }
+    ],
+    "material_demand": []
+  },
+  "1.2": {
+    "name": "Preliminaries",
+    "unit": "LS",
+    "rate": 0,
+    "duration_days": 6,
+    "qty_avg": 0.0,
+    "qty_total": 0,
+    "dpr_count": 6,
+    "manpower_demand": [
+      {
+        "trade": "Helper",
+        "count": 2,
+        "duration_days": 6
+      }
+    ],
+    "equipment_demand": [
+      {
+        "name": "Hiab",
+        "count": 1,
+        "duration_days": 6
+      }
+    ],
+    "material_demand": []
+  }
+}

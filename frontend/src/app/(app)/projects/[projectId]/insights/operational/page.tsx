@@ -23,6 +23,7 @@ import { ManpowerKpiSection } from "@/components/dashboards/ManpowerKpiSection";
 import { EquipmentKpiSection } from "@/components/dashboards/EquipmentKpiSection";
 import { EvmKpiSection } from "@/components/dashboards/EvmKpiSection";
 import { MaterialKpiSection } from "@/components/dashboards/MaterialKpiSection";
+import { SubContractorKpiSection } from "@/components/dashboards/SubContractorKpiSection";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
 
 interface RaBillRow {
@@ -166,6 +167,10 @@ export default function ProjectOperationalInsightsPage() {
 
       <section className="mb-7 rounded-xl border border-hairline bg-ivory p-5">
         <MaterialKpiSection projectId={projectId} density="full" />
+      </section>
+
+      <section className="mb-7 rounded-xl border border-hairline bg-ivory p-5">
+        <SubContractorKpiSection projectId={projectId} density="full" />
       </section>
 
       <section className="mb-7 rounded-xl border border-hairline bg-ivory p-5">

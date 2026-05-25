@@ -14,11 +14,31 @@ import type { Components } from "react-markdown";
 import { Children, isValidElement, type ReactElement } from "react";
 import { ChatChart } from "@/components/ai/charts/chatChart";
 import { AiHistoryView } from "@/components/ai/AiHistoryView";
+import HdsScopeChip from "@/components/ai/HdsScopeChip";
+import HdsScopeSelectorModal, { type HdsVersionLike } from "@/components/ai/HdsScopeSelectorModal";
+import HdsCitationCard from "@/components/ai/HdsCitationCard";
 import {
   exportConversationCsv,
   exportConversationPdf,
   exportConversationXlsx,
 } from "@/lib/utils/conversationExport";
+
+/**
+ * HDS citation payload as emitted by the backend's `search_hds_standards`
+ * tool result (snake_case JSON, mapped to camelCase here). Tracked locally so
+ * the chat panel does not have to depend on Track C's component file before
+ * it lands — Track C's `HdsCitationCard` accepts the same structural shape.
+ */
+export interface HdsCitationData {
+  marker: string;
+  chunkId: string;
+  versionId: string;
+  versionLabel: string;
+  sectionPath: string;
+  pageStart: number;
+  pageEnd: number;
+  excerpt: string;
+}
 
 interface ChatMessage {
   id: string;
@@ -26,6 +46,12 @@ interface ChatMessage {
   content: string;
   imageUrl?: string;
   meta?: Record<string, unknown>;
+  /**
+   * Citations attached to an assistant message when the answer came from the
+   * HDS retrieval tool. Populated when a `tool_result` event for
+   * `search_hds_standards` arrives during streaming.
+   */
+  hdsCitations?: HdsCitationData[];
 }
 
 const markdownComponents: Components = {
@@ -103,9 +129,76 @@ export const TOOL_PROGRESS_LABELS: Record<string, string> = {
   // BIM / Data Coordinator
   audit_dpr_data_quality: "Auditing DPR data quality",
   report_data_lag: "Reading data entry lag",
+  // HDS retrieval (deterministic branch — keep aliases for phase strings the
+  // tool may emit if it ever switches to progress events).
+  search_hds_standards: "Searching HDS standards",
+  "search_hds_standards: planning": "Planning HDS retrieval…",
+  "search_hds_standards: retrieving (round 1 of 2)": "Searching HDS standards…",
+  "search_hds_standards: retrieving (round 2 of 2)": "Searching HDS standards (deeper)…",
+  "search_hds_standards: drafting answer": "Drafting answer…",
+  "search_hds_standards: verifying grounding": "Verifying citations…",
 };
 export function friendlyToolLabel(name: string): string {
   return TOOL_PROGRESS_LABELS[name] ?? "Working";
+}
+
+/**
+ * Parses the `data` payload of a `tool_result` event for the HDS retrieval
+ * tool. The backend (see `SearchHdsStandardsTool#execute`) emits citations as
+ * a snake_case JSON array; we normalise to the camelCase {@link HdsCitationData}
+ * shape used by `HdsCitationCard`. Tolerant of missing / malformed entries so
+ * a single bad row does not lose the rest of the list.
+ */
+export function extractHdsCitations(raw: unknown): HdsCitationData[] {
+  if (!raw || typeof raw !== "object") return [];
+  const root = raw as Record<string, unknown>;
+  const list = Array.isArray(root.citations) ? (root.citations as unknown[]) : [];
+  const out: HdsCitationData[] = [];
+  for (const entry of list) {
+    if (!entry || typeof entry !== "object") continue;
+    const c = entry as Record<string, unknown>;
+    const marker = typeof c.marker === "string" ? c.marker : "";
+    const chunkId =
+      typeof c.chunk_id === "string"
+        ? c.chunk_id
+        : typeof c.chunkId === "string"
+          ? c.chunkId
+          : "";
+    const versionId =
+      typeof c.version_id === "string"
+        ? c.version_id
+        : typeof c.versionId === "string"
+          ? c.versionId
+          : "";
+    const versionLabel =
+      typeof c.version_label === "string"
+        ? c.version_label
+        : typeof c.versionLabel === "string"
+          ? c.versionLabel
+          : "";
+    const sectionPath =
+      typeof c.section_path === "string"
+        ? c.section_path
+        : typeof c.sectionPath === "string"
+          ? c.sectionPath
+          : "";
+    const pageStart =
+      typeof c.page_start === "number"
+        ? c.page_start
+        : typeof c.pageStart === "number"
+          ? c.pageStart
+          : 0;
+    const pageEnd =
+      typeof c.page_end === "number"
+        ? c.page_end
+        : typeof c.pageEnd === "number"
+          ? c.pageEnd
+          : pageStart;
+    const excerpt = typeof c.excerpt === "string" ? c.excerpt : "";
+    if (!marker || !chunkId) continue;
+    out.push({ marker, chunkId, versionId, versionLabel, sectionPath, pageStart, pageEnd, excerpt });
+  }
+  return out;
 }
 
 function inferModule(pathname: string): string {
@@ -254,6 +347,11 @@ export function AiChatPanel() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingAssistantId, setStreamingAssistantId] = useState<string | null>(null);
   const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
+  // Selected HDS document versions for grounded retrieval. When non-empty
+  // the backend routes the chat through `runHdsDeterministic` instead of the
+  // normal agentic loop and the answer carries citation chunks.
+  const [hdsScope, setHdsScope] = useState<HdsVersionLike[]>([]);
+  const [scopeModalOpen, setScopeModalOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [maximized, setMaximized] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -346,6 +444,11 @@ export function AiChatPanel() {
     setStreamingAssistantId(null);
     setIsStreaming(false);
     setHistoryScope(null);
+    // Drop the HDS scope too — starting a fresh chat is an explicit "clean
+    // slate" signal, and keeping a stale HDS pin would silently re-ground
+    // the next question in unrelated documents.
+    setHdsScope([]);
+    setScopeModalOpen(false);
     setView("chat");
   }, [setConversationId]);
 
@@ -485,6 +588,10 @@ export function AiChatPanel() {
         module: effectiveModule,
         message: userMsg,
         imageUrl: pendingImage,
+        // Empty array is fine — the backend treats null and [] the same and
+        // falls back to the normal agentic loop. Sending the list explicitly
+        // makes the wire payload self-describing for debugging.
+        hdsVersionIds: hdsScope.map((v) => v.id),
       };
       for await (const ev of aiApi.streamChat(
         chatReq,
@@ -511,7 +618,7 @@ export function AiChatPanel() {
       );
       abortRef.current = null;
     }
-  }, [input, isStreaming, effectiveProjectId, effectiveModule, pendingImage, conversationId]);
+  }, [input, isStreaming, effectiveProjectId, effectiveModule, pendingImage, conversationId, hdsScope]);
 
   const handleEvent = (ev: SseEvent, assistantId: string) => {
     if (ev.event === "conversation_started") {
@@ -534,6 +641,22 @@ export function AiChatPanel() {
       // Keep the last tool_call's label visible until the next tool_call or
       // the final answer arrives — gives a steady "still working" signal
       // without flickering between rounds.
+      //
+      // Special case: the HDS retrieval tool emits its citations inside the
+      // `data` payload of the result. We surface them as structured cards
+      // attached to the streaming assistant message so the user sees
+      // grounding sources alongside the final answer.
+      const toolName = (ev.data.name as string) || "";
+      if (toolName === "search_hds_standards" && ev.data.success !== false) {
+        const cites = extractHdsCitations(ev.data.data);
+        if (cites.length > 0) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, hdsCitations: cites } : m,
+            ),
+          );
+        }
+      }
     } else if (ev.event === "verifying") {
       // Server-side verification pass — the orchestrator is asking the model
       // to re-check its draft before showing it to the user.
@@ -819,6 +942,18 @@ export function AiChatPanel() {
               )}
             </div>
           )}
+          {/* HDS retrieval scope. Selecting one or more versions flips the
+              backend into deterministic retrieval mode for the next message;
+              the chip itself acts as both indicator and CTA. */}
+          {!collapsed && view === "chat" && (
+            <div className="mt-2">
+              <HdsScopeChip
+                selected={hdsScope}
+                onEdit={() => setScopeModalOpen(true)}
+                onClear={() => setHdsScope([])}
+              />
+            </div>
+          )}
         </div>
 
         {!collapsed && view === "history" && (
@@ -923,6 +1058,23 @@ export function AiChatPanel() {
                         ) : (
                           <div className="whitespace-pre-wrap">{msg.content}</div>
                         )}
+                        {/* HDS source cards. Rendered whenever the assistant
+                            message has citations attached (whether the answer
+                            is still streaming or finished). Each card is the
+                            structured grounding for a [cN] marker in the
+                            answer text. */}
+                        {msg.role === "assistant" &&
+                          msg.hdsCitations &&
+                          msg.hdsCitations.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                              <div className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                                Sources
+                              </div>
+                              {msg.hdsCitations.map((c) => (
+                                <HdsCitationCard key={c.marker} citation={c} />
+                              ))}
+                            </div>
+                          )}
                       </div>
                     )}
                   </div>
@@ -1022,6 +1174,18 @@ export function AiChatPanel() {
           </>
         )}
       </div>
+      {/* Lives at the panel root so the dialog overlays everything (its own
+          backdrop handles outside-click). The modal short-circuits to null
+          when `scopeModalOpen` is false, so this costs nothing when idle. */}
+      <HdsScopeSelectorModal
+        open={scopeModalOpen}
+        initiallySelectedIds={hdsScope.map((v) => v.id)}
+        onCancel={() => setScopeModalOpen(false)}
+        onConfirm={(vs) => {
+          setHdsScope(vs);
+          setScopeModalOpen(false);
+        }}
+      />
     </div>
   );
 }

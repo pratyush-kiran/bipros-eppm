@@ -17,7 +17,9 @@ import com.bipros.project.domain.model.Project;
 import com.bipros.project.domain.model.WbsNode;
 import com.bipros.project.domain.repository.ProjectRepository;
 import com.bipros.project.domain.repository.WbsNodeRepository;
+import com.bipros.resource.domain.model.ActivitySubContractorAssignment;
 import com.bipros.resource.domain.model.ResourceAssignment;
+import com.bipros.resource.domain.repository.ActivitySubContractorAssignmentRepository;
 import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
 import com.bipros.udf.application.service.FormulaEngine;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,7 @@ public class EvmRollupService {
     private final ActivityRepository activityRepository;
     private final ActivityExpenseRepository activityExpenseRepository;
     private final ResourceAssignmentRepository resourceAssignmentRepository;
+    private final ActivitySubContractorAssignmentRepository activitySubContractorAssignmentRepository;
     private final WbsNodeRepository wbsNodeRepository;
     private final EvmCalculationRepository evmCalculationRepository;
     private final FormulaEngine formulaEngine;
@@ -55,6 +58,8 @@ public class EvmRollupService {
         List<Activity> allActivities = activityRepository.findByProjectId(projectId);
         List<ActivityExpense> allExpenses = activityExpenseRepository.findByProjectId(projectId);
         List<ResourceAssignment> allAssignments = resourceAssignmentRepository.findByProjectId(projectId);
+        List<ActivitySubContractorAssignment> allScAssignments =
+                activitySubContractorAssignmentRepository.findByProjectId(projectId);
 
         // Group activities by WBS node
         Map<UUID, List<Activity>> activitiesByWbs = allActivities.stream()
@@ -69,6 +74,10 @@ public class EvmRollupService {
         // Group assignments by activity
         Map<UUID, List<ResourceAssignment>> assignmentsByActivity = allAssignments.stream()
                 .collect(Collectors.groupingBy(ResourceAssignment::getActivityId));
+
+        Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity = allScAssignments.stream()
+                .filter(s -> s.getActivityId() != null)
+                .collect(Collectors.groupingBy(ActivitySubContractorAssignment::getActivityId));
 
         // Pre-load DPR persisted line_cost per activity for the whole project so the leaf walk
         // doesn't issue an N+1 query per activity. Empty map when there are no DPRs yet.
@@ -89,7 +98,7 @@ public class EvmRollupService {
         List<WbsEvmNode> result = new ArrayList<>();
         for (WbsNode root : roots) {
             result.add(buildWbsEvmTree(root, childrenMap, activitiesByWbs,
-                    expensesByActivity, assignmentsByActivity, dprAcByActivity,
+                    expensesByActivity, assignmentsByActivity, scAssignmentsByActivity, dprAcByActivity,
                     strategy, dataDate, etcMethod,
                     projectId));
         }
@@ -102,6 +111,7 @@ public class EvmRollupService {
             Map<UUID, List<Activity>> activitiesByWbs,
             Map<UUID, List<ActivityExpense>> expensesByActivity,
             Map<UUID, List<ResourceAssignment>> assignmentsByActivity,
+            Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity,
             Map<UUID, BigDecimal> dprAcByActivity,
             EvmTechniqueStrategy strategy,
             LocalDate dataDate,
@@ -113,7 +123,7 @@ public class EvmRollupService {
         if (children.isEmpty()) {
             // Leaf node — calculate from activities
             return calculateLeafEvm(node, activitiesByWbs, expensesByActivity,
-                    assignmentsByActivity, dprAcByActivity, strategy, dataDate, etcMethod, projectId);
+                    assignmentsByActivity, scAssignmentsByActivity, dprAcByActivity, strategy, dataDate, etcMethod, projectId);
         }
 
         // Parent node — aggregate children
@@ -125,7 +135,7 @@ public class EvmRollupService {
 
         for (WbsNode child : children) {
             WbsEvmNode childResult = buildWbsEvmTree(child, childrenMap, activitiesByWbs,
-                    expensesByActivity, assignmentsByActivity, dprAcByActivity,
+                    expensesByActivity, assignmentsByActivity, scAssignmentsByActivity, dprAcByActivity,
                     strategy, dataDate, etcMethod, projectId);
             childResults.add(childResult);
             totalPv = totalPv.add(childResult.plannedValue());
@@ -136,7 +146,7 @@ public class EvmRollupService {
 
         // Also include activities directly under this WBS node
         WbsEvmNode directActivities = calculateLeafEvm(node, activitiesByWbs, expensesByActivity,
-                assignmentsByActivity, dprAcByActivity, strategy, dataDate, etcMethod, projectId);
+                assignmentsByActivity, scAssignmentsByActivity, dprAcByActivity, strategy, dataDate, etcMethod, projectId);
         totalPv = totalPv.add(directActivities.plannedValue());
         totalEv = totalEv.add(directActivities.earnedValue());
         totalAc = totalAc.add(directActivities.actualCost());
@@ -166,6 +176,7 @@ public class EvmRollupService {
             Map<UUID, List<Activity>> activitiesByWbs,
             Map<UUID, List<ActivityExpense>> expensesByActivity,
             Map<UUID, List<ResourceAssignment>> assignmentsByActivity,
+            Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity,
             Map<UUID, BigDecimal> dprAcByActivity,
             EvmTechniqueStrategy strategy,
             LocalDate dataDate,
@@ -180,7 +191,8 @@ public class EvmRollupService {
         BigDecimal totalBac = BigDecimal.ZERO;
 
         for (Activity activity : activities) {
-            BigDecimal activityBac = getActivityBac(activity, expensesByActivity, assignmentsByActivity);
+            BigDecimal activityBac = getActivityBac(activity, expensesByActivity,
+                    assignmentsByActivity, scAssignmentsByActivity);
             BigDecimal activityPv = getActivityPv(activity, activityBac, dataDate);
             BigDecimal activityEv = strategy.calculateEarnedValue(activity, activityBac, activityPv);
             BigDecimal activityAc = getActivityAc(activity, expensesByActivity, assignmentsByActivity,
@@ -210,7 +222,8 @@ public class EvmRollupService {
 
     static BigDecimal getActivityBac(Activity activity,
                                       Map<UUID, List<ActivityExpense>> expensesByActivity,
-                                      Map<UUID, List<ResourceAssignment>> assignmentsByActivity) {
+                                      Map<UUID, List<ResourceAssignment>> assignmentsByActivity,
+                                      Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity) {
         BigDecimal bac = BigDecimal.ZERO;
         List<ActivityExpense> expenses = expensesByActivity.getOrDefault(activity.getId(), List.of());
         for (ActivityExpense expense : expenses) {
@@ -222,6 +235,13 @@ public class EvmRollupService {
         for (ResourceAssignment assignment : assignments) {
             if (assignment.getPlannedCost() != null) {
                 bac = bac.add(assignment.getPlannedCost());
+            }
+        }
+        List<ActivitySubContractorAssignment> scAssignments =
+                scAssignmentsByActivity.getOrDefault(activity.getId(), List.of());
+        for (ActivitySubContractorAssignment sa : scAssignments) {
+            if (sa.getPlannedCost() != null) {
+                bac = bac.add(sa.getPlannedCost());
             }
         }
         return bac;

@@ -369,13 +369,16 @@ public class BoqService {
     ensureProjectExists(projectId);
     if (activityId == null) return List.of();
 
+    // Single-column native query → JPA returns List<String> (scalar), not List<Object[]>.
+    // Indexing into a scalar row with [0] threw ClassCastException at runtime.
     @SuppressWarnings("unchecked")
-    List<Object[]> nameRows = em.createNativeQuery(
+    List<Object> nameRows = em.createNativeQuery(
             "SELECT name FROM activity.activities WHERE id = :id LIMIT 1")
         .setParameter("id", activityId)
         .getResultList();
     if (nameRows.isEmpty()) return List.of();
-    String activityName = nameRows.get(0)[0] == null ? null : nameRows.get(0)[0].toString();
+    Object first = nameRows.get(0);
+    String activityName = first == null ? null : first.toString();
     if (activityName == null || activityName.isBlank()) return List.of();
 
     List<BoqItem> all = boqItemRepository.findByProjectIdOrderByItemNoAsc(projectId);

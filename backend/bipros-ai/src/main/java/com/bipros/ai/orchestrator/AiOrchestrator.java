@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -70,6 +71,27 @@ public class AiOrchestrator {
                                    AiContext ctx, LlmProvider provider, LlmProviderConfig config) {
         Sinks.Many<ChatEvent> sink = Sinks.many().unicast().onBackpressureBuffer();
 
+        // HDS DETERMINISTIC ROUTING.
+        // When the user has selected one or more HDS document versions for this
+        // request, skip the LLM-driven tool-selection loop and call the HDS
+        // retrieval tool directly. The model is bad at emitting version UUIDs
+        // verbatim into a tool call, so the routing decision is made here
+        // instead of letting the LLM choose. Returns a citation-bearing answer.
+        List<UUID> hdsScope = ctx.hdsVersionIds();
+        if (hdsScope != null && !hdsScope.isEmpty()) {
+            Schedulers.boundedElastic().schedule(() -> {
+                try {
+                    runHdsDeterministic(userMessage, hdsScope, ctx, sink);
+                } catch (Exception e) {
+                    log.error("HDS deterministic routing error", e);
+                    sink.tryEmitNext(new ChatEvent("error",
+                            Map.of("code", "HDS_ROUTING_ERROR", "message", String.valueOf(e.getMessage()))));
+                    sink.tryEmitComplete();
+                }
+            });
+            return sink.asFlux();
+        }
+
         Schedulers.boundedElastic().schedule(() -> {
             try {
                 runAgentLoop(userMessage, imageUrl, history, ctx, provider, config, sink);
@@ -82,6 +104,91 @@ public class AiOrchestrator {
         });
 
         return sink.asFlux();
+    }
+
+    /**
+     * Deterministic HDS-scope branch. The user has selected HDS document
+     * versions for retrieval; we route the question straight to the
+     * {@code search_hds_standards} tool (registered by Track B), surface
+     * the same {@code tool_call} / {@code tool_result} / {@code token} /
+     * {@code done} events the normal loop would emit, and stop. No LLM
+     * tool-selection round runs in this path.
+     */
+    private void runHdsDeterministic(String userMessage, List<UUID> versionIds, AiContext ctx,
+                                     Sinks.Many<ChatEvent> sink) {
+        String toolName = "search_hds_standards";
+        Tool tool = toolRegistry.get(toolName);
+        if (tool == null) {
+            // Track B may not have published the tool bean yet, or it failed to
+            // register at boot. Surface a clean error instead of hanging.
+            sink.tryEmitNext(new ChatEvent("error",
+                    Map.of("code", "HDS_TOOL_UNAVAILABLE",
+                            "message", "HDS retrieval tool '" + toolName + "' is not registered.")));
+            sink.tryEmitComplete();
+            return;
+        }
+        if (!toolRegistry.isAllowed(toolName, ctx.profile())) {
+            sink.tryEmitNext(new ChatEvent("error",
+                    Map.of("code", "HDS_TOOL_FORBIDDEN",
+                            "message", "Your role cannot use the HDS retrieval tool.")));
+            sink.tryEmitComplete();
+            return;
+        }
+
+        // Build the tool's expected input JSON. Schema (from Track B):
+        //   { question: string, selected_version_ids: [uuid…], max_rounds: int }
+        ObjectMapper om = this.objectMapper;
+        com.fasterxml.jackson.databind.node.ObjectNode input = om.createObjectNode();
+        input.put("question", userMessage == null ? "" : userMessage);
+        com.fasterxml.jackson.databind.node.ArrayNode arr = input.putArray("selected_version_ids");
+        for (UUID id : versionIds) {
+            if (id != null) arr.add(id.toString());
+        }
+        input.put("max_rounds", 2);
+
+        sink.tryEmitNext(new ChatEvent("tool_call",
+                Map.of("name", toolName, "status", "started")));
+
+        long start = System.currentTimeMillis();
+        ToolResult result;
+        try {
+            result = tool.execute(input, ctx);
+        } catch (Exception e) {
+            log.warn("HDS retrieval tool threw: {}", e.getMessage(), e);
+            sink.tryEmitNext(new ChatEvent("tool_result",
+                    Map.of("name", toolName, "success", false,
+                            "summary", "HDS retrieval failed: " + e.getMessage())));
+            sink.tryEmitNext(new ChatEvent("error",
+                    Map.of("code", "HDS_RETRIEVAL_FAILED", "message", String.valueOf(e.getMessage()))));
+            sink.tryEmitComplete();
+            return;
+        }
+        long latency = System.currentTimeMillis() - start;
+
+        Map<String, Object> resultEvent = new HashMap<>();
+        resultEvent.put("name", toolName);
+        resultEvent.put("success", result.success());
+        resultEvent.put("summary", result.summary() != null ? result.summary()
+                : (result.error() != null ? result.error() : "No summary"));
+        if (result.data() != null) {
+            resultEvent.put("data", result.data());
+        }
+        resultEvent.put("latency_ms", latency);
+        sink.tryEmitNext(new ChatEvent("tool_result", resultEvent));
+
+        if (!result.success()) {
+            String err = result.error() == null ? "HDS retrieval did not produce an answer." : result.error();
+            sink.tryEmitNext(new ChatEvent("done", Map.of("text", err)));
+            sink.tryEmitComplete();
+            return;
+        }
+
+        String answerText = result.summary() == null ? "" : result.summary();
+        if (!answerText.isEmpty()) {
+            sink.tryEmitNext(new ChatEvent("token", Map.of("delta", answerText)));
+        }
+        sink.tryEmitNext(new ChatEvent("done", Map.of("text", answerText)));
+        sink.tryEmitComplete();
     }
 
     private void runAgentLoop(String userMessage, String imageUrl, List<LlmProvider.Message> history,

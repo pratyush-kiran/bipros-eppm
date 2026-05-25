@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: seed
+    active: dev
   application:
     name: bipros-eppm
 
@@ -62,14 +62,21 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 50MB
-      max-request-size: 60MB
+      max-file-size: 1100MB
+      max-request-size: 1100MB
+      file-size-threshold: 10MB    # spool to disk above this
 
 server:
   port: 8080
   servlet:
     context-path: /
   forward-headers-strategy: FRAMEWORK
+  tomcat:
+    # Tomcat silently drops large bodies past max-swallow-size (default 2MB).
+    # Match the multipart limits so 1GB HDS PDF uploads aren't truncated.
+    max-swallow-size: 1200MB
+    max-http-form-post-size: 1200MB
+    connection-timeout: 10m
 
 # JWT Configuration — set JWT_SECRET in prod env to a 32+ byte random string.
 bipros:
@@ -203,6 +210,54 @@ bipros:
       max-messages: 32
       max-input-tokens: 200000
       ttl-days: 90
+
+  # HDS — Highway Design Standards knowledge base (PDF ingestion + vector retrieval).
+  # reranker.enabled defaults false so Phase 2 ships without the BGE cross-encoder
+  # service; retrieval falls back to RRF over BM25 + vector. Flip on after Phase 5.
+  hds:
+    storage:
+      bucket: hds
+      endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+      access-key: ${MINIO_ACCESS_KEY:minio}
+      secret-key: ${MINIO_SECRET_KEY:minio123}
+      region: ${MINIO_REGION:us-east-1}
+      multipart-part-size-mb: 5
+    docling:
+      url: ${DOCLING_URL:http://localhost:5001}
+      timeout-minutes: 60
+    # PDF parser routing. PDFBox handles text-extractable PDFs (the common HDS case)
+    # with ~200 MB peak memory regardless of file size. Docling stays as the fallback
+    # for image/scanned PDFs that need layout + OCR analysis.
+    parser:
+      text-mode-enabled: ${HDS_PARSER_TEXT_MODE:true}
+      min-chars-per-page: 200
+      probe-sample-size: 5
+      # Any PDF this size or larger goes through PDFBox regardless of probe outcome.
+      # Set 0 to disable. Tuned for a 10-12 GiB Docker VM where Docling OOMs above
+      # ~150 MB inputs.
+      force-pdfbox-over-mb: 100
+    embedding:
+      model: text-embedding-3-large
+      dimensions: 1536
+      batch-size: 100
+      concurrency: 4
+    reranker:
+      enabled: ${HDS_RERANKER_ENABLED:false}
+      url: ${HDS_RERANKER_URL:http://localhost:8088}
+      top-k: 10
+    retrieval:
+      similarity-floor: 0.30
+      bm25-top-k: 50
+      vector-top-k: 50
+      max-chunks-per-query: 20
+      max-rounds: 2
+      cache-ttl-seconds: 3600
+    verifier:
+      max-retries: 1
+    ingestion:
+      worker-poll-seconds: 5
+      heartbeat-interval-seconds: 10
+      stale-job-after-seconds: 60
 
 # OpenAPI
 springdoc:

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getErrorMessage } from "@/lib/utils/error";
 import { formatDate, getPriorityInfo, formatBudget, budgetUnit } from "@/lib/utils/format";
 import { projectApi } from "@/lib/api/projectApi";
@@ -15,13 +15,11 @@ import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
-import { GanttChart } from "@/components/schedule/GanttChart";
 import { ResourcesTab } from "@/components/resource/ResourcesTab";
 import { CostsTab } from "@/components/cost/CostsTab";
 import { EvmTab } from "@/components/evm/EvmTab";
 import { PeriodPerformanceTab } from "@/components/cost/PeriodPerformanceTab";
 import { CostAccountRollupTab } from "@/components/cost/CostAccountRollupTab";
-import { NetworkDiagram } from "@/components/schedule/NetworkDiagram";
 import { ListTodo, Plus, Play, Pencil, Trash2, Eye, FileText, ChevronRight, ArrowRight, ChevronDown, Folder, FolderOpen, File, RefreshCw, List, FolderTree, Sparkles, AlertTriangle } from "lucide-react";
 import { UdfSection } from "@/components/udf/UdfSection";
 import { costApi } from "@/lib/api/costApi";
@@ -32,6 +30,7 @@ import { Breadcrumb } from "@/components/common/Breadcrumb";
 import toast from "react-hot-toast";
 import { apiClient } from "@/lib/api/client";
 import { wbsTemplateApi } from "@/lib/api/wbsTemplateApi";
+import { WorkPackagesListView } from "@/components/wbs/WorkPackagesListView";
 import { TabTip } from "@/components/common/TabTip";
 import { WbsAiGenerateDialog } from "@/components/wbs/WbsAiGenerateDialog";
 import { useAuthStore } from "@/lib/state/store";
@@ -39,6 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/
 import { ProjectDocumentsPanel } from "@/components/document/ProjectDocumentsPanel";
 import { ProjectSetupProgress } from "@/components/project/ProjectSetupProgress";
 import { ProjectTeamCard } from "@/components/project/ProjectTeamCard";
+import { ProjectDashboardTab } from "@/components/dashboards/project/ProjectDashboardTab";
 import { VarianceDashboard } from "@/components/baseline/VarianceDashboard";
 import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
 import type { ContractType } from "@/lib/types";
@@ -99,7 +99,7 @@ export default function ProjectDetailPage() {
   const { data: activitiesData, isLoading: isLoadingActivities, refetch: refetchActivities } = useQuery({
     queryKey: ["activities", projectId],
     queryFn: () => activityApi.listActivities(projectId, 0, 100),
-    enabled: ["activities", "gantt", "network"].includes(tab),
+    enabled: tab === "activities",
   });
 
   const { data: wbsData, isLoading: isLoadingWbs } = useQuery({
@@ -117,13 +117,13 @@ export default function ProjectDetailPage() {
   const { data: relationshipsData, isLoading: isLoadingRelationships } = useQuery({
     queryKey: ["relationships", projectId],
     queryFn: () => activityApi.getRelationships(projectId),
-    enabled: ["activities", "network", "gantt"].includes(tab),
+    enabled: false,
   });
 
   const { data: baselinesData, isLoading: isLoadingBaselines, refetch: refetchBaselines } = useQuery({
     queryKey: ["baselines", projectId],
     queryFn: () => baselineApi.listBaselines(projectId),
-    enabled: ["baselines", "gantt"].includes(tab),
+    enabled: tab === "baselines",
   });
 
   // Phase 3: prefer the project's PRIMARY slot (project.primaryBaselineId) over scanning the
@@ -142,7 +142,7 @@ export default function ProjectDetailPage() {
       primaryBaseline
         ? baselineApi.getBaseline(projectId, primaryBaseline.id)
         : Promise.resolve({ data: null, error: null, meta: { timestamp: "", version: "" } } as unknown as ApiResponse<BaselineDetailResponse>),
-    enabled: tab === "gantt" && !!primaryBaseline,
+    enabled: false,
   });
 
   const scheduleMutation = useMutation({
@@ -379,8 +379,13 @@ export default function ProjectDetailPage() {
     },
     costs: {
       title: "Cost Tracking",
-      description: "Monitor your project budget. Budget = what you planned to spend. Actual = what you've spent so far. The S-Curve chart shows spending over time.",
-      steps: ["Budget is set via cost accounts linked to WBS nodes", "Actual costs come from recorded expenses on activities", "Cash Flow S-Curve visualizes planned vs actual spending trends"],
+      description: "Track planned vs actual spend. Budget = total commitment from activity plans. Actual = costs accumulated from supervisor DPRs as work is recorded each day.",
+      steps: [
+        "Total Budget = planned costs from resource assignments (manpower, equipment, material) + sub-contractor allocations on each activity",
+        "Total Actual = sum of DPR line costs (manpower nos × rate, equipment nos × rate, material qty × rate, sub-contractor qty × rate)",
+        "BAC (Budget at Completion) is a manual project-level figure set by the PM; CV and CPI compare earned value against actual cost",
+        "Cash Flow S-Curve plots planned, actual, and forecast spend across financial periods",
+      ],
     },
     evm: {
       title: "Earned Value Management (EVM)",
@@ -421,34 +426,21 @@ export default function ProjectDetailPage() {
       )}
 
       {currentTip && <TabTip title={currentTip.title} description={currentTip.description} steps={currentTip.steps} />}
-      {tab === "overview" && <OverviewTab project={project} projectId={projectId} />}
+      {tab === "overview" && (
+        <div className="space-y-10">
+          <ProjectDashboardTab project={project} projectId={projectId} />
+          <div className="border-t border-hairline pt-8">
+            <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate">
+              Project Details
+            </div>
+            <OverviewTab project={project} projectId={projectId} />
+          </div>
+        </div>
+      )}
       {tab === "wbs" && (
         <WbsTab wbsTree={wbsTree} isLoading={isLoadingWbs} projectId={projectId} project={project} />
       )}
-      {tab === "gantt" && project && (
-        <GanttTab
-          activities={activities}
-          isLoading={isLoadingActivities || isLoadingRelationships || isLoadingBaselineActivities}
-          relationships={relationshipsData?.data ?? []}
-          baselineActivities={(baselineDetailData?.data?.activities ?? []).map((a: BaselineActivityResponse) => ({
-            activityId: a.activityId,
-            baselineStartDate: a.earlyStart,
-            baselineFinishDate: a.earlyFinish,
-          }))}
-          projectId={projectId}
-          project={project}
-          onRunSchedule={() => scheduleMutation.mutate()}
-          isRunningSchedule={scheduleMutation.isPending}
-        />
-      )}
-      {tab === "network" && (
-        <NetworkTab
-          projectId={projectId}
-          activities={activities}
-          relationships={relationshipsData?.data ?? []}
-          isLoading={isLoadingActivities || isLoadingRelationships}
-        />
-      )}
+
       {tab === "baselines" && (
         <BaselinesTab
           projectId={projectId}
@@ -1209,86 +1201,6 @@ function ProjectDetailsSection({ project }: { project: ProjectResponse; projectI
   );
 }
 
-function GanttTab({
-  activities,
-  isLoading,
-  relationships = [],
-  baselineActivities = [],
-  projectId,
-  project,
-  onRunSchedule,
-  isRunningSchedule = false,
-}: {
-  activities: ActivityResponse[];
-  isLoading: boolean;
-  relationships?: Array<{ predecessorActivityId: string; successorActivityId: string; relationshipType: string }>;
-  baselineActivities?: Array<{ activityId: string; baselineStartDate: string | null; baselineFinishDate: string | null }>;
-  projectId: string;
-  project: ProjectResponse;
-  onRunSchedule?: () => void;
-  isRunningSchedule?: boolean;
-}) {
-  const isStale = useScheduleStaleStore((s) => s.isScheduleStale(projectId));
-  // Progress Spotlight (Phase 1.4 of the baseline-progress roadmap). The Gantt already accepts
-  // spotlightStartDate / spotlightEndDate props; the toggle here just decides whether to feed
-  // them from the project's planned-start + data-date pair.
-  const [spotlightOn, setSpotlightOn] = useState(false);
-  const spotlightAvailable = !!project.dataDate;
-
-  if (isLoading) {
-    return <div className="text-center text-text-muted">Loading activities...</div>;
-  }
-
-  if (activities.length === 0) {
-    return (
-      <EmptyState
-        icon={ListTodo}
-        title="No activities"
-        description="This project has no activities yet. Create activities to display the Gantt chart."
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <label
-          className={`inline-flex items-center gap-2 rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-xs font-medium ${
-            spotlightAvailable ? "cursor-pointer text-text-secondary hover:text-text-primary" : "cursor-not-allowed text-text-muted"
-          }`}
-          title={
-            spotlightAvailable
-              ? "Highlight activities between project start and data date"
-              : "Set Data Date on the project to enable Progress Spotlight"
-          }
-        >
-          <input
-            type="checkbox"
-            disabled={!spotlightAvailable}
-            checked={spotlightOn && spotlightAvailable}
-            onChange={(e) => setSpotlightOn(e.target.checked)}
-          />
-          Progress Spotlight
-        </label>
-        {spotlightOn && spotlightAvailable && (
-          <span className="text-xs text-text-muted">
-            Showing {project.plannedStartDate} → {project.dataDate}
-          </span>
-        )}
-      </div>
-      <GanttChart
-        activities={activities}
-        relationships={relationships}
-        baselineActivities={baselineActivities}
-        isStale={isStale}
-        onRunSchedule={onRunSchedule}
-        isRunningSchedule={isRunningSchedule}
-        spotlightStartDate={spotlightOn && spotlightAvailable ? project.plannedStartDate : undefined}
-        spotlightEndDate={spotlightOn && spotlightAvailable ? project.dataDate : undefined}
-      />
-    </div>
-  );
-}
 
 function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeResponse[]; isLoading: boolean; projectId: string; project: ProjectResponse }) {
   const queryClient = useQueryClient();
@@ -1297,6 +1209,17 @@ function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeRe
   // can't act on (clean UX, not security).
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canEditWbs = hasPermission("PROJECT.UPDATE");
+  // Tree vs flat list — URL-backed so ?tab=wbs&view=list is shareable and survives reloads.
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const view: "tree" | "list" = searchParams.get("view") === "list" ? "list" : "tree";
+  const setView = (next: "tree" | "list") => {
+    const sp = new URLSearchParams(searchParams.toString());
+    if (next === "tree") sp.delete("view");
+    else sp.set("view", "list");
+    router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
+  };
   const [showForm, setShowForm] = useState(false);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
@@ -1423,31 +1346,59 @@ function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeRe
 
   return (
     <div className="space-y-4">
-      {canEditWbs && (
-        <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex overflow-hidden rounded-md border border-border bg-surface-hover/40 text-sm">
           <button
-            onClick={() => setShowTemplateSelector(!showTemplateSelector)}
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-hover/50 px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            type="button"
+            onClick={() => setView("tree")}
+            aria-pressed={view === "tree"}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${
+              view === "tree"
+                ? "bg-accent text-accent-foreground"
+                : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            }`}
           >
-            <FileText size={16} />
-            Apply Template
+            <FolderTree size={14} /> Tree
           </button>
           <button
-            onClick={() => setShowAiDialog(true)}
-            className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-tint px-4 py-2 text-sm font-medium text-gold-ink hover:bg-gold/20"
+            type="button"
+            onClick={() => setView("list")}
+            aria-pressed={view === "list"}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors ${
+              view === "list"
+                ? "bg-accent text-accent-foreground"
+                : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            }`}
           >
-            <Sparkles size={16} />
-            Generate with AI
-          </button>
-          <button
-            onClick={handleAddRoot}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
-          >
-            <Plus size={16} />
-            Add WBS Node
+            <List size={14} /> List
           </button>
         </div>
-      )}
+        {canEditWbs && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-hover/50 px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            >
+              <FileText size={16} />
+              Apply Template
+            </button>
+            <button
+              onClick={() => setShowAiDialog(true)}
+              className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold-tint px-4 py-2 text-sm font-medium text-gold-ink hover:bg-gold/20"
+            >
+              <Sparkles size={16} />
+              Generate with AI
+            </button>
+            <button
+              onClick={handleAddRoot}
+              className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
+            >
+              <Plus size={16} />
+              Add WBS Node
+            </button>
+          </div>
+        )}
+      </div>
 
       {showTemplateSelector && (
         <div className="rounded-xl border border-border bg-surface/50 p-4 shadow-lg">
@@ -1583,7 +1534,9 @@ function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeRe
         </div>
       )}
 
-      {wbsTree.length === 0 ? (
+      {view === "list" ? (
+        <WorkPackagesListView projectId={projectId} />
+      ) : wbsTree.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border py-12 text-center">
           <h3 className="text-lg font-medium text-text-primary">No WBS Structure</h3>
           <p className="mt-2 text-text-muted">
@@ -1607,7 +1560,7 @@ function WbsTab({ wbsTree, isLoading, projectId, project }: { wbsTree: WbsNodeRe
         </div>
       )}
 
-      {selectedWbs && (
+      {view === "tree" && selectedWbs && (
         <div className="space-y-2">
           <div className="text-sm text-text-secondary">
             Custom fields for: <span className="font-medium text-accent">{selectedWbs.code} — {selectedWbs.name}</span>
@@ -1790,55 +1743,6 @@ function WbsTree({
   );
 }
 
-function NetworkTab({
-  projectId,
-  activities,
-  relationships,
-  isLoading,
-}: {
-  projectId: string;
-  activities: ActivityResponse[];
-  relationships: Array<{
-    predecessorActivityId: string;
-    successorActivityId: string;
-    relationshipType: string;
-  }>;
-  isLoading: boolean;
-}) {
-  const router = useRouter();
-
-  if (isLoading) {
-    return <div className="text-center text-text-muted">Loading network diagram...</div>;
-  }
-
-  if (activities.length === 0) {
-    return (
-      <EmptyState
-        icon={ListTodo}
-        title="No activities"
-        description="This project has no activities yet. Create activities to display the network diagram."
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-text-secondary">
-          {relationships.length} relationship(s) defined
-        </p>
-        <button
-          onClick={() => router.push(`/projects/${projectId}/relationships`)}
-          className="flex items-center gap-1 rounded-md bg-accent/20 px-4 py-2 text-sm font-medium text-accent hover:bg-accent/30 transition-colors"
-        >
-          Manage Relationships
-          <ArrowRight size={14} />
-        </button>
-      </div>
-      <NetworkDiagram activities={activities} relationships={relationships} />
-    </div>
-  );
-}
 
 function BaselinesTab({
   projectId,

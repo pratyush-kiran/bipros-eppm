@@ -74,7 +74,7 @@ export function SupervisorDbsTab({
     queryFn: () => dprApi.list(projectId, { from: date, to: date }),
     enabled: !!projectId && !!date && rosterEmpty,
   });
-  const dprsForDate = dprData?.data ?? [];
+  const dprsForDate = dprData?.data?.items ?? [];
 
   // Manual Recompute trigger for the roster-empty / DPRs-exist case. We do
   // NOT auto-fire — the user must opt in (the PM admin Recompute on the PM tab
@@ -250,13 +250,9 @@ export function SupervisorDbsTab({
               total={day.materialAmount}
               currency={currency}
             />
-            <SectionCard
-              title="F. Sub-Contractor"
-              lines={day.subcontractLines}
-              total={day.subcontractAmount}
-              currency={currency}
-              comingSoon
-            />
+            {/* F. Sub-Contractor is intentionally hidden on the Supervisor tab.
+                SC is a separate domain entity, tracked at the project level
+                only — see the PM tab for the SC breakdown. */}
             <SectionCard
               title="BOQ Work executed"
               lines={day.boqLines}

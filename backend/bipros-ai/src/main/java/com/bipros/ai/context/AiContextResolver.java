@@ -21,6 +21,17 @@ public class AiContextResolver {
     private final ProfileRepository profileRepository;
 
     public AiContext resolve(UUID projectId, String module) {
+        return resolve(projectId, module, List.of());
+    }
+
+    /**
+     * Resolves the AI context with an explicit HDS scope. {@code hdsVersionIds}
+     * is the list of HDS document version UUIDs the user has selected for this
+     * request (or for the underlying conversation when no per-request scope was
+     * sent). Null is treated as empty — i.e. no HDS scope; the orchestrator
+     * runs its normal tool loop.
+     */
+    public AiContext resolve(UUID projectId, String module, List<UUID> hdsVersionIds) {
         UUID userId;
         try {
             userId = securityContextHelper.getCurrentUserId();
@@ -44,7 +55,9 @@ public class AiContextResolver {
         // surprised users whose scope changed underneath them.
         UUID effectiveProjectId = projectId;
 
-        return new AiContext(userId, effectiveProjectId, module, role, profileCode, scoped);
+        List<UUID> hdsScope = hdsVersionIds == null ? List.of() : List.copyOf(hdsVersionIds);
+
+        return new AiContext(userId, effectiveProjectId, module, role, profileCode, scoped, hdsScope);
     }
 
     private String resolveProfileCode(UUID userId) {

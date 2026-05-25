@@ -217,6 +217,14 @@ export function DprActivityCard({ row, onEdit, onDelete }: Props) {
               fmt(m.quantity, 3),
             ])}
           />
+          <DetailTable
+            title="Sub-Contractor"
+            empty="No sub-contractor"
+            headers={["Sub-Contractor"]}
+            rows={(row.subContractors ?? []).map((s) => [
+              s.subContractorName ?? "—",
+            ])}
+          />
 
           {liveIssues.length > 0 && (
             <div>

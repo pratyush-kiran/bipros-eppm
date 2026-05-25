@@ -1,0 +1,18 @@
+[
+  {"username":"ravi","firstName":"RAVI","lastName":"","role":"PROJECT_MANAGER"},
+  {"username":"rahul","firstName":"Rahul","lastName":"","role":"SITE_MANAGER"},
+  {"username":"hemendrase","firstName":"Hemendra","lastName":"SE","role":"SITE_ENGINEER"},
+  {"username":"subratse","firstName":"Subrat","lastName":"SE","role":"SITE_ENGINEER"},
+  {"username":"anirban","firstName":"Anirban","lastName":"Datta","role":"SUPERVISOR"},
+  {"username":"illayaraja","firstName":"Illayaraja","lastName":"","role":"SUPERVISOR"},
+  {"username":"kbarman","firstName":"K","lastName":"Barman","role":"SUPERVISOR"},
+  {"username":"parvaiz","firstName":"Parvaiz","lastName":"","role":"SUPERVISOR"},
+  {"username":"saiffuddin","firstName":"Md","lastName":"Saiffuddin","role":"SUPERVISOR"},
+  {"username":"ismaila","firstName":"Mohd","lastName":"Ismaila","role":"SUPERVISOR"},
+  {"username":"sanjar","firstName":"Sanjar","lastName":"Alam","role":"SUPERVISOR"},
+  {"username":"vijaykumar","firstName":"Vijay","lastName":"Kumar","role":"SUPERVISOR"},
+  {"username":"sohail","firstName":"Sohail","lastName":"","role":"SUPERVISOR"},
+  {"username":"manzar","firstName":"Manzar","lastName":"","role":"SUPERVISOR"},
+  {"username":"vpgupta","firstName":"V.P.","lastName":"Gupta","role":"SUPERVISOR"},
+  {"username":"akmishra","firstName":"A.K.","lastName":"Mishra","role":"SUPERVISOR"}
+]

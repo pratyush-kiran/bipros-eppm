@@ -8,6 +8,7 @@ import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
+import com.bipros.project.domain.repository.DprSubContractorRepository;
 import com.bipros.resource.domain.model.ProductivityNorm;
 import com.bipros.resource.domain.model.ProductivityNormType;
 import com.bipros.resource.domain.model.Resource;
@@ -71,6 +72,7 @@ public class ManpowerKpiService {
   private final ResourceAssignmentRepository resourceAssignmentRepository;
   private final DailyProgressReportRepository dprRepository;
   private final DprManpowerRepository dprManpowerRepository;
+  private final DprSubContractorRepository dprSubContractorRepository;
 
   // ---------- Response records (shape unchanged so frontend keeps rendering) ----------
 
@@ -255,14 +257,26 @@ public class ManpowerKpiService {
     // Fetch assignments once; both workforce util and labour cost summary use them.
     List<ResourceAssignment> projectAssignments = resourceAssignmentRepository.findByProjectId(projectId);
 
+    // Sub-contractor quantity per activity, used to subtract from qty_executed so PF + CPU
+    // reflect supervisor's crew productivity only, not crew + SC combined.
+    java.util.Map<UUID, BigDecimal> scQtyByActivity = new java.util.HashMap<>();
+    for (Object[] row : dprSubContractorRepository.sumQuantityByProjectGroupedByActivity(projectId)) {
+      if (row[0] != null) scQtyByActivity.put((UUID) row[0], (BigDecimal) row[1]);
+    }
+
+    java.util.Map<UUID, BigDecimal> scQtyByBoqItem = new java.util.HashMap<>();
+    for (Object[] row : dprSubContractorRepository.sumQuantityByProjectGroupedByBoqItem(projectId)) {
+      if (row[0] != null) scQtyByBoqItem.put((UUID) row[0], (BigDecimal) row[1]);
+    }
+
     // KPI computations
     WorkforceUtilization workforce = computeWorkforceUtilization(
         manpowerRows, projectAssignments, resourcesById, deployedIdentities);
     List<ProductivityFactorRow> productivity =
-        computeProductivityFactor(aggByActivity, activitiesById);
+        computeProductivityFactor(aggByActivity, activitiesById, scQtyByActivity);
     double headlineFactor = computeHeadlineProductivityFactor(productivity);
     List<LabourCostPerUnitRow> labourCost =
-        computeLabourCostPerUnit(boqItems, dprs, aggByDpr);
+        computeLabourCostPerUnit(boqItems, dprs, aggByDpr, scQtyByBoqItem);
     double weightedCpu = computeWeightedAvgCostPerUnit(labourCost);
     List<CrewOutputRow> crews = computeCrewOutput(aggByActivity, activitiesById);
     double idleRatio = computeIdleTimeRatioPct(aggByDpr);
@@ -455,7 +469,8 @@ public class ManpowerKpiService {
 
   private List<ProductivityFactorRow> computeProductivityFactor(
       Map<String, ActivityAgg> aggByActivity,
-      Map<UUID, Activity> activitiesById) {
+      Map<UUID, Activity> activitiesById,
+      Map<UUID, BigDecimal> scQtyByActivity) {
     List<ProductivityFactorRow> rows = new ArrayList<>(aggByActivity.size());
     for (Map.Entry<String, ActivityAgg> e : aggByActivity.entrySet()) {
       ActivityAgg a = e.getValue();
@@ -463,14 +478,20 @@ public class ManpowerKpiService {
       Activity activity = resolveActivity(e.getKey(), activitiesById);
       ProductivityNorm norm = lookupManpowerNorm(activity);
 
-      // Productive role denominator: if the norm pins a role_id, count only that role's nos.
-      // Otherwise fall back to totalNos (every manpower row contributes). This is the nos × rate
-      // replacement for the legacy man-hours/8 denominator.
       int productiveNos = a.totalNos();
       if (norm != null && norm.getRoleId() != null) {
         productiveNos = a.nosByRole().getOrDefault(norm.getRoleId(), 0);
       }
-      double actualPerManPerDay = productiveNos > 0 ? a.qtyExecuted() / productiveNos : 0d;
+
+      // Crew-only output: subtract sub-contractor's contribution to qty_executed so this
+      // metric describes supervisor's own crew productivity, not blended crew + SC.
+      double scQty = 0d;
+      if (activity != null && scQtyByActivity.containsKey(activity.getId())) {
+        scQty = scQtyByActivity.get(activity.getId()).doubleValue();
+      }
+      double crewQty = Math.max(0d, a.qtyExecuted() - scQty);
+
+      double actualPerManPerDay = productiveNos > 0 ? crewQty / productiveNos : 0d;
 
       double normValue = norm != null && norm.getOutputPerManPerDay() != null
           ? norm.getOutputPerManPerDay().doubleValue() : 0d;
@@ -509,13 +530,13 @@ public class ManpowerKpiService {
   private List<LabourCostPerUnitRow> computeLabourCostPerUnit(
       List<BoqItem> boq,
       List<DailyProgressReport> dprs,
-      Map<UUID, DprManpowerAgg> aggByDpr) {
+      Map<UUID, DprManpowerAgg> aggByDpr,
+      Map<UUID, BigDecimal> scQtyByBoqItem) {
 
     if (dprs.isEmpty()) return List.of();
 
     Map<UUID, double[]> aggByBoq = new HashMap<>(); // [labourCost, qtyExecuted]
 
-    // Resolve BOQ per DPR using the hard FK first; fuzzy name match is the legacy fallback.
     Map<UUID, BoqItem> boqById = boq.stream()
         .collect(Collectors.toMap(BoqItem::getId, b -> b, (a, b2) -> a));
     for (DailyProgressReport d : dprs) {
@@ -533,14 +554,21 @@ public class ManpowerKpiService {
       if (item == null) continue;
       double labourCost = e.getValue()[0];
       double qty = e.getValue()[1];
-      double cpu = qty > 0 ? labourCost / qty : 0d;
+
+      // Subtract sub-contractor contribution so cost-per-unit reflects supervisor's crew
+      // cost over supervisor's crew output. SC delivered units don't carry our manpower cost.
+      double scQty = scQtyByBoqItem.containsKey(item.getId())
+          ? scQtyByBoqItem.get(item.getId()).doubleValue() : 0d;
+      double crewQty = Math.max(0d, qty - scQty);
+
+      double cpu = crewQty > 0 ? labourCost / crewQty : 0d;
       rows.add(new LabourCostPerUnitRow(
           item.getId(),
           item.getItemNo(),
           item.getDescription(),
           item.getUnit(),
           round2(labourCost),
-          round3(qty),
+          round3(crewQty),    // surface crew-only qty so the table reads consistently
           round2(cpu)));
     }
     rows.sort(Comparator.comparingDouble(LabourCostPerUnitRow::costPerUnit).reversed());

@@ -140,7 +140,7 @@ class DbsAggregationIntegrationTest {
                 null, "Earthwork", null, null, null, "M3",
                 new BigDecimal("1.0"), null, null,
                 null, null, null, null, null, null, null, null, null, null,
-                null, null, null, null);
+                null, null, null, null, null);
         HttpEntity<CreateDailyProgressReportRequest> e = new HttpEntity<>(req, authJsonHeaders());
         ResponseEntity<ApiResponse> resp = restTemplate.exchange(
                 "/v1/projects/" + projectId + "/dpr",

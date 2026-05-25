@@ -31,6 +31,12 @@ CREATE SCHEMA IF NOT EXISTS site_ops AUTHORIZATION bipros;
 CREATE SCHEMA IF NOT EXISTS ncr AUTHORIZATION bipros;
 CREATE SCHEMA IF NOT EXISTS safety AUTHORIZATION bipros;
 CREATE SCHEMA IF NOT EXISTS dbs AUTHORIZATION bipros;
+CREATE SCHEMA IF NOT EXISTS hds AUTHORIZATION bipros;
+GRANT ALL ON SCHEMA hds TO bipros;
+GRANT USAGE ON SCHEMA hds TO bipros;
+
+-- pgvector extension (idempotent; installs into 'public' but is usable from any schema)
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Grant public schema access
 GRANT ALL ON SCHEMA public TO bipros;

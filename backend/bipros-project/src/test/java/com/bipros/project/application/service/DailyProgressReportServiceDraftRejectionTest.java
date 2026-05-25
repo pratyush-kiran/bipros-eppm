@@ -55,6 +55,7 @@ class DailyProgressReportServiceDraftRejectionTest {
   @Mock private DprManpowerRepository manpowerRepository;
   @Mock private DprEquipmentRepository equipmentRepository;
   @Mock private DprMaterialRepository materialRepository;
+  @Mock private com.bipros.project.domain.repository.DprSubContractorRepository subContractorRepository;
   @Mock private DprAttachmentRepository attachmentRepository;
   @Mock private DprIssueRepository issueRepository;
   @Mock private DprAttachmentStorageService attachmentStorage;
@@ -78,7 +79,7 @@ class DailyProgressReportServiceDraftRejectionTest {
   void setUp() {
     service = new DailyProgressReportService(
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
-        attachmentRepository, issueRepository, attachmentStorage,
+        subContractorRepository, attachmentRepository, issueRepository, attachmentStorage,
         projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
 
     // Inject the mocked EntityManager — @PersistenceContext field, can't use @InjectMocks here
@@ -184,7 +185,7 @@ class DailyProgressReportServiceDraftRejectionTest {
         null, null, activityId, "Test Activity", null, null, null, "Cum",
         new BigDecimal("10.0"), null, null,
         null, null, null, null, null, null, null, null, null, null,
-        null, null, null, null);
+        null, null, null, null, null);
   }
 
   private UpdateDailyProgressReportRequest updateRequest() {
@@ -193,7 +194,7 @@ class DailyProgressReportServiceDraftRejectionTest {
         null, null, activityId, "Test Activity", null, null, null, "Cum",
         new BigDecimal("10.0"), null, null,
         null, null, null, null, null, null, null, null, null, null,
-        null, null, null, null);
+        null, null, null, null, null);
   }
 
   private DailyProgressReport baseDpr() {

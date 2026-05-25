@@ -38,6 +38,7 @@ import { formatCurrency, formatPercent } from "@/lib/utils/format";
 import { DailyBreakdownTable } from "./DailyBreakdownTable";
 import { EquipmentRegisterPanel } from "./EquipmentRegisterPanel";
 import { ManpowerRegisterPanel } from "./ManpowerRegisterPanel";
+import { SubContractorSection } from "./SubContractorSection";
 import { TotalsPanel } from "./TotalsPanel";
 
 /**
@@ -386,10 +387,21 @@ export function PmDbsTab({
             subcontractAmount={day.subcontractAmount}
             generalExpenseAmount={day.generalExpenseAmount ?? 0}
             generalExpenseMonthlyTotal={day.generalExpenseMonthlyTotal ?? null}
+            showSubContractor
             totalExpense={day.totalExpense}
             totalIncome={day.totalIncome}
             contribution={day.contribution}
             contributionPct={day.contributionPct * 100}
+            currency={currency}
+          />
+
+          {/* F. Sub-Contractor — project-level breakdown. Hidden on other tabs
+              because SC is a separate domain entity (not attributed under a
+              supervisor / engineer / CM). Grouped by sub-contractor master with
+              per-work-type sub-rows mirroring the Excel Anbazhagan-TS layout. */}
+          <SubContractorSection
+            lines={day.subcontractLines ?? []}
+            totalExpense={day.subcontractAmount}
             currency={currency}
           />
 

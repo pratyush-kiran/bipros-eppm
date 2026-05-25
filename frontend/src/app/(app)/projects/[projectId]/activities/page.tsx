@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { List, FolderTree, Play, AlertTriangle, Sparkles, Columns3, UserCheck } from "lucide-react";
+import { List, FolderTree, Play, AlertTriangle, Sparkles, Columns3, UserCheck, BarChart2, GitBranch, ListTodo, ArrowRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { PageHeader } from "@/components/common/PageHeader";
 import { activityApi } from "@/lib/api/activityApi";
@@ -13,6 +13,9 @@ import { baselineApi } from "@/lib/api/baselineApi";
 import type { BaselineActivityResponse } from "@/lib/api/baselineApi";
 import { costApi } from "@/lib/api/costApi";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { EmptyState } from "@/components/common/EmptyState";
+import { GanttChart } from "@/components/schedule/GanttChart";
+import { NetworkDiagram } from "@/components/schedule/NetworkDiagram";
 import { ActivityWbsTreeView } from "@/components/activity/ActivityWbsTreeView";
 import { ActivityAiGenerateDialog } from "@/components/activity/ActivityAiGenerateDialog";
 import { ActivityDetailDrawer } from "@/components/activity/ActivityDetailDrawer";
@@ -47,6 +50,7 @@ import {
 import { ScheduleLogPanel } from "@/components/schedule/ScheduleLogPanel";
 import type { ScheduleResultResponse } from "@/lib/api/scheduleApi";
 import { useAuthStore } from "@/lib/state/store";
+import type { ProjectResponse, WbsNodeResponse } from "@/lib/types";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
@@ -79,7 +83,7 @@ export default function ActivitiesPage() {
   const qc = useQueryClient();
 
   const [lookAheadWeeks, setLookAheadWeeks] = useState<4 | 13 | null>(null);
-  const [viewMode, setViewMode] = useState<"list" | "tree">("tree");
+  const [viewMode, setViewMode] = useState<"list" | "tree" | "gantt" | "network">("tree");
   const [scheduleError, setScheduleError] = useState("");
   const [showAiDialog, setShowAiDialog] = useState(false);
   // Row-specific inline editor state. Keyed by activity id; value = string
@@ -125,14 +129,14 @@ export default function ActivitiesPage() {
     enabled: !!projectId,
   });
 
-  const { data: relationshipsData } = useQuery({
+  const { data: relationshipsData, isLoading: isLoadingRelationships } = useQuery({
     queryKey: ["relationships", projectId],
     queryFn: () => activityApi.getRelationships(projectId),
     enabled: !!projectId,
   });
 
   // Project provides dataDate (drives Schedule % calculation when rendering optional columns).
-  const { data: projectData } = useQuery({
+  const { data: projectData, isLoading: isLoadingProject } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => projectApi.getProject(projectId),
     enabled: !!projectId,
@@ -358,7 +362,11 @@ export default function ActivitiesPage() {
     setProgressEdit((s) => ({ ...s, [a.id]: String(a.percentComplete ?? 0) }));
   };
 
-  const isLoading = isLoadingActivities || (viewMode === "tree" && isLoadingWbs);
+  const isLoading =
+    isLoadingActivities ||
+    isLoadingProject ||
+    (viewMode === "tree" && isLoadingWbs) ||
+    ((viewMode === "gantt" || viewMode === "network") && isLoadingRelationships);
 
   return (
     <div>
@@ -436,39 +444,41 @@ export default function ActivitiesPage() {
           )}
         </div>
 
-        {/* Look-Ahead Filter */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setLookAheadWeeks(null)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              lookAheadWeeks === null
-                ? "bg-accent text-accent-foreground"
-                : "bg-surface-active/50 text-text-secondary hover:bg-surface-active"
-            }`}
-          >
-            All Activities
-          </button>
-          <button
-            onClick={() => setLookAheadWeeks(4)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              lookAheadWeeks === 4
-                ? "bg-accent text-accent-foreground"
-                : "bg-surface-active/50 text-text-secondary hover:bg-surface-active"
-            }`}
-          >
-            4-Week Look-Ahead
-          </button>
-          <button
-            onClick={() => setLookAheadWeeks(13)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              lookAheadWeeks === 13
-                ? "bg-accent text-accent-foreground"
-                : "bg-surface-active/50 text-text-secondary hover:bg-surface-active"
-            }`}
-          >
-            13-Week Look-Ahead
-          </button>
-        </div>
+        {/* Look-Ahead Filter — only meaningful in list/tree mode */}
+        {viewMode !== "gantt" && viewMode !== "network" && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setLookAheadWeeks(null)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                lookAheadWeeks === null
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-surface-active/50 text-text-secondary hover:bg-surface-active"
+              }`}
+            >
+              All Activities
+            </button>
+            <button
+              onClick={() => setLookAheadWeeks(4)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                lookAheadWeeks === 4
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-surface-active/50 text-text-secondary hover:bg-surface-active"
+              }`}
+            >
+              4-Week Look-Ahead
+            </button>
+            <button
+              onClick={() => setLookAheadWeeks(13)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                lookAheadWeeks === 13
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-surface-active/50 text-text-secondary hover:bg-surface-active"
+              }`}
+            >
+              13-Week Look-Ahead
+            </button>
+          </div>
+        )}
 
         {/* View Mode Toggle */}
         <div className="inline-flex rounded-lg border border-border bg-surface/60 p-0.5">
@@ -493,6 +503,28 @@ export default function ActivitiesPage() {
           >
             <FolderTree size={14} />
             WBS Tree
+          </button>
+          <button
+            onClick={() => setViewMode("gantt")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "gantt"
+                ? "bg-accent text-accent-foreground"
+                : "text-text-secondary hover:bg-surface-hover/50 hover:text-text-primary"
+            }`}
+          >
+            <BarChart2 size={14} />
+            Gantt
+          </button>
+          <button
+            onClick={() => setViewMode("network")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              viewMode === "network"
+                ? "bg-accent text-accent-foreground"
+                : "text-text-secondary hover:bg-surface-hover/50 hover:text-text-primary"
+            }`}
+          >
+            <GitBranch size={14} />
+            Network
           </button>
         </div>
 
@@ -607,10 +639,10 @@ export default function ActivitiesPage() {
         <div className="text-center text-text-muted">
           {viewMode === "tree" ? "Loading activities and WBS..." : "Loading activities..."}
         </div>
-      ) : filteredActivities.length === 0 ? (
+      ) : activities.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface/80 p-8 text-center">
           <p className="text-text-muted">
-            {lookAheadWeeks
+            {lookAheadWeeks && viewMode !== "gantt" && viewMode !== "network"
               ? `No activities scheduled in the next ${lookAheadWeeks} weeks`
               : "No activities found"}
           </p>
@@ -632,7 +664,7 @@ export default function ActivitiesPage() {
           onRowClick={handleRowClick}
           onRowContextMenu={handleRowContextMenu}
         />
-      ) : (
+      ) : viewMode === "list" ? (
         <ActivitiesListTable
           activities={filteredActivities}
           relationships={relationships}
@@ -656,9 +688,46 @@ export default function ActivitiesPage() {
           onRowContextMenu={handleRowContextMenu}
           onSetSupervisor={(a) => setSupervisorTarget(a)}
         />
+      ) : viewMode === "gantt" ? (
+        <ActivityGanttView
+          activities={activities}
+          wbsNodes={wbsNodes}
+          relationships={relationships}
+          baselineActivities={(baselineDetail?.data?.activities ?? []).map((a: BaselineActivityResponse) => ({
+            activityId: a.activityId,
+            baselineStartDate: a.earlyStart,
+            baselineFinishDate: a.earlyFinish,
+          }))}
+          project={project}
+          projectId={projectId}
+          onRunSchedule={() => scheduleMutation.mutate()}
+          isRunningSchedule={scheduleMutation.isPending}
+          onActivityClick={(id) => {
+            const a = activities.find((act) => act.id === id);
+            if (a) handleRowClick(a);
+          }}
+          onActivityContextMenu={(id, x, y) => {
+            const a = activities.find((act) => act.id === id);
+            if (a) handleRowContextMenu(a, x, y);
+          }}
+        />
+      ) : (
+        <ActivityNetworkView
+          activities={activities}
+          relationships={relationships}
+          projectId={projectId}
+          onActivityClick={(id) => {
+            const a = activities.find((act) => act.id === id);
+            if (a) handleRowClick(a);
+          }}
+          onActivityContextMenu={(id, x, y) => {
+            const a = activities.find((act) => act.id === id);
+            if (a) handleRowContextMenu(a, x, y);
+          }}
+        />
       )}
 
-      {lookAheadWeeks && (
+      {lookAheadWeeks && viewMode !== "gantt" && viewMode !== "network" && (
         <div className="mt-6 rounded-lg bg-accent/10 p-4">
           <p className="text-sm text-blue-300">
             Showing {filteredActivities.length} of {activities.length} activities scheduled in the
@@ -1175,6 +1244,136 @@ function ActivitiesListTable({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ActivityGanttView({
+  activities,
+  wbsNodes = [],
+  relationships,
+  baselineActivities = [],
+  project,
+  projectId,
+  onRunSchedule,
+  isRunningSchedule = false,
+  onActivityClick,
+  onActivityContextMenu,
+}: {
+  activities: ActivityResponse[];
+  wbsNodes?: WbsNodeResponse[];
+  relationships: Array<{ predecessorActivityId: string; successorActivityId: string; relationshipType: string }>;
+  baselineActivities?: Array<{ activityId: string; baselineStartDate: string | null; baselineFinishDate: string | null }>;
+  project: ProjectResponse | null;
+  projectId: string;
+  onRunSchedule?: () => void;
+  isRunningSchedule?: boolean;
+  onActivityClick?: (id: string) => void;
+  onActivityContextMenu?: (id: string, x: number, y: number) => void;
+}) {
+  const isStale = useScheduleStaleStore((s) => s.isScheduleStale(projectId));
+  const [spotlightOn, setSpotlightOn] = useState(false);
+  const spotlightAvailable = !!project?.dataDate;
+
+  if (activities.length === 0) {
+    return (
+      <EmptyState
+        icon={ListTodo}
+        title="No activities"
+        description="This project has no activities yet. Create activities to display the Gantt chart."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <label
+          className={`inline-flex items-center gap-2 rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-xs font-medium ${
+            spotlightAvailable ? "cursor-pointer text-text-secondary hover:text-text-primary" : "cursor-not-allowed text-text-muted"
+          }`}
+          title={
+            spotlightAvailable
+              ? "Highlight activities between project start and data date"
+              : "Set Data Date on the project to enable Progress Spotlight"
+          }
+        >
+          <input
+            type="checkbox"
+            disabled={!spotlightAvailable}
+            checked={spotlightOn && spotlightAvailable}
+            onChange={(e) => setSpotlightOn(e.target.checked)}
+          />
+          Progress Spotlight
+        </label>
+        {spotlightOn && spotlightAvailable && project && (
+          <span className="text-xs text-text-muted">
+            Showing {project.plannedStartDate} → {project.dataDate}
+          </span>
+        )}
+      </div>
+      <GanttChart
+        activities={activities}
+        wbsNodes={wbsNodes}
+        relationships={relationships}
+        baselineActivities={baselineActivities}
+        isStale={isStale}
+        onRunSchedule={onRunSchedule}
+        isRunningSchedule={isRunningSchedule}
+        onActivityClick={onActivityClick}
+        onActivityContextMenu={onActivityContextMenu}
+        spotlightStartDate={spotlightOn && spotlightAvailable ? project?.plannedStartDate ?? undefined : undefined}
+        spotlightEndDate={spotlightOn && spotlightAvailable ? project?.dataDate ?? undefined : undefined}
+      />
+    </div>
+  );
+}
+
+function ActivityNetworkView({
+  activities,
+  relationships,
+  projectId,
+  onActivityClick,
+  onActivityContextMenu,
+}: {
+  activities: ActivityResponse[];
+  relationships: Array<{ predecessorActivityId: string; successorActivityId: string; relationshipType: string }>;
+  projectId: string;
+  onActivityClick?: (id: string) => void;
+  onActivityContextMenu?: (id: string, x: number, y: number) => void;
+}) {
+  const router = useRouter();
+
+  if (activities.length === 0) {
+    return (
+      <EmptyState
+        icon={ListTodo}
+        title="No activities"
+        description="This project has no activities yet. Create activities to display the network diagram."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-text-secondary">
+          {relationships.length} relationship(s) defined
+        </p>
+        <button
+          onClick={() => router.push(`/projects/${projectId}/relationships`)}
+          className="flex items-center gap-1 rounded-md bg-accent/20 px-4 py-2 text-sm font-medium text-accent hover:bg-accent/30 transition-colors"
+        >
+          Manage Relationships
+          <ArrowRight size={14} />
+        </button>
+      </div>
+      <NetworkDiagram
+        activities={activities}
+        relationships={relationships}
+        onActivityClick={onActivityClick}
+        onActivityContextMenu={onActivityContextMenu}
+      />
     </div>
   );
 }

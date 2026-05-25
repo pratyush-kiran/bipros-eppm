@@ -139,6 +139,28 @@ export interface DbsCmPeriodResponse {
   dailyRows: DbsCmDayResponse[];
 }
 
+/**
+ * One row inside the PM tab's F. Sub-Contractor accordion. Keyed by
+ * (sub-contractor master, work-type) per day; aggregated across the period
+ * for week/month views.
+ *
+ * {@link scImputedIncome} = qty × boqRate (project would have invoiced this
+ * at the BOQ rate for the SC's portion of workdone). {@link scMargin} =
+ * imputedIncome − expense.
+ */
+export interface DbsSubContractLine {
+  subContractorCode?: string | null;
+  subContractorName?: string | null;
+  workTypeName?: string | null;
+  unit?: string | null;
+  qty: number;
+  scRate: number;
+  scExpense: number;
+  boqRate: number;
+  scImputedIncome: number;
+  scMargin: number;
+}
+
 export interface DbsProjectDayResponse {
   id?: string;
   projectId: string;
@@ -172,6 +194,12 @@ export interface DbsProjectDayResponse {
   cumulativeExpense?: number;
   cumulativeIncome?: number;
   cumulativeContribution?: number;
+  /**
+   * F. Sub-Contractor breakdown (PM tab only). Empty array on
+   * supervisor/engineer/CM tabs — sub-contractor is a project-level entity
+   * and isn't attributed under those roles.
+   */
+  subcontractLines?: DbsSubContractLine[];
   recomputedAt?: string;
   alerts?: DbsAlertCode[];
 }

@@ -1,10 +1,11 @@
 services:
   postgresql:
-    # postgis/postgis:17-3.5 ships Postgres 17 + PostGIS 3.5 extensions so that
-    # the gis module's wbs_polygons geometry column is resolvable without a
-    # separate extension installer step. Bipros only uses PostGIS for polygons
-    # right now but the same image works for future raster / topology needs.
-    image: postgis/postgis:17-3.5
+    # Custom image: postgis/postgis:17-3.5 (Postgres 17 + PostGIS 3.5 for the
+    # gis module's wbs_polygons geometry column) extended with pgvector for the
+    # HDS knowledge base. See docker/postgres/Dockerfile.
+    build:
+      context: ./docker/postgres
+    image: bipros-postgis-pgvector:17-3.5
     container_name: bipros-postgres
     environment:
       POSTGRES_PASSWORD: postgres_password
@@ -12,7 +13,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_INITDB_ARGS: ""
     ports:
-      - "5432:5432"
+      # Host port 5433 → container port 5432 so this can coexist with native
+      # Postgres.app on 5432. Backend connects via DATABASE_URL on 5433.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql
@@ -47,6 +50,26 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    container_name: bipros-docling
+    ports:
+      - "5001:5001"
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+      DOCLING_SERVE_API_HOST: "0.0.0.0"
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
 
   # S3-compatible object store for satellite raster tiles. Prod can point the
   # storage adapter at AWS S3; dev uses MinIO so `docker compose up -d` gives a

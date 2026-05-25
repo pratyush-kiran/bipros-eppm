@@ -307,6 +307,7 @@ class CostIntegrationTest {
         @DisplayName("POST /v1/financial-periods - create")
         void createPeriod_returns201() {
             CreateFinancialPeriodRequest req = new CreateFinancialPeriodRequest(
+                    projectId,
                     "FY-" + System.currentTimeMillis(),
                     LocalDate.now(), LocalDate.now().plusMonths(3), "QUARTER", 1);
             HttpEntity<CreateFinancialPeriodRequest> e = new HttpEntity<>(req, authJsonHeaders());

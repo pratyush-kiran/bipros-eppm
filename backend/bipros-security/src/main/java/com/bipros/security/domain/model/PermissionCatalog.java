@@ -198,7 +198,15 @@ public final class PermissionCatalog {
             new Permission("PROCUREMENT_REQUEST.CREATE",  "PROCUREMENT_REQUEST", CREATE,  "Raise a material indent / procurement request"),
             new Permission("PROCUREMENT_REQUEST.READ",    "PROCUREMENT_REQUEST", READ,    "View material indents"),
             new Permission("PROCUREMENT_REQUEST.UPDATE",  "PROCUREMENT_REQUEST", UPDATE,  "Edit indent before submission"),
-            new Permission("PROCUREMENT_REQUEST.APPROVE", "PROCUREMENT_REQUEST", APPROVE, "Approve / reject indent (store / procurement)")
+            new Permission("PROCUREMENT_REQUEST.APPROVE", "PROCUREMENT_REQUEST", APPROVE, "Approve / reject indent (store / procurement)"),
+
+            // HDS — Highway Design Standards knowledge base (PDF library, vector retrieval).
+            // READ defaults to all roles (every engineer can query standards); CREATE/UPDATE
+            // for librarians (ADMIN + PORTFOLIO_MANAGER/EXECUTIVE); DELETE admin-only.
+            new Permission("HDS_LIBRARY.READ",   "HDS_LIBRARY", READ,   "Query the HDS standards library"),
+            new Permission("HDS_LIBRARY.CREATE", "HDS_LIBRARY", CREATE, "Upload new HDS documents / versions"),
+            new Permission("HDS_LIBRARY.UPDATE", "HDS_LIBRARY", UPDATE, "Edit HDS metadata / re-trigger ingestion"),
+            new Permission("HDS_LIBRARY.DELETE", "HDS_LIBRARY", DELETE, "Delete HDS documents")
     );
 
     public static final Set<String> ALL_CODES = ALL.stream()

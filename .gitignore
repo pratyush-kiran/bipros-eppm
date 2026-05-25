@@ -102,3 +102,10 @@ backend/bipros-api/src/main/java/com/bipros/api/config/seeder/RealWorldManpowerS
 backend/bipros-api/src/main/java/com/bipros/api/service/TestDataResetService.java
 backend/bipros-api/src/main/java/com/bipros/api/controller/admin/TestDataResetController.java
 frontend/src/lib/api/testDataResetApi.ts
+
+
+.bip-audit
+backend/bipros-api/storage
+*.png
+*.pptx
+*.pdf

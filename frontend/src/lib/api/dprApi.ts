@@ -4,6 +4,7 @@ import type {
   CreateDailyProgressReportRequest,
   DailyProgressReportResponse,
   DprAttachment,
+  DprPage,
   UpdateDailyProgressReportRequest,
 } from "../types/dpr";
 
@@ -19,6 +20,10 @@ export interface DprListFilters {
   from?: string;
   to?: string;
   activity?: string;
+  /** Exclusive day cursor — fetch reports strictly older than this date. */
+  before?: string;
+  /** Number of distinct days to fetch in this page. Defaults to 14 server-side. */
+  days?: number;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
@@ -65,9 +70,11 @@ export const dprApi = {
     if (filters.from) params.set("from", filters.from);
     if (filters.to) params.set("to", filters.to);
     if (filters.activity) params.set("activity", filters.activity);
+    if (filters.before) params.set("before", filters.before);
+    if (filters.days != null) params.set("days", String(filters.days));
     const qs = params.toString() ? `?${params.toString()}` : "";
     return apiClient
-      .get<ApiResponse<DailyProgressReportResponse[]>>(`/v1/projects/${projectId}/dpr${qs}`)
+      .get<ApiResponse<DprPage>>(`/v1/projects/${projectId}/dpr${qs}`)
       .then((r) => r.data);
   },
 

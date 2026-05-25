@@ -9,9 +9,12 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import org.springframework.data.domain.Pageable;
 
 @Repository
 public interface DailyProgressReportRepository extends JpaRepository<DailyProgressReport, UUID> {
@@ -88,4 +91,49 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
 
   /** Actual DPR count for the (project, date) — drives the PM-tab "DPRs" KPI honestly. */
   long countByProjectIdAndReportDate(UUID projectId, LocalDate reportDate);
+
+  /**
+   * Most-recent distinct report dates for the project within an optional [from,to] window and
+   * strictly older than an optional {@code before} cursor, optionally narrowed to one activity.
+   * Ordered newest-first; pass a {@code Pageable} of size {@code days+1} to detect "has more".
+   */
+  @Query("""
+      select distinct d.reportDate from DailyProgressReport d
+      where d.projectId = :projectId
+        and (cast(:from as date) is null or d.reportDate >= :from)
+        and (cast(:to as date) is null or d.reportDate <= :to)
+        and (cast(:before as date) is null or d.reportDate < :before)
+        and (cast(:activity as string) is null or lower(d.activityName) = lower(cast(:activity as string)))
+      order by d.reportDate desc
+      """)
+  List<LocalDate> findDistinctReportDatesDesc(
+      @Param("projectId") UUID projectId,
+      @Param("from") LocalDate from,
+      @Param("to") LocalDate to,
+      @Param("before") LocalDate before,
+      @Param("activity") String activity,
+      Pageable pageable);
+
+  /** All DPR rows for the given set of report dates, newest-first, optionally one activity. */
+  @Query("""
+      select d from DailyProgressReport d
+      where d.projectId = :projectId
+        and d.reportDate in :dates
+        and (cast(:activity as string) is null or lower(d.activityName) = lower(cast(:activity as string)))
+      order by d.reportDate desc, d.id asc
+      """)
+  List<DailyProgressReport> findByProjectIdAndReportDateInOrderByReportDateDescIdAsc(
+      @Param("projectId") UUID projectId,
+      @Param("dates") Collection<LocalDate> dates,
+      @Param("activity") String activity);
+
+  /**
+   * Refresh the denormalized {@code activityName} snapshot on every DPR for {@code activityId}.
+   * Called from the {@code ActivityUpdatedEvent} listener so renames in the Activities tab
+   * propagate to the DPR list group headers, which group on this column.
+   */
+  @Modifying
+  @Query("UPDATE DailyProgressReport d SET d.activityName = :newName "
+      + "WHERE d.activityId = :activityId")
+  int renameActivity(@Param("activityId") UUID activityId, @Param("newName") String newName);
 }

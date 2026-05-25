@@ -1,0 +1,1847 @@
+{
+  "1": {
+    "code": "1",
+    "name": "Preliminaries",
+    "unit": "LS",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": true
+  },
+  "1.3.5(i)a": {
+    "code": "1.3.5(i)a",
+    "name": "Soil Investigation and report",
+    "unit": "LS",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.3.5(i)b": {
+    "code": "1.3.5(i)b",
+    "name": "Setting up at bore hole position for test up to 30m",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.3.5(i)c": {
+    "code": "1.3.5(i)c",
+    "name": "Setting up at bore hole position for test up to 10m",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.3.5(i)d": {
+    "code": "1.3.5(i)d",
+    "name": "Rotary core drilling up to 30m deep",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.3.5(i)e": {
+    "code": "1.3.5(i)e",
+    "name": "Establish Location and excavate test pit 3m deep",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.3.5(ii)": {
+    "code": "1.3.5(ii)",
+    "name": "Design and approvel of IC construction",
+    "unit": "LS",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.4.3(i)": {
+    "code": "1.4.3(i)",
+    "name": "Mobilization and demobilization",
+    "unit": "LS",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.4.3(ii)": {
+    "code": "1.4.3(ii)",
+    "name": "Maintenance of Contractor's site facilities",
+    "unit": "Month",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.7.6(i)a": {
+    "code": "1.7.6(i)a",
+    "name": "Maintenance and Protection of Traffic",
+    "unit": "Month",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.7.6(ii)": {
+    "code": "1.7.6(ii)",
+    "name": "Sub-base on diversions",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.7.6(iii)": {
+    "code": "1.7.6(iii)",
+    "name": "Bituminous base course on diversions",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.7.6(iv)": {
+    "code": "1.7.6(iv)",
+    "name": "Prime coat",
+    "unit": "Kg",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.10.6(i)": {
+    "code": "1.10.6(i)",
+    "name": "Provision of 5 sets of photographs (294X210mm)",
+    "unit": "Month",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.10.6(ii)": {
+    "code": "1.10.6(ii)",
+    "name": "Provision of two sets of Video recordings as specified",
+    "unit": "Month",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.11.8(i)": {
+    "code": "1.11.8(i)",
+    "name": "As-buit drawings, record drawings, record  etc.4",
+    "unit": "LS",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.14.7(i)": {
+    "code": "1.14.7(i)",
+    "name": "project signboards (Alluminium)",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.15.4(i)": {
+    "code": "1.15.4(i)",
+    "name": "Provision and erection of commemorative plaque",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "1.15.4(ii)": {
+    "code": "1.15.4(ii)",
+    "name": "Opening ceremony including all facilitities",
+    "unit": "LS",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.1.5(i)": {
+    "code": "2.1.5(i)",
+    "name": "Clear site of all trees less than 300mm",
+    "unit": "Sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.1.5(ii)": {
+    "code": "2.1.5(ii)",
+    "name": "Removal and delivery or disposal of trees 300mm truck dia. or greater",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(ii)": {
+    "code": "2.2.5(ii)",
+    "name": "Removal of reinforced concrete.",
+    "unit": "Cu.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(v)": {
+    "code": "2.2.5(v)",
+    "name": "Removal of Concrete Curbs",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(vi)": {
+    "code": "2.2.5(vi)",
+    "name": "Removal of interlocking tiles.",
+    "unit": "Sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(viii)": {
+    "code": "2.2.5(viii)",
+    "name": "Removal and disposal  of bituminous pavement",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(x)": {
+    "code": "2.2.5(x)",
+    "name": "Removal of steel safety barrier",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(xii)a": {
+    "code": "2.2.5(xii)a",
+    "name": "Removal of signboards- single post-including foundation",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(xii)b": {
+    "code": "2.2.5(xii)b",
+    "name": "Removal of signboards- Multiple posts-including foundation",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(xviii)": {
+    "code": "2.2.5(xviii)",
+    "name": "Removal of  drainage protection works in mortared rip-rap,loose riprap,gabion etc.  to any thickness at  Culverts, embankments,channel, floodways  etc",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.2.5(xxvi)": {
+    "code": "2.2.5(xxvi)",
+    "name": "Removal of single arm lighting poles,cables and foundation including termination,shut down etc and store for reuse.",
+    "unit": "Nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.3.6(i)": {
+    "code": "2.3.6(i)",
+    "name": "Unclassified excavation",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.3.6(i)a": {
+    "code": "2.3.6(i)a",
+    "name": "Unclassified excavation",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.4.6(i)a1": {
+    "code": "2.4.6(i)a1",
+    "name": "Borrow excavation to embankment-Extraction and screening",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.4.6(i)a2": {
+    "code": "2.4.6(i)a2",
+    "name": "Borrow excavation to embankment-Transportation",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.4.6(i)a3": {
+    "code": "2.4.6(i)a3",
+    "name": "Borrow excavation to Embankment-Hauling and compaction",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.6.6(i)": {
+    "code": "2.6.6(i)",
+    "name": "Subgrade preparation in cut",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.7.6(i)": {
+    "code": "2.7.6(i)",
+    "name": "Unclassified structural excavation (depth 0m to 2.0m) (Excavation)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.7.6(ii)": {
+    "code": "2.7.6(ii)",
+    "name": "Unclassified structural excavation (depth >2.0m to <4.0m)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.7.6(iii)": {
+    "code": "2.7.6(iii)",
+    "name": "Unclassified structural excavation (depth \u2265 4.0m)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.7.6(iv)": {
+    "code": "2.7.6(iv)",
+    "name": "Unclassified structural excavation (under water)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.8.6(i)": {
+    "code": "2.8.6(i)",
+    "name": "Trench excavation and Backfill depth (depth 0 to 2.0m)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "2.8.6(ii)": {
+    "code": "2.8.6(ii)",
+    "name": "Trench excavation and Backfill depth (depth > 2.0m to \u2264 3.0m)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "3.2.6(ii)1": {
+    "code": "3.2.6(ii)1",
+    "name": "GSB (Class B)-Extraction and Screening",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "3.2.6(ii)2": {
+    "code": "3.2.6(ii)2",
+    "name": "GSB (Class B)-Transportation",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "3.2.6(ii)3": {
+    "code": "3.2.6(ii)3",
+    "name": "GSB (Class B)-Hauling and compaction",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "3.3.6(ii)1": {
+    "code": "3.3.6(ii)1",
+    "name": "ABC  (Class A)-Extraction and Screening",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "3.3.6(ii)2": {
+    "code": "3.3.6(ii)2",
+    "name": "ABC  (Class A)-Crushing",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "3.3.6(ii)3": {
+    "code": "3.3.6(ii)3",
+    "name": "ABC (Class A)-Production, Hauling and Compaction",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "4.2.8(i)": {
+    "code": "4.2.8(i)",
+    "name": "Bituminous prime coat",
+    "unit": "Kg",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "4.2.8(ii)": {
+    "code": "4.2.8(ii)",
+    "name": "Bituminous tack coat",
+    "unit": "Kg",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "4.4.14(i)": {
+    "code": "4.4.14(i)",
+    "name": "BBC - Production, Laying and Compaction (Class B)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "4.5.14(ii)": {
+    "code": "4.5.14(ii)",
+    "name": "BWC - Production, laying and Compaction (Class B)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "4.9.10(i)": {
+    "code": "4.9.10(i)",
+    "name": "Surface milling (up to 50mm thick)",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "4.10.6(i)": {
+    "code": "4.10.6(i)",
+    "name": "Pavement Widening including unclassified excavation,  sub grade preparation, aggregate base course, bituminous wearing course, including saw cutting & abutting, stepping as necessary, etc. all as per drawing, specification,carting away debris  and making good to match with existing.",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "4.12.10(i)": {
+    "code": "4.12.10(i)",
+    "name": "International roughness index. (IRI)",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)a": {
+    "code": "5.1.7(i)a",
+    "name": "Concrete (Class15),blinding for culverts,Bridges, retaining walls,under/overpass foundations, mass concrete   etc.",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)b": {
+    "code": "5.1.7(i)b",
+    "name": "Concrete Class30, for Box culvert  barrel, wing walls, apron slab, cut off walls, headwalls  etc",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)c": {
+    "code": "5.1.7(i)c",
+    "name": "Concrete Class30, for retaining walls at bridge and for underpass/overpass etc(Provisional)",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)d": {
+    "code": "5.1.7(i)d",
+    "name": "Concrete (class30), for Bridge foundation and Underpass/overpass, abutments, pier heads, return walls, approach slab, sump pits, columns etc..",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)e": {
+    "code": "5.1.7(i)e",
+    "name": "Concrete (class35),for Bridge deck slab, cross heads, plinths, diaphragm beam, walkways, stair case steps and ramps, roof beams etc.",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)f": {
+    "code": "5.1.7(i)f",
+    "name": "Concrete (class35),for Bridge deck slab precast planks1330 x 1000 & 1350x1000,75mm thick placed between girders to required shape and size including joint finishing, lifting arrangements etc.",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)g": {
+    "code": "5.1.7(i)g",
+    "name": "Concrete (class45) for prestressed deck slab with voids and other features etc complete at overpass",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)h": {
+    "code": "5.1.7(i)h",
+    "name": "Extra over for forming voids and features  in deck slab",
+    "unit": "LS",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)ia": {
+    "code": "5.1.7(i)ia",
+    "name": "Concrete (class42),for prestressed -precast beams-Precasting",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.1.7(i)ib": {
+    "code": "5.1.7(i)ib",
+    "name": "Concrete (class42),for prestressed -precast beams-Erection",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.2.6(i)": {
+    "code": "5.2.6(i)",
+    "name": "Mild steel bar reinforcement of any diameter with minimum yield strength 250 Mpa.",
+    "unit": "tonne",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.2.6(ii)b1": {
+    "code": "5.2.6(ii)b1",
+    "name": "HYSD min tensile strength 420 Mpa for  culverts, bridge decks, pier foundations, abutments, approach slab,underpas /overpass etc.",
+    "unit": "tonne",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.2.6(ii)b2": {
+    "code": "5.2.6(ii)b2",
+    "name": "HYSD -Cutting, bending & Tying",
+    "unit": "tonne",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.2.6(iii)": {
+    "code": "5.2.6(iii)",
+    "name": "Fabric wire mesh reinforcement of any size",
+    "unit": "tonne",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.4.6(ii)": {
+    "code": "5.4.6(ii)",
+    "name": "prestressing strands to BS 5896 with minimum ultimate strength 1860 Mpa, 1290 mm dia meter",
+    "unit": "tonne",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.7.6(ii)": {
+    "code": "5.7.6(ii)",
+    "name": "Reinforced cement concrete pavement including reinforcement, expansion and construction joints etc..",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.10.6(i)": {
+    "code": "5.10.6(i)",
+    "name": "Bituminous paint 3coats to concrete face in contact with soil as instructed.",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "5.10.6(ii)": {
+    "code": "5.10.6(ii)",
+    "name": "Water proofing/tack coat to bridge deck slab as per details.",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "7.6(i)a": {
+    "code": "7.6(i)a",
+    "name": "Epoxy  Paint to  all exposed concrete faces, underside and sides of exposed surfaces of \"I\" girders, Deck slab, pier columns and underpass",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "7.6(i)b": {
+    "code": "7.6(i)b",
+    "name": "Water resistant decorative type paint  to walls ,beams, columns including primer all",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.1.6(ii)a": {
+    "code": "8.1.6(ii)a",
+    "name": "Reinforced Precast Concrete Pipe Culvert (diameter 900mm)",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.1.6(ii)b": {
+    "code": "8.1.6(ii)b",
+    "name": "Reinforced Precast Concrete Pipe Culvert (diameter 800mm)",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.2.6(i)a": {
+    "code": "8.2.6(i)a",
+    "name": "Storm sewer UPVC Pipe dia. 300 mm.including concrete surround",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.2.6(i)b": {
+    "code": "8.2.6(i)b",
+    "name": "Storm sewer HDPE  Pipe dia. 400 mm.including concrete surround",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.2.6(i)c": {
+    "code": "8.2.6(i)c",
+    "name": "Storm Sewer, HDPE Pipe (diameter 450mm) including concrete surrounding",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.2.6(i)d": {
+    "code": "8.2.6(i)d",
+    "name": "Storm Sewer, HDPE Pipe (diameter 600mm) including concrete surrounding",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.3.6(i)a": {
+    "code": "8.3.6(i)a",
+    "name": "Manhole chamber 1000mm x 1000mm internal size and depth up to 1200mm in concrete class 30 at roundabout including DI  cover.",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.3.6(i)b": {
+    "code": "8.3.6(i)b",
+    "name": "Manhole chamber 700mm x 700mm internal size and depth minimum 1200mm, in concrete class 30 at median including DI cover and gratings. Errection",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.3.6(i)c-1": {
+    "code": "8.3.6(i)c-1",
+    "name": "Manhole chamber 600mm x 600mm internal size and depth minimum 1200mm, in concrete class 30 at median including DI cover and gratings. Casting",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.3.6(i)c": {
+    "code": "8.3.6(i)c",
+    "name": "Manhole chamber 600mm x 600mm internal size and depth minimum 1200mm, in concrete class 30 at median including DI cover and gratings. Errection",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.3.6(ii)a": {
+    "code": "8.3.6(ii)a",
+    "name": "Drain out let chamber 450 mm x 450 mm in-place to bridge deck include heavy duty steel grating assembly as detailed in the drawings.",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.3.6(ii)b": {
+    "code": "8.3.6(ii)b",
+    "name": "Sump pit chamber 800mm x 800mm x 800mm internal size  in concrete class 30 at underpass  including D.I gratings.",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.4.6(ii)a": {
+    "code": "8.4.6(ii)a",
+    "name": "75mm dia UPVC drainage pipes through abutment curtain wall",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.4.6(ii)b": {
+    "code": "8.4.6(ii)b",
+    "name": "110mm dia UPVC drainage pipes through internal diaphragms",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.4.6(ii)c": {
+    "code": "8.4.6(ii)c",
+    "name": "150mm dia UPVC drainage pipes for drainage from underpass sump pits.",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.4.6(ii)d": {
+    "code": "8.4.6(ii)d",
+    "name": "50mm dia non-metallic weep holes through abutment",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "8.4.6(ii)e": {
+    "code": "8.4.6(ii)e",
+    "name": "3000mm  x 600mm x 600mm drainage pit with selected stone filled and rapped in 700g/m2 geotextile membrane including all excavation, backfilling all as per drawing and as approved by the Engineer for underpass drainage.",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "10.1.6(i)": {
+    "code": "10.1.6(i)",
+    "name": "Setting up at each pile 900mm & 1000mm diameter -pile location",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "10.1.6(ii)": {
+    "code": "10.1.6(ii)",
+    "name": "Piling , 1000 mm diameter for Pier Foundation up to 15 m",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "10.2.6(ii)": {
+    "code": "10.2.6(ii)",
+    "name": "Static Load Testing of 1000mm diameter working piles",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "10.2.6(i)": {
+    "code": "10.2.6(i)",
+    "name": "Non-destructive Integrity Test as per the Specifications.",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.2.6(i)": {
+    "code": "11.2.6(i)",
+    "name": "Laminated elastomeric bearings 400x350x80mm having total vertical  load capacity 1400kN on epoxy grout bed all as per drawing.",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.4.6": {
+    "code": "11.4.6",
+    "name": "Strip seal expansion joint",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.6(i)": {
+    "code": "11.6.6(i)",
+    "name": "Concrete Bridge parapet (crash barrier) 1200mm high including stitching concrete reinforcement etc complete.",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.6(v)a": {
+    "code": "11.6.6(v)a",
+    "name": "Fabricate and fix Galvanized Steel Pedestrian Railing 1500mm high including concrete foundation,painting, provision for emergency  openings as necessary.",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.6(v)b": {
+    "code": "11.6.6(v)b",
+    "name": "Fabricate and fix IPE 100 or equivalent Steel pipe parapet including 50mm dia cross pipes and other allied items as required  all as per details at location shown on drawing, height up to 1400mm including concrete foundation, painting as detailed etc. complete.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.6(vi)": {
+    "code": "11.6.6(vi)",
+    "name": "Fabricate and fix Aluminum Pedestrian Railing 1000mm high at  Underpass  and on retaining walls including fixing in position as per details, painting etc. complete as per approved shop drawings",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.6(vii)a": {
+    "code": "11.6.6(vii)a",
+    "name": "Fabricate and fix Aluminum powder coated decorative type railing 1000mm high at overpass including posts bracings fixing in position   etc. complete as per approved shop drawings",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.6(vii)b": {
+    "code": "11.6.6(vii)b",
+    "name": "Fabricate and fix  Aluminum powder coated composite panels including aluminum perforated decorative facade at overpass  as shown on the drawings and fixing in position  etc.. complete as per approved by the Engineer.",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.6(vii)c": {
+    "code": "11.6.6(vii)c",
+    "name": "Fabricate and fix solid Aluminum powder coated composite panels and aluminum perforated solid roof at overpass  as shown on the drawings and fixing in position etc. complete as approved by the Engineer.",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "11.6.(vii)d": {
+    "code": "11.6.(vii)d",
+    "name": "Fabricate and fix  powder coated aluminum perforated overhang framed roof at overpass  as shown on the drawings and fixing in position etc. complete as approved by the Engineer.",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.1.6(i)": {
+    "code": "9.1.6(i)",
+    "name": "Loose Stone Riprap for Dyke and  slope protection",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.1.6(ii)": {
+    "code": "9.1.6(ii)",
+    "name": "Mortared stone riprap including 100mm thick cement mortar bed  as per drawing.",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.2.6(i)": {
+    "code": "9.2.6(i)",
+    "name": "Gabions  of any size including 16mm dia GI hooks as per details.",
+    "unit": "Cum",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.2.6(iv)": {
+    "code": "9.2.6(iv)",
+    "name": "Filter membrane (400g/m2 Geotextile)",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.6.6(i)": {
+    "code": "9.6.6(i)",
+    "name": "Reinforced concrete slope protection including storm water outlets at median and at bridge abutments including reinforcement etc..",
+    "unit": "cu.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.9.6(ii)a": {
+    "code": "9.9.6(ii)a",
+    "name": "Mortared stone riprap lined drainage channel/ditch 300 mm thick ( Provisional)",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.9.6(ii)b": {
+    "code": "9.9.6(ii)b",
+    "name": "Concrete lined ditch 200mm thick  as per drawing including slope preparation, reinforcement, expansion joints etc..",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.9.6(ii)c": {
+    "code": "9.9.6(ii)c",
+    "name": "Extra over for Concrete lined ditch for providing  slab on top at road crossings as per drawing including reinforcement etc complete.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.10.6(i)": {
+    "code": "9.10.6(i)",
+    "name": "Granular filter layer 200m thick",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.12.7(i)1": {
+    "code": "9.12.7(i)1",
+    "name": "Mechanically Stabilized Earth Retaining Walls (MSERWs)-Casting",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.12.7(i)2": {
+    "code": "9.12.7(i)2",
+    "name": "Mechanically Stabilized Earth Retaining Walls (MSERWs)-Erection",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "9.12.7(iii)": {
+    "code": "9.12.7(iii)",
+    "name": "Coping for MSERWs",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(i)a": {
+    "code": "12.1.7(i)a",
+    "name": "Paving, concrete interlocking blocks 60mm thick for side walks and median",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(i)b": {
+    "code": "12.1.7(i)b",
+    "name": "Paving, concrete interlocking blocks 80mm thick",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(i)c": {
+    "code": "12.1.7(i)c",
+    "name": "20mm Natural Omani non polished Lime stone  to approved color and pattern including 30mm thick 1:3 cement sand mortar base, joint filling etc.. at Underpass/ overpass Ramp and landings.(Provisional)",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(i)d": {
+    "code": "12.1.7(i)d",
+    "name": "20mm Natural Omani non polished Lime stone  to approved color and pattern including 30mm thick 1:3 cement sand mortar base, joint filling etc.. at Underpass/ overpass  stair case tread and risers. (Provisional)",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(v)a": {
+    "code": "12.1.7(v)a",
+    "name": "Precast Non-Mountable Concrete Curb 350x150mm",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(v)b": {
+    "code": "12.1.7(v)b",
+    "name": "Precast lip curb 150x350mm",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(v)c": {
+    "code": "12.1.7(v)c",
+    "name": "Precast  concrete edge curb 200x100mm",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "12.1.7(vi)": {
+    "code": "12.1.7(vi)",
+    "name": "Cast in situ Concrete curb stone",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(i)": {
+    "code": "13.1.7(i)",
+    "name": "W-Beam Guardrail Standard Section including post,etc",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(ii)": {
+    "code": "13.1.7(ii)",
+    "name": "W-Beam Guardrail  Transition section",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(iii)a": {
+    "code": "13.1.7(iii)a",
+    "name": "W-Beam Guardrail  Terminal section Type-I",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(iii)b": {
+    "code": "13.1.7(iii)b",
+    "name": "W-Beam Guardrail  Terminal section Type-II",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(iv)": {
+    "code": "13.1.7(iv)",
+    "name": "Thrie Beam Guardrail  standard section",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(v)": {
+    "code": "13.1.7(v)",
+    "name": "Thrie Beam Guardrail  Terminal section",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(vi)a": {
+    "code": "13.1.7(vi)a",
+    "name": "Thrie Beam Guardrail  Terminal section Type-I",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(vi)b": {
+    "code": "13.1.7(vi)b",
+    "name": "Thrie Beam Guardrail  Terminal section Type-II",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(vii)a1": {
+    "code": "13.1.7(vii)a1",
+    "name": "Precast Concrete barrier, Single face as shown on Dwg.-Casting",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(vii)a2": {
+    "code": "13.1.7(vii)a2",
+    "name": "Precast Concrete barrier, Single face as shown on Dwg.-Erection",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "13.1.7(ix)": {
+    "code": "13.1.7(ix)",
+    "name": "Concrete barrier, transition section",
+    "unit": "lin.m.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(i)a": {
+    "code": "14.1.7(i)a",
+    "name": "Highway sign, Triangular Side  (750mm)",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(i)b": {
+    "code": "14.1.7(i)b",
+    "name": "Highway sign, Triangular Side  (900mm)",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(ii)a": {
+    "code": "14.1.7(ii)a",
+    "name": "Highway sign, Circular  (Diameter 750mm)",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(ii)b": {
+    "code": "14.1.7(ii)b",
+    "name": "Highway sign, Circular  (Diameter 900mm)",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(iii)": {
+    "code": "14.1.7(iii)",
+    "name": "Highway sign, rectangular of any size",
+    "unit": "Sqm",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(iv)": {
+    "code": "14.1.7(iv)",
+    "name": "Octagonal Road signs",
+    "unit": "Nr",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(v)a": {
+    "code": "14.1.7(v)a",
+    "name": "Sign post support assembly, including foundation( Single) Casting 35%",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(v)b": {
+    "code": "14.1.7(v)b",
+    "name": "Sign post support assembly, including foundations( Double)",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(v)c": {
+    "code": "14.1.7(v)c",
+    "name": "Sign post support assembly, including foundations( four post 150mm dia )",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(viii)a": {
+    "code": "14.1.7(viii)a",
+    "name": "Removable type 75mm dia G.I Bollards 1200mm high  painted red and white  at median opening including foundation concrete, locking arrangements with S.S. Chain etc complete as per details.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(viii)b": {
+    "code": "14.1.7(viii)b",
+    "name": "Removable type 225mm dia decorative G.I Bollards, 850mm high  painted black at access road to Royal camp including foundation concrete, locking arrangements with S.S. Chain etc complete as per details.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.1.7(viii)c": {
+    "code": "14.1.7(viii)c",
+    "name": "Debris Collecting  150mm dia G.I Bollards at culvert inlets including foundation concrete, reinforcement, painting etc complete as per details.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.2.6(i)": {
+    "code": "14.2.6(i)",
+    "name": "Traffic lines continuous or broken for both white and yellow  (mechanical applied)",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.2.6(iii)": {
+    "code": "14.2.6(iii)",
+    "name": "Special markings for cheveron,directional arrow.(hand applied)",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.2.6(iv)": {
+    "code": "14.2.6(iv)",
+    "name": "Curb painting",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.2.6(v)": {
+    "code": "14.2.6(v)",
+    "name": "Removal of road marking",
+    "unit": "sq.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.3.6(i)a": {
+    "code": "14.3.6(i)a",
+    "name": "Reflecting road studs (one side red)",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.3.6(i)b": {
+    "code": "14.3.6(i)b",
+    "name": "Reflecting road studs (both side red)",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "14.3.6(i)c": {
+    "code": "14.3.6(i)c",
+    "name": "Reflecting road  studs at rumble strips (one side red)",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.1.20(i)": {
+    "code": "15.1.20(i)",
+    "name": "Power supply connection to the feeder pillar",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.5.6(i)": {
+    "code": "15.5.6(i)",
+    "name": "11kv pole mounted transformer substation -Supply, insta of 11kv/415v,500 Kva.11KV cables to RMU and to transformer,main feeder panel,earthing and other associa, but not limited to other electricalwork.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.6.6(i)a": {
+    "code": "15.6.6(i)a",
+    "name": "Feeder pillar -Supply & Installation of 100A 6way distribution Feeder Pillar with digital timer including concrete foundation and provision for power meter.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.6.6(i)b": {
+    "code": "15.6.6(i)b",
+    "name": "Feeder pillar -Supply & Installation of 200A 8way distribution Feeder Pillar with digital timer including concrete foundation and provision for power meter.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.7.6(i)a": {
+    "code": "15.7.6(i)a",
+    "name": "Supply & Installation of 4c x 50 mm\u00b2 Electrical copper cable, XLPE insulated, steel wire armored and PVC sheathed",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.7.6(i)b": {
+    "code": "15.7.6(i)b",
+    "name": "Supply & Installation of 4c x 35 mm\u00b2 Electrical copper cable, XLPE insulated, steel wire armored and PVC sheathed",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.7.6(i)c": {
+    "code": "15.7.6(i)c",
+    "name": "Supply & Installation of 4c x 25 mm\u00b2 Electrical copper cable, XLPE insulated, steel wire armored and PVCsheathed",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.7.6(i)d": {
+    "code": "15.7.6(i)d",
+    "name": "Supply & Installation of 4c x 16 mm\u00b2 Electrical copper cable, XLPE insulated, steel wire armored and PVCsheathed",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.7.6(i)e": {
+    "code": "15.7.6(i)e",
+    "name": "Single core standard insulated cable 10mm\u00b2 installed with each lighting circuit cable for earthing continuity between the corresponding feeder pillar earthing bar and earthing bolts in columns.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.8.6(ii)a": {
+    "code": "15.8.6(ii)a",
+    "name": "Galvanized tubular lighting columns a 12m ht with 1 bracket luminaries with HPS 400W ,",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.8.6(ii)b": {
+    "code": "15.8.6(ii)b",
+    "name": "Galvanized tubular lighting columns 12m ht with 2 bracket luminaries with HPS 400W",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.8.6(ii)c": {
+    "code": "15.8.6(ii)c",
+    "name": "Galvanized tubular lighting columns 12m ht with 3 bracket luminaries with HPS 400W ,",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.8.6(ii)d": {
+    "code": "15.8.6(ii)d",
+    "name": "Supply & install recessed type surface mounted 56 W  luminaries (CRx200 ASYM-JTM) or equivalent as approved, including conduits/ducts, cabling, timers, junction boxes, switches,connection from  existing power source, testing & commissioning etc complete  all as per approved shop drawing.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.8.6(ii)e": {
+    "code": "15.8.6(ii)e",
+    "name": "Supply & installation of square wall recessed luminaries with indirect optical system, die cast aluminum body sealed to IP 65 Suitable for 13W/26W,TC-T/70W,HST-DE/70W,HIT-DE lamps including, wiring,timers,junction boxes switches, connection for existing power surface, testing & commisiontion etc.. Complete all as per approved shop drawing.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.8.6(ii)f": {
+    "code": "15.8.6(ii)f",
+    "name": "Supply & installation of Architectural floor recessed LED luminaries, IP 66 rated, protect with the IEC medium beam range at 30\u00b0 Angle UL tested including wiring, timer, junction box, switches, connect to existing power supply, testing commissioning etc.. Complete all as per approved shop drawing.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.15.7(i)": {
+    "code": "15.15.7(i)",
+    "name": "Provide twin rod earthing installation for street light feeder pillar & transformer.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.15.7(ii)": {
+    "code": "15.15.7(ii)",
+    "name": "Provide single rod earthing installation",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(v)": {
+    "code": "15.17.6(v)",
+    "name": "H type concrete foundation for 11kv/low voltage  pole mounted transformer station.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(vi)": {
+    "code": "15.17.6(vi)",
+    "name": "Concrete base for feeder pillar",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(vii)a": {
+    "code": "15.17.6(vii)a",
+    "name": "Trench for low/medium voltage cable for one cable",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(vii)b": {
+    "code": "15.17.6(vii)b",
+    "name": "Trench for low /medium voltage cable for two cables",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(vii)c": {
+    "code": "15.17.6(vii)c",
+    "name": "Trench for low/medium voltage cable for three or more cables",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(ix)a": {
+    "code": "15.17.6(ix)a",
+    "name": "Lighting column concrete foundation for single arm",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(ix)b": {
+    "code": "15.17.6(ix)b",
+    "name": "Lighting column concrete foundation for double arm",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(ix)c": {
+    "code": "15.17.6(ix)c",
+    "name": "Lighting column concrete foundation for three arm",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(ix)d": {
+    "code": "15.17.6(ix)d",
+    "name": "Supply and erect Flag pole foundation & Post as per Sultanate of Oman Specifications",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(xii)a": {
+    "code": "15.17.6(xii)a",
+    "name": "100mm dia UPVC duct, in concrete encasement",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(xii)b": {
+    "code": "15.17.6(xii)b",
+    "name": "100mm dia UPVC duct, in median for cable",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(xiii)": {
+    "code": "15.17.6(xiii)",
+    "name": "Cable marker",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(xv)": {
+    "code": "15.17.6(xv)",
+    "name": "Hand hole/draw pit (750x750x1000mm) including HD cover (Provisional)",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(xvi)a": {
+    "code": "15.17.6(xvi)a",
+    "name": "Supply and installation of Fixed speed tracking system using laser beam  including  documentation unit with LIDAR,CPU,hard disc,measuring software  2nos. high resolution cameras,flash units, warranty, necessary trenching, excavations, fiber optic cable, power cables, draw pits, foundations, shop drawings, commissioning & handing over to Royal Oman Police all as per  specification.",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "15.17.6(xvi)b": {
+    "code": "15.17.6(xvi)b",
+    "name": "Empty Box (Bi-directional City - Design pole, technical cabinet etc)",
+    "unit": "nr.",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.1.6(i)a": {
+    "code": "18.1.6(i)a",
+    "name": "Upvc split pipe 200mm dia for Electrical H.T cable",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.1.6(i)b": {
+    "code": "18.1.6(i)b",
+    "name": "Upvc split pipe 150mm dia for Electrical LT cable",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.1.6(i)c": {
+    "code": "18.1.6(i)c",
+    "name": "Upvc split pipe 100mm dia for Telephone line/cable",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.1.6(i)d": {
+    "code": "18.1.6(i)d",
+    "name": "600mm dia Water pipe line protection as per details including precast reinforced slab below pavement,lifting hook etc. as approved for 600mm dia line.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.1.6(i)e": {
+    "code": "18.1.6(i)e",
+    "name": "500mm dia Water pipe line protection as per details including precast reinforced slab below pavement,lifting hook etc. as approved for 500mm dia line.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.1.6(i)f": {
+    "code": "18.1.6(i)f",
+    "name": "400mm dia Water pipe line protection as per details including precast reinforced slab below pavement,lifting hook etc. as approved for 400mm dia line.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.1.6(i)f-casting": {
+    "code": "18.1.6(i)f-casting",
+    "name": "400mm dia Water pipe line protection precast reinforced slab",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.2.6(i)a": {
+    "code": "18.2.6(i)a",
+    "name": "Relocate existing Electrical H.T line  including preparation of shop drawings, obtain approval  from the concerned Authorities, provide new materials as required, excavation, back filling,bedding,posts, ducts, cable as necessary, shut down, termination, testing and recommissioning etc complete to the satisfaction of the Engineer all as per approved shop drawing at various locations.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.2.6(i)b": {
+    "code": "18.2.6(i)b",
+    "name": "Relocate existing Electrical L.T line  including preparation of shop drawings, obtain approval  from the concerned Authorities, provide new materials as required, excavation, back filling,bedding,posts, ducts, cable as necessary, shut down, termination, testing and recommissioning etc complete to the satisfaction of the Engineer all as per approved shop drawing at various locations.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.2.6(i)c": {
+    "code": "18.2.6(i)c",
+    "name": "Relocate existing Telephone line  including preparation of shop drawings, obtain approval  from the concerned Authorities, provide new materials as required, excavation, ducting, back filling,bedding,cable as necessary, shut down, Terminations, testing and making it operational etc. complete to the satisfaction of the Engineer and all as necessary for the project requirement at various locations.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.2.6(i)d": {
+    "code": "18.2.6(i)d",
+    "name": "Relocate existing water line  600 mm dia. including preparation of shop drawings,obtain approval  from the concerned Authorities, provide new pipe and fittings  as required, excavation, back filling,bedding, Reinforced concrete works,  shut down, testing and recommisioning etc complete to the satisfaction of the Engineer  all as per approved shop drawing including construction of manhole. etc complete at various locations.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.2.6(i)e": {
+    "code": "18.2.6(i)e",
+    "name": "Relocate existing water line  500 mm dia. including preparation of shop drawings,obtain approval  from the concerned Authorities, provide new pipe and fittings  as required, excavation, back filling,bedding, Reinforced concrete works,  shut down, testing and recommisioning etc complete to the satisfaction of the Engineer  all as per approved shop drawing including construction of manhole. etc complete at various locations.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.2.6(i)f": {
+    "code": "18.2.6(i)f",
+    "name": "Relocate existing water line  400 mm dia. including preparation of shop drawings,obtain approval  from the concerned Authorities, provide new pipe and fittings  as required, excavation, back filling,bedding, Reinforced concrete works,  shut down, testing and recommisioning etc complete to the satisfaction of the Engineer  all as per approved shop drawing including construction of manhole. etc complete at various locations.",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.3.6(i)a": {
+    "code": "18.3.6(i)a",
+    "name": "Service ducts  uPVC 100mm dia two way",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.3.6(i)b": {
+    "code": "18.3.6(i)b",
+    "name": "Service duct uPVC 150mm dia two way",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.3.6(i)c": {
+    "code": "18.3.6(i)c",
+    "name": "Service ducts one  200 mm  uPVC  two way",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  },
+  "18.3.6(i)d": {
+    "code": "18.3.6(i)d",
+    "name": "Service ducts one  300 mm  uPVC  one way",
+    "unit": "lin.m",
+    "unit_rate": 0,
+    "plan_qty": 0,
+    "chapter": "Preliminaries",
+    "is_chapter": false
+  }
+}

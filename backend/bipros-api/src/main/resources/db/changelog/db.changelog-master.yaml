@@ -193,3 +193,11 @@ databaseChangeLog:
       file: db/changelog/changeset-2026-05-add-dbs-register.xml
   - include:
       file: db/changelog/changeset-2026-05-add-cm-role-constraint.xml
+  - include:
+      file: db/changelog/changesets/2026-05-21-hds-pgvector-indexes.sql
+  - include:
+      file: db/changelog/105-add-dpr-sub-contractor-quantity-and-assignment-fk.xml
+  - include:
+      file: db/changelog/changeset-2026-05-add-dbs-project-subcontract-lines.xml
+  - include:
+      file: db/changelog/106-resource-assignment-planned-units-backfill.yaml

@@ -355,9 +355,9 @@ class StretchAndDailyReportsIntegrationTest {
             CreateDailyProgressReportRequest req = new CreateDailyProgressReportRequest(
                     LocalDate.now(), null, "Supervisor Name", 0L, 500L,
                     null, "Earthwork", null, null, null,
-                    "M3", new java.math.BigDecimal("1.0"), null, null,
-                    null, null, null, null, null, null, null, null, null, null,
-                    null, null, null, null);
+                "M3", new java.math.BigDecimal("1.0"), null, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null);
             HttpEntity<CreateDailyProgressReportRequest> e = new HttpEntity<>(req, authJsonHeaders());
             ResponseEntity<ApiResponse> resp = restTemplate.exchange(
                     "/v1/projects/" + projectId + "/dpr",

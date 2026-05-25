@@ -24,6 +24,13 @@ export interface TotalsPanelProps {
   generalExpenseAmount?: number | null;
   /** Section G — month total for the row's yearMonth; shown as the tile hint. */
   generalExpenseMonthlyTotal?: number | null;
+  /**
+   * Sub-contractor is a project-level entity and is not attributed under a
+   * supervisor / engineer / CM — those tabs pass false (default) and the F. tile
+   * is hidden. PM tab passes true to surface the SC total and includes it in
+   * the Total Expense hint.
+   */
+  showSubContractor?: boolean;
   totalExpense: number;
   totalIncome: number;
   contribution: number;
@@ -40,6 +47,7 @@ export function TotalsPanel({
   subcontractAmount,
   generalExpenseAmount,
   generalExpenseMonthlyTotal,
+  showSubContractor = false,
   totalExpense,
   totalIncome,
   contribution,
@@ -56,7 +64,11 @@ export function TotalsPanel({
         <KpiTile
           label="Total Expense"
           value={formatCurrency(totalExpense, currency)}
-          hint="Material + Manpower + Admin + Machinery + Fuel"
+          hint={
+            showSubContractor
+              ? "Material + Manpower + Admin + Machinery + Fuel + Sub-Contractor"
+              : "Material + Manpower + Admin + Machinery + Fuel"
+          }
           tone="warning"
         />
         <KpiTile
@@ -79,17 +91,39 @@ export function TotalsPanel({
         />
       </div>
 
-      {/* Second row — per-section breakdown. Smaller default tiles. */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
+      {/* Second row — per-section breakdown. Smaller default tiles. Column count
+         adapts to which tiles are shown so the row doesn't leave a gap when F.
+         (and/or G.) are hidden on supervisor/engineer/CM tabs. */}
+      <div
+        className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${
+          (showSubContractor ? 1 : 0) +
+            (generalExpenseAmount !== undefined && generalExpenseAmount !== null
+              ? 1
+              : 0) +
+            5 >=
+          7
+            ? "lg:grid-cols-7"
+            : (showSubContractor ? 1 : 0) +
+                (generalExpenseAmount !== undefined && generalExpenseAmount !== null
+                  ? 1
+                  : 0) +
+                5 ===
+              6
+            ? "lg:grid-cols-6"
+            : "lg:grid-cols-5"
+        }`}
+      >
         <KpiTile label="A. Manpower" value={formatCurrency(manpowerAmount, currency)} />
         <KpiTile label="B. Admin / Catering" value={formatCurrency(adminAmount, currency)} />
         <KpiTile label="C. Machinery" value={formatCurrency(machineryAmount, currency)} />
         <KpiTile label="D. Fuel" value={formatCurrency(fuelAmount, currency)} />
         <KpiTile label="E. Material" value={formatCurrency(materialAmount, currency)} />
-        <KpiTile
-          label="F. Sub-Contractor"
-          value={formatCurrency(subcontractAmount, currency)}
-        />
+        {showSubContractor && (
+          <KpiTile
+            label="F. Sub-Contractor"
+            value={formatCurrency(subcontractAmount, currency)}
+          />
+        )}
         {generalExpenseAmount !== undefined && generalExpenseAmount !== null && (
           <KpiTile
             label="G. General Expenses"

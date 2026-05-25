@@ -1,0 +1,402 @@
+[
+  {
+    "id": "q01",
+    "family": "dpr_summary",
+    "question": "How many DPRs were submitted in January 2026?",
+    "sql": "SELECT COUNT(*) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID' AND date_part('month', report_date)=1",
+    "expected_value": "591",
+    "expected_type": "int"
+  },
+  {
+    "id": "q02",
+    "family": "dpr_summary",
+    "question": "How many DPRs were submitted in February 2026?",
+    "sql": "SELECT COUNT(*) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID' AND date_part('month', report_date)=2",
+    "expected_value": "1151",
+    "expected_type": "int"
+  },
+  {
+    "id": "q03",
+    "family": "dpr_summary",
+    "question": "How many DPRs were submitted in March 2026?",
+    "sql": "SELECT COUNT(*) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID' AND date_part('month', report_date)=3",
+    "expected_value": "1689",
+    "expected_type": "int"
+  },
+  {
+    "id": "q04",
+    "family": "dpr_summary",
+    "question": "What is the total number of DPRs across Jan-Mar 2026?",
+    "sql": "SELECT COUNT(*) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID'",
+    "expected_value": "3431",
+    "expected_type": "int"
+  },
+  {
+    "id": "q05",
+    "family": "dpr_summary",
+    "question": "How many DPRs did Mohd Ismaila submit?",
+    "sql": "SELECT COUNT(*) FROM project.daily_progress_reports d JOIN public.users u ON u.id=d.supervisor_user_id WHERE d.project_id='$PROJECT_ID' AND u.username='ismaila'",
+    "expected_value": "428",
+    "expected_type": "int"
+  },
+  {
+    "id": "q06",
+    "family": "dpr_summary",
+    "question": "What is the date of the earliest DPR in this project?",
+    "sql": "SELECT MIN(report_date) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID'",
+    "expected_value": "2026-01-24",
+    "expected_type": "date"
+  },
+  {
+    "id": "q07",
+    "family": "dpr_summary",
+    "question": "What is the date of the latest DPR in this project?",
+    "sql": "SELECT MAX(report_date) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID'",
+    "expected_value": "2026-03-29",
+    "expected_type": "date"
+  },
+  {
+    "id": "q08",
+    "family": "dpr_summary",
+    "question": "Which supervisor submitted the most DPRs?",
+    "sql": "SELECT u.username FROM project.daily_progress_reports d JOIN public.users u ON u.id=d.supervisor_user_id WHERE d.project_id='$PROJECT_ID' GROUP BY u.username ORDER BY COUNT(*) DESC LIMIT 1",
+    "expected_value": "kbarman",
+    "expected_type": "str"
+  },
+  {
+    "id": "q09",
+    "family": "resource",
+    "question": "How many unique supervisors filed DPRs?",
+    "sql": "SELECT COUNT(DISTINCT supervisor_user_id) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID' AND supervisor_user_id IS NOT NULL",
+    "expected_value": "12",
+    "expected_type": "int"
+  },
+  {
+    "id": "q10",
+    "family": "resource",
+    "question": "How many total manpower-days were deployed in January 2026?",
+    "sql": "SELECT COALESCE(SUM(m.nos),0) FROM project.daily_progress_reports d JOIN project.dpr_manpower m ON m.dpr_id=d.id WHERE d.project_id='$PROJECT_ID' AND date_part('month', d.report_date)=1",
+    "expected_value": "355",
+    "expected_type": "int"
+  },
+  {
+    "id": "q11",
+    "family": "resource",
+    "question": "Which manpower trade is used most often (by row count)?",
+    "sql": "SELECT trade FROM project.dpr_manpower m JOIN project.daily_progress_reports d ON d.id=m.dpr_id WHERE d.project_id='$PROJECT_ID' GROUP BY trade ORDER BY COUNT(*) DESC LIMIT 1",
+    "expected_value": "Helper",
+    "expected_type": "str"
+  },
+  {
+    "id": "q12",
+    "family": "resource",
+    "question": "How many distinct equipment types are deployed?",
+    "sql": "SELECT COUNT(DISTINCT equipment_type) FROM project.dpr_equipment e JOIN project.daily_progress_reports d ON d.id=e.dpr_id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "19",
+    "expected_type": "int"
+  },
+  {
+    "id": "q13",
+    "family": "resource",
+    "question": "Which equipment type is used most often?",
+    "sql": "SELECT equipment_type FROM project.dpr_equipment e JOIN project.daily_progress_reports d ON d.id=e.dpr_id WHERE d.project_id='$PROJECT_ID' GROUP BY equipment_type ORDER BY COUNT(*) DESC LIMIT 1",
+    "expected_value": "Excavator",
+    "expected_type": "str"
+  },
+  {
+    "id": "q14",
+    "family": "resource",
+    "question": "How many Excavator deployments in March 2026?",
+    "sql": "SELECT COUNT(*) FROM project.dpr_equipment e JOIN project.daily_progress_reports d ON d.id=e.dpr_id WHERE d.project_id='$PROJECT_ID' AND equipment_type='Excavator' AND date_part('month', d.report_date)=3",
+    "expected_value": "202",
+    "expected_type": "int"
+  },
+  {
+    "id": "q15",
+    "family": "productivity",
+    "question": "What is the total quantity executed across all DPRs?",
+    "sql": "SELECT ROUND(COALESCE(SUM(qty_executed),0)::numeric, 2) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID'",
+    "expected_value": "370176.68",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q16",
+    "family": "productivity",
+    "question": "What is the average qty_executed per DPR?",
+    "sql": "SELECT ROUND(COALESCE(AVG(qty_executed),0)::numeric, 2) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID' AND qty_executed > 1",
+    "expected_value": "423.02",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q17",
+    "family": "productivity",
+    "question": "How many DPRs are idle-deployment-only (qty<=1)?",
+    "sql": "SELECT COUNT(*) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID' AND qty_executed <= 1",
+    "expected_value": "2556",
+    "expected_type": "int"
+  },
+  {
+    "id": "q18",
+    "family": "productivity",
+    "question": "Which activity has the highest total qty_executed?",
+    "sql": "SELECT a.code FROM project.daily_progress_reports d JOIN activity.activities a ON a.id=d.activity_id WHERE d.project_id='$PROJECT_ID' GROUP BY a.code ORDER BY SUM(d.qty_executed) DESC LIMIT 1",
+    "expected_value": "2.3.6(i)b",
+    "expected_type": "str"
+  },
+  {
+    "id": "q19",
+    "family": "productivity",
+    "question": "What is the total qty_executed for activity 2.3.6(i)b?",
+    "sql": "SELECT ROUND(COALESCE(SUM(qty_executed),0)::numeric, 2) FROM project.daily_progress_reports d JOIN activity.activities a ON a.id=d.activity_id WHERE d.project_id='$PROJECT_ID' AND a.code='2.3.6(i)b'",
+    "expected_value": "115729.53",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q20",
+    "family": "productivity",
+    "question": "How many distinct activity codes have at least one DPR?",
+    "sql": "SELECT COUNT(DISTINCT activity_id) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID'",
+    "expected_value": "33",
+    "expected_type": "int"
+  },
+  {
+    "id": "q21",
+    "family": "capacity",
+    "question": "Total man-power line cost across all DPRs?",
+    "sql": "SELECT ROUND(COALESCE(SUM(line_cost),0)::numeric, 2) FROM project.dpr_manpower m JOIN project.daily_progress_reports d ON d.id=m.dpr_id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "1923300.00",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q22",
+    "family": "capacity",
+    "question": "Total equipment line cost across all DPRs?",
+    "sql": "SELECT ROUND(COALESCE(SUM(line_cost),0)::numeric, 2) FROM project.dpr_equipment e JOIN project.daily_progress_reports d ON d.id=e.dpr_id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "10639900.00",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q23",
+    "family": "capacity",
+    "question": "How many DPRs have at least one equipment line?",
+    "sql": "SELECT COUNT(DISTINCT d.id) FROM project.daily_progress_reports d JOIN project.dpr_equipment e ON e.dpr_id=d.id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "725",
+    "expected_type": "int"
+  },
+  {
+    "id": "q24",
+    "family": "capacity",
+    "question": "How many DPRs have at least one manpower line?",
+    "sql": "SELECT COUNT(DISTINCT d.id) FROM project.daily_progress_reports d JOIN project.dpr_manpower m ON m.dpr_id=d.id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "720",
+    "expected_type": "int"
+  },
+  {
+    "id": "q25",
+    "family": "cost",
+    "question": "Total project cost (manpower + equipment line costs)?",
+    "sql": "SELECT ROUND(COALESCE((SELECT SUM(line_cost) FROM project.dpr_manpower m JOIN project.daily_progress_reports d ON d.id=m.dpr_id WHERE d.project_id='$PROJECT_ID'),0)::numeric + COALESCE((SELECT SUM(line_cost) FROM project.dpr_equipment e JOIN project.daily_progress_reports d ON d.id=e.dpr_id WHERE d.project_id='$PROJECT_ID'),0)::numeric, 2)",
+    "expected_value": "12563200.00",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q26",
+    "family": "cost",
+    "question": "Manpower cost in January 2026?",
+    "sql": "SELECT ROUND(COALESCE(SUM(line_cost),0)::numeric, 2) FROM project.dpr_manpower m JOIN project.daily_progress_reports d ON d.id=m.dpr_id WHERE d.project_id='$PROJECT_ID' AND date_part('month', d.report_date)=1",
+    "expected_value": "232300.00",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q27",
+    "family": "cost",
+    "question": "Equipment cost in March 2026?",
+    "sql": "SELECT ROUND(COALESCE(SUM(line_cost),0)::numeric, 2) FROM project.dpr_equipment e JOIN project.daily_progress_reports d ON d.id=e.dpr_id WHERE d.project_id='$PROJECT_ID' AND date_part('month', d.report_date)=3",
+    "expected_value": "5148000.00",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q28",
+    "family": "cost",
+    "question": "Which supervisor has the highest total manpower cost?",
+    "sql": "SELECT u.username FROM project.dpr_manpower m JOIN project.daily_progress_reports d ON d.id=m.dpr_id JOIN public.users u ON u.id=d.supervisor_user_id WHERE d.project_id='$PROJECT_ID' GROUP BY u.username ORDER BY SUM(m.line_cost) DESC LIMIT 1",
+    "expected_value": "illayaraja",
+    "expected_type": "str"
+  },
+  {
+    "id": "q29",
+    "family": "cost",
+    "question": "Which activity has the highest equipment cost?",
+    "sql": "SELECT a.code FROM project.dpr_equipment e JOIN project.daily_progress_reports d ON d.id=e.dpr_id JOIN activity.activities a ON a.id=d.activity_id WHERE d.project_id='$PROJECT_ID' GROUP BY a.code ORDER BY SUM(e.line_cost) DESC LIMIT 1",
+    "expected_value": "2.3.6(i)b",
+    "expected_type": "str"
+  },
+  {
+    "id": "q30",
+    "family": "cost",
+    "question": "Average manpower cost per DPR?",
+    "sql": "SELECT ROUND(COALESCE(AVG(d.total_cost),0)::numeric, 2) FROM (SELECT dpr.id, SUM(m.line_cost) AS total_cost FROM project.daily_progress_reports dpr JOIN project.dpr_manpower m ON m.dpr_id=dpr.id WHERE dpr.project_id='$PROJECT_ID' GROUP BY dpr.id) d",
+    "expected_value": "2671.25",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q31",
+    "family": "activity",
+    "question": "How many activities are in the project?",
+    "sql": "SELECT COUNT(*) FROM activity.activities WHERE project_id='$PROJECT_ID'",
+    "expected_value": "33",
+    "expected_type": "int"
+  },
+  {
+    "id": "q32",
+    "family": "activity",
+    "question": "How many WBS nodes does the project have?",
+    "sql": "SELECT COUNT(*) FROM project.wbs_nodes WHERE project_id='$PROJECT_ID'",
+    "expected_value": "23",
+    "expected_type": "int"
+  },
+  {
+    "id": "q33",
+    "family": "activity",
+    "question": "How many activities are in status LOCKED or ACTIVE?",
+    "sql": "SELECT COUNT(*) FROM activity.activities WHERE project_id='$PROJECT_ID' AND edit_status='LOCKED'",
+    "expected_value": "33",
+    "expected_type": "int"
+  },
+  {
+    "id": "q34",
+    "family": "activity",
+    "question": "What is the WBS path for activity 2.3.6(i)b?",
+    "sql": "SELECT w.code || ' ' || w.name FROM activity.activities a JOIN project.wbs_nodes w ON w.id=a.wbs_node_id WHERE a.project_id='$PROJECT_ID' AND a.code='2.3.6(i)b'",
+    "expected_value": "2.3 Bored Cast In-Situ Piling",
+    "expected_type": "str"
+  },
+  {
+    "id": "q35",
+    "family": "activity",
+    "question": "How many activities are under WBS node 2.3 (Bored Piling)?",
+    "sql": "SELECT COUNT(*) FROM activity.activities a JOIN project.wbs_nodes w ON w.id=a.wbs_node_id WHERE a.project_id='$PROJECT_ID' AND w.code='2.3'",
+    "expected_value": "4",
+    "expected_type": "int"
+  },
+  {
+    "id": "q36",
+    "family": "material",
+    "question": "How many material consumption logs exist?",
+    "sql": "SELECT COUNT(*) FROM resource.material_consumption_logs WHERE project_id='$PROJECT_ID'",
+    "expected_value": "40",
+    "expected_type": "int"
+  },
+  {
+    "id": "q37",
+    "family": "material",
+    "question": "How many DPRs have material lines?",
+    "sql": "SELECT COUNT(DISTINCT d.id) FROM project.daily_progress_reports d JOIN project.dpr_material m ON m.dpr_id=d.id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "0",
+    "expected_type": "int"
+  },
+  {
+    "id": "q38",
+    "family": "material",
+    "question": "How many distinct materials are referenced in DPRs?",
+    "sql": "SELECT COUNT(DISTINCT material_name) FROM project.dpr_material m JOIN project.daily_progress_reports d ON d.id=m.dpr_id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "0",
+    "expected_type": "int"
+  },
+  {
+    "id": "q39",
+    "family": "material",
+    "question": "Total material cost in March 2026?",
+    "sql": "SELECT ROUND(COALESCE(SUM(line_cost),0)::numeric, 2) FROM project.dpr_material m JOIN project.daily_progress_reports d ON d.id=m.dpr_id WHERE d.project_id='$PROJECT_ID' AND date_part('month', d.report_date)=3",
+    "expected_value": "0.00",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q40",
+    "family": "dbs",
+    "question": "How many DBS supervisor rows exist?",
+    "sql": "SELECT COUNT(*) FROM dbs.dbs_daily_supervisor WHERE project_id='$PROJECT_ID'",
+    "expected_value": "568",
+    "expected_type": "int"
+  },
+  {
+    "id": "q41",
+    "family": "dbs",
+    "question": "How many DBS project (PM) rows exist?",
+    "sql": "SELECT COUNT(*) FROM dbs.dbs_daily_project WHERE project_id='$PROJECT_ID'",
+    "expected_value": "92",
+    "expected_type": "int"
+  },
+  {
+    "id": "q42",
+    "family": "dbs",
+    "question": "How many DBS engineer rows exist?",
+    "sql": "SELECT COUNT(*) FROM dbs.dbs_daily_engineer WHERE project_id='$PROJECT_ID'",
+    "expected_value": "120",
+    "expected_type": "int"
+  },
+  {
+    "id": "q43",
+    "family": "dbs",
+    "question": "How many DBS CM rows exist?",
+    "sql": "SELECT COUNT(*) FROM dbs.dbs_daily_cm WHERE project_id='$PROJECT_ID'",
+    "expected_value": "54",
+    "expected_type": "int"
+  },
+  {
+    "id": "q44",
+    "family": "dbs",
+    "question": "Total DBS supervisor boq_achieved_amount across all days?",
+    "sql": "SELECT ROUND(COALESCE(SUM(boq_achieved_amount),0)::numeric, 2) FROM dbs.dbs_daily_supervisor WHERE project_id='$PROJECT_ID'",
+    "expected_value": "0.00",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q45",
+    "family": "dbs",
+    "question": "Average DBS supervisor contribution per day?",
+    "sql": "SELECT ROUND(COALESCE(AVG(contribution),0)::numeric, 2) FROM dbs.dbs_daily_supervisor WHERE project_id='$PROJECT_ID'",
+    "expected_value": "-15034.12",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q46",
+    "family": "cross",
+    "question": "Which day in Q1 2026 had the most DPRs submitted?",
+    "sql": "SELECT report_date::text FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID' GROUP BY report_date ORDER BY COUNT(*) DESC LIMIT 1",
+    "expected_value": "2026-01-30",
+    "expected_type": "str"
+  },
+  {
+    "id": "q47",
+    "family": "cross",
+    "question": "How many unique (supervisor, activity, date) combinations exist?",
+    "sql": "SELECT COUNT(DISTINCT (supervisor_user_id, activity_id, report_date)) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID'",
+    "expected_value": "3431",
+    "expected_type": "int"
+  },
+  {
+    "id": "q48",
+    "family": "cross",
+    "question": "Which supervisor worked on the most distinct activities?",
+    "sql": "SELECT u.username FROM project.daily_progress_reports d JOIN public.users u ON u.id=d.supervisor_user_id WHERE d.project_id='$PROJECT_ID' GROUP BY u.username ORDER BY COUNT(DISTINCT d.activity_id) DESC LIMIT 1",
+    "expected_value": "kbarman",
+    "expected_type": "str"
+  },
+  {
+    "id": "q49",
+    "family": "cross",
+    "question": "Across Jan-Mar 2026, what's the average DPRs per day?",
+    "sql": "SELECT ROUND((COUNT(*)::numeric / NULLIF(COUNT(DISTINCT report_date), 0))::numeric, 2) FROM project.daily_progress_reports WHERE project_id='$PROJECT_ID'",
+    "expected_value": "64.74",
+    "expected_type": "decimal"
+  },
+  {
+    "id": "q50",
+    "family": "cross",
+    "question": "How many DPRs include both manpower and equipment?",
+    "sql": "SELECT COUNT(DISTINCT d.id) FROM project.daily_progress_reports d JOIN project.dpr_manpower m ON m.dpr_id=d.id JOIN project.dpr_equipment e ON e.dpr_id=d.id WHERE d.project_id='$PROJECT_ID'",
+    "expected_value": "556",
+    "expected_type": "int"
+  }
+]

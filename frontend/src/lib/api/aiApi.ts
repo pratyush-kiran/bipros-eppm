@@ -79,6 +79,13 @@ export interface ChatRequest {
   module: string;
   message: string;
   imageUrl?: string | null;
+  /**
+   * UUIDs of HDS document versions the user has scoped the chat to. When
+   * non-empty the orchestrator switches to deterministic HDS retrieval mode
+   * (see `runHdsDeterministic` on the backend) and the answer is grounded
+   * in citations from those versions.
+   */
+  hdsVersionIds?: string[];
 }
 
 export interface SseEvent {

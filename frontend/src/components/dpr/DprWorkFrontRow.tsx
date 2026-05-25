@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Briefcase,
@@ -16,7 +17,8 @@ import {
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ResourceAvatar } from "@/components/resource/supervisor-assign/ResourceAvatar";
 import { chainageLabel } from "@/lib/format/chainage";
-import type { DailyProgressReportResponse, DprApprovalStatus } from "@/lib/types/dpr";
+import { dprApi } from "@/lib/api/dprApi";
+import type { DprApprovalStatus, DprSummaryRow } from "@/lib/types/dpr";
 import {
   SEVERITY_VARIANT,
   STATUS_VARIANT as ISSUE_STATUS_VARIANT,
@@ -25,7 +27,8 @@ import {
 import { DetailTable } from "./DetailTable";
 
 interface Props {
-  row: DailyProgressReportResponse;
+  row: DprSummaryRow;
+  projectId: string;
   index: number;
   total: number;
   onEdit: () => void;
@@ -67,22 +70,32 @@ const lengthLabel = (from: number | null | undefined, to: number | null | undefi
  * <p>Designed for the "Day → Activity → Work fronts" layout: each row answers
  * "who did this stretch of this activity, with what crew?" at a glance.
  */
-export function DprWorkFrontRow({ row, index, total, onEdit, onDelete }: Props) {
+function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }: Props) {
   const [open, setOpen] = useState(false);
+
+  const {
+    data: detailData,
+    isLoading: detailLoading,
+    isError: detailError,
+    refetch: refetchDetail,
+  } = useQuery({
+    queryKey: ["dpr-detail", projectId, row.id],
+    queryFn: () => dprApi.get(projectId, row.id),
+    enabled: open,
+    staleTime: 1000 * 60 * 5,
+  });
+  const detail = detailData?.data;
+  const liveIssues = (detail?.issues ?? []).filter((i) => i.status !== "CANCELLED");
+
   const status = row.approvalStatus ?? "DRAFT";
 
-  const manpowerCount = (row.manpower ?? []).reduce((a, m) => a + (m.nos ?? 0), 0);
-  const equipmentCount = (row.equipment ?? []).reduce((a, e) => a + (e.nos ?? 0), 0);
-  const materialCount = (row.materials ?? []).length;
-  const photoCount = (row.attachments ?? []).length;
-  const liveIssues = (row.issues ?? []).filter((i) => i.status !== "CANCELLED");
-  const issueCount = liveIssues.length;
-  const openIssueCount = liveIssues.filter(
-    (i) => i.status !== "RESOLVED" && i.status !== "CLOSED",
-  ).length;
-  const hasCriticalOpen = liveIssues.some(
-    (i) => i.severity === "CRITICAL" && i.status !== "RESOLVED" && i.status !== "CLOSED",
-  );
+  const manpowerCount = row.manpowerNos;
+  const equipmentCount = row.equipmentNos;
+  const materialCount = row.materialCount;
+  const photoCount = row.photoCount;
+  const issueCount = row.issueCount;
+  const openIssueCount = row.openIssueCount;
+  const hasCriticalOpen = row.hasCriticalOpen;
   const issueChipClass = hasCriticalOpen
     ? "border-burgundy/30 bg-burgundy/10 text-burgundy"
     : openIssueCount > 0
@@ -213,116 +226,151 @@ export function DprWorkFrontRow({ row, index, total, onEdit, onDelete }: Props) 
 
       {open && (
         <div className="space-y-3 border-t border-hairline bg-ivory/30 px-3 py-3 md:px-4">
-          {row.cumulativeQty != null && (
-            <div className="text-xs text-slate">
-              <span className="font-semibold text-charcoal">Cumulative:</span>{" "}
-              <span className="tabular-nums">
-                {fmt(row.cumulativeQty)} {row.unit}
-              </span>
-            </div>
-          )}
-          {row.landmark && (
-            <div className="text-xs text-slate">
-              <span className="font-semibold text-charcoal">Landmark:</span> {row.landmark}
-            </div>
-          )}
-          {row.remarks && (
-            <div className="rounded-md bg-paper/80 p-2 text-xs text-charcoal">
-              <span className="font-semibold">Remarks: </span>
-              {row.remarks}
+          {detailLoading && (
+            <div className="space-y-2">
+              <div className="h-4 w-40 animate-pulse rounded bg-parchment" />
+              <div className="h-16 animate-pulse rounded bg-parchment/60" />
+              <div className="h-16 animate-pulse rounded bg-parchment/60" />
             </div>
           )}
 
-          <DetailTable
-            title="Manpower"
-            empty="No manpower"
-            headers={["Role · Category / Grade", "Nos", "Hours"]}
-            rows={(row.manpower ?? []).map((m) => [
-              m.trade,
-              fmt(m.nos, 0),
-              fmt(m.workingHours),
-            ])}
-            accent="emerald"
-            numericFromIndex={1}
-          />
-          <DetailTable
-            title="Equipment / PMV"
-            empty="No equipment"
-            headers={["Equipment · Make / Model", "Fleet #", "Nos", "Hours"]}
-            rows={(row.equipment ?? []).map((e) => [
-              e.equipmentType,
-              e.fleetNo ?? "—",
-              fmt(e.nos, 0),
-              fmt(e.workingHours),
-            ])}
-            accent="bronze"
-            numericFromIndex={1}
-          />
-          <DetailTable
-            title="Material"
-            empty="No material"
-            headers={["Material · Spec / Grade", "Qty"]}
-            rows={(row.materials ?? []).map((m) => [
-              m.materialName,
-              fmt(m.quantity, 3),
-            ])}
-            accent="steel"
-            numericFromIndex={1}
-          />
-
-          {liveIssues.length > 0 && (
-            <div>
-              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate">
-                Issues
-              </div>
-              <div className="overflow-x-auto rounded-md border border-hairline">
-                <table className="w-full text-xs">
-                  <thead className="bg-ivory/60">
-                    <tr>
-                      <th className="px-2 py-1 text-left font-semibold text-slate">Title</th>
-                      <th className="px-2 py-1 text-left font-semibold text-slate">Reason</th>
-                      <th className="px-2 py-1 text-left font-semibold text-slate">Severity</th>
-                      <th className="px-2 py-1 text-left font-semibold text-slate">Status</th>
-                      <th className="px-2 py-1 text-left font-semibold text-slate">Assigned</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {liveIssues.map((i) => (
-                      <tr key={i.id ?? i.title} className="border-t border-hairline">
-                        <td className="px-2 py-1 text-charcoal">{i.title}</td>
-                        <td className="px-2 py-1 text-charcoal">{categoryLabel(i.category)}</td>
-                        <td className="px-2 py-1">
-                          <Badge variant={SEVERITY_VARIANT[i.severity]}>{i.severity}</Badge>
-                        </td>
-                        <td className="px-2 py-1">
-                          <Badge variant={ISSUE_STATUS_VARIANT[i.status]} withDot>
-                            {i.status}
-                          </Badge>
-                        </td>
-                        <td className="px-2 py-1 text-charcoal">{i.assignedToName ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {detailError && (
+            <div className="flex items-center gap-2 text-xs text-burgundy">
+              Failed to load detail.
+              <button
+                type="button"
+                onClick={() => refetchDetail()}
+                className="rounded border border-burgundy/30 px-2 py-0.5 font-semibold hover:bg-burgundy/10"
+              >
+                Retry
+              </button>
             </div>
           )}
 
-          {(row.delayReason ||
-            row.safetyObservation ||
-            row.safetyIncidentType === "INCIDENT" ||
-            row.safetyIncidentType === "NEAR_MISS") && (
-            <div className="rounded-md border border-burgundy/20 bg-burgundy/5 p-3 text-xs text-charcoal">
-              <div className="mb-1 font-semibold text-burgundy">Safety & Delay</div>
-              {row.safetyIncidentType && row.safetyIncidentType !== "NONE" && (
-                <div>Incident: {row.safetyIncidentType.replace("_", " ")}</div>
+          {detail && (
+            <>
+              {detail.cumulativeQty != null && (
+                <div className="text-xs text-slate">
+                  <span className="font-semibold text-charcoal">Cumulative:</span>{" "}
+                  <span className="tabular-nums">
+                    {fmt(detail.cumulativeQty)} {detail.unit}
+                  </span>
+                </div>
               )}
-              {row.delayReason && <div>Delay: {row.delayReason}</div>}
-              {row.safetyObservation && <div>Observation: {row.safetyObservation}</div>}
-            </div>
+              {detail.landmark && (
+                <div className="text-xs text-slate">
+                  <span className="font-semibold text-charcoal">Landmark:</span> {detail.landmark}
+                </div>
+              )}
+              {detail.remarks && (
+                <div className="rounded-md bg-paper/80 p-2 text-xs text-charcoal">
+                  <span className="font-semibold">Remarks: </span>
+                  {detail.remarks}
+                </div>
+              )}
+
+              <DetailTable
+                title="Manpower"
+                empty="No manpower"
+                headers={["Role · Category / Grade", "Nos", "Hours"]}
+                rows={(detail.manpower ?? []).map((m) => [m.trade, fmt(m.nos, 0), fmt(m.workingHours)])}
+                accent="emerald"
+                numericFromIndex={1}
+              />
+              <DetailTable
+                title="Equipment / PMV"
+                empty="No equipment"
+                headers={["Equipment · Make / Model", "Fleet #", "Nos", "Hours"]}
+                rows={(detail.equipment ?? []).map((e) => [
+                  e.equipmentType,
+                  e.fleetNo ?? "—",
+                  fmt(e.nos, 0),
+                  fmt(e.workingHours),
+                ])}
+                accent="bronze"
+                numericFromIndex={1}
+              />
+              <DetailTable
+                title="Material"
+                empty="No material"
+                headers={["Material · Spec / Grade", "Qty"]}
+                rows={(detail.materials ?? []).map((m) => [m.materialName, fmt(m.quantity, 3)])}
+                accent="steel"
+                numericFromIndex={1}
+              />
+              <DetailTable
+                title="Sub-Contractor"
+                empty="No sub-contractor"
+                headers={["Sub-Contractor", "Qty", "Unit", "Rate", "Cost", "Remarks"]}
+                rows={(detail.subContractors ?? []).map((s) => [
+                  s.subContractorName ?? "—",
+                  fmt(s.quantity, 3),
+                  s.unit ?? "—",
+                  fmt(s.ratePerUnit),
+                  fmt(s.lineCost),
+                  s.remarks?.trim() ? s.remarks : "—",
+                ])}
+                accent="slate"
+                numericFromIndex={1}
+              />
+
+              {liveIssues.length > 0 && (
+                <div>
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate">
+                    Issues
+                  </div>
+                  <div className="overflow-x-auto rounded-md border border-hairline">
+                    <table className="w-full text-xs">
+                      <thead className="bg-ivory/60">
+                        <tr>
+                          <th className="px-2 py-1 text-left font-semibold text-slate">Title</th>
+                          <th className="px-2 py-1 text-left font-semibold text-slate">Reason</th>
+                          <th className="px-2 py-1 text-left font-semibold text-slate">Severity</th>
+                          <th className="px-2 py-1 text-left font-semibold text-slate">Status</th>
+                          <th className="px-2 py-1 text-left font-semibold text-slate">Assigned</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {liveIssues.map((i) => (
+                          <tr key={i.id ?? i.title} className="border-t border-hairline">
+                            <td className="px-2 py-1 text-charcoal">{i.title}</td>
+                            <td className="px-2 py-1 text-charcoal">{categoryLabel(i.category)}</td>
+                            <td className="px-2 py-1">
+                              <Badge variant={SEVERITY_VARIANT[i.severity]}>{i.severity}</Badge>
+                            </td>
+                            <td className="px-2 py-1">
+                              <Badge variant={ISSUE_STATUS_VARIANT[i.status]} withDot>
+                                {i.status}
+                              </Badge>
+                            </td>
+                            <td className="px-2 py-1 text-charcoal">{i.assignedToName ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {(detail.delayReason ||
+                detail.safetyObservation ||
+                detail.safetyIncidentType === "INCIDENT" ||
+                detail.safetyIncidentType === "NEAR_MISS") && (
+                <div className="rounded-md border border-burgundy/20 bg-burgundy/5 p-3 text-xs text-charcoal">
+                  <div className="mb-1 font-semibold text-burgundy">Safety & Delay</div>
+                  {detail.safetyIncidentType && detail.safetyIncidentType !== "NONE" && (
+                    <div>Incident: {detail.safetyIncidentType.replace("_", " ")}</div>
+                  )}
+                  {detail.delayReason && <div>Delay: {detail.delayReason}</div>}
+                  {detail.safetyObservation && <div>Observation: {detail.safetyObservation}</div>}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
     </div>
   );
 }
+
+export const DprWorkFrontRow = memo(DprWorkFrontRowImpl);

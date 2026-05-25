@@ -1,21 +1,14 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import toast from "react-hot-toast";
-import { getErrorMessage } from "@/lib/utils/error";
-import { Plus } from "lucide-react";
-import Link from "next/link";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   costApi,
   type ForecastMethod,
   type CashFlowForecastItem,
   type PeriodCostAggregation,
-  type CreateExpenseRequest,
 } from "@/lib/api/costApi";
 import { budgetApi } from "@/lib/api/budgetApi";
-import { activityApi } from "@/lib/api/activityApi";
-import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import { SimpleTable } from "@/components/common/SimpleTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -74,24 +67,10 @@ function makeFormatter(currency: string) {
   };
 }
 
-function formatAmount(amount: number, currency: string): string {
-  return makeFormatter(currency)(amount);
-}
-
-
 interface SummaryCard {
   label: string;
   value: string;
   color: string;
-}
-
-interface ExpenseRow {
-  id: string;
-  description: string;
-  actualCost: number;
-  expenseCategory: string;
-  actualStartDate: string | null;
-  activityId: string | null;
 }
 
 const FORECAST_METHODS: { value: ForecastMethod; label: string }[] = [
@@ -101,65 +80,8 @@ const FORECAST_METHODS: { value: ForecastMethod; label: string }[] = [
 ];
 
 export function CostsTab({ projectId }: { projectId: string }) {
-  const queryClient = useQueryClient();
   const { baseCurrency } = useCurrency();
   const [forecastMethod, setForecastMethod] = useState<ForecastMethod>("LINEAR");
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [expenseForm, setExpenseForm] = useState<CreateExpenseRequest>({
-    description: "",
-    actualCost: 0,
-    currency: "INR",
-    actualStartDate: new Date().toISOString().split("T")[0],
-    expenseCategory: "LABOR",
-  });
-
-  const createExpenseMutation = useMutation({
-    mutationFn: (data: CreateExpenseRequest) => costApi.createExpense(projectId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["cost-summary", projectId] });
-      setShowExpenseForm(false);
-      setExpenseForm({ description: "", actualCost: 0, currency: baseCurrency.code, actualStartDate: new Date().toISOString().split("T")[0], expenseCategory: "LABOR" });
-      toast.success("Expense recorded successfully");
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to create expense"));
-    },
-  });
-
-  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
-
-  const updateExpenseMutation = useMutation({
-    mutationFn: (data: CreateExpenseRequest) => costApi.updateExpense(projectId, editingExpenseId!, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["cost-summary", projectId] });
-      setShowExpenseForm(false);
-      setEditingExpenseId(null);
-      setExpenseForm({ description: "", actualCost: 0, currency: baseCurrency.code, actualStartDate: new Date().toISOString().split("T")[0], expenseCategory: "LABOR" });
-      toast.success("Expense updated successfully");
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to update expense"));
-    },
-  });
-
-  const deleteExpenseMutation = useMutation({
-    mutationFn: (expenseId: string) => costApi.deleteExpense(projectId, expenseId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["expenses", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["cost-summary", projectId] });
-      toast.success("Expense deleted successfully");
-    },
-    onError: (err: unknown) => {
-      toast.error(getErrorMessage(err, "Failed to delete expense"));
-    },
-  });
-
-  const { data: activitiesData } = useQuery({
-    queryKey: ["activities", projectId],
-    queryFn: () => activityApi.listActivities(projectId, 0, 200),
-  });
 
   // P6-style project budget — fetched early so we have budgetCurrency before column defs.
   const { data: projectBudgetData } = useQuery({
@@ -169,81 +91,6 @@ export function CostsTab({ projectId }: { projectId: string }) {
 
   // Derive project currency early (needed in column definitions below).
   const projectCurrencyEarly = projectBudgetData?.data?.budgetCurrency ?? baseCurrency.code;
-
-  const activities = useMemo(() => activitiesData?.data?.content ?? [], [activitiesData]);
-
-  const handleEdit = useCallback((expense: ExpenseRow) => {
-    setEditingExpenseId(expense.id);
-    setExpenseForm({
-      description: expense.description,
-      actualCost: expense.actualCost,
-      currency: baseCurrency.code,
-      actualStartDate: expense.actualStartDate,
-      expenseCategory: expense.expenseCategory,
-      activityId: expense.activityId ?? undefined,
-    });
-    setShowExpenseForm(true);
-  }, [baseCurrency.code]);
-
-  const expenseColumns = useMemo<ColumnDef<ExpenseRow>[]>(() => [
-    { accessorKey: "description", header: "Description", enableSorting: true },
-    {
-      accessorKey: "activityId",
-      header: "Activity",
-      cell: (info) => {
-        const row = info.row.original;
-        if (!row.activityId) {
-          return <span className="text-text-muted">—</span>;
-        }
-        const activity = activities.find((a) => a.id === row.activityId);
-        const label = activity ? `${activity.code} - ${activity.name}` : row.activityId;
-        return (
-          <Link
-            href={`/projects/${projectId}/activities/${row.activityId}`}
-            className="text-accent hover:underline"
-          >
-            {label}
-          </Link>
-        );
-      },
-    },
-    { accessorKey: "expenseCategory", header: "Category", enableSorting: true },
-    {
-      accessorKey: "actualCost",
-      header: `Amount (${projectCurrencyEarly})`,
-      enableSorting: true,
-      cell: (info) => formatAmount(Number(info.getValue()), projectCurrencyEarly),
-    },
-    { accessorKey: "actualStartDate", header: "Date", enableSorting: true },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: (info) => {
-        const row = info.row.original;
-        return (
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleEdit(row)}
-              className="rounded-md border border-border px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => {
-                if (window.confirm("Delete this expense?")) {
-                  deleteExpenseMutation.mutate(row.id);
-                }
-              }}
-              disabled={deleteExpenseMutation.isPending}
-              className="rounded-md border border-border px-2 py-1 text-xs text-danger hover:bg-surface-hover disabled:opacity-50"
-            >
-              Delete
-            </button>
-          </div>
-        );
-      },
-    },
-  ], [handleEdit, deleteExpenseMutation, activities, projectId, projectCurrencyEarly]);
 
   const periodColumns = useMemo<ColumnDef<PeriodCostAggregation>[]>(
     () => {
@@ -313,11 +160,6 @@ export function CostsTab({ projectId }: { projectId: string }) {
     queryFn: () => costApi.getCostSummary(projectId),
   });
 
-  const { data: expensesData, isLoading: isLoadingExpenses } = useQuery({
-    queryKey: ["expenses", projectId],
-    queryFn: () => costApi.getExpensesByProject(projectId, 0, 100),
-  });
-
   const { data: forecastData } = useQuery({
     queryKey: ["cost-forecast", projectId, forecastMethod],
     queryFn: () => costApi.generateForecast(projectId, forecastMethod),
@@ -329,7 +171,6 @@ export function CostsTab({ projectId }: { projectId: string }) {
   });
 
   const summary = summaryData?.data;
-  const expenses = expensesData?.data?.content ?? [];
   const forecastItems: CashFlowForecastItem[] = forecastData?.data ?? [];
   const periodAggregations: PeriodCostAggregation[] = periodData?.data ?? [];
 
@@ -406,11 +247,6 @@ export function CostsTab({ projectId }: { projectId: string }) {
               : "red"
             : "slate",
         },
-        {
-          label: "Expenses",
-          value: String(summary.expenseCount),
-          color: "slate",
-        },
       ]
     : [];
 
@@ -466,7 +302,7 @@ export function CostsTab({ projectId }: { projectId: string }) {
         // placeholder instead of empty cards full of zeros for users who aren't entitled to see them.
         <SecretField visibleTo={FINANCE_ROLES} masked={NO_FINANCE_PLACEHOLDER}>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {summaryCards.map((card) => (
+            {[...summaryCards, ...evmCards].map((card) => (
               <div
                 key={card.label}
                 className={`rounded-lg border border-border bg-surface-hover/40 p-4 ${accentMap[card.color]}`}
@@ -477,23 +313,7 @@ export function CostsTab({ projectId }: { projectId: string }) {
                 </p>
               </div>
             ))}
-          </div>
-
-          {evmCards.length > 0 && (
-            <div className="grid grid-cols-3 gap-4">
-              {evmCards.map((card) => (
-                <div
-                  key={card.label}
-                  className={`rounded-lg border border-border bg-surface-hover/40 p-4 ${accentMap[card.color]}`}
-                >
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-text-secondary">{card.label}</h3>
-                  <p className={`mt-2 text-xl font-bold ${textColorMap[card.color]}`}>
-                    {card.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>{/* CV/CPI tiles flow into the same 4-col grid → wraps 4+3 */}
 
           {procurementCards.length > 0 && (
             <div>
@@ -540,7 +360,7 @@ export function CostsTab({ projectId }: { projectId: string }) {
         </div>
         {chartData.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border py-12 text-center">
-            <p className="text-text-secondary">No forecast data available. Create financial periods and expenses first.</p>
+            <p className="text-text-secondary">No forecast data available. Create financial periods first.</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={400}>
@@ -617,143 +437,6 @@ export function CostsTab({ projectId }: { projectId: string }) {
         </SecretField>
       )}
 
-      <SecretField visibleTo={FINANCE_ROLES} masked={null}>
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-text-primary">Expenses</h3>
-          <button
-            onClick={() => {
-              if (showExpenseForm) {
-                setEditingExpenseId(null);
-                    setExpenseForm({ description: "", actualCost: 0, currency: baseCurrency.code, actualStartDate: new Date().toISOString().split("T")[0], expenseCategory: "LABOR" });
-              }
-              setShowExpenseForm(!showExpenseForm);
-            }}
-            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover"
-          >
-            <Plus size={16} />
-            Add Expense
-          </button>
-        </div>
-
-        {showExpenseForm && (
-          <div className="mb-4 rounded-lg border border-border bg-surface-hover/50 p-4">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!expenseForm.description || !expenseForm.actualCost) return;
-                if (editingExpenseId) {
-                  updateExpenseMutation.mutate(expenseForm);
-                } else {
-                  createExpenseMutation.mutate(expenseForm);
-                }
-              }}
-              className="grid grid-cols-2 gap-4 lg:grid-cols-4"
-            >
-              <div>
-                <label className="block text-xs font-medium text-text-secondary">Description *</label>
-                <input
-                  type="text"
-                  value={expenseForm.description}
-                  onChange={(e) => setExpenseForm((prev) => ({ ...prev, description: e.target.value }))}
-                  className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  placeholder="e.g., Concrete delivery"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary">Amount ({baseCurrency.symbol}) *</label>
-                <input
-                  type="number"
-                  value={expenseForm.actualCost || ""}
-                  onChange={(e) => setExpenseForm((prev) => ({ ...prev, actualCost: parseFloat(e.target.value) || 0 }))}
-                  min="0"
-                  step="0.01"
-                  className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  placeholder="e.g., 5000"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary">Category</label>
-                <select
-                  value={expenseForm.expenseCategory}
-                  onChange={(e) => setExpenseForm((prev) => ({ ...prev, expenseCategory: e.target.value }))}
-                  className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="LABOR">Labor</option>
-                  <option value="MATERIAL">Material</option>
-                  <option value="EQUIPMENT">Equipment</option>
-                  <option value="SUBCONTRACT">Subcontract</option>
-                  <option value="OVERHEAD">Overhead</option>
-                  <option value="OTHER">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary">Date</label>
-                <input
-                  type="date"
-                  value={expenseForm.actualStartDate ?? ""}
-                  onChange={(e) => setExpenseForm((prev) => ({ ...prev, actualStartDate: e.target.value || null }))}
-                  className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-secondary">Activity (optional)</label>
-                <select
-                  value={expenseForm.activityId ?? ""}
-                  onChange={(e) =>
-                    setExpenseForm((prev) => ({
-                      ...prev,
-                      activityId: e.target.value || undefined,
-                    }))
-                  }
-                  className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">(Unassigned)</option>
-                  {activities.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code} - {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="col-span-full flex gap-2">
-                <button
-                  type="submit"
-                  disabled={createExpenseMutation.isPending || updateExpenseMutation.isPending}
-                  className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:bg-border"
-                >
-                  {editingExpenseId
-                    ? (updateExpenseMutation.isPending ? "Updating..." : "Update Expense")
-                    : (createExpenseMutation.isPending ? "Saving..." : "Save Expense")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowExpenseForm(false);
-                    setEditingExpenseId(null);
-                setExpenseForm({ description: "", actualCost: 0, currency: baseCurrency.code, actualStartDate: new Date().toISOString().split("T")[0], expenseCategory: "LABOR" });
-                  }}
-                  className="rounded-md border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-hover/50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {isLoadingExpenses ? (
-          <div className="text-center text-text-muted">Loading expenses...</div>
-        ) : expenses.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border py-12 text-center">
-            <h3 className="text-lg font-medium text-text-primary">No Expenses</h3>
-            <p className="mt-2 text-text-muted">No expenses recorded yet.</p>
-          </div>
-        ) : (
-          <VirtualDataTable columns={expenseColumns} data={expenses} sortable resizable />
-        )}
-      </div>
-      </SecretField>
     </div>
   );
 }

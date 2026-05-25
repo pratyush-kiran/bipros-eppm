@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Work Packages page — implementation &amp; validation</title>
+<style>
+  :root {
+    --bg: #faf7f0;
+    --paper: #ffffff;
+    --ink: #1f1f1f;
+    --slate: #5a5a5a;
+    --rule: #e6e1d4;
+    --gold: #c79f3d;
+    --gold-deep: #8a6b1d;
+    --success: #2e7d5b;
+    --warning: #b8761c;
+    --danger: #9b2c2c;
+    --accent: #1f6feb;
+    --code-bg: #1f1f1f;
+    --code-ink: #f5f2e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  header.hero {
+    background: linear-gradient(135deg, #2a2418 0%, #1a1612 100%);
+    color: #f5f2e8;
+    padding: 56px 48px 64px;
+  }
+  header.hero .label {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  header.hero h1 {
+    font-family: Georgia, "Charter", serif;
+    font-size: 40px;
+    line-height: 1.1;
+    margin: 12px 0 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  header.hero p {
+    max-width: 720px;
+    font-size: 17px;
+    color: rgba(245, 242, 232, 0.85);
+    margin: 0;
+  }
+  header.hero .meta {
+    margin-top: 28px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: rgba(245, 242, 232, 0.7);
+  }
+  header.hero .meta span strong { color: #f5f2e8; font-weight: 600; }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 48px 80px;
+  }
+  section { margin-bottom: 48px; }
+  section h2 {
+    font-family: Georgia, "Charter", serif;
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+    letter-spacing: -0.01em;
+  }
+  section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 28px 0 10px;
+    color: var(--gold-deep);
+  }
+  section p, section li { font-size: 14.5px; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 4px; }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 14px 0;
+    box-shadow: 0 1px 2px rgba(28, 28, 28, 0.04);
+  }
+  .card.accent { border-left: 3px solid var(--gold); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    background: var(--paper);
+    margin: 12px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--rule);
+  }
+  th {
+    background: #f5efde;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--slate);
+    border-bottom: 1px solid var(--rule);
+  }
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  code, pre {
+    font-family: "SF Mono", "Menlo", Consolas, monospace;
+  }
+  code {
+    background: rgba(199, 159, 61, 0.10);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--gold-deep);
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 16px 20px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  pre code { background: transparent; color: var(--code-ink); padding: 0; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-right: 6px;
+  }
+  .pill.success { background: rgba(46, 125, 91, 0.12); color: var(--success); }
+  .pill.warning { background: rgba(184, 118, 28, 0.15); color: var(--warning); }
+  .pill.danger  { background: rgba(155, 44, 44, 0.12);  color: var(--danger); }
+  .pill.accent  { background: rgba(31, 111, 235, 0.10); color: var(--accent); }
+  .pill.muted   { background: rgba(90, 90, 90, 0.10);   color: var(--slate); }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .kpi {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi .label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--slate);
+    font-weight: 600;
+  }
+  .kpi .value {
+    font-family: Georgia, serif;
+    font-size: 28px;
+    font-weight: 600;
+    margin-top: 4px;
+    letter-spacing: -0.01em;
+  }
+  figure { margin: 16px 0; }
+  figure img {
+    width: 100%;
+    display: block;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    box-shadow: 0 6px 20px -10px rgba(0, 0, 0, 0.18);
+  }
+  figcaption {
+    font-size: 12.5px;
+    color: var(--slate);
+    margin-top: 8px;
+    text-align: center;
+    font-style: italic;
+  }
+  .ok::before { content: "✓"; color: var(--success); margin-right: 6px; font-weight: 700; }
+  .note {
+    background: #f9f3df;
+    border-left: 3px solid var(--gold);
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    color: #604c1c;
+  }
+  footer {
+    border-top: 1px solid var(--rule);
+    padding: 24px 48px;
+    font-size: 12.5px;
+    color: var(--slate);
+    text-align: center;
+  }
+  .file-path {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12.5px;
+    background: #f5efde;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #4d3c0e;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="label">Implementation note · 2026-05-23</div>
+  <h1>Work Packages page</h1>
+  <p>A new project sub-page that rolls activity-level data up into per-work-package metrics — counts, weighted progress, days behind, EVM (SPI/CPI/SV/CV), and critical-path indicators — computed on-the-fly with no persisted recompute.</p>
+  <div class="meta">
+    <span><strong>Branch:</strong> hemendra-pilot-e2e-and-rbac-fixes</span>
+    <span><strong>Endpoint:</strong> <code style="background:rgba(255,255,255,0.10); color:#f5f2e8;">GET /v1/projects/{projectId}/work-packages</code></span>
+    <span><strong>Page:</strong> <code style="background:rgba(255,255,255,0.10); color:#f5f2e8;">/projects/[projectId]/work-packages</code></span>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <h2>What changed</h2>
+  <p>The repo already had a slim <em>Work Package Status</em> card embedded in the project dashboard (10 activities, 6 columns). It was actually a top-10 activity list keyed by WBS code — not a true work-package surface. This change builds the missing dedicated page on a backend aggregator that joins WBS, Activity, and EVM into one flat row per leaf work package.</p>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="label">New backend files</div><div class="value">4</div></div>
+    <div class="kpi"><div class="label">New frontend files</div><div class="value">2</div></div>
+    <div class="kpi"><div class="label">Touched files</div><div class="value">3</div></div>
+    <div class="kpi"><div class="label">Unit tests</div><div class="value">16 / 16</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Live verification</h2>
+  <p>Both projects below were exercised against the running stack (admin / admin123). Numbers reconcile against the underlying activity and EVM data — see the cross-check table.</p>
+
+  <figure>
+    <img src="work-packages-oman-demo.png" alt="OMAN-Demo-Khasab work packages page">
+    <figcaption>OMAN-Demo-Khasab — 4 work packages via leaf-fallback (no WORK_PACKAGE-typed nodes in this project).</figcaption>
+  </figure>
+
+  <figure>
+    <img src="work-packages-rb-e2e.png" alt="RB-E2E-2026-05-20 work packages page">
+    <figcaption>RB-E2E-2026-05-20 — 5 WORK_PACKAGE-typed nodes; two are PLANNED (no activities) and three are AT RISK.</figcaption>
+  </figure>
+
+  <h3>Data cross-check (OMAN-Demo-Khasab · KHA-DRAIN)</h3>
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Page value</th><th>Source-of-truth check</th><th></th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>activityCountTotal</code></td><td>63</td><td><code>/v1/projects/{id}/activities</code> grouped by <code>wbsNodeId</code></td><td><span class="ok"></span></td></tr>
+      <tr><td><code>weightedPercentComplete</code></td><td>40.0%</td><td>All 63 activities seeded at <code>percentComplete=40</code>, equal durations → weighted = 40</td><td><span class="ok"></span></td></tr>
+      <tr><td><code>derivedPlannedStart</code></td><td>2024-10-01</td><td>MIN of <code>plannedStartDate</code> across the 63 activities</td><td><span class="ok"></span></td></tr>
+      <tr><td><code>derivedPlannedFinish</code></td><td>2026-04-09</td><td>MAX of <code>plannedFinishDate</code> across the 63 activities</td><td><span class="ok"></span></td></tr>
+      <tr><td><code>daysBehindSchedule</code></td><td>+44d</td><td>in-flight, (planned% − actual%) translated to duration days</td><td><span class="ok"></span></td></tr>
+      <tr><td><code>spi / cpi</code></td><td>0.40 / 0.20</td><td>Passthrough from <code>EvmRollupService.calculateWbsTree</code> rooted at this WBS</td><td><span class="ok"></span></td></tr>
+      <tr><td><code>derivedStatus</code></td><td>DELAYED</td><td>SPI &lt; 0.9 <em>and</em> past planned finish → first matching rule wins → DELAYED</td><td><span class="ok"></span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Group by — Parent WBS</h3>
+  <p>Selecting <strong>Parent WBS</strong> on the OMAN project collapses all 4 rows under the single group header <em>“Civil Works (4)”</em>. Phase and Contractor grouping use the same bucket-then-render pattern.</p>
+</section>
+
+<section>
+  <h2>Endpoint contract</h2>
+  <p>Single read-only endpoint, gated by <code>PROJECT.READ</code>:</p>
+  <pre><code>GET /v1/projects/{projectId}/work-packages
+
+Response (HTTP 200):
+{
+  "data": [
+    {
+      "wbsNodeId": "…",
+      "code": "KHA-DRAIN",
+      "name": "Drainage, ancillary &amp; misc.",
+      "parentId": "…", "parentName": "Civil Works",
+      "wbsType": "WORK_PACKAGE" | null,
+      "wbsLevel": 3,
+      "phase": "CONSTRUCTION" | null,
+
+      "contractorOrganisationId": "…" | null,
+      "contractorName": "Patel Infra Ltd" | null,
+
+      "derivedPlannedStart": "2024-10-01",
+      "derivedPlannedFinish": "2026-04-09",
+      "derivedDurationDays": 555,
+
+      "weightedPercentComplete": 40.0,
+      "daysBehindSchedule": 44,
+      "budgetCrores": 22.8,
+
+      "activityCountTotal": 63,
+      "activityCountDone": 0,
+      "activityCountInProgress": 63,
+      "activityCountNotStarted": 0,
+      "activityCountDelayed": 63,
+
+      "bac": …, "plannedValue": …, "earnedValue": …, "actualCost": …,
+      "scheduleVariance": …, "costVariance": …,
+      "spi": 0.40, "cpi": 0.20,
+      "eac": …, "vac": …,
+
+      "minTotalFloat": null,
+      "onCriticalPath": false,
+
+      "derivedStatus": "DELAYED"
+    }
+  ],
+  "error": null, "meta": { "timestamp": "…", "version": "…" }
+}</code></pre>
+
+  <p>Every aggregate is nullable. The UI renders “—” for nulls so partially-seeded projects don't blow up.</p>
+</section>
+
+<section>
+  <h2>Derivation rules (kept honest, kept testable)</h2>
+
+  <div class="card accent">
+    <h3 style="margin-top: 0;">Weighted % complete</h3>
+    <p><code>SUM(originalDuration × percentComplete) / SUM(originalDuration)</code> across all activities under a WBS. If the denominator is 0 (no durations set), falls back to a plain average. If there are no activities at all, the WBS's own seeded <code>summaryPercentComplete</code> is returned.</p>
+  </div>
+
+  <div class="card accent">
+    <h3 style="margin-top: 0;">Days behind schedule (3-branch)</h3>
+    <ol>
+      <li><strong>Complete</strong> → 0 (the work is done).</li>
+      <li><strong>Past planned finish and incomplete</strong> → calendar days late (<code>today − derivedPlannedFinish</code>).</li>
+      <li><strong>In flight</strong> → planned %-elapsed minus actual %-complete, scaled by duration: <code>(plannedPct − actualPct) / 100 × duration</code>. Negative gap (ahead) clamps to 0.</li>
+    </ol>
+    <p>Returns <code>null</code> when neither activity nor WBS dates exist.</p>
+  </div>
+
+  <div class="card accent">
+    <h3 style="margin-top: 0;">Status (first match wins)</h3>
+    <table>
+      <thead><tr><th>Rule</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>weighted % ≥ 100</td><td><span class="pill success">DONE</span></td></tr>
+        <tr><td>0 activities under the WBS</td><td><span class="pill muted">PLANNED</span></td></tr>
+        <tr><td>today &gt; planned finish and not complete</td><td><span class="pill danger">DELAYED</span></td></tr>
+        <tr><td>SPI &lt; 0.9</td><td><span class="pill warning">AT_RISK</span></td></tr>
+        <tr><td>daysBehind &gt; 10 % of duration</td><td><span class="pill warning">AT_RISK</span></td></tr>
+        <tr><td>0 % complete and today &lt; planned start</td><td><span class="pill muted">NOT_STARTED</span></td></tr>
+        <tr><td>otherwise</td><td><span class="pill accent">IN_PROGRESS</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card accent">
+    <h3 style="margin-top: 0;">Min total float / critical path</h3>
+    <p>The lowest <code>Activity.totalFloat</code> across activities under a WBS. <code>onCriticalPath</code> is <code>true</code> when that minimum is ≤ 0 — meaning at least one activity on the work package has no slack.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Files</h2>
+
+  <h3>Backend (new)</h3>
+  <ul>
+    <li><span class="file-path">backend/bipros-api/src/main/java/com/bipros/api/dto/WorkPackageRowResponse.java</span> — flat 38-field record</li>
+    <li><span class="file-path">backend/bipros-api/src/main/java/com/bipros/api/service/WorkPackageRollupService.java</span> — read-only aggregator (joins WBS · Activity · EVM · Organisation)</li>
+    <li><span class="file-path">backend/bipros-api/src/main/java/com/bipros/api/controller/WorkPackageController.java</span> — single GET</li>
+    <li><span class="file-path">backend/bipros-api/src/main/java/com/bipros/api/config/ClockConfig.java</span> — Spring <code>Clock</code> bean so the date math is testable</li>
+    <li><span class="file-path">backend/bipros-api/src/test/java/com/bipros/api/service/WorkPackageRollupServiceTest.java</span> — 16 deterministic cases (fixed Clock)</li>
+  </ul>
+
+  <h3>Frontend (new)</h3>
+  <ul>
+    <li><span class="file-path">frontend/src/app/(app)/projects/[projectId]/work-packages/page.tsx</span> — the page</li>
+    <li><span class="file-path">frontend/src/lib/api/workPackageApi.ts</span> — typed client + <code>WorkPackageRowResponse</code></li>
+  </ul>
+
+  <h3>Frontend (touched)</h3>
+  <ul>
+    <li><span class="file-path">frontend/src/app/(app)/projects/[projectId]/layout.tsx</span> — added <em>Work Packages</em> entry to the project <em>More</em> dropdown</li>
+    <li><span class="file-path">frontend/src/components/common/StatusBadge.tsx</span> — added <code>AT_RISK</code> and <code>ON_TRACK</code> variants (additive; no existing consumers affected)</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Architecture choice — why <code>bipros-api</code></h2>
+  <p>The project's CLAUDE.md is explicit: domain modules can't depend on each other. This endpoint reads from <code>bipros-project</code> (WBS), <code>bipros-activity</code> (Activity), <code>bipros-evm</code> (EVM rollup), and <code>bipros-admin</code> (Organisation) — so the only legal home is the aggregator module <code>bipros-api</code>, which depends on all of them. The pattern follows existing aggregators like <code>EvmKpiController</code>, <code>ContractorPerformanceController</code>, and <code>ManpowerKpiController</code>.</p>
+
+  <div class="note">
+    <strong>Trade-off accepted:</strong> Rollup is computed on every request, not persisted. For typical projects (≤ 1k activities) this is a few hundred milliseconds of in-memory math after three repository reads. If perf becomes an issue, switch <code>EvmRollupService.calculateWbsTree</code> for the cached <code>EvmCalculationRepository.findTopByProjectIdAndWbsNodeId</code> — the rest of the service stays the same.
+  </div>
+</section>
+
+<section>
+  <h2>What's intentionally out of scope</h2>
+  <ul>
+    <li>Persisting recomputed rollups back to <code>WbsNode.summaryPercentComplete</code>. The seeded placeholder columns are untouched.</li>
+    <li>EVM technique / ETC-method selector on this page. We pin <code>ACTIVITY_PERCENT_COMPLETE</code> + <code>CPI_BASED</code> to match the standalone EVM page's defaults.</li>
+    <li>Inline edit of work-package fields. That stays on the WBS detail drawer.</li>
+    <li>Excel export — the button is wired but disabled with a tooltip.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>How to verify locally</h2>
+  <ol>
+    <li><strong>Backend:</strong>
+      <pre><code>cd backend
+mvn -pl bipros-api -am install -DskipTests
+mvn -pl bipros-api spring-boot:run</code></pre>
+    </li>
+    <li><strong>Unit tests:</strong> <code>mvn -pl bipros-api test -Dtest=WorkPackageRollupServiceTest</code> → expect 16 passing.</li>
+    <li><strong>Endpoint:</strong>
+      <pre><code>TOKEN=$(curl -s -X POST localhost:8080/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}' \
+  | jq -r .data.accessToken)
+
+curl -s localhost:8080/v1/projects/&lt;projectId&gt;/work-packages \
+  -H "Authorization: Bearer $TOKEN" | jq '.data | length'</code></pre>
+    </li>
+    <li><strong>Frontend:</strong> <code>cd frontend &amp;&amp; pnpm dev</code> → open <code>/projects/&lt;projectId&gt;/work-packages</code>. Sample IDs from the dev DB:
+      <ul>
+        <li><code>2c817da2-c0f7-48ef-9312-72acab26c8f2</code> — OMAN-Demo-Khasab (4 rows, leaf fallback, 76 activities)</li>
+        <li><code>ce16c93f-36ee-400c-8cda-3bc1c340dfd1</code> — RB-E2E-2026-05-20 (5 WORK_PACKAGE-typed rows)</li>
+        <li><code>92b32cd5-05c1-4689-a232-4e459970fc9c</code> — PILOT-001 (3 leaf rows)</li>
+      </ul>
+    </li>
+    <li><strong>Cross-check:</strong> sum <code>activityCountTotal</code> across all rows ≈ <code>GET /v1/projects/{id}/activities</code> total elements (minor delta possible if some activities point to non-leaf WBS nodes).</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Test matrix</h2>
+  <table>
+    <thead><tr><th>Case</th><th>Expectation</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Project with no WBS</td><td>endpoint returns empty list, page shows empty-state CTA</td><td><span class="ok"></span></td></tr>
+      <tr><td>Project with WORK_PACKAGE-typed nodes only</td><td>rows = count of WORK_PACKAGE nodes</td><td><span class="ok"></span></td></tr>
+      <tr><td>Project with no WORK_PACKAGE typing</td><td>rows = count of leaf WBS nodes (fallback)</td><td><span class="ok"></span></td></tr>
+      <tr><td>Work package with 0 activities</td><td>status = PLANNED, all aggregates null/0</td><td><span class="ok"></span></td></tr>
+      <tr><td>Work package past planned finish, incomplete</td><td>status = DELAYED, daysBehind = days late</td><td><span class="ok"></span></td></tr>
+      <tr><td>SPI &lt; 0.9 and on schedule by date</td><td>status = AT_RISK</td><td><span class="ok"></span></td></tr>
+      <tr><td>All activities at 100 %</td><td>status = DONE, daysBehind = 0</td><td><span class="ok"></span></td></tr>
+      <tr><td>EVM rollup throws</td><td>page still renders; EVM columns show “—”</td><td><span class="ok"></span></td></tr>
+      <tr><td>Activity with null duration</td><td>weighted % falls back to simple average</td><td><span class="ok"></span></td></tr>
+      <tr><td>Activity with no totalFloat</td><td>row's minTotalFloat is null, onCriticalPath = false</td><td><span class="ok"></span></td></tr>
+      <tr><td>WBS responsibleOrganisationId set</td><td>contractorName resolved from Organisation table</td><td><span class="ok"></span></td></tr>
+      <tr><td>Group by Parent WBS</td><td>rows bucket under group headers, count chip shows bucket size</td><td><span class="ok"></span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+
+<footer>
+  Generated 2026-05-23 · branch <code>hemendra-pilot-e2e-and-rbac-fixes</code> · screenshots captured against the local dev backend running on Homebrew Postgres.
+</footer>
+
+</body>
+</html>

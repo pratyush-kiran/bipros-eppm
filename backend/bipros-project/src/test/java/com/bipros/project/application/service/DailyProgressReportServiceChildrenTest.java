@@ -62,6 +62,7 @@ class DailyProgressReportServiceChildrenTest {
   @Mock private DprManpowerRepository manpowerRepository;
   @Mock private DprEquipmentRepository equipmentRepository;
   @Mock private DprMaterialRepository materialRepository;
+  @Mock private com.bipros.project.domain.repository.DprSubContractorRepository subContractorRepository;
   @Mock private com.bipros.project.domain.repository.DprAttachmentRepository attachmentRepository;
   @Mock private com.bipros.project.domain.repository.DprIssueRepository issueRepository;
   @Mock private com.bipros.project.infrastructure.storage.DprAttachmentStorageService attachmentStorage;
@@ -84,7 +85,7 @@ class DailyProgressReportServiceChildrenTest {
   void setUp() {
     service = new DailyProgressReportService(
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
-        attachmentRepository, issueRepository, attachmentStorage,
+        subContractorRepository, attachmentRepository, issueRepository, attachmentStorage,
         projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
     lenient().when(attachmentRepository.findByDprIdOrderByCreatedAtAsc(any())).thenReturn(java.util.List.of());
     lenient().when(attachmentRepository.findByDprIdIn(any())).thenReturn(java.util.List.of());
@@ -97,6 +98,10 @@ class DailyProgressReportServiceChildrenTest {
     lenient().when(manpowerRepository.saveAll(any())).thenAnswer(this::echoEntities);
     lenient().when(equipmentRepository.saveAll(any())).thenAnswer(this::echoEntities);
     lenient().when(materialRepository.saveAll(any())).thenAnswer(this::echoEntities);
+    lenient().when(subContractorRepository.findByDprIdOrderBySubContractorNameAsc(any()))
+        .thenReturn(java.util.List.of());
+    lenient().when(subContractorRepository.findByDprIdIn(any())).thenReturn(java.util.List.of());
+    lenient().when(subContractorRepository.saveAll(any())).thenAnswer(this::echoEntities);
     lenient().when(dprRepository.save(any())).thenAnswer(inv -> {
       DailyProgressReport d = inv.getArgument(0);
       if (d.getId() == null) d.setId(dprId);
@@ -120,7 +125,8 @@ class DailyProgressReportServiceChildrenTest {
             equipRow("Excavator", "Exc-45", 1, 10.0, 30.0),
             equipRow("Tipper", "Tipper-104", 2, 9.0, 50.0)),
         List.of(matRow("Aggregate 20mm", "Cum", 12.0)),
-        null);
+        null,   // subContractors
+        null);  // issues
 
     DailyProgressReportResponse resp = service.create(projectId, req);
 
@@ -168,7 +174,8 @@ class DailyProgressReportServiceChildrenTest {
         List.of(mp("Operator", ManpowerCategory.SKILLED, 1, 11.0, 0.0)),  // 3 → 1
         List.of(),  // 2 → 0
         List.of(matRow("Sand", "Cum", 5.0)),  // 1 → 1 (different)
-        null);
+        null,   // subContractors
+        null);  // issues
 
     service.update(projectId, dprId, req);
 

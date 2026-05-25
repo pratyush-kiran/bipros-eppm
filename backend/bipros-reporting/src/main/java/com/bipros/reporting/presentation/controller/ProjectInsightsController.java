@@ -20,6 +20,7 @@ import com.bipros.reporting.presentation.dto.ProjectComplianceDto.HseBlock;
 import com.bipros.reporting.presentation.dto.ProjectComplianceDto.PariveshBlock;
 import com.bipros.reporting.presentation.dto.ProjectComplianceDto.PfmsBlock;
 import com.bipros.reporting.presentation.dto.ProjectStatusSnapshotDto;
+import com.bipros.reporting.presentation.dto.ProjectStatusSnapshotWithTrendDto;
 import com.bipros.reporting.presentation.dto.RaBillSummaryDto;
 import com.bipros.reporting.presentation.dto.VariationOrderRow;
 import jakarta.persistence.EntityManager;
@@ -247,6 +248,23 @@ public class ProjectInsightsController {
             cpi, spi, physicalPct, plannedPct, activeRisks, 0L,
             toCrores(bac), toCrores(eac),
             p.getUpdatedAt()));
+  }
+
+  /**
+   * Status snapshot + period-over-period deltas. Powers the four KPI tiles on the executive
+   * project dashboard. Deltas are nullable today and will be wired to a daily snapshot history
+   * once that table exists; the frontend treats null as "no delta to show", so the dashboard
+   * renders cleanly in the interim.
+   */
+  @GetMapping("/status-snapshot-with-trend")
+  public ApiResponse<ProjectStatusSnapshotWithTrendDto> getStatusSnapshotWithTrend(
+      @PathVariable UUID projectId) {
+    ProjectStatusSnapshotDto current = getStatusSnapshot(projectId).data();
+    // TODO(snapshot-history): diff against project.daily_status_snapshots row from 7 days ago
+    // once the JobRunr daily writer + table land. Until then deltas stay null so the UI degrades.
+    ProjectStatusSnapshotWithTrendDto.SnapshotDeltas deltas =
+        new ProjectStatusSnapshotWithTrendDto.SnapshotDeltas(null, null, null, null);
+    return ApiResponse.ok(new ProjectStatusSnapshotWithTrendDto(current, deltas));
   }
 
   // ─────────────── J4 — Cost variance per WBS ───────────────

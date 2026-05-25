@@ -37,7 +37,33 @@ public record CapacityUtilizationReport(
       List<RoleRow> rows,
       RolePeriod totalForTheDay,
       RolePeriod totalForTheMonth,
-      RolePeriod totalCumulative) {}
+      RolePeriod totalCumulative,
+      /** Activities where this section's side was hidden by the allocator. May be empty. */
+      List<HiddenSideNote> hiddenSideNotes
+  ) {
+    /** Back-compat constructor — pre-existing call sites that don't yet supply hiddenSideNotes
+     *  default to an empty list. */
+    public Section(List<RoleRow> rows, RolePeriod totalForTheDay,
+                   RolePeriod totalForTheMonth, RolePeriod totalCumulative) {
+      this(rows, totalForTheDay, totalForTheMonth, totalCumulative, List.of());
+    }
+  }
+
+  /**
+   * Per-activity annotation for a side that was suppressed in a SERIES/SUBSTITUTE allocation.
+   * Frontend renders one banner per note in the section the activity belongs to.
+   * Example: when manpower governs activity A under SERIES, the equipment section emits
+   * {@code new HiddenSideNote(activityA, "Unclassified structural excavation", "MANPOWER", "SERIES")}.
+   */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record HiddenSideNote(
+      UUID activityId,
+      String workActivityName,
+      /** {@code MANPOWER} | {@code EQUIPMENT} — the side that DID govern (won). */
+      String governingSide,
+      /** {@code SERIES} | {@code SUBSTITUTE} — the mode that triggered the hiding. */
+      String mode
+  ) {}
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record RoleRow(
@@ -68,22 +94,33 @@ public record CapacityUtilizationReport(
        * role's deployment is being measured. Null when all actuals are tracked OR none are.
        */
       BigDecimal actualDaysUntracked,
+      /**
+       * Of the {@link #actualDays}, how many were on activities where THIS role had a resolvable
+       * norm but the allocator suppressed this side (SERIES losing side or SUBSTITUTE redundant
+       * side). The role's productivity IS measured for these activities — it just didn't drive
+       * the day's output. The frontend renders a "suppressed by other side" note so the user
+       * isn't told (falsely) that the activity doesn't track productivity. Null when zero.
+       */
+      BigDecimal actualDaysOnHiddenSides,
       BigDecimal utilizationPct,
       BigDecimal costImplication,
       /**
-       * Of the {@link #actualDays}, how many were on SERIES-configured activities where this
-       * role's side was NOT the governing one — i.e. the other side's norm capped expected
-       * output, so this role was inherently constrained, not underperforming. Null when no
-       * such days exist. Used by the UI to surface a "constrained by [side] bottleneck"
-       * annotation explaining why the util% is otherwise low.
+       * True when at least one of the role's activities in this period had a resolvable
+       * productivity norm. False when every activity the role touched was untracked. The
+       * frontend uses this to render a "No norm for this role on this activity" note instead
+       * of a budget / efficiency that doesn't exist. Null on legacy / synthesised rows where
+       * the dimension isn't meaningful.
        */
+      Boolean normResolved,
+      /** Deprecated — replaced by per-activity {@link HiddenSideNote}. No longer populated as
+       *  of 2026-05-22 — kept nullable for one release for external consumers. */
       BigDecimal constrainedDays,
-      /** {@code MANPOWER} | {@code EQUIPMENT} — which side governed (capped the output) on the
-       *  constrained activities. Null when {@link #constrainedDays} is null. */
+      /** Deprecated — see {@link #constrainedDays}. */
       String constrainedBySide
   ) {
     public static RolePeriod empty() {
-      return new RolePeriod(null, null, null, null, null, null, null, null, null, null, null, null);
+      return new RolePeriod(null, null, null, null, null, null, null, null, null, null,
+          null, null, null, null);
     }
   }
 

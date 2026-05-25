@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      DPR Sub-Contractor Workdone (Phase 7 / Batch 8)
+
+      Extends the planned-assignment table with running actuals and adds the
+      FK + quantity columns the DPR sub-contractor rows need. The two new
+      project.dpr_sub_contractor columns are introduced as nullable first,
+      legacy rows missing the new shape are purged (only when no real data
+      has used the feature yet), then the columns are tightened to NOT NULL.
+    -->
+
+    <changeSet id="105-add-sc-actual-columns" author="rahul">
+        <addColumn schemaName="resource" tableName="activity_sub_contractor_assignments">
+            <column name="actual_units" type="NUMERIC(19,4)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actual_cost" type="NUMERIC(19,4)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="105-add-dpr-sc-fk-and-quantity-nullable" author="rahul">
+        <addColumn schemaName="project" tableName="dpr_sub_contractor">
+            <column name="activity_sub_contractor_assignment_id" type="UUID"/>
+            <column name="quantity" type="NUMERIC(19,4)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="105-purge-legacy-dpr-sub-contractor-rows" author="rahul">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM project.dpr_sub_contractor
+                WHERE activity_sub_contractor_assignment_id IS NOT NULL
+                  AND quantity IS NOT NULL
+            </sqlCheck>
+        </preConditions>
+        <sql>
+            DELETE FROM project.dpr_sub_contractor
+            WHERE activity_sub_contractor_assignment_id IS NULL
+               OR quantity IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="105-tighten-dpr-sc-columns-notnull" author="rahul">
+        <addNotNullConstraint schemaName="project" tableName="dpr_sub_contractor"
+            columnName="activity_sub_contractor_assignment_id"/>
+        <addNotNullConstraint schemaName="project" tableName="dpr_sub_contractor"
+            columnName="quantity"/>
+    </changeSet>
+
+</databaseChangeLog>

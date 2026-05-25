@@ -40,4 +40,8 @@ public interface DprMaterialRepository extends JpaRepository<DprMaterial, UUID> 
           and d.projectId = :projectId
         """)
     BigDecimal sumLineCostByProject(@Param("projectId") UUID projectId);
+
+    /** Per-DPR material line count. Returns [dprId (UUID), count (Long)]. */
+    @Query("select m.dprId, count(m) from DprMaterial m where m.dprId in :ids group by m.dprId")
+    List<Object[]> countByDprIdIn(@Param("ids") Collection<UUID> ids);
 }

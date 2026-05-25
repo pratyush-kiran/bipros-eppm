@@ -11,9 +11,12 @@ import com.bipros.common.util.AuditService;
 import com.bipros.cost.application.dto.*;
 import com.bipros.cost.domain.entity.*;
 import com.bipros.cost.domain.repository.*;
+import com.bipros.activity.domain.model.Activity;
+import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.project.application.service.DprActualCostLookup;
 import com.bipros.project.domain.model.Project;
 import com.bipros.project.domain.repository.ProjectRepository;
+import com.bipros.resource.domain.repository.ActivitySubContractorAssignmentRepository;
 import com.bipros.resource.domain.repository.GoodsReceiptNoteRepository;
 import com.bipros.resource.domain.repository.MaterialStockRepository;
 import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
@@ -55,6 +58,8 @@ public class CostService {
     private final GoodsReceiptNoteRepository goodsReceiptNoteRepository;
     private final MaterialStockRepository materialStockRepository;
     private final ResourceAssignmentRepository resourceAssignmentRepository;
+    private final ActivitySubContractorAssignmentRepository activitySubContractorAssignmentRepository;
+    private final ActivityRepository activityRepository;
     private final ProjectAccessGuard projectAccess;
     private final ProjectRepository projectRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -599,6 +604,11 @@ public class CostService {
         // that define cost purely through resource assignments (e.g. Oman-Demo Site Clearing ~6500 OMR).
         BigDecimal raBudget = resourceAssignmentRepository.sumPlannedCostByProjectId(projectId);
         totalBudget = totalBudget.add(raBudget != null ? raBudget : BigDecimal.ZERO);
+        // Sub-contractor planned cost — third source after ActivityExpense and ResourceAssignment.
+        // ActivitySubContractorAssignment.plannedCost is already stored as plannedUnits × rate
+        // (see ActivitySubContractorAssignmentService:95), so we just sum it.
+        BigDecimal scBudget = activitySubContractorAssignmentRepository.sumPlannedCostByProjectId(projectId);
+        totalBudget = totalBudget.add(scBudget != null ? scBudget : BigDecimal.ZERO);
 
         BigDecimal totalActual = expenses.stream()
                 .map(e -> e.getActualCost() != null ? e.getActualCost() : BigDecimal.ZERO)
@@ -684,13 +694,14 @@ public class CostService {
         var expenses = activityExpenseRepository.findByProjectId(projectId);
         var performances = storePeriodPerformanceRepository.findByProjectId(projectId);
         var assignments = resourceAssignmentRepository.findByProjectId(projectId);
+        var scAssignments = activitySubContractorAssignmentRepository.findByProjectId(projectId);
         var dprDailyCost = dprActualCostLookup.sumByProjectGroupedByDate(projectId);
         Project projectForDates = projectRepository.findById(projectId).orElse(null);
         LocalDate fallbackStart = projectForDates != null ? projectForDates.getPlannedStartDate() : null;
         LocalDate fallbackFinish = projectForDates != null ? projectForDates.getPlannedFinishDate() : null;
 
         Map<UUID, BigDecimal> periodBudgets = computePeriodBudgets(
-                periods, expenses, assignments, fallbackStart, fallbackFinish);
+                periods, expenses, assignments, scAssignments, fallbackStart, fallbackFinish);
         Map<UUID, BigDecimal> periodActuals = computePeriodActuals(periods, expenses, dprDailyCost);
 
         return periods.stream().map(period -> {
@@ -725,13 +736,14 @@ public class CostService {
         var expenses = activityExpenseRepository.findByProjectId(projectId);
         var performances = storePeriodPerformanceRepository.findByProjectId(projectId);
         var assignments = resourceAssignmentRepository.findByProjectId(projectId);
+        var scAssignments = activitySubContractorAssignmentRepository.findByProjectId(projectId);
         var dprDailyCost = dprActualCostLookup.sumByProjectGroupedByDate(projectId);
         Project projectForDates = projectRepository.findById(projectId).orElse(null);
         LocalDate fallbackStart = projectForDates != null ? projectForDates.getPlannedStartDate() : null;
         LocalDate fallbackFinish = projectForDates != null ? projectForDates.getPlannedFinishDate() : null;
 
         Map<UUID, BigDecimal> periodBudgets = computePeriodBudgets(
-                periods, expenses, assignments, fallbackStart, fallbackFinish);
+                periods, expenses, assignments, scAssignments, fallbackStart, fallbackFinish);
         Map<UUID, BigDecimal> periodActuals = computePeriodActuals(periods, expenses, dprDailyCost);
 
         return cashFlowForecastEngine.generateForecast(
@@ -749,6 +761,7 @@ public class CostService {
             List<FinancialPeriod> periods,
             List<ActivityExpense> expenses,
             List<com.bipros.resource.domain.model.ResourceAssignment> assignments,
+            List<com.bipros.resource.domain.model.ActivitySubContractorAssignment> scAssignments,
             LocalDate projectFallbackStart,
             LocalDate projectFallbackFinish) {
         Map<UUID, BigDecimal> out = new LinkedHashMap<>();
@@ -768,6 +781,25 @@ public class CostService {
                         ra.getPlannedCost(),
                         raStart,
                         raFinish,
+                        period.getStartDate(),
+                        period.getEndDate()));
+            }
+            for (var sa : scAssignments) {
+                // SC assignments don't carry their own date columns today. Use the parent
+                // activity's planned window when present, falling back to the project window.
+                LocalDate saStart = projectFallbackStart;
+                LocalDate saFinish = projectFallbackFinish;
+                Activity scActivity = sa.getActivityId() != null
+                        ? activityRepository.findById(sa.getActivityId()).orElse(null)
+                        : null;
+                if (scActivity != null) {
+                    if (scActivity.getPlannedStartDate() != null) saStart = scActivity.getPlannedStartDate();
+                    if (scActivity.getPlannedFinishDate() != null) saFinish = scActivity.getPlannedFinishDate();
+                }
+                total = total.add(proratePlannedCost(
+                        sa.getPlannedCost(),
+                        saStart,
+                        saFinish,
                         period.getStartDate(),
                         period.getEndDate()));
             }

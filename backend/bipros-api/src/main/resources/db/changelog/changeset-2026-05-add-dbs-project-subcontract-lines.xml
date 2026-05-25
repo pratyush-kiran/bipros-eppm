@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Sub-contractor breakdown JSON on the PM-tier DBS row.
+        Adds subcontract_lines_json (TEXT) to dbs.dbs_daily_project so the PM
+        tab's F. Sub-Contractor accordion can render grouped lines per
+        (sub-contractor master, work-type). Supervisor / engineer / CM rollups
+        intentionally skip this — sub-contractor is a project-level entity
+        and is not attributed under a supervisor.
+    -->
+
+    <changeSet id="dbs-subcontract-lines-project" author="claude">
+        <addColumn schemaName="dbs" tableName="dbs_daily_project">
+            <column name="subcontract_lines_json" type="TEXT"/>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

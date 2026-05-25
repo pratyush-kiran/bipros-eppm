@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Project Dashboard — Implementation Reference</title>
+<style>
+  :root {
+    --paper: #ffffff;
+    --ivory: #faf9f6;
+    --parchment: #f5f2e8;
+    --hairline: #e8e1d0;
+    --charcoal: #1c1c1c;
+    --slate: #6b6354;
+    --gold: #d4af37;
+    --gold-deep: #b8962e;
+    --emerald: #2e7d5b;
+    --burgundy: #9b2c2c;
+    --amber: #c7882e;
+    --steel: #475569;
+    --mono: ui-monospace, "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --display: "Fraunces", Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ivory);
+    color: var(--charcoal);
+    font: 15px/1.55 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+  }
+  h1, h2, h3 { font-family: var(--display); letter-spacing: -0.01em; color: var(--charcoal); }
+  h1 { font-size: 2.6rem; line-height: 1.1; margin: 0 0 8px; }
+  h2 { font-size: 1.6rem; margin: 64px 0 12px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+  h2:first-of-type { border-top: none; padding-top: 0; }
+  h3 { font-size: 1.15rem; margin: 28px 0 8px; }
+  h4 { font-size: 0.95rem; margin: 18px 0 6px; color: var(--slate); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  p { margin: 0 0 12px; }
+  ul, ol { margin: 0 0 12px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  code, pre, kbd { font-family: var(--mono); font-size: 0.86em; }
+  code {
+    background: var(--parchment);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--gold-deep);
+  }
+  pre {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 8px 0 16px;
+  }
+  pre code { background: transparent; border: 0; padding: 0; color: var(--charcoal); }
+  a { color: var(--gold-deep); text-decoration: none; border-bottom: 1px dotted var(--gold); }
+  a:hover { color: var(--burgundy); }
+
+  .hero {
+    background: linear-gradient(135deg, rgba(212,175,55,0.10), rgba(255,255,255,0) 60%), var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 32px 36px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+  }
+  .hero .kicker { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold-deep); }
+  .hero p { color: var(--slate); max-width: 760px; }
+
+  .toc {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 40px;
+    column-count: 2;
+    column-gap: 36px;
+  }
+  .toc ol { padding-left: 18px; margin: 0; }
+  .toc ol li { break-inside: avoid; }
+  .toc a { border-bottom: none; }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin: 14px 0 22px;
+  }
+  .card.accent {
+    border-left: 3px solid var(--gold);
+  }
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 760px) {
+    .grid.cols-2, .grid.cols-3 { grid-template-columns: 1fr; }
+    .toc { column-count: 1; }
+  }
+
+  .meta-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0 16px;
+    font-size: 0.92rem;
+  }
+  .meta-table th, .meta-table td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+  }
+  .meta-table th {
+    background: var(--ivory);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--slate);
+    width: 26%;
+  }
+  .meta-table th.col-data { background: var(--paper); width: 14%; text-transform: none; letter-spacing: 0; font-size: 0.92rem; color: var(--charcoal); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 8px; border-radius: 6px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    background: var(--parchment); color: var(--gold-deep);
+    border: 1px solid rgba(212,175,55,0.4);
+  }
+  .pill.green { color: var(--emerald); background: rgba(46,125,91,0.10); border-color: rgba(46,125,91,0.3); }
+  .pill.amber { color: var(--amber); background: rgba(199,136,46,0.10); border-color: rgba(199,136,46,0.3); }
+  .pill.red   { color: var(--burgundy); background: rgba(155,44,44,0.10); border-color: rgba(155,44,44,0.3); }
+
+  .endpoint {
+    font-family: var(--mono); font-size: 0.84rem;
+    background: var(--parchment); border: 1px solid var(--hairline); border-radius: 6px;
+    padding: 1px 8px;
+  }
+  .endpoint.get  { color: var(--emerald); }
+  .endpoint.post { color: var(--gold-deep); }
+  .endpoint.put  { color: var(--amber); }
+
+  .note {
+    border-left: 3px solid var(--steel);
+    background: rgba(71,85,105,0.05);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 8px 0 14px;
+    color: var(--slate);
+    font-size: 0.92rem;
+  }
+  .note.warn { border-left-color: var(--amber); background: rgba(199,136,46,0.06); }
+
+  .badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    background: var(--parchment); color: var(--gold-deep);
+    border: 1px solid rgba(212,175,55,0.4);
+  }
+  .file {
+    display: inline-block;
+    font-family: var(--mono); font-size: 0.84rem;
+    background: var(--paper); border: 1px solid var(--hairline); border-radius: 6px;
+    padding: 1px 6px;
+  }
+  footer {
+    margin-top: 80px;
+    padding-top: 18px;
+    border-top: 1px solid var(--hairline);
+    color: var(--slate);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- HERO -->
+    <header class="hero">
+      <div class="kicker">Bipros EPPM &middot; Frontend Reference</div>
+      <h1>Project Dashboard</h1>
+      <p>This document explains the executive project dashboard that renders at the top of <code>/projects/[projectId]?tab=overview</code> &mdash; what each widget shows, where its data comes from, and exactly how every derived number is computed. Treat it as the single source of truth for adding tiles, debugging missing values, or porting the dashboard to another route.</p>
+    </header>
+
+    <!-- TOC -->
+    <nav class="toc">
+      <ol>
+        <li><a href="#placement">Page placement &amp; file map</a></li>
+        <li><a href="#architecture">Architecture &amp; data flow</a></li>
+        <li><a href="#hero-strip">Hero strip</a></li>
+        <li><a href="#kpi-row">KPI row (four tiles)</a></li>
+        <li><a href="#timeline">Timeline preview</a></li>
+        <li><a href="#health-donut">Project health donut</a></li>
+        <li><a href="#work-packages">Work package table</a></li>
+        <li><a href="#alerts">Active alerts panel</a></li>
+        <li><a href="#site-conditions">Site conditions panel</a></li>
+        <li><a href="#fetching">Data-fetching strategy</a></li>
+        <li><a href="#backend">Backend endpoint reference</a></li>
+        <li><a href="#follow-ups">Open follow-ups</a></li>
+      </ol>
+    </nav>
+
+
+    <!-- 1. PLACEMENT -->
+    <h2 id="placement">1 &middot; Page placement &amp; file map</h2>
+
+    <p>The dashboard does <strong>not</strong> replace the original "Project Details" overview. They stack:</p>
+
+    <div class="card">
+      <h4>Render order inside <span class="file">page.tsx&nbsp;line&nbsp;422-432</span></h4>
+      <pre><code>{tab === "overview" &amp;&amp; (
+  &lt;div className="space-y-10"&gt;
+    &lt;ProjectDashboardTab project={project} projectId={projectId} /&gt;
+    &lt;div className="border-t border-hairline pt-8"&gt;
+      &lt;div className="mb-4 ... text-slate"&gt;Project Details&lt;/div&gt;
+      &lt;OverviewTab project={project} projectId={projectId} /&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+)}</code></pre>
+      <p>So when the user hits the project page they see the executive dashboard up top, a hairline divider, then the original editable Code / Status / Description / Documents / Planned Dates / BAC / Team panels &mdash; nothing was removed from the Overview tab.</p>
+    </div>
+
+    <h3>Files</h3>
+    <table class="meta-table">
+      <tr><th>Container</th><td><span class="file">frontend/src/components/dashboards/project/ProjectDashboardTab.tsx</span></td></tr>
+      <tr><th>Hero strip</th><td><span class="file">DashboardHero.tsx</span></td></tr>
+      <tr><th>KPI row</th><td><span class="file">KpiRow.tsx</span> &middot; reuses <span class="file">common/KpiTile.tsx</span></td></tr>
+      <tr><th>Timeline preview</th><td><span class="file">ProjectTimelinePreview.tsx</span></td></tr>
+      <tr><th>Health donut</th><td><span class="file">ProjectHealthDonut.tsx</span></td></tr>
+      <tr><th>Work-package table</th><td><span class="file">WorkPackageTable.tsx</span> &middot; reuses <span class="file">common/SimpleTable.tsx</span> + <span class="file">common/StatusBadge.tsx</span></td></tr>
+      <tr><th>Active alerts</th><td><span class="file">ActiveAlertsPanel.tsx</span></td></tr>
+      <tr><th>Site conditions</th><td><span class="file">SiteConditionsPanel.tsx</span></td></tr>
+      <tr><th>Pure helpers</th><td><span class="file">dashboardDerivations.ts</span></td></tr>
+      <tr><th>API client</th><td><span class="file">frontend/src/lib/api/projectInsightsApi.ts</span> &middot; <code>getStatusSnapshotWithTrend</code> method added</td></tr>
+      <tr><th>Backend DTO</th><td><span class="file">backend/bipros-reporting/.../dto/ProjectStatusSnapshotWithTrendDto.java</span></td></tr>
+      <tr><th>Backend endpoint</th><td><span class="file">.../controller/ProjectInsightsController.java</span> &middot; <code>getStatusSnapshotWithTrend()</code></td></tr>
+    </table>
+
+
+    <!-- 2. ARCHITECTURE -->
+    <h2 id="architecture">2 &middot; Architecture &amp; data flow</h2>
+    <div class="card accent">
+      <pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│  ProjectDashboardTab (client component, "use client")               │
+│  ───────────────────────────────────────────────────────────────    │
+│  5 × useQuery hooks, staleTime 60 s, keyed by ["widget", projectId] │
+│                                                                     │
+│  ① snapshot-trend   ②  activity-status   ③  issues                  │
+│        │                   │                   │                    │
+│        └──→ KpiRow         └──→ Timeline       └──→ ActiveAlerts    │
+│                            └──→ HealthDonut    └──→ critical count  │
+│                            └──→ WorkPackageTable                    │
+│                            └──→ tasksCompleted                      │
+│                                                                     │
+│  ④ weather (limit 1)  ⑤ project meta (already from parent prop)     │
+│        │                                                            │
+│        └──→ SiteConditions   →→  DashboardHero (uses useAuth().user)│
+└─────────────────────────────────────────────────────────────────────┘</code></pre>
+      <p class="note">All five queries run in parallel on mount. Each widget owns its own loading / empty branch; the page never blocks waiting for the slowest call.</p>
+    </div>
+
+
+    <!-- 3. HERO -->
+    <h2 id="hero-strip">3 &middot; Hero strip</h2>
+    <div class="grid cols-2">
+      <div>
+        <h4>Renders</h4>
+        <ul>
+          <li>Breadcrumb chip "Home / Dashboard"</li>
+          <li>H1 "Dashboard"</li>
+          <li>"Welcome back, <em>{firstName}</em> &middot; <em>{projectName}</em>" with project code chip</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Data sources</h4>
+        <ul>
+          <li><code>useAuth().user.firstName</code> &mdash; falls back to <code>user.username</code> then literal "there"</li>
+          <li><code>project.name</code> and <code>project.code</code> &mdash; passed in as props from <code>page.tsx</code></li>
+        </ul>
+      </div>
+    </div>
+
+
+    <!-- 4. KPI ROW -->
+    <h2 id="kpi-row">4 &middot; KPI row &mdash; the four tiles</h2>
+    <p>Reuses <code>KpiTile</code> (5 tonal variants, top stripe, optional delta pill). Layout: <code>grid-cols-1 sm:grid-cols-2 xl:grid-cols-4</code>.</p>
+
+    <table class="meta-table">
+      <tr>
+        <th class="col-data">Tile</th>
+        <th class="col-data">Value formula</th>
+        <th class="col-data">Tone</th>
+        <th class="col-data">Source</th>
+      </tr>
+      <tr>
+        <td><strong>Overall Progress</strong></td>
+        <td><code>snapshot.physicalPct.toFixed(0) + "%"</code></td>
+        <td><span class="pill green">success</span></td>
+        <td><code>/status-snapshot-with-trend</code></td>
+      </tr>
+      <tr>
+        <td><strong>Budget Utilised</strong></td>
+        <td><code>"₹" + snapshot.bacCrores.toFixed(1) + " Cr"</code></td>
+        <td><span class="pill">accent</span></td>
+        <td><code>/status-snapshot-with-trend</code></td>
+      </tr>
+      <tr>
+        <td><strong>Tasks Completed</strong></td>
+        <td><code>tasks.done</code> with hint <code>"of {tasks.total} total"</code></td>
+        <td>default</td>
+        <td>derived from <code>/activity-status</code></td>
+      </tr>
+      <tr>
+        <td><strong>Open Issues</strong></td>
+        <td>count of <code>severity === "CRITICAL"</code> &amp; status in {OPEN, IN_PROGRESS}</td>
+        <td><span class="pill red">danger</span></td>
+        <td><code>/dpr-issues</code></td>
+      </tr>
+    </table>
+
+    <h3>Tasks-completed derivation</h3>
+    <pre><code>// dashboardDerivations.ts → tasksCompleted(rows)
+const done = rows.filter(r =&gt;
+  r.pctComplete &gt;= 100 ||
+  r.status === "DONE"  ||
+  r.status === "COMPLETED"
+).length;
+const total = rows.length;
+// {done: 30, total: 209}  →  "30  of 209 total"</code></pre>
+
+    <h3>Critical-issue count</h3>
+    <pre><code>// dashboardDerivations.ts → criticalIssueCount(issues)
+const ACTIVE = new Set(["OPEN", "IN_PROGRESS"]);
+issues.filter(i =&gt; i.severity === "CRITICAL" &amp;&amp; ACTIVE.has(i.status)).length</code></pre>
+
+    <h3>Delta pills (the optional secondary number on every tile)</h3>
+    <div class="note warn">
+      Today the backend stub returns <code>null</code> for every delta. The frontend treats <code>null</code> as "render no pill" so the tile shows just the headline number with no layout shift. When the snapshot-history writer lands, the same UI will start showing &plus;/&minus; pills automatically &mdash; no frontend change needed.
+    </div>
+    <pre><code>// dashboardDerivations.ts → formatDelta(curr, delta, opts)
+//   opts.unit, opts.digits, opts.invertColor
+// returns undefined when curr or delta is null  →  KpiTile renders no pill
+//
+// |delta| &lt; 10^-digits/2  →  { value: "0.0", direction: "flat" }
+// delta &gt; 0                →  { value: "+1.2", direction: invertColor ? "down" : "up" }
+// delta &lt; 0                →  { value: "-1.2", direction: invertColor ? "up"   : "down" }
+//
+// invertColor=true is used for "more is worse" metrics — Budget Utilised and
+// Open Issues — so a rise renders red instead of green.</code></pre>
+
+
+    <!-- 5. TIMELINE -->
+    <h2 id="timeline">5 &middot; Project Timeline Preview</h2>
+    <p>Lightweight SVG-free Gantt strip rendered with absolutely-positioned divs and percentage widths &mdash; deliberately separate from the heavy <code>GanttChart</code> on the schedule page.</p>
+
+    <h3>Window</h3>
+    <pre><code>const today        = new Date();
+const windowStart  = startOfMonth(addMonths(today, -1));   // last month
+const windowEnd    = addMonths(windowStart, windowMonths); // default 6
+const totalDays    = differenceInDays(windowEnd, windowStart);</code></pre>
+    <p>So the visible band always starts on the first of last month and runs forward 6 months &mdash; never empty just because the project's data sits a few weeks in the past.</p>
+
+    <h3>Row selection</h3>
+    <ol>
+      <li>Input: <code>ActivityStatusRow[]</code> from <code>/activity-status?limit=200</code>.</li>
+      <li>Filter to rows that have both <code>plannedStart</code> and <code>plannedFinish</code>.</li>
+      <li>Take the first <code>maxRows</code> (default 6) &mdash; the API already returns them ordered by <code>code</code>.</li>
+    </ol>
+
+    <h3>Bar geometry (per row)</h3>
+    <pre><code>const startOffset  = max(0,        differenceInDays(start,  windowStart));
+const finishOffset = min(totalDays, differenceInDays(finish, windowStart));
+const widthDays    = max(1, finishOffset - startOffset);
+const leftPct      = startOffset / totalDays * 100;
+const widthPct     = widthDays    / totalDays * 100;</code></pre>
+
+    <h3>Bar colour by activity status</h3>
+    <table class="meta-table">
+      <tr><th class="col-data">Status</th><th class="col-data">Tailwind class</th><th class="col-data">CSS variable</th></tr>
+      <tr><td>COMPLETED / DONE</td><td><code>bg-emerald</code></td><td>--emerald (#2E7D5B)</td></tr>
+      <tr><td>IN_PROGRESS / ACTIVE</td><td><code>bg-gold-deep</code></td><td>--gold-deep (#B8962E)</td></tr>
+      <tr><td>DELAYED</td><td><code>bg-burgundy</code></td><td>--burgundy (#9B2C2C)</td></tr>
+      <tr><td>NOT_STARTED / PLANNED</td><td><code>bg-slate-400</code></td><td>slate-400</td></tr>
+    </table>
+    <p>The bar carries an inner translucent overlay sized to <code>pctComplete</code> (so a half-finished IN_PROGRESS bar reads at a glance), plus a label suffix when the bar is wider than ~6 % of the window.</p>
+
+    <h3>Today marker</h3>
+    <pre><code>const todayPct = differenceInDays(today, windowStart) / totalDays * 100;
+// rendered only if 0 ≤ todayPct ≤ 100 — a 2 px burgundy stripe with a red "TODAY" chip</code></pre>
+
+
+    <!-- 6. DONUT -->
+    <h2 id="health-donut">6 &middot; Project Health donut</h2>
+    <p>Recharts <code>PieChart</code> with <code>innerRadius=60 / outerRadius=84</code>, mirroring the portfolio donut.</p>
+
+    <h3>Centre label</h3>
+    <pre><code>// {snapshot.physicalPct} rounded to integer, e.g. "65%"
+// Caption: "Complete"</code></pre>
+
+    <h3>Bucketing (the hard part)</h3>
+    <p>The backend does <strong>not</strong> ship a per-activity health enum &mdash; only <code>status</code>, <code>pctComplete</code>, <code>isCritical</code>, <code>daysDelay</code>, <code>daysRemaining</code>. The frontend derives the three buckets here:</p>
+    <pre><code>// dashboardDerivations.ts → bucketActivityHealth(r)
+if (r.daysDelay &gt; 7)                          return "delayed";
+if (r.daysDelay &gt;= 1)                         return "atRisk";
+if (r.isCritical &amp;&amp; r.daysDelay &gt;= 0 &amp;&amp;
+    r.pctComplete &lt; 100)                       return "atRisk";   // critical-path slack
+return "onTrack";</code></pre>
+    <p>Then the donut sums them across every activity returned by <code>/activity-status?limit=200</code>:</p>
+    <table class="meta-table">
+      <tr><th class="col-data">Bucket</th><th class="col-data">Legend label</th><th class="col-data">Colour</th></tr>
+      <tr><td>onTrack</td><td>On Track</td><td><span class="pill green">emerald</span></td></tr>
+      <tr><td>atRisk</td><td>At Risk</td><td><span class="pill amber">amber</span></td></tr>
+      <tr><td>delayed</td><td>Delayed</td><td><span class="pill red">burgundy</span></td></tr>
+    </table>
+    <p>If all three are zero the donut renders <em>"No activity data yet"</em> instead of a hollow ring.</p>
+
+    <h3>Where <code>daysDelay</code> comes from (backend side)</h3>
+    <pre><code>// ProjectInsightsController.getActivityStatus()
+LocalDate today = LocalDate.now();
+if (plannedFinish != null &amp;&amp; pct &lt; 100 &amp;&amp; today.isAfter(plannedFinish)) {
+  daysDelay = ChronoUnit.DAYS.between(plannedFinish, today);
+} else if (plannedFinish != null &amp;&amp; actualFinish != null
+        &amp;&amp; actualFinish.isAfter(plannedFinish)) {
+  daysDelay = ChronoUnit.DAYS.between(plannedFinish, actualFinish);
+}</code></pre>
+
+
+    <!-- 7. WORK PACKAGES -->
+    <h2 id="work-packages">7 &middot; Work Package Status table</h2>
+    <p>Wraps the shared TanStack-backed <code>SimpleTable</code> with six columns.</p>
+
+    <table class="meta-table">
+      <tr><th class="col-data">Column</th><th class="col-data">Source</th><th class="col-data">Renderer</th></tr>
+      <tr><td>#</td><td><code>row.wbsCode || row.code</code></td><td>monospace slate</td></tr>
+      <tr><td>Package</td><td><code>row.name</code></td><td>charcoal medium</td></tr>
+      <tr><td>Contractor</td><td><span class="badge">stub &ldquo;—&rdquo;</span></td><td>slate dash</td></tr>
+      <tr><td>Prog %</td><td><code>row.pctComplete</code></td><td>inline gradient bar + 2-digit percent</td></tr>
+      <tr><td>Status</td><td><code>mapWorkPackageStatus(row)</code></td><td><code>&lt;StatusBadge variant="compact" /&gt;</code></td></tr>
+      <tr><td>Due</td><td><code>row.plannedFinish</code></td><td><code>date-fns "d MMM"</code> or em-dash</td></tr>
+    </table>
+
+    <h3>Sort + slice</h3>
+    <ol>
+      <li>Sort rows by <code>plannedFinish</code> ascending (nulls last, then fall back to <code>code</code>).</li>
+      <li>Slice the first <code>maxRows</code> (default <code>10</code>).</li>
+      <li>Map each row to the column-friendly <code>WorkPackageRow</code> shape.</li>
+    </ol>
+
+    <h3>Status mapping</h3>
+    <pre><code>// dashboardDerivations.ts → mapWorkPackageStatus(r)
+if (r.pctComplete &gt;= 100)  return "COMPLETED";
+if (r.daysDelay &gt; 7)        return "DELAYED";
+if (r.pctComplete &gt; 0)      return "IN_PROGRESS";
+return r.status || "NOT_STARTED";</code></pre>
+    <p>The badge's colour comes from <code>StatusBadge</code>'s status-to-class map (COMPLETED → success ring, DELAYED → danger ring, etc.).</p>
+
+    <div class="note">
+      <strong>Contractor column is intentionally a placeholder.</strong> Adding a real contractor requires either an N&plus;1 call to <code>activitySubContractorApi.listForActivity</code> per row, or a new project-wide sub-contractor join endpoint. That endpoint is on the follow-up list &mdash; see section 12.
+    </div>
+
+
+    <!-- 8. ALERTS -->
+    <h2 id="alerts">8 &middot; Active Alerts panel</h2>
+    <p>Pulls every DPR issue and renders the top five most-severe still-active ones.</p>
+
+    <h3>Filter &amp; sort</h3>
+    <pre><code>issues
+  .filter(i =&gt; i.status === "OPEN"
+            || i.status === "IN_PROGRESS"
+            || i.status === "BLOCKED")
+  .sort(severityRank)        // CRITICAL → HIGH → MEDIUM → LOW
+  .slice(0, maxRows)         // default 5</code></pre>
+    <p>The empty result renders an <em>"All clear"</em> block &mdash; <code>RESOLVED</code> / <code>CLOSED</code> / <code>CANCELLED</code> issues never appear here.</p>
+
+    <h3>Row anatomy</h3>
+    <ul>
+      <li>Colored severity dot &mdash; <code>bg-burgundy</code> (CRITICAL), <code>bg-amber-flame</code> (HIGH), <code>bg-amber-flame/70</code> (MEDIUM), <code>bg-steel</code> (LOW)</li>
+      <li><code>&lt;StatusBadge status="CRITICAL" variant="compact" /&gt;</code> (reuses the same component as the table)</li>
+      <li><code>activityName</code> uppercase mini-label when present</li>
+      <li><code>title</code> truncated to one line</li>
+    </ul>
+
+
+    <!-- 9. SITE -->
+    <h2 id="site-conditions">9 &middot; Site Conditions panel</h2>
+    <p>Four mini-tiles in a 2×2 / 4×1 grid.</p>
+
+    <table class="meta-table">
+      <tr><th class="col-data">Tile</th><th class="col-data">Value</th><th class="col-data">Source</th></tr>
+      <tr><td>Temp</td><td><code>weather.tempMaxC.toFixed(0) + "°C"</code></td><td><code>/v1/projects/{id}/weather</code> — latest <code>logDate</code></td></tr>
+      <tr><td>Wind</td><td><code>weather.windKmh + " km/h"</code></td><td>same row</td></tr>
+      <tr><td>Rain</td><td><code>weather.rainfallMm + " mm"</code></td><td>same row</td></tr>
+      <tr><td>AQI</td><td><strong>"—"</strong> with caption "Not available"</td><td>no backend endpoint exists yet</td></tr>
+    </table>
+
+    <p>Each tile gets a tonal gradient stripe matching its semantic colour (Temp → amber, Wind → steel, Rain → emerald, AQI → burgundy). When <code>weather</code> is <code>null</code> the subtitle shows "Latest reading unavailable" and the three numeric tiles fall back to <code>"—"</code>.</p>
+
+    <div class="note">
+      The AQI tile carries <code>data-testid="site-conditions-aqi"</code> so a Playwright test can assert the em-dash without false positives from other "—" placeholders on the page.
+    </div>
+
+
+    <!-- 10. FETCHING -->
+    <h2 id="fetching">10 &middot; Data-fetching strategy</h2>
+
+    <h3>Why client-side TanStack Query and not a server component</h3>
+    <p>The parent <code>page.tsx</code> is already a <code>"use client"</code> component (<code>useSearchParams</code>, <code>useRouter</code>, optimistic mutations). Splitting one widget off as a server component would require a parallel async boundary just for that tab; we'd lose the in-place tab switching the page relies on. So every dashboard query lives in a <code>useQuery</code> hook inside <code>ProjectDashboardTab</code>.</p>
+
+    <pre><code>const STALE = 60_000;  // 1 minute
+
+useQuery({ queryKey: ["project-dashboard-snapshot-trend",  projectId], queryFn: () =&gt; projectInsightsApi.getStatusSnapshotWithTrend(projectId), staleTime: STALE });
+useQuery({ queryKey: ["project-dashboard-activity-status", projectId], queryFn: () =&gt; projectInsightsApi.getActivityStatus(projectId, { limit: 200 }), staleTime: STALE });
+useQuery({ queryKey: ["project-dashboard-issues",          projectId], queryFn: () =&gt; dprIssueApi.list(projectId).then(r =&gt; r.data ?? []), staleTime: STALE });
+useQuery({ queryKey: ["project-dashboard-weather",         projectId], queryFn: () =&gt; dailyWeatherApi.list(projectId).then(r =&gt; r.data ?? []), staleTime: STALE });</code></pre>
+    <p>The <code>activity-status</code> response feeds three independent widgets (donut, work-package table, tasks-completed KPI) — only one fetch even though three sections consume it.</p>
+
+
+    <!-- 11. BACKEND -->
+    <h2 id="backend">11 &middot; Backend endpoint reference</h2>
+
+    <h3>New: <code>GET /v1/projects/{id}/status-snapshot-with-trend</code></h3>
+    <p>Wraps the existing snapshot DTO with a nullable deltas record so the frontend can render trend pills the moment the history table lands.</p>
+    <pre><code>// ProjectInsightsController.java
+@GetMapping("/status-snapshot-with-trend")
+public ApiResponse&lt;ProjectStatusSnapshotWithTrendDto&gt; getStatusSnapshotWithTrend(
+    @PathVariable UUID projectId) {
+  ProjectStatusSnapshotDto current = getStatusSnapshot(projectId).data();
+  // TODO(snapshot-history): diff against project.daily_status_snapshots row from 7 days ago
+  // once the JobRunr daily writer + table land. Until then deltas stay null.
+  var deltas = new ProjectStatusSnapshotWithTrendDto.SnapshotDeltas(null, null, null, null);
+  return ApiResponse.ok(new ProjectStatusSnapshotWithTrendDto(current, deltas));
+}</code></pre>
+
+    <h3>Shape</h3>
+    <pre><code>ProjectStatusSnapshotWithTrendDto = {
+  current: ProjectStatusSnapshotDto,
+  deltas: {
+    physicalPctDelta:    Double  | null,
+    bacCroresDelta:      BigDecimal | null,
+    activeRisksDelta:    Long    | null,
+    tasksCompletedDelta: Long    | null
+  }
+}</code></pre>
+
+    <h3>Endpoints consumed by the dashboard</h3>
+    <table class="meta-table">
+      <tr><th class="col-data">Endpoint</th><th class="col-data">Used by</th></tr>
+      <tr><td><span class="endpoint get">GET /v1/projects/{id}/status-snapshot-with-trend</span></td><td>KPI row</td></tr>
+      <tr><td><span class="endpoint get">GET /v1/projects/{id}/activity-status?limit=200</span></td><td>Timeline + Donut + Work Packages + Tasks KPI</td></tr>
+      <tr><td><span class="endpoint get">GET /v1/projects/{id}/dpr-issues</span></td><td>Open-Issues KPI + Active Alerts</td></tr>
+      <tr><td><span class="endpoint get">GET /v1/projects/{id}/weather</span></td><td>Site Conditions (sorted to latest)</td></tr>
+    </table>
+
+
+    <!-- 12. FOLLOW-UPS -->
+    <h2 id="follow-ups">12 &middot; Open follow-ups</h2>
+    <div class="card">
+      <h4>Backend</h4>
+      <ul>
+        <li><strong>Snapshot history table.</strong> <code>project.daily_status_snapshots</code> with a nightly JobRunr writer; the controller stub will then read "7 days ago" and fill the deltas record. Once that lands the dashboard automatically grows the &plus;/&minus; pills on every tile &mdash; no frontend work.</li>
+        <li><strong>Project-wide sub-contractor join.</strong> A <code>GET /v1/projects/{id}/sub-contractor-assignments</code> that returns one row per activity with the contractor name would let the Work Package table show real contractor strings instead of "—".</li>
+        <li><strong>AQI feed.</strong> No domain endpoint exists. Until one lands the panel keeps showing "—" and the caption "Not available".</li>
+      </ul>
+      <h4>Frontend</h4>
+      <ul>
+        <li>Timeline preview hard-codes 6 months and 6 rows. Both are props (<code>windowMonths</code>, <code>maxRows</code>) &mdash; trivial to expose as user controls later.</li>
+        <li>Work-package row count is also a prop (<code>maxRows = 10</code>); pagination would slot in cleanly because <code>SimpleTable</code> already supports it.</li>
+        <li>Health-bucket thresholds (1 d / 7 d) live as numeric literals inside <code>bucketActivityHealth</code>. If the business decides to widen "At Risk" to 14 d or read off <code>totalFloat</code> instead of <code>daysDelay</code>, it is a one-line change in <code>dashboardDerivations.ts</code>.</li>
+      </ul>
+    </div>
+
+
+    <footer>
+      <p>Generated 2026-05-23 to accompany the project-dashboard implementation on branch <code>hemendra-pilot-e2e-and-rbac-fixes</code>.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

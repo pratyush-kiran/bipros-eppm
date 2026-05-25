@@ -334,6 +334,23 @@ public final class RolePermissionMatrix {
                 ).collect(Collectors.toSet())
         ));
 
+        // HDS_LIBRARY.READ — every role gets read access to the highway-design-standards
+        // knowledge base. ADMIN already has everything via ALL_CODES; VIEWER already
+        // picks it up via the .endsWith(".READ") filter above. For the other 21 roles,
+        // unionise their set with the new code.
+        for (Map.Entry<String, Set<String>> entry : m.entrySet()) {
+            if ("ADMIN".equals(entry.getKey()) || "VIEWER".equals(entry.getKey())) continue;
+            Set<String> updated = new HashSet<>(entry.getValue());
+            updated.add("HDS_LIBRARY.READ");
+            entry.setValue(Collections.unmodifiableSet(updated));
+        }
+        // EXECUTIVE — the role behind the PORTFOLIO_MANAGER profile. Carries HDS library
+        // curation rights (upload + update). DELETE stays admin-only.
+        Set<String> executive = new HashSet<>(m.get("EXECUTIVE"));
+        executive.add("HDS_LIBRARY.CREATE");
+        executive.add("HDS_LIBRARY.UPDATE");
+        m.put("EXECUTIVE", Collections.unmodifiableSet(executive));
+
         DEFAULTS = Collections.unmodifiableMap(m);
     }
 

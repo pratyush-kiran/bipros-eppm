@@ -49,6 +49,7 @@ public record DbsProjectDayResponse(
     BigDecimal cumulativeExpense,
     BigDecimal cumulativeIncome,
     BigDecimal cumulativeContribution,
+    List<DbsSubContractLineDto> subcontractLines,
     Instant recomputedAt,
     List<String> alerts
 ) {}

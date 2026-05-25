@@ -7,6 +7,7 @@ import com.bipros.dbs.api.dto.DbsEngineerPeriodResponse;
 import com.bipros.dbs.api.dto.DbsProjectDayResponse;
 import com.bipros.dbs.api.dto.DbsProjectPeriodResponse;
 import com.bipros.dbs.api.dto.DbsSectionLineDto;
+import com.bipros.dbs.api.dto.DbsSubContractLineDto;
 import com.bipros.dbs.api.dto.DbsSupervisorDayResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorPeriodResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorSummaryDto;
@@ -64,6 +65,8 @@ import java.util.stream.Collectors;
 public class DbsQueryService {
 
     private static final TypeReference<List<DbsSectionLineDto>> LINE_LIST_TYPE =
+        new TypeReference<>() {};
+    private static final TypeReference<List<DbsSubContractLineDto>> SC_LINE_LIST_TYPE =
         new TypeReference<>() {};
 
     private final DbsDailySupervisorRepository supervisorRepo;
@@ -482,6 +485,7 @@ public class DbsQueryService {
             cumExpense,
             cumIncome,
             cumContribution,
+            parseSubContractLines(e.getSubcontractLinesJson()),
             e.getRecomputedAt(),
             alertEvaluator.evaluate(e)
         );
@@ -548,6 +552,7 @@ public class DbsQueryService {
             BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
             BigDecimal.ZERO,
             cumExpense, cumIncome, cumContribution,
+            Collections.emptyList(),
             null,
             Collections.emptyList()
         );
@@ -719,6 +724,12 @@ public class DbsQueryService {
         BigDecimal cumIncome = sum(historical, DbsDailyProject::getTotalIncome);
         BigDecimal cumContribution = cumIncome.subtract(cumExpense).setScale(2, RoundingMode.HALF_UP);
 
+        // Aggregate sub-contractor lines across days, grouped by (scCode, workTypeName).
+        // Each day's lines already roll up (sc, work-type) per-day; this collapses them
+        // across the period so the PM tab's week/month F. Sub-Contractor accordion shows
+        // one row per (sc, work-type) tuple for the whole window.
+        List<DbsSubContractLineDto> aggregatedScLines = aggregateSubContractLines(daily);
+
         return new DbsProjectDayResponse(
             null, projectId, to, new ArrayList<>(engineers), supervisorCount, dprCount,
             material, manpower, admin, machinery, fuel, sub,
@@ -727,9 +738,46 @@ public class DbsQueryService {
             direct, prelim, totalIncl, pctAchieved,
             expense, income, contribution, contributionPct,
             cumExpense, cumIncome, cumContribution,
+            aggregatedScLines,
             null,
             Collections.emptyList()
         );
+    }
+
+    private static List<DbsSubContractLineDto> aggregateSubContractLines(
+        List<DbsProjectDayResponse> daily) {
+        Map<String, DbsSubContractLineDto> byKey = new LinkedHashMap<>();
+        for (DbsProjectDayResponse d : daily) {
+            List<DbsSubContractLineDto> lines = d.subcontractLines();
+            if (lines == null) continue;
+            for (DbsSubContractLineDto line : lines) {
+                if (line == null) continue;
+                String key = (line.subContractorCode() == null ? "" : line.subContractorCode())
+                    + "|" + (line.workTypeName() == null ? "" : line.workTypeName())
+                    + "|" + (line.unit() == null ? "" : line.unit())
+                    + "|" + (line.scRate() == null ? "0" : line.scRate().toPlainString());
+                DbsSubContractLineDto existing = byKey.get(key);
+                if (existing == null) {
+                    byKey.put(key, line);
+                } else {
+                    BigDecimal qty = nz(existing.qty()).add(nz(line.qty()));
+                    BigDecimal scExpense = nz(existing.scExpense()).add(nz(line.scExpense()));
+                    BigDecimal scIncome = nz(existing.scImputedIncome()).add(nz(line.scImputedIncome()));
+                    byKey.put(key, new DbsSubContractLineDto(
+                        existing.subContractorCode(),
+                        existing.subContractorName(),
+                        existing.workTypeName(),
+                        existing.unit(),
+                        qty,
+                        existing.scRate(),
+                        scExpense,
+                        existing.boqRate(),
+                        scIncome,
+                        scIncome.subtract(scExpense)));
+                }
+            }
+        }
+        return new ArrayList<>(byKey.values());
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────────
@@ -770,6 +818,18 @@ public class DbsQueryService {
             return parsed == null ? Collections.emptyList() : parsed;
         } catch (Exception ex) {
             log.warn("Failed to parse DBS section lines JSON ({}): {}", ex.getClass().getSimpleName(), ex.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private List<DbsSubContractLineDto> parseSubContractLines(String json) {
+        if (json == null || json.isBlank()) return Collections.emptyList();
+        try {
+            List<DbsSubContractLineDto> parsed = objectMapper.readValue(json, SC_LINE_LIST_TYPE);
+            return parsed == null ? Collections.emptyList() : parsed;
+        } catch (Exception ex) {
+            log.warn("Failed to parse DBS sub-contractor lines JSON ({}): {}",
+                ex.getClass().getSimpleName(), ex.getMessage());
             return Collections.emptyList();
         }
     }

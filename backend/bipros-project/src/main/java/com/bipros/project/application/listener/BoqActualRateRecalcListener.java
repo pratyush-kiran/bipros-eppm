@@ -189,6 +189,13 @@ public class BoqActualRateRecalcListener {
             + "     SELECT DISTINCT d2.activity_id FROM project.daily_progress_reports d2 "
             + "      WHERE d2.boq_item_id = :boqItemId AND d2.activity_id IS NOT NULL) "
             + "     AND mcl.line_cost IS NOT NULL "
+            + "  UNION ALL "
+            + "  SELECT (c.quantity * COALESCE(a.rate_per_unit, 0))::numeric "
+            + "    FROM project.dpr_sub_contractor c "
+            + "    JOIN project.daily_progress_reports d ON c.dpr_id = d.id "
+            + "    LEFT JOIN resource.activity_sub_contractor_assignments a "
+            + "      ON a.id = c.activity_sub_contractor_assignment_id "
+            + "   WHERE d.boq_item_id = :boqItemId "
             + ") u";
     Query q = em.createNativeQuery(sql);
     q.setParameter("boqItemId", boqItemId);

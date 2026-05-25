@@ -3,6 +3,8 @@ package com.bipros.project.domain.repository;
 import com.bipros.project.domain.model.DprAttachment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -19,4 +21,8 @@ public interface DprAttachmentRepository extends JpaRepository<DprAttachment, UU
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     void deleteByDprId(UUID dprId);
+
+    /** Per-DPR photo/attachment count. Returns [dprId (UUID), count (Long)]. */
+    @Query("select a.dprId, count(a) from DprAttachment a where a.dprId in :ids group by a.dprId")
+    List<Object[]> countByDprIdIn(@Param("ids") Collection<UUID> ids);
 }

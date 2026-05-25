@@ -11,8 +11,8 @@ import type { CreateActivityRequest } from "@/lib/api/activityApi";
 import { workActivityApi } from "@/lib/api/workActivityApi";
 import { calendarApi } from "@/lib/api/calendarApi";
 import { userApi } from "@/lib/api/userApi";
-import type { WbsNodeResponse } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils/error";
+import { flattenWbsNodes } from "@/lib/utils/wbs";
 import { activityNotifications, notificationHelpers } from "@/lib/notificationHelpers";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { LinkOrCreateWorkActivityDialog } from "@/components/activity/LinkOrCreateWorkActivityDialog";
@@ -519,21 +519,3 @@ export default function NewActivityPage() {
   );
 }
 
-function flattenWbsNodes(
-  nodes: WbsNodeResponse[],
-  level = 0
-): Array<{ id: string; code: string; name: string; indent: string }> {
-  const result: Array<{ id: string; code: string; name: string; indent: string }> = [];
-  for (const node of nodes) {
-    result.push({
-      id: node.id,
-      code: node.code,
-      name: node.name,
-      indent: "  ".repeat(level),
-    });
-    if (node.children && node.children.length > 0) {
-      result.push(...flattenWbsNodes(node.children, level + 1));
-    }
-  }
-  return result;
-}

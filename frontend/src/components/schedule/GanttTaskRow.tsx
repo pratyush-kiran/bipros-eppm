@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef } from "react";
 import { differenceInDays, startOfDay, addDays, format } from "date-fns";
 import type { ActivityResponse } from "@/lib/types";
+import { getGanttStatus, getGanttStatusToken } from "@/lib/utils/ganttStatus";
 
 interface DateRange {
   start: Date;
@@ -25,6 +26,7 @@ interface GanttTaskRowProps {
   timelineStartY: number;
   baselineData?: BaselineActivityData;
   onActivityClick?: (id: string) => void;
+  onActivityContextMenu?: (id: string, x: number, y: number) => void;
   onActivityReschedule?: (
     id: string,
     newStart: string,
@@ -41,6 +43,7 @@ export function GanttTaskRow({
   timelineStartY,
   baselineData,
   onActivityClick,
+  onActivityContextMenu,
   onActivityReschedule,
 }: GanttTaskRowProps) {
   const [dragState, setDragState] = useState<{
@@ -111,7 +114,14 @@ export function GanttTaskRow({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [onActivityReschedule, pixelsPerDay, startOffset, actStartDate, actEndDate, activity.id]
+    [
+      onActivityReschedule,
+      pixelsPerDay,
+      startOffset,
+      actStartDate,
+      actEndDate,
+      activity.id,
+    ]
   );
 
   if (!actStartDate || !actEndDate) {
@@ -126,20 +136,43 @@ export function GanttTaskRow({
   const width = duration * pixelsPerDay;
   const y = rowIndex * rowHeight + timelineStartY;
 
-  const color = getBarColor(activity);
+  // Bar color: status-driven, with critical-path override for non-completed bars.
+  const displayStatus = getGanttStatus(activity);
+  const token = getGanttStatusToken(displayStatus);
+  const isCriticalOverride =
+    activity.totalFloat === 0 && activity.status !== "COMPLETED";
+  const fillVar = isCriticalOverride ? "--danger" : token.fillVar;
+  const fillColor = `var(${fillVar})`;
+
   const barHeight = rowHeight - 4;
 
-  const percentComplete = activity.percentComplete || 0;
+  const percentComplete = Math.max(
+    0,
+    Math.min(100, activity.percentComplete || 0)
+  );
   const completeWidth = (width * percentComplete) / 100;
 
   // Render baseline bar if available
   let baselineBarElements: React.ReactNode = null;
   if (baselineData?.baselineStartDate && baselineData?.baselineFinishDate) {
-    const baselineStartDate = startOfDay(new Date(baselineData.baselineStartDate));
-    const baselineEndDate = startOfDay(new Date(baselineData.baselineFinishDate));
-    const baselineStartOffset = Math.max(0, differenceInDays(baselineStartDate, dateRange.start));
-    const baselineEndOffset = differenceInDays(baselineEndDate, dateRange.start);
-    const baselineDuration = Math.max(1, baselineEndOffset - baselineStartOffset + 1);
+    const baselineStartDate = startOfDay(
+      new Date(baselineData.baselineStartDate)
+    );
+    const baselineEndDate = startOfDay(
+      new Date(baselineData.baselineFinishDate)
+    );
+    const baselineStartOffset = Math.max(
+      0,
+      differenceInDays(baselineStartDate, dateRange.start)
+    );
+    const baselineEndOffset = differenceInDays(
+      baselineEndDate,
+      dateRange.start
+    );
+    const baselineDuration = Math.max(
+      1,
+      baselineEndOffset - baselineStartOffset + 1
+    );
     const baselineX = baselineStartOffset * pixelsPerDay;
     const baselineWidth = baselineDuration * pixelsPerDay;
 
@@ -155,7 +188,8 @@ export function GanttTaskRow({
           rx="1"
         />
         <title>
-          Baseline: {baselineData.baselineStartDate} to {baselineData.baselineFinishDate}
+          Baseline: {baselineData.baselineStartDate} to{" "}
+          {baselineData.baselineFinishDate}
         </title>
       </>
     );
@@ -173,34 +207,38 @@ export function GanttTaskRow({
       {/* Baseline bar */}
       {baselineBarElements}
 
-      {/* Main bar */}
+      {/* Translucent base bar (full planned duration) — also the click/drag surface */}
       <rect
         x={x}
         y={y + 2}
         width={width}
         height={barHeight}
-        fill={color}
-        opacity={isDragging ? 0.6 : 0.8}
-        rx="2"
-        className={`${cursorClass} hover:opacity-100 transition-opacity`}
+        fill={fillColor}
+        opacity={isDragging ? 0.18 : 0.25}
+        rx="3"
+        className={`${cursorClass} hover:opacity-40 transition-opacity`}
         onMouseDown={handleMouseDown}
         onClick={() => {
           if (!isDragging) {
             onActivityClick?.(activity.id);
           }
         }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onActivityContextMenu?.(activity.id, e.clientX, e.clientY);
+        }}
       />
 
-      {/* Percent complete overlay */}
+      {/* Saturated overlay sized to percentComplete */}
       {percentComplete > 0 && (
         <rect
           x={x}
           y={y + 2}
           width={completeWidth}
           height={barHeight}
-          fill={color}
-          opacity="1"
-          rx="2"
+          fill={fillColor}
+          opacity={isDragging ? 0.7 : 1}
+          rx="3"
           className="pointer-events-none"
         />
       )}
@@ -235,22 +273,10 @@ export function GanttTaskRow({
 
       {/* Tooltip on hover */}
       <title>
-        {activity.name} | {activity.code} | {percentComplete}% complete | Float: {activity.totalFloat}d
+        {activity.name} | {activity.code} | {percentComplete}% complete | Float:{" "}
+        {activity.totalFloat}d
         {onActivityReschedule ? " | Drag to reschedule" : ""}
       </title>
     </g>
   );
-}
-
-function getBarColor(activity: ActivityResponse): string {
-  if (activity.status === "COMPLETED") {
-    return "var(--success)";
-  }
-  if (activity.totalFloat === 0) {
-    return "var(--danger)";
-  }
-  if (activity.status === "NOT_STARTED") {
-    return "var(--text-muted)";
-  }
-  return "var(--accent)";
 }

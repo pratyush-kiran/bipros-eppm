@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 106-resource-assignment-planned-units-backfill
+      author: claude
+      comment: >
+        Backfill resource_assignments.planned_units to equal headcount for manpower and
+        equipment rows. Prior code stored plannedUnits = headcount × duration; Option B
+        treats the admin's typed headcount as the total commitment (no duration multiplier).
+        Material rows already store planned_units = quantity and are skipped.
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |
+              UPDATE resource.resource_assignments
+                 SET planned_units = headcount,
+                     budgeted_units = headcount,
+                     remaining_units = GREATEST(headcount - COALESCE(actual_units, 0), 0)
+               WHERE (manpower_role_rate_id IS NOT NULL OR equipment_role_variant_id IS NOT NULL)
+                 AND headcount IS NOT NULL
+                 AND planned_units IS DISTINCT FROM headcount;

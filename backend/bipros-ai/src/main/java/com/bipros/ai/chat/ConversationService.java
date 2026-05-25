@@ -124,4 +124,19 @@ public class ConversationService {
         conv.setDeletedAt(Instant.now());
         conversationRepository.save(conv);
     }
+
+    /**
+     * Persists the HDS document version scope on the conversation. Called by
+     * the chat endpoints when the request carries a non-null hdsVersionIds list
+     * — the scope sticks across turns so a follow-up message that omits the
+     * field still resolves to HDS retrieval. A null or empty list clears the
+     * stored scope.
+     */
+    @Transactional
+    public void saveHdsScope(UUID conversationId, List<String> hdsVersionIds) {
+        AiConversation conv = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Conversation", conversationId.toString()));
+        conv.setHdsVersionIds(hdsVersionIds == null || hdsVersionIds.isEmpty() ? null : hdsVersionIds);
+        conversationRepository.save(conv);
+    }
 }

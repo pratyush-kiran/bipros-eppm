@@ -8,8 +8,8 @@ import java.util.UUID;
 
 /**
  * Role-based activity demand. The (manpower|equipment|material)RoleRateId picks the variant;
- * {@code headcount × duration = plannedUnits} for manpower/equipment, {@code quantity}
- * is used for material (no duration concept).
+ * {@code plannedUnits = headcount} for manpower/equipment (Option B — duration is descriptive only),
+ * {@code quantity} is used for material (no duration concept).
  */
 public record RoleAssignmentRequest(
     @NotNull UUID activityId,

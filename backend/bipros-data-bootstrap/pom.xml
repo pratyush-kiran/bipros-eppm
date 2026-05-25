@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.bipros</groupId>
+        <artifactId>bipros-backend</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>bipros-data-bootstrap</artifactId>
+    <name>Bipros EPPM - Data Bootstrap</name>
+    <description>
+        Standalone CLI module that populates a real-data project end-to-end from a static
+        JSON fixture committed under src/main/resources/bootstrap-data.json. The fixture
+        is regenerated build-time via scripts/extract.py (Python + openpyxl). No LLM, no
+        network, no API keys at runtime — every StageN class just reads the JSON and
+        inserts rows.
+    </description>
+
+    <dependencies>
+        <!-- All domain modules so we can call their repositories + services -->
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-common</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-security</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-project</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-calendar</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-activity</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-scheduling</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-resource</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-cost</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-baseline</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-contract</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-document</artifactId></dependency>
+        <dependency><groupId>com.bipros</groupId><artifactId>bipros-udf</artifactId></dependency>
+
+        <!-- Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- DB driver -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Jackson for the bootstrap-data.json fixture -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.3.0</version>
+                <!-- No <executions> — invoke explicitly with -Dexec.mainClass=… -->
+            </plugin>
+        </plugins>
+    </build>
+</project>

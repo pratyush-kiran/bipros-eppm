@@ -68,5 +68,6 @@ public record CreateDailyProgressReportRequest(
     @Valid List<DprManpowerRow> manpower,
     @Valid List<DprEquipmentRow> equipment,
     @Valid List<DprMaterialRow> materials,
+    @Valid List<DprSubContractorRow> subContractors,
     @Valid List<DprIssueRow> issues
 ) {}

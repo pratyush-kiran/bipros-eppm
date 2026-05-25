@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,8 +32,6 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class DprProductivityPreviewService {
-
-  private static final double DEFAULT_HOURS_PER_DAY = 8.0;
 
   @PersistenceContext private EntityManager em;
 
@@ -79,7 +76,7 @@ public class DprProductivityPreviewService {
         }
         manpowerHadNorm = true;
         manpowerSum = manpowerSum.add(
-            norm.outputPerManPerDay.multiply(BigDecimal.valueOf(row.nos())));
+            computeManpowerExpected(norm.outputPerManPerDay, row.nos()));
       }
     }
 
@@ -98,13 +95,8 @@ public class DprProductivityPreviewService {
           continue;
         }
         equipmentHadNorm = true;
-        double hoursPerDay = norm.workingHoursPerDay != null && norm.workingHoursPerDay > 0
-            ? norm.workingHoursPerDay : DEFAULT_HOURS_PER_DAY;
-        BigDecimal rowHours = row.workingHours() != null
-            ? row.workingHours() : BigDecimal.valueOf(hoursPerDay);
-        BigDecimal scaler = rowHours.divide(BigDecimal.valueOf(hoursPerDay), 6, RoundingMode.HALF_UP);
         equipmentSum = equipmentSum.add(
-            norm.outputPerDay.multiply(BigDecimal.valueOf(row.nos())).multiply(scaler));
+            computeEquipmentExpected(norm.outputPerDay, row.nos()));
       }
     }
 
@@ -143,6 +135,25 @@ public class DprProductivityPreviewService {
       return manpower.max(equipment);
     }
     return manpower.min(equipment); // SERIES (default)
+  }
+
+  /**
+   * Manpower expected output for a DPR row. Per-day basis, HRS not used. Public/static so the
+   * math is unit-testable without an EntityManager.
+   */
+  public static BigDecimal computeManpowerExpected(BigDecimal outputPerManPerDay, Integer nos) {
+    if (outputPerManPerDay == null || nos == null || nos <= 0) return BigDecimal.ZERO;
+    return outputPerManPerDay.multiply(BigDecimal.valueOf(nos));
+  }
+
+  /**
+   * Equipment expected output for a DPR row. Per-day basis. HRS is intentionally NOT a parameter
+   * here — it's logging-only on the DPR and must not influence productivity math anywhere.
+   * Public/static so the math is unit-testable without an EntityManager.
+   */
+  public static BigDecimal computeEquipmentExpected(BigDecimal outputPerDay, Integer nos) {
+    if (outputPerDay == null || nos == null || nos <= 0) return BigDecimal.ZERO;
+    return outputPerDay.multiply(BigDecimal.valueOf(nos));
   }
 
   private static ProductivityPreviewResponse empty(String coverage) {

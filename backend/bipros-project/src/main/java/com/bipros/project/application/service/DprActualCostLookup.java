@@ -53,7 +53,8 @@ public class DprActualCostLookup {
         BigDecimal mp = nz(manpowerRepository.sumLineCostByProjectAndActivity(projectId, activityId));
         BigDecimal eq = nz(equipmentRepository.sumLineCostByProjectAndActivity(projectId, activityId));
         BigDecimal mt = nz(materialRepository.sumLineCostByProjectAndActivity(projectId, activityId));
-        return mp.add(eq).add(mt);
+        BigDecimal sc = nz(sumSubContractorByActivity(projectId, activityId));
+        return mp.add(eq).add(mt).add(sc);
     }
 
     /**
@@ -69,6 +70,7 @@ public class DprActualCostLookup {
         accumulate(out, "project.dpr_manpower", projectId);
         accumulate(out, "project.dpr_equipment", projectId);
         accumulate(out, "project.dpr_material", projectId);
+        accumulateSubContractorByActivity(out, projectId);
         return out;
     }
 
@@ -83,6 +85,7 @@ public class DprActualCostLookup {
         accumulateByDate(out, "project.dpr_manpower", projectId);
         accumulateByDate(out, "project.dpr_equipment", projectId);
         accumulateByDate(out, "project.dpr_material", projectId);
+        accumulateSubContractorByDate(out, projectId);
         return out;
     }
 
@@ -113,7 +116,8 @@ public class DprActualCostLookup {
         BigDecimal mp = nz(manpowerRepository.sumLineCostByProject(projectId));
         BigDecimal eq = nz(equipmentRepository.sumLineCostByProject(projectId));
         BigDecimal mt = nz(materialRepository.sumLineCostByProject(projectId));
-        return mp.add(eq).add(mt);
+        BigDecimal sc = nz(sumSubContractorByProject(projectId));
+        return mp.add(eq).add(mt).add(sc);
     }
 
     @SuppressWarnings("unchecked")
@@ -140,5 +144,79 @@ public class DprActualCostLookup {
 
     private static BigDecimal nz(BigDecimal v) {
         return v != null ? v : BigDecimal.ZERO;
+    }
+
+    /**
+     * Sub-contractor actual: dpr_sub_contractor stores quantity only; the rate must be looked
+     * up via activity_sub_contractor_assignments at query time. Cross-schema join (project ⇄
+     * resource).
+     */
+    private BigDecimal sumSubContractorByProject(UUID projectId) {
+        String sql = "SELECT COALESCE(SUM(c.quantity * COALESCE(a.rate_per_unit, 0)), 0) "
+                + "FROM project.dpr_sub_contractor c "
+                + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
+                + "JOIN resource.activity_sub_contractor_assignments a "
+                + "       ON a.id = c.activity_sub_contractor_assignment_id "
+                + "WHERE d.project_id = :projectId";
+        Object raw = em.createNativeQuery(sql)
+                .setParameter("projectId", projectId)
+                .getSingleResult();
+        return raw instanceof BigDecimal b ? b : new BigDecimal(raw.toString());
+    }
+
+    private BigDecimal sumSubContractorByActivity(UUID projectId, UUID activityId) {
+        String sql = "SELECT COALESCE(SUM(c.quantity * COALESCE(a.rate_per_unit, 0)), 0) "
+                + "FROM project.dpr_sub_contractor c "
+                + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
+                + "JOIN resource.activity_sub_contractor_assignments a "
+                + "       ON a.id = c.activity_sub_contractor_assignment_id "
+                + "WHERE d.project_id = :projectId AND d.activity_id = :activityId";
+        Object raw = em.createNativeQuery(sql)
+                .setParameter("projectId", projectId)
+                .setParameter("activityId", activityId)
+                .getSingleResult();
+        return raw instanceof BigDecimal b ? b : new BigDecimal(raw.toString());
+    }
+
+    @SuppressWarnings("unchecked")
+    private void accumulateSubContractorByDate(Map<LocalDate, BigDecimal> sink, UUID projectId) {
+        String sql = "SELECT d.report_date, COALESCE(SUM(c.quantity * COALESCE(a.rate_per_unit, 0)), 0) "
+                + "FROM project.dpr_sub_contractor c "
+                + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
+                + "JOIN resource.activity_sub_contractor_assignments a "
+                + "       ON a.id = c.activity_sub_contractor_assignment_id "
+                + "WHERE d.project_id = :projectId "
+                + "  AND d.report_date IS NOT NULL "
+                + "GROUP BY d.report_date";
+        List<Object[]> rows = em.createNativeQuery(sql)
+                .setParameter("projectId", projectId)
+                .getResultList();
+        for (Object[] r : rows) {
+            LocalDate date = (r[0] instanceof LocalDate ld) ? ld
+                    : (r[0] instanceof java.sql.Date sd ? sd.toLocalDate() : null);
+            if (date == null) continue;
+            BigDecimal amount = r[1] instanceof BigDecimal b ? b : new BigDecimal(r[1].toString());
+            sink.merge(date, amount, BigDecimal::add);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void accumulateSubContractorByActivity(Map<UUID, BigDecimal> sink, UUID projectId) {
+        String sql = "SELECT d.activity_id, COALESCE(SUM(c.quantity * COALESCE(a.rate_per_unit, 0)), 0) "
+                + "FROM project.dpr_sub_contractor c "
+                + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
+                + "JOIN resource.activity_sub_contractor_assignments a "
+                + "       ON a.id = c.activity_sub_contractor_assignment_id "
+                + "WHERE d.project_id = :projectId "
+                + "  AND d.activity_id IS NOT NULL "
+                + "GROUP BY d.activity_id";
+        List<Object[]> rows = em.createNativeQuery(sql)
+                .setParameter("projectId", projectId)
+                .getResultList();
+        for (Object[] r : rows) {
+            UUID activityId = (UUID) r[0];
+            BigDecimal amount = r[1] instanceof BigDecimal b ? b : new BigDecimal(r[1].toString());
+            sink.merge(activityId, amount, BigDecimal::add);
+        }
     }
 }

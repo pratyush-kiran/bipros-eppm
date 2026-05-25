@@ -1,18 +1,25 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import {
   differenceInDays,
   min as getMin,
   max as getMax,
   addDays,
   startOfDay,
+  eachMonthOfInterval,
+  eachQuarterOfInterval,
 } from "date-fns";
 import { AlertTriangle, Play } from "lucide-react";
-import type { ActivityResponse } from "@/lib/types";
+import type { ActivityResponse, WbsNodeResponse } from "@/lib/types";
 import { GanttTimescale } from "./GanttTimescale";
 import { GanttSidebar } from "./GanttSidebar";
 import { GanttTaskRow } from "./GanttTaskRow";
+import { buildGanttRows, type GanttRow } from "./ganttGrouping";
+import { buildWbsNameMap } from "@/lib/utils/wbs";
+import { getActivityBarRect } from "@/lib/utils/ganttGeometry";
+import { getGanttStatus, getGanttStatusToken } from "@/lib/utils/ganttStatus";
+import { StatusBadge } from "@/components/common/StatusBadge";
 
 interface ActivityRelationship {
   predecessorActivityId: string;
@@ -28,9 +35,11 @@ interface BaselineActivityData {
 
 interface GanttChartProps {
   activities: ActivityResponse[];
+  wbsNodes?: WbsNodeResponse[];
   relationships?: ActivityRelationship[];
   baselineActivities?: BaselineActivityData[];
   onActivityClick?: (id: string) => void;
+  onActivityContextMenu?: (id: string, x: number, y: number) => void;
   onActivityReschedule?: (id: string, newStart: string, newEnd: string) => void;
   spotlightStartDate?: string | null;
   spotlightEndDate?: string | null;
@@ -45,11 +54,16 @@ interface DateRange {
   days: number;
 }
 
+const QUARTER_MODE_THRESHOLD = 4;
+const BADGE_LANE_PX = 140;
+
 export function GanttChart({
   activities,
+  wbsNodes = [],
   relationships = [],
   baselineActivities = [],
   onActivityClick,
+  onActivityContextMenu,
   onActivityReschedule,
   spotlightStartDate,
   spotlightEndDate,
@@ -60,8 +74,17 @@ export function GanttChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [pixelsPerDay, setPixelsPerDay] = useState(20);
-  const [startDateFilter, setStartDateFilter] = useState(spotlightStartDate || "");
+  const [startDateFilter, setStartDateFilter] = useState(
+    spotlightStartDate || ""
+  );
   const [endDateFilter, setEndDateFilter] = useState(spotlightEndDate || "");
+
+  // Group activities by their parent WBS node.
+  const wbsNameById = useMemo(() => buildWbsNameMap(wbsNodes), [wbsNodes]);
+  const rows: GanttRow[] = useMemo(
+    () => buildGanttRows(activities, wbsNameById),
+    [activities, wbsNameById]
+  );
 
   // Calculate date range from all activities
   const dateRange = calculateDateRange(activities);
@@ -72,10 +95,6 @@ export function GanttChart({
   useEffect(() => {
     if (hasAutoScrolledRef.current) return;
     if (!dateRange || activities.length === 0) return;
-    // Use the earliest start among the first ~10 visible rows, rather than the
-    // absolute minimum across the whole activity set. This keeps the timeline
-    // anchored on what the user sees above the fold instead of scrolling to a
-    // distant outlier far down the list.
     const topRows = activities.slice(0, 10);
     const firstDate = topRows
       .map((a) => a.plannedStartDate || a.earlyStartDate)
@@ -84,9 +103,7 @@ export function GanttChart({
       .reduce<Date | null>((acc, d) => (acc == null || d < acc ? d : acc), null);
     if (!firstDate) return;
     const offsetDays = Math.max(0, differenceInDays(firstDate, dateRange.start));
-    // Leave a small gutter of ~2 days so the bar isn't flush against the edge.
     const targetScrollLeft = Math.max(0, (offsetDays - 2) * pixelsPerDay);
-    // Defer until after paint so the scrollable pane has its final width.
     const raf = requestAnimationFrame(() => {
       if (chartContainerRef.current) {
         chartContainerRef.current.scrollLeft = targetScrollLeft;
@@ -101,7 +118,10 @@ export function GanttChart({
     return (
       <div className="rounded-lg border border-dashed border-border py-12 text-center">
         <p className="text-text-secondary">No activities to display</p>
-        <p className="mt-2 text-sm text-text-muted">Create activities first, then run the scheduler to see them on the Gantt chart.</p>
+        <p className="mt-2 text-sm text-text-muted">
+          Create activities first, then run the scheduler to see them on the
+          Gantt chart.
+        </p>
       </div>
     );
   }
@@ -119,15 +139,22 @@ export function GanttChart({
   };
 
   const totalWidth = dateRange.days * pixelsPerDay;
+  const wrapperWidth = totalWidth + BADGE_LANE_PX;
   const rowHeight = 32;
-  // Timescale is rendered as a separate SVG above this one, so bars start at 0.
   const timelineStartY = 0;
+  const chartHeight = rows.length * rowHeight + timelineStartY;
+  const mode: "quarter-month" | "month-week" =
+    pixelsPerDay < QUARTER_MODE_THRESHOLD ? "quarter-month" : "month-week";
 
   const getActivityOpacity = (activity: ActivityResponse): number => {
     if (!startDateFilter && !endDateFilter) return 1;
 
-    const actStart = (activity.plannedStartDate || activity.earlyStartDate) ? new Date((activity.plannedStartDate || activity.earlyStartDate)!) : null;
-    const actEnd = (activity.plannedFinishDate || activity.earlyFinishDate) ? new Date((activity.plannedFinishDate || activity.earlyFinishDate)!) : null;
+    const actStart = activity.plannedStartDate || activity.earlyStartDate
+      ? new Date((activity.plannedStartDate || activity.earlyStartDate)!)
+      : null;
+    const actEnd = activity.plannedFinishDate || activity.earlyFinishDate
+      ? new Date((activity.plannedFinishDate || activity.earlyFinishDate)!)
+      : null;
     const filterStart = startDateFilter ? new Date(startDateFilter) : null;
     const filterEnd = endDateFilter ? new Date(endDateFilter) : null;
 
@@ -146,7 +173,10 @@ export function GanttChart({
         <div className="flex items-center justify-between gap-4 rounded-md border border-warning/40 bg-warning/10 px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-warning">
             <AlertTriangle size={16} className="shrink-0" />
-            <span>Schedule is out of date — dates and critical path shown may not reflect recent changes.</span>
+            <span>
+              Schedule is out of date — dates and critical path shown may not
+              reflect recent changes.
+            </span>
           </div>
           {onRunSchedule && (
             <button
@@ -198,7 +228,7 @@ export function GanttChart({
             Zoom:
             <input
               type="range"
-              min="5"
+              min="2"
               max="50"
               value={pixelsPerDay}
               onChange={(e) => setPixelsPerDay(Number(e.target.value))}
@@ -209,14 +239,19 @@ export function GanttChart({
         </div>
       </div>
 
-      <div className="flex gap-4 border border-border rounded-lg overflow-hidden bg-surface/50">
+      <div className="flex gap-0 border border-border rounded-lg overflow-hidden bg-surface/50">
         {/* Sidebar */}
         <div
           ref={sidebarRef}
           className="w-[480px] shrink-0 overflow-y-auto border-r border-border"
           onScroll={handleSidebarScroll}
         >
-          <GanttSidebar activities={activities} rowHeight={rowHeight} />
+          <GanttSidebar
+            rows={rows}
+            rowHeight={rowHeight}
+            onActivityClick={onActivityClick}
+            onActivityContextMenu={onActivityContextMenu}
+          />
         </div>
 
         {/* Chart */}
@@ -228,116 +263,181 @@ export function GanttChart({
           <div className="inline-block min-w-full">
             <GanttTimescale dateRange={dateRange} pixelsPerDay={pixelsPerDay} />
 
-            <svg
-              width={totalWidth}
-              height={activities.length * rowHeight + timelineStartY}
-              className="bg-surface/50"
+            <div
+              className="relative"
+              style={{ width: wrapperWidth, height: chartHeight }}
             >
-              <defs>
-                {/* Arrowhead marker for relationship lines */}
-                <marker
-                  id="arrowhead"
-                  markerWidth="10"
-                  markerHeight="10"
-                  refX="9"
-                  refY="3"
-                  orient="auto"
-                >
-                  <polygon points="0 0, 10 3, 0 6" fill="var(--text-muted)" />
-                </marker>
-                <marker
-                  id="arrowhead-critical"
-                  markerWidth="10"
-                  markerHeight="10"
-                  refX="9"
-                  refY="3"
-                  orient="auto"
-                >
-                  <polygon points="0 0, 10 3, 0 6" fill="var(--danger)" />
-                </marker>
-              </defs>
+              <svg
+                width={totalWidth}
+                height={chartHeight}
+                className="bg-surface/50 block"
+              >
+                <defs>
+                  <marker
+                    id="arrowhead"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="9"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 10 3, 0 6" fill="var(--text-muted)" />
+                  </marker>
+                  <marker
+                    id="arrowhead-critical"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="9"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <polygon points="0 0, 10 3, 0 6" fill="var(--danger)" />
+                  </marker>
+                </defs>
 
-              {/* Grid lines for weeks/days */}
-              {renderGridLines(dateRange, pixelsPerDay, activities.length * rowHeight)}
+                {/* Vertical grid lines (mode-aware) */}
+                {renderGridLines(dateRange, pixelsPerDay, chartHeight, mode)}
 
-              {/* Today line */}
-              {renderTodayLine(dateRange, pixelsPerDay, activities.length * rowHeight, timelineStartY)}
-
-              {/* Relationship lines */}
-              {relationships.length > 0 &&
-                renderRelationshipLines(
-                  relationships,
-                  activities,
-                  dateRange,
-                  pixelsPerDay,
-                  rowHeight,
-                  timelineStartY
+                {/* Group row banding */}
+                {rows.map((row, idx) =>
+                  row.kind === "group" ? (
+                    <g key={`gb-${row.groupId}`}>
+                      <rect
+                        x={0}
+                        y={idx * rowHeight + timelineStartY}
+                        width={totalWidth}
+                        height={rowHeight}
+                        fill="var(--surface-active)"
+                        opacity={0.4}
+                      />
+                      <line
+                        x1={0}
+                        y1={(idx + 1) * rowHeight + timelineStartY}
+                        x2={totalWidth}
+                        y2={(idx + 1) * rowHeight + timelineStartY}
+                        stroke="var(--border)"
+                        strokeWidth="1"
+                      />
+                    </g>
+                  ) : null
                 )}
 
-              {/* Activity bars */}
-              {activities.map((activity, index) => {
-                const baselineData = baselineActivities.find((b) => b.activityId === activity.id);
-                const opacity = getActivityOpacity(activity);
-                return (
-                  <g key={activity.id} opacity={opacity}>
-                    <GanttTaskRow
-                      activity={activity}
-                      dateRange={dateRange}
-                      pixelsPerDay={pixelsPerDay}
-                      rowIndex={index}
-                      rowHeight={rowHeight}
-                      timelineStartY={timelineStartY}
-                      baselineData={baselineData}
-                      onActivityClick={onActivityClick}
-                      onActivityReschedule={onActivityReschedule}
-                    />
-                  </g>
-                );
-              })}
-            </svg>
+                {/* Today line */}
+                {renderTodayLine(dateRange, pixelsPerDay, chartHeight)}
+
+                {/* Relationship lines */}
+                {relationships.length > 0 &&
+                  renderRelationshipLines(
+                    relationships,
+                    rows,
+                    dateRange,
+                    pixelsPerDay,
+                    rowHeight,
+                    timelineStartY
+                  )}
+
+                {/* Activity bars */}
+                {rows.map((row, idx) => {
+                  if (row.kind !== "activity") return null;
+                  const activity = row.activity;
+                  const baselineData = baselineActivities.find(
+                    (b) => b.activityId === activity.id
+                  );
+                  const opacity = getActivityOpacity(activity);
+                  return (
+                    <g key={activity.id} opacity={opacity}>
+                      <GanttTaskRow
+                        activity={activity}
+                        dateRange={dateRange}
+                        pixelsPerDay={pixelsPerDay}
+                        rowIndex={idx}
+                        rowHeight={rowHeight}
+                        timelineStartY={timelineStartY}
+                        baselineData={baselineData}
+                        onActivityClick={onActivityClick}
+                        onActivityContextMenu={onActivityContextMenu}
+                        onActivityReschedule={onActivityReschedule}
+                      />
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {/* Status pill badges — HTML layer above the SVG */}
+              <div className="absolute inset-0 pointer-events-none">
+                {rows.map((row, idx) => {
+                  if (row.kind !== "activity") return null;
+                  const rect = getActivityBarRect(
+                    row.activity,
+                    dateRange,
+                    pixelsPerDay
+                  );
+                  if (!rect) return null;
+                  const opacity = getActivityOpacity(row.activity);
+                  const status = getGanttStatus(row.activity);
+                  const token = getGanttStatusToken(status);
+                  return (
+                    <div
+                      key={`badge-${row.activity.id}`}
+                      className="absolute flex items-center"
+                      style={{
+                        left: rect.x + rect.width + 8,
+                        top: idx * rowHeight + timelineStartY,
+                        height: rowHeight,
+                        opacity,
+                      }}
+                    >
+                      <StatusBadge
+                        status={token.badgeStatus}
+                        variant="gantt"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-6 rounded-lg border border-border bg-surface/80 p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface/80 p-4">
+        <StatusBadge status="DONE" variant="gantt" />
+        <StatusBadge status="IN_PROGRESS_NOW" variant="gantt" />
+        <StatusBadge status="DELAYED" variant="gantt" />
+        <StatusBadge status="PLANNED" variant="gantt" />
+        <span className="mx-2 h-4 w-px bg-border" />
         <div className="flex items-center gap-2">
-          <div className="h-4 w-4 rounded bg-accent" />
-          <span className="text-sm text-text-secondary">Normal</span>
+          <div className="h-3 w-5 rounded bg-danger" />
+          <span className="text-xs text-text-secondary">Critical Path</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-4 rounded bg-danger" />
-          <span className="text-sm text-text-secondary">Critical Path</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-4 rounded bg-success" />
-          <span className="text-sm text-text-secondary">Completed</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="h-4 w-4 rounded bg-text-muted" />
-          <span className="text-sm text-text-secondary">Not Started</span>
-        </div>
-        {(startDateFilter || endDateFilter) && (
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-warning" />
-            <span className="text-sm text-text-secondary">In Spotlight Range</span>
-          </div>
-        )}
         {baselineActivities.length > 0 && (
           <div className="flex items-center gap-2">
-            <div className="h-2 w-4 rounded bg-text-muted" style={{ opacity: 0.5 }} />
-            <span className="text-sm text-text-secondary">Baseline</span>
+            <div
+              className="h-1.5 w-5 rounded bg-text-muted"
+              style={{ opacity: 0.5 }}
+            />
+            <span className="text-xs text-text-secondary">Baseline</span>
           </div>
         )}
         {relationships.length > 0 && (
           <div className="flex items-center gap-2">
-            <div className="w-6 h-4 relative">
-              <svg width="24" height="16" viewBox="0 0 24 16" className="absolute">
-                <path d="M 0 8 L 24 8" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" />
-                <polygon points="24,8 18,5 18,11" fill="var(--text-muted)" />
-              </svg>
-            </div>
-            <span className="text-sm text-text-secondary">Relationships</span>
+            <svg width="24" height="10" viewBox="0 0 24 10">
+              <path
+                d="M 0 5 L 22 5"
+                stroke="var(--text-muted)"
+                strokeWidth="1.5"
+                fill="none"
+              />
+              <polygon points="24,5 18,2 18,8" fill="var(--text-muted)" />
+            </svg>
+            <span className="text-xs text-text-secondary">Relationships</span>
+          </div>
+        )}
+        {(startDateFilter || endDateFilter) && (
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-5 rounded bg-warning" />
+            <span className="text-xs text-text-secondary">In Spotlight Range</span>
           </div>
         )}
       </div>
@@ -360,7 +460,7 @@ function calculateDateRange(activities: ActivityResponse[]): DateRange | null {
 
   const start = getMin(validDates);
   const end = getMax(validDates);
-  const days = Math.max(differenceInDays(end, start) + 1, 7); // Minimum 7 days
+  const days = Math.max(differenceInDays(end, start) + 1, 7);
 
   return { start, end, days };
 }
@@ -368,26 +468,69 @@ function calculateDateRange(activities: ActivityResponse[]): DateRange | null {
 function renderGridLines(
   dateRange: DateRange,
   pixelsPerDay: number,
-  height: number
+  height: number,
+  mode: "quarter-month" | "month-week"
 ): React.ReactNode {
   const lines: React.ReactNode[] = [];
-  const weekInDays = 7;
+  const rangeEnd = addDays(dateRange.start, dateRange.days - 1);
 
-  for (let i = 0; i <= dateRange.days; i++) {
-    if (i % weekInDays === 0) {
-      const x = i * pixelsPerDay;
+  if (mode === "quarter-month") {
+    const months = eachMonthOfInterval({ start: dateRange.start, end: rangeEnd });
+    const quarters = eachQuarterOfInterval({
+      start: dateRange.start,
+      end: rangeEnd,
+    });
+    months.forEach((m, idx) => {
+      const monthStart = new Date(m.getFullYear(), m.getMonth(), 1);
+      const days = Math.max(0, differenceInDays(monthStart, dateRange.start));
+      const x = days * pixelsPerDay;
       lines.push(
         <line
-          key={`grid-${i}`}
+          key={`gm-${idx}`}
+          x1={x}
+          y1="0"
+          x2={x}
+          y2={height}
+          stroke="var(--grid-color)"
+          strokeWidth="0.5"
+        />
+      );
+    });
+    quarters.forEach((q, idx) => {
+      const qStart = new Date(q.getFullYear(), q.getMonth(), 1);
+      const days = Math.max(0, differenceInDays(qStart, dateRange.start));
+      const x = days * pixelsPerDay;
+      lines.push(
+        <line
+          key={`gq-${idx}`}
           x1={x}
           y1="0"
           x2={x}
           y2={height}
           stroke="var(--border)"
           strokeWidth="1"
-          strokeDasharray="2,2"
+          opacity="0.7"
         />
       );
+    });
+  } else {
+    const weekInDays = 7;
+    for (let i = 0; i <= dateRange.days; i++) {
+      if (i % weekInDays === 0) {
+        const x = i * pixelsPerDay;
+        lines.push(
+          <line
+            key={`gw-${i}`}
+            x1={x}
+            y1="0"
+            x2={x}
+            y2={height}
+            stroke="var(--border)"
+            strokeWidth="1"
+            strokeDasharray="2,2"
+          />
+        );
+      }
     }
   }
 
@@ -397,10 +540,8 @@ function renderGridLines(
 function renderTodayLine(
   dateRange: DateRange,
   pixelsPerDay: number,
-  height: number,
-  _startY: number
+  height: number
 ): React.ReactNode | null {
-  void _startY;
   const today = startOfDay(new Date());
 
   if (today < dateRange.start || today > addDays(dateRange.start, dateRange.days)) {
@@ -409,26 +550,38 @@ function renderTodayLine(
 
   const daysFromStart = differenceInDays(today, dateRange.start);
   const x = daysFromStart * pixelsPerDay;
+  const pillW = 56;
+  const pillH = 18;
 
   return (
     <g key="today-line">
       <line
         x1={x}
-        y1="0"
+        y1={pillH + 2}
         x2={x}
         y2={height}
-        stroke="var(--danger)"
+        stroke="var(--accent)"
         strokeWidth="2"
-        strokeDasharray="4,4"
+        strokeDasharray="6,4"
+      />
+      <rect
+        x={x - pillW / 2}
+        y={2}
+        width={pillW}
+        height={pillH}
+        rx={9}
+        fill="var(--accent)"
       />
       <text
-        x={x + 4}
-        y="12"
-        fontSize="12"
-        fill="var(--danger)"
-        fontWeight="bold"
+        x={x}
+        y={pillH - 3}
+        textAnchor="middle"
+        fontSize="10"
+        fontWeight="700"
+        fill="var(--accent-foreground)"
+        letterSpacing="0.05em"
       >
-        Today
+        TODAY
       </text>
     </g>
   );
@@ -436,36 +589,49 @@ function renderTodayLine(
 
 function renderRelationshipLines(
   relationships: ActivityRelationship[],
-  activities: ActivityResponse[],
+  rows: GanttRow[],
   dateRange: DateRange,
   pixelsPerDay: number,
   rowHeight: number,
   timelineStartY: number
 ): React.ReactNode[] {
   const lines: React.ReactNode[] = [];
-  const activityMap = new Map(activities.map((a, idx) => [a.id, idx]));
+  // Activity row index within the flat `rows` array — preserves vertical
+  // alignment when group rows are interleaved between activity rows.
+  const activityRowIndex = new Map<string, number>();
+  rows.forEach((row, idx) => {
+    if (row.kind === "activity") {
+      activityRowIndex.set(row.activity.id, idx);
+    }
+  });
 
   relationships.forEach((rel, idx) => {
-    const predIdx = activityMap.get(rel.predecessorActivityId);
-    const succIdx = activityMap.get(rel.successorActivityId);
+    const predIdx = activityRowIndex.get(rel.predecessorActivityId);
+    const succIdx = activityRowIndex.get(rel.successorActivityId);
 
     if (predIdx === undefined || succIdx === undefined) return;
 
-    const predActivity = activities[predIdx];
-    const succActivity = activities[succIdx];
+    const predRow = rows[predIdx];
+    const succRow = rows[succIdx];
+    if (predRow.kind !== "activity" || succRow.kind !== "activity") return;
+    const predActivity = predRow.activity;
+    const succActivity = succRow.activity;
 
-    // Get dates
-    const predEndStr = predActivity.plannedFinishDate || predActivity.earlyFinishDate;
-    const succStartStr = succActivity.plannedStartDate || succActivity.earlyStartDate;
+    const predEndStr =
+      predActivity.plannedFinishDate || predActivity.earlyFinishDate;
+    const succStartStr =
+      succActivity.plannedStartDate || succActivity.earlyStartDate;
 
     const predEnd = predEndStr ? startOfDay(new Date(predEndStr)) : null;
     const succStart = succStartStr ? startOfDay(new Date(succStartStr)) : null;
 
     if (!predEnd || !succStart) return;
 
-    // Calculate bar positions
     const predEndOffset = differenceInDays(predEnd, dateRange.start);
-    const succStartOffset = Math.max(0, differenceInDays(succStart, dateRange.start));
+    const succStartOffset = Math.max(
+      0,
+      differenceInDays(succStart, dateRange.start)
+    );
 
     const predX = predEndOffset * pixelsPerDay;
     const predY = predIdx * rowHeight + timelineStartY + rowHeight / 2;
@@ -473,10 +639,9 @@ function renderRelationshipLines(
     const succX = succStartOffset * pixelsPerDay;
     const succY = succIdx * rowHeight + timelineStartY + rowHeight / 2;
 
-    // Determine if critical (both activities have totalFloat === 0)
-    const isCritical = predActivity.totalFloat === 0 && succActivity.totalFloat === 0;
+    const isCritical =
+      predActivity.totalFloat === 0 && succActivity.totalFloat === 0;
 
-    // Draw connection line with horizontal routing
     const midX = (predX + succX) / 2;
 
     lines.push(
@@ -486,7 +651,9 @@ function renderRelationshipLines(
           stroke={isCritical ? "var(--danger)" : "var(--text-muted)"}
           strokeWidth="1.5"
           fill="none"
-          markerEnd={isCritical ? "url(#arrowhead-critical)" : "url(#arrowhead)"}
+          markerEnd={
+            isCritical ? "url(#arrowhead-critical)" : "url(#arrowhead)"
+          }
         />
       </g>
     );

@@ -242,6 +242,22 @@ const Sc180SectionTable = memo(function Sc180SectionTable({
           </tbody>
         </table>
       </div>
+      {section.hiddenSideNotes && section.hiddenSideNotes.length > 0 && (
+        <div className="mt-2 mx-4 mb-4 rounded border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-text-muted space-y-1">
+          {section.hiddenSideNotes.map((n) => {
+            const governing = n.governingSide === "MANPOWER" ? "Manpower" : "Equipment";
+            const thisSide = n.governingSide === "MANPOWER" ? "Equipment" : "Manpower";
+            return (
+              <div key={n.activityId}>
+                <span className="font-medium text-warning">
+                  {n.workActivityName ?? "Activity"}
+                </span>
+                {` (${n.mode}): ${governing} side governs this activity. ${thisSide} deployments here count toward Actual but are excluded from this section’s Efficiency — see ${governing} Utilization for the activity’s productivity.`}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 });

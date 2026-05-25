@@ -32,7 +32,8 @@ import java.util.UUID;
 
 /**
  * Role-based activity demand service. New flow: activity demand is {@code role + variant +
- * headcount × duration} (manpower / equipment) or {@code role + variant + quantity} (material).
+ * headcount} (manpower / equipment, Option B — no duration multiplication) or
+ * {@code role + variant + quantity} (material).
  * No Resource instance, no project pool — rates come from {@link RoleRateResolver}.
  *
  * <p>This service lives alongside (not inside) {@code ResourceAssignmentService} so the legacy
@@ -77,9 +78,9 @@ public class RoleAssignmentService {
     }
     String unit = rateResolver.resolveUnit(typeCode, variantId);
 
-    // plannedUnits tracks person-days (headcount × duration) for DPR/EVA rollups.
-    // plannedCost is independent (headcount × rate) and intentionally excludes duration.
-    // Duration defaults to the activity's originalDuration when not provided.
+    // plannedUnits is the admin's typed headcount (or quantity for material) — total commitment
+    // for this activity. We DO NOT multiply by duration; duration is a descriptive label on the
+    // rate (Day/Hr/etc.) and is captured on the row for reporting only.
     Activity activity = activityRepo.findById(req.activityId()).orElse(null);
     BigDecimal plannedUnits;
     BigDecimal effectiveDuration = null;
@@ -95,13 +96,13 @@ public class RoleAssignmentService {
       if (headcount == null || headcount <= 0) {
         throw new BusinessRuleException("HEADCOUNT_REQUIRED", "headcount must be > 0");
       }
+      // effectiveDuration retained on the row for reporting only — does NOT multiply into units or cost.
+      // Option B: plannedUnits is the admin's typed headcount (total commitment).
       effectiveDuration = resolveDuration(req.duration(), activity);
-      plannedUnits = BigDecimal.valueOf(headcount).multiply(effectiveDuration);
+      plannedUnits = BigDecimal.valueOf(headcount);
       quantity = null;
     }
-    // Cost is headcount × rate (or quantity × rate for material). Duration is intentionally
-    // excluded — plannedUnits keeps person-day semantics for DPR/EVA, but per-row plannedCost
-    // is a point-in-time figure, not the duration-scaled total.
+    // Cost: plannedCost = plannedUnits × rate. Uniform across manpower / equipment / material.
     BigDecimal plannedCost =
         "MATERIAL".equals(typeCode)
             ? quantity.multiply(rate)
@@ -134,7 +135,7 @@ public class RoleAssignmentService {
         int next = current + headcount;
         merged.setHeadcount(next);
         merged.setDuration(effectiveDuration);
-        mergedUnits = BigDecimal.valueOf(next).multiply(effectiveDuration);
+        mergedUnits = BigDecimal.valueOf(next);
         mergedCost = BigDecimal.valueOf(next).multiply(rate);
       }
       merged.setPlannedUnits(mergedUnits.doubleValue());
@@ -227,7 +228,7 @@ public class RoleAssignmentService {
         throw new BusinessRuleException("HEADCOUNT_REQUIRED", "headcount must be > 0");
       }
       effectiveDuration = resolveDuration(req.duration(), activity);
-      plannedUnits = BigDecimal.valueOf(headcount).multiply(effectiveDuration);
+      plannedUnits = BigDecimal.valueOf(headcount);
       quantity = null;
     }
     BigDecimal plannedCost =

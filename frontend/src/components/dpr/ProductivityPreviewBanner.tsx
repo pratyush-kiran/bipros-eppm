@@ -17,6 +17,10 @@ export interface ProductivityPreviewData {
 interface Props {
   preview: ProductivityPreviewData | null;
   workdone: number | null | undefined;
+  /** Sum of sub-contractor quantities on this DPR. Subtracted from workdone so the deviation
+   *  math compares the expected M+E output against only the part the M+E rows are responsible
+   *  for. Defaults to 0 for callers that don't track sub-contractors. */
+  subContractorQty?: number;
   unit?: string | null;
 }
 
@@ -28,7 +32,7 @@ const fmt = (n: number | null | undefined) =>
  * actually tracks (no misleading "Manpower: —" on equipment-only activities). Soft yellow
  * warning when workdone deviates >25% from the bottleneck. Never blocks save.
  */
-export function ProductivityPreviewBanner({ preview, workdone, unit }: Props) {
+export function ProductivityPreviewBanner({ preview, workdone, subContractorQty, unit }: Props) {
   if (!preview || preview.source === "NONE") return null;
 
   const showManpower =
@@ -39,9 +43,17 @@ export function ProductivityPreviewBanner({ preview, workdone, unit }: Props) {
   const bottleneck = preview.expectedBottleneck;
   const workdoneNum =
     typeof workdone === "number" && Number.isFinite(workdone) ? workdone : null;
+  const scQty =
+    typeof subContractorQty === "number" && Number.isFinite(subContractorQty)
+      ? subContractorQty
+      : 0;
+  const effectiveWorkdone =
+    workdoneNum == null ? null : Math.max(workdoneNum - scQty, 0);
+  const allBySc = workdoneNum != null && scQty > 0 && scQty >= workdoneNum;
+
   let deviationPct: number | null = null;
-  if (bottleneck != null && bottleneck > 0 && workdoneNum != null) {
-    deviationPct = Math.abs(workdoneNum - bottleneck) / bottleneck;
+  if (!allBySc && bottleneck != null && bottleneck > 0 && effectiveWorkdone != null) {
+    deviationPct = Math.abs(effectiveWorkdone - bottleneck) / bottleneck;
   }
   const warn = deviationPct != null && deviationPct > 0.25;
 
@@ -92,12 +104,26 @@ export function ProductivityPreviewBanner({ preview, workdone, unit }: Props) {
               </span>
             )}
           </div>
+          {scQty > 0 && workdoneNum != null && !allBySc && (
+            <div className="mt-1 text-text-secondary">
+              Workdone: <b>{fmt(workdoneNum)}</b>
+              {" − "}
+              Sub-contractor: <b>{fmt(scQty)}</b>
+              {" = "}
+              Effective M+E: <b>{fmt(effectiveWorkdone)}</b>
+            </div>
+          )}
+          {allBySc && (
+            <div className="mt-1 text-text-secondary">
+              All work delivered by sub-contractor — no manpower/equipment expected.
+            </div>
+          )}
           {warn && (
             <div className="mt-1 flex items-start gap-1.5 text-warning">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
               <span>
-                Workdone ({fmt(workdoneNum)}) deviates by ~{Math.round(deviationPct! * 100)}%
-                from the expected output. Confirm before saving.
+                Effective workdone ({fmt(effectiveWorkdone)}) deviates by ~
+                {Math.round(deviationPct! * 100)}% from the expected output. Confirm before saving.
               </span>
             </div>
           )}

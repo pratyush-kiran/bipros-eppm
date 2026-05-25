@@ -4,6 +4,7 @@ import type {
   DprEquipmentRow,
   DprManpowerRow,
   DprMaterialRow,
+  DprSubContractorRow,
 } from "@/lib/types/dpr";
 import {
   equipmentLineCost,
@@ -15,6 +16,7 @@ interface Props {
   manpower: DprManpowerRow[];
   equipment: DprEquipmentRow[];
   materials: DprMaterialRow[];
+  subContractors: DprSubContractorRow[];
   qtyExecuted: number;
   unit: string;
   /** ISO 4217 currency code for cost display. Defaults to "INR". */
@@ -29,7 +31,15 @@ const fmt = (n: number, digits = 2) => {
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
 };
 
-export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit, currency = "INR" }: Props) {
+export function DprTotalsBar({
+  manpower,
+  equipment,
+  materials,
+  subContractors,
+  qtyExecuted,
+  unit,
+  currency = "INR",
+}: Props) {
   const manpowerCount = sum(manpower.map((m) => m.nos));
   const manpowerHours = sum(manpower.map((m) => m.workingHours)) + sum(manpower.map((m) => m.otHours));
   const equipmentCount = sum(equipment.map((e) => e.nos));
@@ -40,7 +50,10 @@ export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit
   const manpowerCost = sum(manpower.map((m) => manpowerLineCost(m, m.unitRateBasis)));
   const equipmentCost = sum(equipment.map((e) => equipmentLineCost(e, e.unitRateBasis ?? "HOUR")));
   const materialCost = sum(materials.map((m) => materialLineCost(m)));
-  const totalCost = manpowerCost + equipmentCost + materialCost;
+  const subContractorCost = sum(
+    subContractors.map((s) => (s.quantity ?? 0) * (s.ratePerUnit ?? 0)),
+  );
+  const totalCost = manpowerCost + equipmentCost + materialCost + subContractorCost;
   const hasAnyCost = totalCost > 0;
 
   /** Format a monetary value as "amount CURRENCY" using the project's currency code. */
@@ -51,7 +64,12 @@ export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit
       <Cell label="Manpower" value={`${manpowerCount} ppl`} hint={`${fmt(manpowerHours, 1)} hrs · ${fmtCost(manpowerCost)}`} />
       <Cell label="Equipment" value={`${equipmentCount} units`} hint={`${fmt(equipmentHours, 1)} hrs · ${fmtCost(equipmentCost)}`} />
       <Cell label="Fuel" value={`${fmt(fuelLitres, 1)} L`} />
-      <Cell label="Materials" value={`${materials.length} entries`} hint={hasAnyCost ? fmtCost(materialCost) : undefined} />
+      <Cell label="Materials" value={`${materials.length} entries`} hint={materialCost > 0 ? fmtCost(materialCost) : undefined} />
+      <Cell
+        label="Sub-Contractor"
+        value={`${subContractors.length} ${subContractors.length === 1 ? "row" : "rows"}`}
+        hint={subContractorCost > 0 ? fmtCost(subContractorCost) : undefined}
+      />
       <Cell
         label="Productivity"
         value={productivity != null ? `${fmt(productivity, 2)} ${unit}/hr` : "—"}
@@ -60,7 +78,7 @@ export function DprTotalsBar({ manpower, equipment, materials, qtyExecuted, unit
       <Cell
         label="Day cost"
         value={hasAnyCost ? fmtCost(totalCost) : "—"}
-        hint={hasAnyCost ? "manpower + equipment + material" : "set rates to compute"}
+        hint={hasAnyCost ? "manpower + equipment + material + sub-contractor" : "set rates to compute"}
       />
     </div>
   );

@@ -15,9 +15,12 @@ import com.bipros.dbs.service.calculator.SectionCMachineryCalculator;
 import com.bipros.dbs.service.calculator.SectionDFuelCalculator;
 import com.bipros.dbs.service.calculator.SectionEMaterialCalculator;
 import com.bipros.dbs.service.calculator.SectionFBoqCalculator;
+import com.bipros.dbs.service.calculator.SectionFSubContractorCalculator;
 import com.bipros.dbs.service.calculator.SectionGGeneralExpensesCalculator;
 import com.bipros.dbs.service.calculator.SectionLine;
 import com.bipros.dbs.service.calculator.SectionResult;
+import com.bipros.dbs.service.calculator.SubContractLine;
+import com.bipros.dbs.service.calculator.SubContractorSectionResult;
 import com.bipros.project.application.service.ProjectTeamService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,6 +67,7 @@ public class DbsAggregationService {
     private final SectionDFuelCalculator fuelCalc;
     private final SectionEMaterialCalculator materialCalc;
     private final SectionFBoqCalculator boqCalc;
+    private final SectionFSubContractorCalculator subContractorCalc;
     private final SectionGGeneralExpensesCalculator generalExpensesCalc;
     private final ProjectTeamService projectTeamService;
     private final ObjectMapper objectMapper;
@@ -437,8 +441,20 @@ public class DbsAggregationService {
         applyAggregates(row::setFuelAmount, supRows, DbsDailySupervisor::getFuelAmount);
         applyAggregatesWithExtra(row::setMaterialAmount, supRows,
             DbsDailySupervisor::getMaterialAmount, materialLegacyOnly);
-        applyAggregates(row::setSubcontractAmount, supRows, DbsDailySupervisor::getSubcontractAmount);
-        applyAggregates(row::setBoqForTheDayAmount, supRows, DbsDailySupervisor::getBoqForTheDayAmount);
+        // Sub-contractor: project-scope only. Supervisor rows always carry subcontractAmount = 0
+        // by design — SC must not roll up from a supervisor (different domain entity). We
+        // therefore IGNORE the supervisor SC totals and compute the project SC total directly
+        // from DPR sub-contractor entries.
+        SubContractorSectionResult scResult = subContractorCalc.compute(projectId, date);
+        row.setSubcontractAmount(scResult.totalExpense());
+
+        // PM-scope BOQ figures must reflect the FULL project revenue (including the SC
+        // portion of qty × boq_rate). Supervisor.boqForTheDayAmount is now reduced by SC
+        // qty at supervisor scope, so summing supervisor rows would understate PM revenue.
+        // Compute BOQ once at project scope (cast(:sup) IS NULL keeps full qty) — same
+        // value flows into boqForTheDay, directCost, and prelimCost.
+        BoqSectionResult projectBoq = boqCalc.compute(projectId, null, date);
+        row.setBoqForTheDayAmount(projectBoq.forTheDayAmount());
 
         // BOQ cumulative is DEDUPED at project scope (null filter = project-wide). Summing
         // supervisor rows would double-count whenever two supervisors share a BOQ item.
@@ -447,10 +463,11 @@ public class DbsAggregationService {
         row.setBoqPlannedAmount(projCum.planned());
         row.setBoqAchievedAmount(projCum.achieved());
 
-        // Phase 7: project-wide prelim split sums the per-supervisor split and recomputes
-        // pctAchieved against the deduped planned/achieved.
-        BigDecimal projectDirect = sumOf(supRows, DbsDailySupervisor::getDirectCost);
-        BigDecimal projectPrelim = sumOf(supRows, DbsDailySupervisor::getPrelimCost);
+        // Phase 7: project-wide prelim split. Source from project-scope BoqSectionResult
+        // (full revenue) rather than summing supervisor.directCost / prelimCost, which are
+        // now reduced by SC qty at supervisor scope.
+        BigDecimal projectDirect = nz(projectBoq.directBoqAmount());
+        BigDecimal projectPrelim = nz(projectBoq.prelimBoqAmount());
         row.setDirectCost(projectDirect);
         row.setPrelimCost(projectPrelim);
         row.setTotalCostInclPrelims(projectDirect.add(projectPrelim));
@@ -463,6 +480,10 @@ public class DbsAggregationService {
         row.setGeneralExpenseAmount(gExp.dailyAmount());
         row.setGeneralExpenseMonthlyTotal(gExp.monthlyTotal());
         row.setGeneralExpenseLinesJson(serializeLines(gExp.lines()));
+
+        // Sub-contractor accordion payload — JSON list of grouped lines for the PM
+        // F. card. PM scope only; supervisor / engineer / CM rows do not have this column.
+        row.setSubcontractLinesJson(serializeSubContractLines(scResult.lines()));
 
         BigDecimal totalExpense = sum(
             nz(row.getManpowerAmount()), nz(row.getAdminAmount()), nz(row.getMachineryAmount()),
@@ -585,6 +606,15 @@ public class DbsAggregationService {
             return objectMapper.writeValueAsString(lines);
         } catch (JsonProcessingException ex) {
             log.warn("Failed to serialise section lines: {}", ex.toString());
+            return "[]";
+        }
+    }
+
+    private String serializeSubContractLines(List<SubContractLine> lines) {
+        try {
+            return objectMapper.writeValueAsString(lines);
+        } catch (JsonProcessingException ex) {
+            log.warn("Failed to serialise sub-contractor lines: {}", ex.toString());
             return "[]";
         }
     }

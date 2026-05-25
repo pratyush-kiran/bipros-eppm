@@ -1,7 +1,15 @@
 "use client";
 
 import React from "react";
-import { format, eachMonthOfInterval, addDays, differenceInDays } from "date-fns";
+import {
+  format,
+  eachMonthOfInterval,
+  eachQuarterOfInterval,
+  startOfQuarter,
+  endOfQuarter,
+  addDays,
+  differenceInDays,
+} from "date-fns";
 
 interface DateRange {
   start: Date;
@@ -14,27 +22,150 @@ interface GanttTimescaleProps {
   pixelsPerDay: number;
 }
 
-export function GanttTimescale({ dateRange, pixelsPerDay }: GanttTimescaleProps) {
-  const months = eachMonthOfInterval({
-    start: dateRange.start,
-    end: addDays(dateRange.start, dateRange.days - 1),
-  });
+const QUARTER_MODE_THRESHOLD = 4;
 
+export function GanttTimescale({
+  dateRange,
+  pixelsPerDay,
+}: GanttTimescaleProps) {
   const totalWidth = dateRange.days * pixelsPerDay;
   const headerHeight = 80;
+  const rangeEnd = addDays(dateRange.start, dateRange.days - 1);
+  const mode: "quarter-month" | "month-week" =
+    pixelsPerDay < QUARTER_MODE_THRESHOLD ? "quarter-month" : "month-week";
+
+  if (mode === "quarter-month") {
+    const quarters = eachQuarterOfInterval({
+      start: dateRange.start,
+      end: rangeEnd,
+    });
+    const months = eachMonthOfInterval({
+      start: dateRange.start,
+      end: rangeEnd,
+    });
+
+    return (
+      <svg
+        width={totalWidth}
+        height={headerHeight}
+        className="sticky top-0 bg-surface/50 border-b border-border z-10"
+      >
+        {/* Quarter row (top) */}
+        <g>
+          {quarters.map((q, idx) => {
+            const qStart = startOfQuarter(q);
+            const qEnd = endOfQuarter(q);
+            const adjStart = qStart < dateRange.start ? dateRange.start : qStart;
+            const adjEnd = qEnd > rangeEnd ? rangeEnd : qEnd;
+            const startOffset = differenceInDays(adjStart, dateRange.start);
+            const endOffset = differenceInDays(adjEnd, dateRange.start);
+            const width = (endOffset - startOffset + 1) * pixelsPerDay;
+            const x = startOffset * pixelsPerDay;
+
+            return (
+              <g key={`q-${idx}`}>
+                <rect
+                  x={x}
+                  y="0"
+                  width={width}
+                  height="40"
+                  fill="var(--surface-active)"
+                  stroke="var(--border)"
+                  strokeWidth="1"
+                />
+                <text
+                  x={x + width / 2}
+                  y="26"
+                  textAnchor="middle"
+                  fontSize="13"
+                  fontWeight="700"
+                  fill="var(--text-primary)"
+                >
+                  {format(qStart, "QQQ yyyy")}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+
+        {/* Month row (bottom) */}
+        <g>
+          {months.map((m, idx) => {
+            const mStart = new Date(m.getFullYear(), m.getMonth(), 1);
+            const mEnd = new Date(m.getFullYear(), m.getMonth() + 1, 0);
+            const adjStart = mStart < dateRange.start ? dateRange.start : mStart;
+            const adjEnd = mEnd > rangeEnd ? rangeEnd : mEnd;
+            const startOffset = differenceInDays(adjStart, dateRange.start);
+            const endOffset = differenceInDays(adjEnd, dateRange.start);
+            const width = (endOffset - startOffset + 1) * pixelsPerDay;
+            const x = startOffset * pixelsPerDay;
+            const isQuarterBoundary = mStart.getMonth() % 3 === 0;
+
+            return (
+              <g key={`m-${idx}`}>
+                <rect
+                  x={x}
+                  y="40"
+                  width={width}
+                  height="40"
+                  fill="var(--surface-hover)"
+                />
+                {/* faint month boundary tick on the left edge */}
+                <line
+                  x1={x}
+                  y1="40"
+                  x2={x}
+                  y2="80"
+                  stroke={
+                    isQuarterBoundary ? "var(--border)" : "var(--grid-color)"
+                  }
+                  strokeWidth={isQuarterBoundary ? "1.5" : "0.5"}
+                />
+                {width > 18 && (
+                  <text
+                    x={x + width / 2}
+                    y="64"
+                    textAnchor="middle"
+                    fontSize="11"
+                    fontWeight="600"
+                    fill="var(--text-muted)"
+                  >
+                    {format(mStart, "MMM")}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+    );
+  }
+
+  // Default: Month + Week
+  const months = eachMonthOfInterval({
+    start: dateRange.start,
+    end: rangeEnd,
+  });
 
   return (
-    <svg width={totalWidth} height={headerHeight} className="sticky top-0 bg-surface/50 border-b border-border">
+    <svg
+      width={totalWidth}
+      height={headerHeight}
+      className="sticky top-0 bg-surface/50 border-b border-border z-10"
+    >
       {/* Month headers */}
       <g>
         {months.map((month, idx) => {
           const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
-          const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+          const monthEnd = new Date(
+            month.getFullYear(),
+            month.getMonth() + 1,
+            0
+          );
 
-          const adjustedStart = monthStart < dateRange.start ? dateRange.start : monthStart;
-          const adjustedEnd = monthEnd > addDays(dateRange.start, dateRange.days - 1)
-            ? addDays(dateRange.start, dateRange.days - 1)
-            : monthEnd;
+          const adjustedStart =
+            monthStart < dateRange.start ? dateRange.start : monthStart;
+          const adjustedEnd = monthEnd > rangeEnd ? rangeEnd : monthEnd;
 
           const startOffset = differenceInDays(adjustedStart, dateRange.start);
           const endOffset = differenceInDays(adjustedEnd, dateRange.start);

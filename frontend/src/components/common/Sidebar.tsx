@@ -103,6 +103,7 @@ const groups: NavGroup[] = [
       // { name: "Unit Rate Master", href: "/admin/unit-rate-master", icon: Banknote, adminOnly: true },
       /* { name: "Cost Accounts", href: "/admin/cost-accounts", icon: CircleDollarSign, adminOnly: true, permission: "ADMIN_MASTER.READ" }, */
       { name: "Integrations", href: "/admin/integrations", icon: Plug, adminOnly: true, permission: "ADMIN_SETTINGS.READ" },
+      { name: "HDS Library", href: "/admin/hds-library", icon: Library, permission: "HDS_LIBRARY.READ" },
       /* { name: "User Defined Fields", href: "/admin/udf", icon: SlidersHorizontal, adminOnly: true, permission: "ADMIN_SETTINGS.READ" }, */
       { name: "Settings", href: "/admin/settings", icon: Settings, adminOnly: true, permission: "ADMIN_SETTINGS.READ" },
     ],
@@ -126,6 +127,7 @@ const groups: NavGroup[] = [
           { name: "Risk Library", href: "/admin/risk-library", icon: Library, adminOnly: true, permission: "ADMIN_MASTER.READ" },
           { name: "Risk Categories", href: "/admin/risk-categories", icon: Layers, adminOnly: true, permission: "ADMIN_MASTER.READ" },
           { name: "Employment Types", href: "/admin/employment-types", icon: Briefcase, adminOnly: true, permission: "ADMIN_MASTER.READ" },
+          { name: "Sub-Contractors", href: "/admin/sub-contractors", icon: HardHat, adminOnly: true, permission: "ADMIN_MASTER.READ" },
           { name: "Skills", href: "/admin/skills", icon: Sparkles, adminOnly: true, permission: "ADMIN_MASTER.READ" },
           { name: "Skill Levels", href: "/admin/skill-levels", icon: Award, adminOnly: true, permission: "ADMIN_MASTER.READ" },
           { name: "Grades", href: "/admin/grades", icon: Award, adminOnly: true, permission: "ADMIN_MASTER.READ" },

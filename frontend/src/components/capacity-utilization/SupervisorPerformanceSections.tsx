@@ -4,6 +4,7 @@ import { memo, useMemo, useState } from "react";
 import type {
   ActivityDrillDown,
   EquipmentRollup,
+  HiddenSideNote,
   PlannedActuals,
   ProductivityNorms,
   ResourceLine,
@@ -48,6 +49,56 @@ function UtilCell({ util }: { util: number | null | undefined }) {
   );
 }
 
+/**
+ * "(115 tracked · 154 suppressed · 8 untracked)" — only when at least one of suppressed/untracked
+ * is non-zero. Returns null otherwise so the table stays tight on the common case where every
+ * day was tracked.
+ */
+function actualBreakdown(
+  total: number | null | undefined,
+  suppressed: number | null | undefined,
+  untracked: number | null | undefined,
+): string | null {
+  if (total == null || total <= 0) return null;
+  const s = suppressed ?? 0;
+  const u = untracked ?? 0;
+  if (s <= 0 && u <= 0) return null;
+  const tracked = total - s - u;
+  const parts: string[] = [];
+  if (tracked > 0) parts.push(`${fmt(tracked, 1)} tracked`);
+  if (s > 0) parts.push(`${fmt(s, 1)} suppressed`);
+  if (u > 0) parts.push(`${fmt(u, 1)} untracked`);
+  return parts.join(" · ");
+}
+
+const BREAKDOWN_TOOLTIP =
+  "Tracked = counted toward Efficiency on this side. Suppressed = on activities where the other side governs (SERIES / SUBSTITUTE) — see banner. Untracked = on activities with no productivity norm for this role.";
+
+function HiddenSideBanner({
+  notes,
+  sideLabel,
+}: {
+  notes: HiddenSideNote[] | undefined;
+  sideLabel: "Manpower" | "Equipment";
+}) {
+  if (!notes || notes.length === 0) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning space-y-1">
+      {notes.map((n) => {
+        const governing = n.governingSide === "MANPOWER" ? "Manpower" : "Equipment";
+        return (
+          <div key={n.activityId}>
+            <span className="font-medium">
+              {n.workActivityName ?? "Activity"}
+            </span>
+            {` (${n.mode}): ${governing} side governs this activity. ${sideLabel} deployments here count toward Actual but are excluded from this section’s Efficiency — see ${governing} Utilization for the activity’s productivity.`}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function NormSourceBadge({ source }: { source: string }) {
   if (!source || source === "NONE")
     return (
@@ -66,7 +117,13 @@ interface SectionsProps {
 
 const MAX_ROLLUP_ROWS = 50;
 
-function ManpowerUtilizationTableInner({ rows }: { rows: TradeRollup[] }) {
+function ManpowerUtilizationTableInner({
+  rows,
+  hiddenNotes,
+}: {
+  rows: TradeRollup[];
+  hiddenNotes?: HiddenSideNote[];
+}) {
   if (rows.length === 0) {
     return (
       <div className="text-text-muted text-sm py-6 text-center">
@@ -77,61 +134,79 @@ function ManpowerUtilizationTableInner({ rows }: { rows: TradeRollup[] }) {
   const visible = rows.slice(0, MAX_ROLLUP_ROWS);
   const overflow = rows.length - visible.length;
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      {overflow > 0 && (
-        <div className="px-3 py-2 bg-warning/10 border-b border-warning/30 text-xs text-warning">
-          Showing first {MAX_ROLLUP_ROWS} of {rows.length} trades. Narrow the date range or pick a supervisor to focus.
-        </div>
-      )}
-      <table className="min-w-full text-sm">
-        <thead className="bg-surface/50 text-text-secondary text-xs uppercase tracking-wide">
-          <tr>
-            <th className="px-3 py-2 text-left">#</th>
-            <th className="px-3 py-2 text-left">Trade</th>
-            <th className="px-3 py-2 text-right">MM Rate</th>
-            <th className="px-3 py-2 text-right">Qty Done</th>
-            <th className="px-3 py-2 text-right">Bud. Man-days</th>
-            <th className="px-3 py-2 text-right">Act. Man-days</th>
-            <th className="px-3 py-2 text-center">Efficiency %</th>
-            <th className="px-3 py-2 text-right">Cost Implication</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((r, i) => (
-            <tr
-              key={r.tradeKey}
-              className="border-t border-border hover:bg-surface/30"
-            >
-              <td className="px-3 py-2 text-text-muted">{i + 1}</td>
-              <td className="px-3 py-2">
-                <div className="font-medium text-text-primary">
-                  {r.tradeLabel}
-                </div>
-                <NormSourceBadge source={r.normSource} />
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.mmRate)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.qtyDone)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.budgetedManDays)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.actualManDays)}
-              </td>
-              <td className="px-3 py-2 text-center">
-                <UtilCell util={r.utilizationPct} />
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                <CostLabel value={r.costImplication} />
-              </td>
+    <>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        {overflow > 0 && (
+          <div className="px-3 py-2 bg-warning/10 border-b border-warning/30 text-xs text-warning">
+            Showing first {MAX_ROLLUP_ROWS} of {rows.length} trades. Narrow the date range or pick a supervisor to focus.
+          </div>
+        )}
+        <table className="min-w-full text-sm">
+          <thead className="bg-surface/50 text-text-secondary text-xs uppercase tracking-wide">
+            <tr>
+              <th className="px-3 py-2 text-left">#</th>
+              <th className="px-3 py-2 text-left">Trade</th>
+              <th className="px-3 py-2 text-right">MM Rate</th>
+              <th className="px-3 py-2 text-right">Qty Done</th>
+              <th className="px-3 py-2 text-right">Bud. Man-days</th>
+              <th className="px-3 py-2 text-right">Act. Man-days</th>
+              <th className="px-3 py-2 text-center">Efficiency %</th>
+              <th className="px-3 py-2 text-right">Cost Implication</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {visible.map((r, i) => {
+              const breakdown = actualBreakdown(
+                r.actualManDays,
+                r.actualDaysOnHiddenSides,
+                r.actualDaysUntracked,
+              );
+              return (
+                <tr
+                  key={r.tradeKey}
+                  className="border-t border-border hover:bg-surface/30"
+                >
+                  <td className="px-3 py-2 text-text-muted">{i + 1}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-text-primary">
+                      {r.tradeLabel}
+                    </div>
+                    <NormSourceBadge source={r.normSource} />
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmt(r.mmRate)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmt(r.qtyDone)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmt(r.budgetedManDays)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <div>{fmt(r.actualManDays)}</div>
+                    {breakdown && (
+                      <div
+                        className="text-[11px] text-text-muted italic"
+                        title={BREAKDOWN_TOOLTIP}
+                      >
+                        ({breakdown})
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <UtilCell util={r.utilizationPct} />
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <CostLabel value={r.costImplication} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <HiddenSideBanner notes={hiddenNotes} sideLabel="Manpower" />
+    </>
   );
 }
 
@@ -139,8 +214,10 @@ export const ManpowerUtilizationTable = memo(ManpowerUtilizationTableInner);
 
 function EquipmentUtilizationTableInner({
   rows,
+  hiddenNotes,
 }: {
   rows: EquipmentRollup[];
+  hiddenNotes?: HiddenSideNote[];
 }) {
   if (rows.length === 0) {
     return (
@@ -152,61 +229,79 @@ function EquipmentUtilizationTableInner({
   const visible = rows.slice(0, MAX_ROLLUP_ROWS);
   const overflow = rows.length - visible.length;
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      {overflow > 0 && (
-        <div className="px-3 py-2 bg-warning/10 border-b border-warning/30 text-xs text-warning">
-          Showing first {MAX_ROLLUP_ROWS} of {rows.length} equipment rows. Narrow the date range or pick a supervisor to focus.
-        </div>
-      )}
-      <table className="min-w-full text-sm">
-        <thead className="bg-surface/50 text-text-secondary text-xs uppercase tracking-wide">
-          <tr>
-            <th className="px-3 py-2 text-left">#</th>
-            <th className="px-3 py-2 text-left">Equipment</th>
-            <th className="px-3 py-2 text-right">Eq Rate / Day</th>
-            <th className="px-3 py-2 text-right">Qty Done</th>
-            <th className="px-3 py-2 text-right">Bud. Eqpt-days</th>
-            <th className="px-3 py-2 text-right">Act. Eqpt-days</th>
-            <th className="px-3 py-2 text-center">Efficiency %</th>
-            <th className="px-3 py-2 text-right">Cost Implication</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((r, i) => (
-            <tr
-              key={r.equipmentKey}
-              className="border-t border-border hover:bg-surface/30"
-            >
-              <td className="px-3 py-2 text-text-muted">{i + 1}</td>
-              <td className="px-3 py-2">
-                <div className="font-medium text-text-primary">
-                  {r.equipmentLabel}
-                </div>
-                <NormSourceBadge source={r.normSource} />
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.hourRate)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.qtyDone)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.budgetedDays)}
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                {fmt(r.actualDays)}
-              </td>
-              <td className="px-3 py-2 text-center">
-                <UtilCell util={r.utilizationPct} />
-              </td>
-              <td className="px-3 py-2 text-right tabular-nums">
-                <CostLabel value={r.costImplication} />
-              </td>
+    <>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        {overflow > 0 && (
+          <div className="px-3 py-2 bg-warning/10 border-b border-warning/30 text-xs text-warning">
+            Showing first {MAX_ROLLUP_ROWS} of {rows.length} equipment rows. Narrow the date range or pick a supervisor to focus.
+          </div>
+        )}
+        <table className="min-w-full text-sm">
+          <thead className="bg-surface/50 text-text-secondary text-xs uppercase tracking-wide">
+            <tr>
+              <th className="px-3 py-2 text-left">#</th>
+              <th className="px-3 py-2 text-left">Equipment</th>
+              <th className="px-3 py-2 text-right">Eq Rate / Day</th>
+              <th className="px-3 py-2 text-right">Qty Done</th>
+              <th className="px-3 py-2 text-right">Bud. Eqpt-days</th>
+              <th className="px-3 py-2 text-right">Act. Eqpt-days</th>
+              <th className="px-3 py-2 text-center">Efficiency %</th>
+              <th className="px-3 py-2 text-right">Cost Implication</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {visible.map((r, i) => {
+              const breakdown = actualBreakdown(
+                r.actualDays,
+                r.actualDaysOnHiddenSides,
+                r.actualDaysUntracked,
+              );
+              return (
+                <tr
+                  key={r.equipmentKey}
+                  className="border-t border-border hover:bg-surface/30"
+                >
+                  <td className="px-3 py-2 text-text-muted">{i + 1}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-text-primary">
+                      {r.equipmentLabel}
+                    </div>
+                    <NormSourceBadge source={r.normSource} />
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmt(r.hourRate)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmt(r.qtyDone)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {fmt(r.budgetedDays)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <div>{fmt(r.actualDays)}</div>
+                    {breakdown && (
+                      <div
+                        className="text-[11px] text-text-muted italic"
+                        title={BREAKDOWN_TOOLTIP}
+                      >
+                        ({breakdown})
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    <UtilCell util={r.utilizationPct} />
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    <CostLabel value={r.costImplication} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <HiddenSideBanner notes={hiddenNotes} sideLabel="Equipment" />
+    </>
   );
 }
 
@@ -293,6 +388,14 @@ function ActivityDrillDownPanelInner({
         </div>
         <div className="text-xs text-text-muted">
           Qty for month: {fmt(activity.qtyForMonth)} {activity.unit ?? ""}
+          {activity.subContractorQty != null &&
+            activity.subContractorQty > 0 &&
+            activity.qtyForMonth != null && (
+              <span className="ml-1">
+                ({fmt(activity.qtyForMonth - activity.subContractorQty)} own +{" "}
+                {fmt(activity.subContractorQty)} sub-contractor)
+              </span>
+            )}
           <span className="ml-3">
             {activity.resources.length} resource line
             {activity.resources.length === 1 ? "" : "s"}
@@ -375,14 +478,20 @@ function SupervisorPerformanceSectionsInner({ report }: SectionsProps) {
         <h2 className="text-lg font-bold text-text-primary mb-3">
           Manpower Utilization
         </h2>
-        <ManpowerUtilizationTable rows={report.summary.manpower} />
+        <ManpowerUtilizationTable
+          rows={report.summary.manpower}
+          hiddenNotes={report.summary.manpowerHiddenNotes}
+        />
       </section>
 
       <section>
         <h2 className="text-lg font-bold text-text-primary mb-3">
           Equipment Utilization
         </h2>
-        <EquipmentUtilizationTable rows={report.summary.equipment} />
+        <EquipmentUtilizationTable
+          rows={report.summary.equipment}
+          hiddenNotes={report.summary.equipmentHiddenNotes}
+        />
       </section>
 
       <section>

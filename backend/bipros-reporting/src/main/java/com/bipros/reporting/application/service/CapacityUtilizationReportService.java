@@ -232,80 +232,121 @@ public class CapacityUtilizationReportService {
         ? loadManpowerContributions(projectId, fromDate, toDate, supervisorUserId)
         : loadEquipmentContributions(projectId, fromDate, toDate, supervisorUserId);
 
-    // SERIES-bottleneck lookup, by project-activity id. Computed once per section: for each
-    // activity in the contribution set, decide which side (MP or EQ) governed under SERIES. The
-    // OPPOSITE side's role rows on those activities will get a "constrained by …" annotation.
-    java.util.Set<UUID> activityIdSet = new java.util.HashSet<>();
-    for (Contribution c : contributions) {
-      if (c.activityId != null) activityIdSet.add(c.activityId);
-    }
-    Map<UUID, BottleneckInfo> bottleneckByActivity = computeBottleneck(projectId, activityIdSet);
-
-    // Per (role, period) accumulator. We track:
-    //  - sum of role-days across DPRs in the bucket
-    //  - sum of distinct dpr.qty_executed per (role × work_activity) so we can compute budget
-    //    days per activity-norm and roll up — qty is captured once per DPR (not per row).
-    Map<UUID, RoleAccumulator> byRole = new LinkedHashMap<>();
-    // (role, dpr) seen-set per period so we don't double-count qty when a single DPR has multiple
-    // rows for the same role.
-    java.util.Set<DprRoleKey> seenDay = new java.util.HashSet<>();
-    java.util.Set<DprRoleKey> seenMonth = new java.util.HashSet<>();
-    java.util.Set<DprRoleKey> seenCum = new java.util.HashSet<>();
-
-    for (Contribution c : contributions) {
-      UUID accKey = c.accKey();
-      RoleAccumulator acc = byRole.computeIfAbsent(accKey,
-          k -> new RoleAccumulator(c.roleId, c.roleCode, c.roleName));
-      // Capture (role, workActivity) → norm cache key. The (role × workActivity × period) qty
-      // is summed once per distinct DPR so multiple rows for the same role on the same DPR
-      // don't multiply the qty.
-      // Use the real roleId for norm resolution (null-role rows will fall through to the
-      // unscoped norm lookup in resolveNorm).
-      WorkActivityRoleKey waRoleKey = new WorkActivityRoleKey(c.workActivityId, c.roleId);
-      acc.activityRoles.computeIfAbsent(waRoleKey,
-          k -> new ActivityRoleAccumulator(c.workActivityId, c.workActivityName,
-              c.workActivityDefaultUnit, c.roleId));
-
-      boolean isInDay = c.reportDate.equals(referenceDate);
-      boolean isInMonth = YearMonth.from(c.reportDate).equals(referenceMonth);
-
-      ActivityRoleAccumulator ara = acc.activityRoles.get(waRoleKey);
-      ara.cumActualDays = ara.cumActualDays.add(c.roleDays);
-      acc.cumActualDays = acc.cumActualDays.add(c.roleDays);
-      DprRoleKey drk = new DprRoleKey(c.dprId, accKey);
-      if (seenCum.add(drk)) {
-        // First time we see (dpr, role) in cumulative — credit the DPR's qty toward this role/WA.
-        ara.cumQty = ara.cumQty.add(c.qtyExecuted == null ? BigDecimal.ZERO : c.qtyExecuted);
-      }
-      if (isInMonth) {
-        ara.monthActualDays = ara.monthActualDays.add(c.roleDays);
-        acc.monthActualDays = acc.monthActualDays.add(c.roleDays);
-        if (seenMonth.add(drk)) {
-          ara.monthQty = ara.monthQty.add(c.qtyExecuted == null ? BigDecimal.ZERO : c.qtyExecuted);
-        }
-      }
-      if (isInDay) {
-        ara.dayActualDays = ara.dayActualDays.add(c.roleDays);
-        acc.dayActualDays = acc.dayActualDays.add(c.roleDays);
-        if (seenDay.add(drk)) {
-          ara.dayQty = ara.dayQty.add(c.qtyExecuted == null ? BigDecimal.ZERO : c.qtyExecuted);
-        }
-      }
-
-      // SERIES bottleneck check: if the activity has a governing side and it ISN'T this
-      // section's side, this role was constrained by the other side. Accumulate role-days
-      // into the constraint buckets so the UI can render "X days constrained by …".
-      BottleneckInfo bot = c.activityId == null ? null : bottleneckByActivity.get(c.activityId);
-      if (bot != null && !normType.equalsIgnoreCase(bot.governingSide())) {
-        ara.cumConstrainedDays = ara.cumConstrainedDays.add(c.roleDays);
-        if (isInMonth) ara.monthConstrainedDays = ara.monthConstrainedDays.add(c.roleDays);
-        if (isInDay) ara.dayConstrainedDays = ara.dayConstrainedDays.add(c.roleDays);
-        ara.constrainedBySide = bot.governingSide();
-      }
-    }
-
-    // Resolve norms for each (workActivity, role, normType) once, then walk every accumulator.
+    // Pass 1 — group contributions by (DPR, activity). Within each group, build the list of
+    // (role, NOS, resolvedNorm) on THIS side. Same DPR can have multiple rows for one role; sum
+    // NOS first so allocation sees one entry per role.
+    record GroupKey(UUID dprId, UUID activityId) {}
+    record NosNormPair(int nos, BigDecimal norm) {}
+    Map<GroupKey, Map<UUID, NosNormPair>> bySideGroup = new LinkedHashMap<>();
+    Map<GroupKey, List<Contribution>> contribsByGroup = new LinkedHashMap<>();
+    Map<UUID, String> nameByActivity = new HashMap<>();
     Map<WorkActivityRoleKey, NormLookup> normCache = new HashMap<>();
+
+    for (Contribution c : contributions) {
+      if (c.dprId == null || c.activityId == null) continue;
+      GroupKey gk = new GroupKey(c.dprId, c.activityId);
+      contribsByGroup.computeIfAbsent(gk, k -> new ArrayList<>()).add(c);
+      nameByActivity.putIfAbsent(c.activityId, c.workActivityName);
+
+      NormLookup nl = normCache.computeIfAbsent(
+          new WorkActivityRoleKey(c.workActivityId, c.roleId),
+          k -> resolveNorm(k.workActivityId, k.roleId, normType));
+      Map<UUID, NosNormPair> roleMap = bySideGroup.computeIfAbsent(gk, k -> new LinkedHashMap<>());
+      int rowNos = c.roleDays == null ? 0 : c.roleDays.intValue();
+      NosNormPair existing = roleMap.get(c.roleId);
+      int totalNos = (existing == null ? 0 : existing.nos()) + rowNos;
+      roleMap.put(c.roleId, new NosNormPair(totalNos, nl.outputPerDay));
+    }
+
+    // Other-side expected per (DPR, activity) so the allocator can decide hiding.
+    Map<DprActivityKey, BigDecimal> otherSideExpected = loadOtherSideExpectedPerDpr(
+        projectId, fromDate, toDate, normType, supervisorUserId);
+
+    // Sub-contractor qty per DPR — manpower + equipment did NOT do this portion, it was the
+    // sub-contractor. Subtracted from qty_executed to give the effective company-resource
+    // workdone that the allocator distributes. Clamped to ≥ 0 (a data-entry where the sub
+    // qty exceeds the DPR qty yields effective = 0; roles get budget 0 → Eff 0%).
+    Map<UUID, BigDecimal> subContractorQtyByDpr = loadSubContractorQtyByDpr(
+        projectId, fromDate, toDate, supervisorUserId);
+
+    // Hidden-side notes accumulated for this section.
+    List<CapacityUtilizationReport.HiddenSideNote> hiddenNotes = new ArrayList<>();
+    Map<UUID, RoleAccumulator> byRole = new LinkedHashMap<>();
+
+    // Pass 2 — for each (DPR, activity) group, call the allocator and credit each role.
+    for (var entry : bySideGroup.entrySet()) {
+      GroupKey gk = entry.getKey();
+      Map<UUID, NosNormPair> roleMap = entry.getValue();
+      List<Contribution> contribs = contribsByGroup.get(gk);
+      Contribution first = contribs.get(0);
+
+      List<CapacityAllocator.RoleInput> inputs = new ArrayList<>(roleMap.size());
+      BigDecimal sideExpected = BigDecimal.ZERO;
+      for (var rm : roleMap.entrySet()) {
+        NosNormPair p = rm.getValue();
+        inputs.add(new CapacityAllocator.RoleInput(rm.getKey(), p.nos(), p.norm()));
+        if (p.norm() != null && p.norm().signum() > 0 && p.nos() > 0) {
+          sideExpected = sideExpected.add(p.norm().multiply(BigDecimal.valueOf(p.nos())));
+        }
+      }
+      BigDecimal otherExp = otherSideExpected.getOrDefault(
+          new DprActivityKey(gk.dprId(), gk.activityId()), BigDecimal.ZERO);
+      String combo = loadNormCombinationForActivity(gk.activityId());
+      BigDecimal dprQty = first.qtyExecuted == null ? BigDecimal.ZERO : first.qtyExecuted;
+      BigDecimal subQty = subContractorQtyByDpr.getOrDefault(gk.dprId(), BigDecimal.ZERO);
+      BigDecimal qtyDone = dprQty.subtract(subQty);
+      if (qtyDone.signum() < 0) qtyDone = BigDecimal.ZERO;
+
+      CapacityAllocator.AllocationResult alloc = CapacityAllocator.allocate(
+          sideExpected, otherExp, qtyDone, combo, inputs);
+
+      if (alloc.hidden()) {
+        // Record one banner note per (activity) per section.
+        String governingSide = "MANPOWER".equals(normType) ? "EQUIPMENT" : "MANPOWER";
+        boolean alreadyNoted = hiddenNotes.stream()
+            .anyMatch(n -> n.activityId().equals(gk.activityId()));
+        if (!alreadyNoted) {
+          hiddenNotes.add(new CapacityUtilizationReport.HiddenSideNote(
+              gk.activityId(),
+              nameByActivity.get(gk.activityId()),
+              governingSide,
+              combo == null ? "SERIES" : combo.toUpperCase()));
+        }
+        // Hidden side still credits actual NOS (so headcount totals stay accurate) but no qty/budget.
+        // Dispatch per role: if the role's norm DID resolve on this side it was hidden by
+        // competition (creditActualHidden); otherwise it's truly untracked (creditActualOnly).
+        Map<UUID, Boolean> roleNormResolved = new HashMap<>();
+        for (CapacityAllocator.RoleAlloc ra : alloc.roleAllocations()) {
+          roleNormResolved.put(ra.roleId(), ra.normResolved());
+        }
+        for (Contribution c : contribs) {
+          RoleAccumulator acc = byRole.computeIfAbsent(
+              c.accKey(),
+              k -> new RoleAccumulator(c.roleId, c.roleCode, c.roleName));
+          boolean roleHasNorm = Boolean.TRUE.equals(roleNormResolved.get(c.roleId));
+          if (roleHasNorm) {
+            creditActualHidden(acc, c, referenceDate, referenceMonth);
+          } else {
+            creditActualOnly(acc, c, referenceDate, referenceMonth);
+          }
+        }
+        continue;
+      }
+
+      // Visible side: credit allocated qty + actual NOS per role.
+      Map<UUID, BigDecimal> allocByRole = new HashMap<>();
+      for (CapacityAllocator.RoleAlloc ra : alloc.roleAllocations()) {
+        allocByRole.put(ra.roleId(), ra.allocatedQty());
+      }
+      for (Contribution c : contribs) {
+        RoleAccumulator acc = byRole.computeIfAbsent(
+            c.accKey(),
+            k -> new RoleAccumulator(c.roleId, c.roleCode, c.roleName));
+        BigDecimal allocated = allocByRole.get(c.roleId);
+        creditActualAndAlloc(acc, c, allocated, qtyDone, referenceDate, referenceMonth);
+      }
+    }
+
     // Rate per role: weighted by the variants actually deployed via DPRs in the window
     // (NOT the AVG across every variant of the role). This is the same source the bottom
     // SC180-classic table uses, so Rate / Day, MM Rate, Eq Rate / Day, and the resulting
@@ -325,9 +366,9 @@ public class CapacityUtilizationReportService {
     List<RoleRow> rows = new ArrayList<>(byRole.size());
     for (RoleAccumulator role : byRole.values()) {
       // Walk each (work_activity, role) pair. Norm resolution splits each pair into either
-      // "tracked" (norm exists for this side) or "untracked" (no norm — the role's days on
-      // that activity don't drive a comparable budget). Util% only counts the tracked side
-      // so a role deployed on a mix of tracked and untracked activities isn't unfairly
+      // "tracked" (norm resolved AND output > 0) or "untracked" (allocator never credited qty —
+      // the role's days on that activity don't drive a comparable budget). Util% only counts the
+      // tracked side so a role on a mix of tracked + untracked activities isn't unfairly
       // penalised by activities that simply don't measure its productivity.
       BigDecimal dayBudgetDays = BigDecimal.ZERO;
       BigDecimal monthBudgetDays = BigDecimal.ZERO;
@@ -335,20 +376,17 @@ public class CapacityUtilizationReportService {
       BigDecimal dayActualUntracked = BigDecimal.ZERO;
       BigDecimal monthActualUntracked = BigDecimal.ZERO;
       BigDecimal cumActualUntracked = BigDecimal.ZERO;
-      // Constraint roll-up across all activities this role touched. constrainedBySide is the
-      // same for the whole row because a MP-section role can only be constrained by EQUIPMENT,
-      // and vice versa — the section type dictates the constrainer side, never both.
-      BigDecimal dayConstrained = BigDecimal.ZERO;
-      BigDecimal monthConstrained = BigDecimal.ZERO;
-      BigDecimal cumConstrained = BigDecimal.ZERO;
-      String constrainedBySide = null;
+      BigDecimal dayActualHidden = BigDecimal.ZERO;
+      BigDecimal monthActualHidden = BigDecimal.ZERO;
+      BigDecimal cumActualHidden = BigDecimal.ZERO;
       boolean anyNormResolved = false;
       java.util.Set<String> normSources = new java.util.HashSet<>();
       for (ActivityRoleAccumulator ara : role.activityRoles.values()) {
         NormLookup nl = normCache.computeIfAbsent(
             new WorkActivityRoleKey(ara.workActivityId, ara.roleId),
             k -> resolveNorm(k.workActivityId, k.roleId, normType));
-        boolean tracked = nl.outputPerDay != null && nl.outputPerDay.signum() > 0;
+        boolean tracked = ara.normResolved
+            && nl.outputPerDay != null && nl.outputPerDay.signum() > 0;
         if (tracked) {
           anyNormResolved = true;
           if (ara.dayQty.signum() > 0) {
@@ -370,13 +408,12 @@ public class CapacityUtilizationReportService {
           monthActualUntracked = monthActualUntracked.add(ara.monthActualDays);
           cumActualUntracked = cumActualUntracked.add(ara.cumActualDays);
         }
-        // Roll the per-activity constraint accumulations up into the role-period totals.
-        // constrainedBySide is fixed by the section's normType so the last non-null value wins
-        // safely — each contribution from a constrained activity emitted the same value.
-        dayConstrained = dayConstrained.add(ara.dayConstrainedDays);
-        monthConstrained = monthConstrained.add(ara.monthConstrainedDays);
-        cumConstrained = cumConstrained.add(ara.cumConstrainedDays);
-        if (ara.constrainedBySide != null) constrainedBySide = ara.constrainedBySide;
+        // Hidden-side days are a separate dimension — accumulated regardless of the
+        // tracked/untracked branch so the frontend can show a distinct "suppressed by other
+        // side" note and util/cost exclude these days from the tracked denominator.
+        dayActualHidden = dayActualHidden.add(ara.dayActualHidden);
+        monthActualHidden = monthActualHidden.add(ara.monthActualHidden);
+        cumActualHidden = cumActualHidden.add(ara.cumActualHidden);
       }
 
       BigDecimal ratePerDay = roleRateCache.get(role.roleId);
@@ -404,11 +441,11 @@ public class CapacityUtilizationReportService {
       rows.add(new RoleRow(
           role.roleId, role.roleCode, role.roleName, ratePerDay,
           buildPeriod(role.dayActualDays, dayBudget, role.dayQty(), plannedDaysDay,
-              effectiveRate, workDays, dayActualUntracked, dayConstrained, constrainedBySide),
+              effectiveRate, workDays, dayActualUntracked, dayActualHidden, anyNormResolved),
           buildPeriod(role.monthActualDays, monthBudget, role.monthQty(), plannedDaysMonth,
-              effectiveRate, workDays, monthActualUntracked, monthConstrained, constrainedBySide),
+              effectiveRate, workDays, monthActualUntracked, monthActualHidden, anyNormResolved),
           buildPeriod(role.cumActualDays, cumBudget, role.cumQty(), plannedDaysCum,
-              effectiveRate, workDays, cumActualUntracked, cumConstrained, constrainedBySide),
+              effectiveRate, workDays, cumActualUntracked, cumActualHidden, anyNormResolved),
           normSourceLabel));
     }
 
@@ -416,24 +453,115 @@ public class CapacityUtilizationReportService {
     RolePeriod totalDay = sumPeriod(rows, RoleRow::forTheDay);
     RolePeriod totalMonth = sumPeriod(rows, RoleRow::forTheMonth);
     RolePeriod totalCum = sumPeriod(rows, RoleRow::cumulative);
-    return new Section(rows, totalDay, totalMonth, totalCum);
+    return new Section(rows, totalDay, totalMonth, totalCum, hiddenNotes);
+  }
+
+  /**
+   * Credit the role's accumulator with actual NOS only — used when the allocator hid this
+   * side for the (DPR, activity). The role still appears on the report so headcount totals
+   * reflect everyone who was on site; just no qty/budget/efficiency.
+   */
+  private void creditActualOnly(
+      RoleAccumulator acc, Contribution c, LocalDate referenceDate, YearMonth referenceMonth) {
+    WorkActivityRoleKey waRoleKey = new WorkActivityRoleKey(c.workActivityId, c.roleId);
+    ActivityRoleAccumulator ara = acc.activityRoles.computeIfAbsent(waRoleKey,
+        k -> new ActivityRoleAccumulator(c.workActivityId, c.workActivityName,
+            c.workActivityDefaultUnit, c.roleId));
+    ara.cumActualDays = ara.cumActualDays.add(c.roleDays);
+    acc.cumActualDays = acc.cumActualDays.add(c.roleDays);
+    boolean isInMonth = YearMonth.from(c.reportDate).equals(referenceMonth);
+    boolean isInDay = c.reportDate.equals(referenceDate);
+    if (isInMonth) {
+      ara.monthActualDays = ara.monthActualDays.add(c.roleDays);
+      acc.monthActualDays = acc.monthActualDays.add(c.roleDays);
+    }
+    if (isInDay) {
+      ara.dayActualDays = ara.dayActualDays.add(c.roleDays);
+      acc.dayActualDays = acc.dayActualDays.add(c.roleDays);
+    }
+  }
+
+  /**
+   * Credit the role's accumulator for a hidden side WHERE THE ROLE'S NORM DID RESOLVE — the
+   * activity tracks productivity for this role, but the allocator suppressed this side because
+   * the other side governed under SERIES / SUBSTITUTE. Sets {@code normResolved=true} on the
+   * ARA so the frontend doesn't show a "no norm" footer; records the days in the hidden bucket
+   * so a distinct "suppressed by other side" note can be rendered separately from the
+   * "no productivity norm" footnote.
+   */
+  private void creditActualHidden(
+      RoleAccumulator acc, Contribution c, LocalDate referenceDate, YearMonth referenceMonth) {
+    WorkActivityRoleKey waRoleKey = new WorkActivityRoleKey(c.workActivityId, c.roleId);
+    ActivityRoleAccumulator ara = acc.activityRoles.computeIfAbsent(waRoleKey,
+        k -> new ActivityRoleAccumulator(c.workActivityId, c.workActivityName,
+            c.workActivityDefaultUnit, c.roleId));
+    ara.cumActualDays = ara.cumActualDays.add(c.roleDays);
+    ara.cumActualHidden = ara.cumActualHidden.add(c.roleDays);
+    acc.cumActualDays = acc.cumActualDays.add(c.roleDays);
+    boolean isInMonth = YearMonth.from(c.reportDate).equals(referenceMonth);
+    boolean isInDay = c.reportDate.equals(referenceDate);
+    if (isInMonth) {
+      ara.monthActualDays = ara.monthActualDays.add(c.roleDays);
+      ara.monthActualHidden = ara.monthActualHidden.add(c.roleDays);
+      acc.monthActualDays = acc.monthActualDays.add(c.roleDays);
+    }
+    if (isInDay) {
+      ara.dayActualDays = ara.dayActualDays.add(c.roleDays);
+      ara.dayActualHidden = ara.dayActualHidden.add(c.roleDays);
+      acc.dayActualDays = acc.dayActualDays.add(c.roleDays);
+    }
+    ara.normResolved = true;
+  }
+
+  /**
+   * Credit the role's accumulator with allocated qty (once per DPR-role) AND actual NOS.
+   * {@code allocated} is null when the role's norm didn't resolve — in that case we still
+   * record the full DPR qty as informational so the frontend can show it on the untracked row.
+   */
+  private void creditActualAndAlloc(
+      RoleAccumulator acc, Contribution c,
+      BigDecimal allocated, BigDecimal dprQty,
+      LocalDate referenceDate, YearMonth referenceMonth) {
+    WorkActivityRoleKey waRoleKey = new WorkActivityRoleKey(c.workActivityId, c.roleId);
+    ActivityRoleAccumulator ara = acc.activityRoles.computeIfAbsent(waRoleKey,
+        k -> new ActivityRoleAccumulator(c.workActivityId, c.workActivityName,
+            c.workActivityDefaultUnit, c.roleId));
+    ara.cumActualDays = ara.cumActualDays.add(c.roleDays);
+    acc.cumActualDays = acc.cumActualDays.add(c.roleDays);
+    boolean isInMonth = YearMonth.from(c.reportDate).equals(referenceMonth);
+    boolean isInDay = c.reportDate.equals(referenceDate);
+    if (isInMonth) {
+      ara.monthActualDays = ara.monthActualDays.add(c.roleDays);
+      acc.monthActualDays = acc.monthActualDays.add(c.roleDays);
+    }
+    if (isInDay) {
+      ara.dayActualDays = ara.dayActualDays.add(c.roleDays);
+      acc.dayActualDays = acc.dayActualDays.add(c.roleDays);
+    }
+    BigDecimal qtyToCredit = allocated != null ? allocated : (dprQty == null ? BigDecimal.ZERO : dprQty);
+    if (allocated != null) ara.normResolved = true;
+    ara.cumQty = ara.cumQty.add(qtyToCredit);
+    if (isInMonth) ara.monthQty = ara.monthQty.add(qtyToCredit);
+    if (isInDay) ara.dayQty = ara.dayQty.add(qtyToCredit);
   }
 
   private RolePeriod buildPeriod(
       BigDecimal actualDays, BigDecimal budgetDays, BigDecimal qty,
       BigDecimal plannedDays, BigDecimal ratePerDay, int workDays,
       BigDecimal actualDaysUntracked,
-      BigDecimal constrainedDays, String constrainedBySide) {
+      BigDecimal actualDaysOnHiddenSides,
+      boolean normResolved) {
     boolean hasAny = (actualDays != null && actualDays.signum() > 0)
         || (budgetDays != null && budgetDays.signum() > 0)
         || (qty != null && qty.signum() > 0);
     if (!hasAny) return RolePeriod.empty();
 
-    // Tracked actual = total actual minus the portion deployed on activities with no norm for
-    // this role's type. Util% and Cost only consider the tracked portion so a role isn't
-    // penalised by activities that don't measure its productivity at all.
     BigDecimal untracked = actualDaysUntracked == null ? BigDecimal.ZERO : actualDaysUntracked;
-    BigDecimal trackedActual = (actualDays == null) ? null : actualDays.subtract(untracked);
+    BigDecimal hidden = actualDaysOnHiddenSides == null ? BigDecimal.ZERO : actualDaysOnHiddenSides;
+    // Tracked actual: only days that contributed to a budget calculation. Hidden + untracked
+    // days are subtracted so the efficiency % isn't artificially dragged down by either.
+    BigDecimal trackedActual = (actualDays == null)
+        ? null : actualDays.subtract(untracked).subtract(hidden);
 
     BigDecimal actualNos = workDays > 0 && actualDays != null
         ? actualDays.divide(BigDecimal.valueOf(workDays), 4, RoundingMode.HALF_UP) : null;
@@ -451,22 +579,23 @@ public class CapacityUtilizationReportService {
           .setScale(2, RoundingMode.HALF_UP);
     }
     BigDecimal untrackedOut = untracked.signum() > 0 ? untracked : null;
-    BigDecimal constrainedOut = (constrainedDays != null && constrainedDays.signum() > 0)
-        ? constrainedDays : null;
-    String constrainedSideOut = constrainedOut == null ? null : constrainedBySide;
-    return new RolePeriod(qty, budgetDays, budgetNos, plannedDays, plannedNos,
-        actualDays, actualNos, untrackedOut, utilPct, costImpl,
-        constrainedOut, constrainedSideOut);
+    BigDecimal hiddenOut = hidden.signum() > 0 ? hidden : null;
+    // Suppress "0.0" budget rendering when no tracked qty was actually credited — null reads
+    // as "—" on the frontend, matching the "this side was suppressed" semantic.
+    BigDecimal budgetOut = (budgetDays != null && budgetDays.signum() > 0) ? budgetDays : null;
+    BigDecimal budgetNosOut = budgetOut == null ? null : budgetNos;
+    return new RolePeriod(qty, budgetOut, budgetNosOut, plannedDays, plannedNos,
+        actualDays, actualNos, untrackedOut, hiddenOut, utilPct, costImpl,
+        normResolved, null, null);
   }
 
   private RolePeriod sumPeriod(List<RoleRow> rows, java.util.function.Function<RoleRow, RolePeriod> pick) {
     BigDecimal qty = BigDecimal.ZERO, bd = BigDecimal.ZERO, ad = BigDecimal.ZERO;
     BigDecimal pd = BigDecimal.ZERO, cost = BigDecimal.ZERO;
     BigDecimal untracked = BigDecimal.ZERO;
-    BigDecimal constrained = BigDecimal.ZERO;
-    String constrainedSide = null;
+    BigDecimal hidden = BigDecimal.ZERO;
     boolean anyPlanned = false, anyCost = false, anyData = false, anyUntracked = false;
-    boolean anyConstrained = false;
+    boolean anyHidden = false;
     for (RoleRow r : rows) {
       RolePeriod p = pick.apply(r);
       if (p == null) continue;
@@ -478,17 +607,16 @@ public class CapacityUtilizationReportService {
       if (p.actualDaysUntracked() != null) {
         untracked = untracked.add(p.actualDaysUntracked()); anyUntracked = true;
       }
-      if (p.constrainedDays() != null) {
-        constrained = constrained.add(p.constrainedDays());
-        anyConstrained = true;
-        if (p.constrainedBySide() != null) constrainedSide = p.constrainedBySide();
+      if (p.actualDaysOnHiddenSides() != null) {
+        hidden = hidden.add(p.actualDaysOnHiddenSides()); anyHidden = true;
       }
     }
     if (!anyData) return RolePeriod.empty();
     // Util% only makes sense when at least one row contributed a budget. When no role in the
     // section has a productivity norm, bd stays at zero and we keep util as null so the Total
-    // pill renders "—" (grey) instead of misleading "0% red".
-    BigDecimal trackedActual = ad.subtract(untracked);
+    // pill renders "—" (grey) instead of misleading "0% red". Hidden-side days are excluded
+    // from the tracked denominator the same way untracked days are.
+    BigDecimal trackedActual = ad.subtract(untracked).subtract(hidden);
     BigDecimal utilPct = (trackedActual.signum() > 0 && bd.signum() > 0)
         ? bd.divide(trackedActual, 4, RoundingMode.HALF_UP).multiply(HUNDRED) : null;
     // Section total of qty is suppressed — the same DPR's qty_executed contributes to every
@@ -503,10 +631,11 @@ public class CapacityUtilizationReportService {
         ad.signum() == 0 ? null : ad,
         null,
         anyUntracked ? untracked : null,
+        anyHidden ? hidden : null,
         utilPct,
         anyCost ? cost : null,
-        anyConstrained && constrained.signum() > 0 ? constrained : null,
-        anyConstrained && constrained.signum() > 0 ? constrainedSide : null);
+        null, // normResolved is not meaningful at the section-total level
+        null, null); // deprecated constrainedDays / constrainedBySide
   }
 
   // ─── Native-SQL data loaders ──────────────────────────────────────────────────────────────
@@ -615,6 +744,110 @@ public class CapacityUtilizationReportService {
           toBigDecimal(r[9]),
           trade,
           activityId));
+    }
+    return out;
+  }
+
+  /** Look up the WorkActivity's norm_combination by activity id (single round-trip per call). */
+  @SuppressWarnings("unchecked")
+  String loadNormCombinationForActivity(UUID activityId) {
+    List<Object> rows = em.createNativeQuery(
+            "SELECT COALESCE(wa.norm_combination, 'SERIES') " +
+            "FROM activity.activities a " +
+            "JOIN resource.work_activities wa ON wa.id = a.work_activity_id " +
+            "WHERE a.id = :id")
+        .setParameter("id", activityId)
+        .setMaxResults(1)
+        .getResultList();
+    return rows.isEmpty() || rows.get(0) == null ? "SERIES" : rows.get(0).toString();
+  }
+
+  /**
+   * For each (DPR, activity) pair in the report window, compute the OTHER side's expected
+   * output from the DPR's actual resources. The result is keyed by {@code (dprId, activityId)}.
+   *
+   * <p>When this service is building the MANPOWER section, this returns each (DPR, activity)'s
+   * EQUIPMENT expected (= Σ outputPerDay × NOS across equipment rows). The allocator uses this
+   * as {@code otherSideExpected} to decide hiding in SERIES / SUBSTITUTE.
+   *
+   * <p>HRS is intentionally not used — per-day basis only.
+   */
+  @SuppressWarnings("unchecked")
+  Map<DprActivityKey, BigDecimal> loadOtherSideExpectedPerDpr(
+      UUID projectId, LocalDate fromDate, LocalDate toDate, String thisSideNormType,
+      UUID supervisorUserId) {
+    String otherSide = "MANPOWER".equals(thisSideNormType) ? "EQUIPMENT" : "MANPOWER";
+    String table = "EQUIPMENT".equals(otherSide) ? "dpr_equipment" : "dpr_manpower";
+    String normColumn = "EQUIPMENT".equals(otherSide)
+        ? "COALESCE(rn.output_per_day, 0)"
+        : "COALESCE(rn.output_per_man_per_day, rn.output_per_day, 0)";
+
+    String sql =
+        "SELECT d.id, d.activity_id, " +
+        "       SUM(r.nos * " + normColumn + ") AS expected " +
+        "FROM project." + table + " r " +
+        "JOIN project.daily_progress_reports d ON d.id = r.dpr_id " +
+        "JOIN activity.activities a ON a.id = d.activity_id " +
+        "LEFT JOIN resource.productivity_norms rn ON rn.work_activity_id = a.work_activity_id " +
+        "  AND rn.norm_type = :nt " +
+        "  AND (rn.role_id = r.role_id OR " +
+        "       (rn.role_id IS NULL AND rn.category_id IS NULL AND rn.grade_id IS NULL " +
+        "        AND rn.make IS NULL AND rn.model IS NULL " +
+        "        AND rn.resource_id IS NULL AND rn.resource_type_id IS NULL)) " +
+        "  AND rn.category_id IS NULL AND rn.grade_id IS NULL " +
+        "  AND rn.make IS NULL AND rn.model IS NULL " +
+        "WHERE d.project_id = :pid AND d.report_date BETWEEN :from AND :to " +
+        (supervisorUserId == null ? "" : "  AND d.supervisor_user_id = :sup ") +
+        "GROUP BY d.id, d.activity_id";
+
+    var q = em.createNativeQuery(sql)
+        .setParameter("pid", projectId)
+        .setParameter("from", fromDate)
+        .setParameter("to", toDate)
+        .setParameter("nt", otherSide);
+    if (supervisorUserId != null) q.setParameter("sup", supervisorUserId);
+
+    Map<DprActivityKey, BigDecimal> out = new HashMap<>();
+    for (Object[] row : (List<Object[]>) q.getResultList()) {
+      UUID dpr = (UUID) row[0];
+      UUID act = (UUID) row[1];
+      BigDecimal exp = toBigDecimal(row[2]);
+      out.put(new DprActivityKey(dpr, act), exp == null ? BigDecimal.ZERO : exp);
+    }
+    return out;
+  }
+
+  record DprActivityKey(UUID dprId, UUID activityId) {}
+
+  /**
+   * Sum of {@code project.dpr_sub_contractor.quantity} per DPR within the report window.
+   * Subtracted from each DPR's qty_executed to derive the effective qty the manpower /
+   * equipment allocator distributes. Honors the supervisor filter so a supervisor-scoped
+   * view doesn't accidentally subtract sub-contractor qty from someone else's DPR.
+   */
+  @SuppressWarnings("unchecked")
+  Map<UUID, BigDecimal> loadSubContractorQtyByDpr(
+      UUID projectId, LocalDate fromDate, LocalDate toDate, UUID supervisorUserId) {
+    List<Object[]> rows = em.createNativeQuery(
+            "SELECT d.id, COALESCE(SUM(sc.quantity), 0) "
+                + "FROM project.daily_progress_reports d "
+                + "JOIN project.dpr_sub_contractor sc ON sc.dpr_id = d.id "
+                + "WHERE d.project_id = :projectId "
+                + "  AND d.report_date BETWEEN :fromDate AND :toDate "
+                + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
+                + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
+                + "GROUP BY d.id")
+        .setParameter("projectId", projectId)
+        .setParameter("fromDate", fromDate)
+        .setParameter("toDate", toDate)
+        .setParameter("supervisorUserId",
+            supervisorUserId != null ? supervisorUserId.toString() : null)
+        .getResultList();
+    Map<UUID, BigDecimal> out = new HashMap<>();
+    for (Object[] r : rows) {
+      UUID id = (UUID) r[0];
+      BigDecimal qty = toBigDecimal(r[1]);
+      if (id != null && qty != null) out.put(id, qty);
     }
     return out;
   }
@@ -825,101 +1058,6 @@ public class CapacityUtilizationReportService {
   }
 
   /**
-   * Compute the bottleneck side for each SERIES activity in the report window.
-   *
-   * <p>For SERIES activities, expected output = min(Manpower side, Equipment side). Whichever
-   * side has the smaller {@code SUM(norm.output × planned_headcount)} caps the day; the other
-   * side's resources are <em>constrained</em>, not underperforming. We tag those rows so the UI
-   * can render "constrained by [side] bottleneck" beside the otherwise-misleading low util%.
-   *
-   * <p>Resolution mirrors {@link #resolveNorm}: try role-level norm first, fall back to unscoped.
-   * Material rows are ignored — bottleneck only applies to MP↔EQ trade-offs. Returns an empty
-   * map for any activity that isn't SERIES, has only one side norm'd, or ties exactly.
-   */
-  @SuppressWarnings("unchecked")
-  private Map<UUID, BottleneckInfo> computeBottleneck(
-      UUID projectId, java.util.Set<UUID> activityIds) {
-    if (activityIds == null || activityIds.isEmpty()) return Map.of();
-
-    // Pull norm_combination + the per-(activity, role) raw inputs to compute side expectations.
-    // We resolve MP and EQ norms inline via correlated subqueries — same chain resolveNorm uses,
-    // just expressed as SQL so we make exactly one round trip for the whole report window.
-    List<Object[]> rows = em.createNativeQuery(
-            "SELECT a.id AS activity_id, "
-                + "       COALESCE(wa.norm_combination, 'SERIES') AS combo, "
-                + "       COALESCE(ra.headcount, ra.planned_units, 0) AS planned_nos, "
-                + "       (SELECT COALESCE(rn.output_per_man_per_day, rn.output_per_day) "
-                + "          FROM resource.productivity_norms rn "
-                + "         WHERE rn.work_activity_id = wa.id "
-                + "           AND rn.norm_type = 'MANPOWER' "
-                + "           AND (rn.role_id = ra.role_id "
-                + "                OR (rn.role_id IS NULL AND rn.category_id IS NULL "
-                + "                    AND rn.grade_id IS NULL AND rn.make IS NULL "
-                + "                    AND rn.model IS NULL AND rn.resource_id IS NULL "
-                + "                    AND rn.resource_type_id IS NULL)) "
-                + "           AND rn.category_id IS NULL AND rn.grade_id IS NULL "
-                + "           AND rn.make IS NULL AND rn.model IS NULL "
-                + "         ORDER BY (rn.role_id IS NULL), rn.created_at NULLS LAST "
-                + "         LIMIT 1) AS mp_norm, "
-                + "       (SELECT rn.output_per_day "
-                + "          FROM resource.productivity_norms rn "
-                + "         WHERE rn.work_activity_id = wa.id "
-                + "           AND rn.norm_type = 'EQUIPMENT' "
-                + "           AND (rn.role_id = ra.role_id "
-                + "                OR (rn.role_id IS NULL AND rn.category_id IS NULL "
-                + "                    AND rn.grade_id IS NULL AND rn.make IS NULL "
-                + "                    AND rn.model IS NULL AND rn.resource_id IS NULL "
-                + "                    AND rn.resource_type_id IS NULL)) "
-                + "           AND rn.category_id IS NULL AND rn.grade_id IS NULL "
-                + "           AND rn.make IS NULL AND rn.model IS NULL "
-                + "         ORDER BY (rn.role_id IS NULL), rn.created_at NULLS LAST "
-                + "         LIMIT 1) AS eq_norm "
-                + "FROM activity.activities a "
-                + "JOIN resource.work_activities wa ON wa.id = a.work_activity_id "
-                + "JOIN resource.resource_assignments ra ON ra.activity_id = a.id "
-                + "WHERE a.project_id = :pid "
-                + "  AND a.id IN :aids")
-        .setParameter("pid", projectId)
-        .setParameter("aids", activityIds)
-        .getResultList();
-
-    // Accumulate per-activity mp / eq expected outputs and the activity's combination rule.
-    Map<UUID, BigDecimal> mpByActivity = new HashMap<>();
-    Map<UUID, BigDecimal> eqByActivity = new HashMap<>();
-    Map<UUID, String> comboByActivity = new HashMap<>();
-    for (Object[] r : rows) {
-      UUID actId = (UUID) r[0];
-      String combo = (String) r[1];
-      BigDecimal plannedNos = toBigDecimal(r[2]);
-      BigDecimal mpNorm = toBigDecimal(r[3]);
-      BigDecimal eqNorm = toBigDecimal(r[4]);
-      comboByActivity.put(actId, combo);
-      if (plannedNos == null || plannedNos.signum() <= 0) continue;
-      if (mpNorm != null && mpNorm.signum() > 0) {
-        mpByActivity.merge(actId, mpNorm.multiply(plannedNos), BigDecimal::add);
-      }
-      if (eqNorm != null && eqNorm.signum() > 0) {
-        eqByActivity.merge(actId, eqNorm.multiply(plannedNos), BigDecimal::add);
-      }
-    }
-
-    Map<UUID, BottleneckInfo> out = new HashMap<>();
-    for (UUID actId : activityIds) {
-      String combo = comboByActivity.get(actId);
-      if (!"SERIES".equals(combo)) continue; // PARALLEL / SUBSTITUTE: both sides contribute
-      BigDecimal mp = mpByActivity.getOrDefault(actId, BigDecimal.ZERO);
-      BigDecimal eq = eqByActivity.getOrDefault(actId, BigDecimal.ZERO);
-      // Skip single-side activities and ties — there's nothing "the other side" was constrained
-      // by, so no annotation is warranted.
-      if (mp.signum() <= 0 || eq.signum() <= 0) continue;
-      int cmp = mp.compareTo(eq);
-      if (cmp == 0) continue;
-      out.put(actId, new BottleneckInfo(cmp < 0 ? "MANPOWER" : "EQUIPMENT"));
-    }
-    return out;
-  }
-
-  /**
    * Date-range intersection. Activities without any planned dates ({@code null/null}) are
    * treated as "always active" so they show up in every bucket — the user shouldn't lose
    * planning info just because dates aren't set yet.
@@ -964,8 +1102,9 @@ public class CapacityUtilizationReportService {
       UUID workActivityId, String workActivityName, String workActivityDefaultUnit,
       BigDecimal qtyExecuted, BigDecimal roleDays,
       String trade,
-      /** Project-level activity id. Needed so SERIES bottleneck can be computed per-activity
-       *  (multiple activities can share the same WorkActivity master with different plans). */
+      /** Project-level activity id. Needed so the allocator can group contributions per (DPR,
+       *  activity) — multiple activities can share the same WorkActivity master with different
+       *  plans, but each runs its own per-DPR qty allocation. */
       UUID activityId) {
     /**
      * Stable accumulator key: uses the real roleId when present; otherwise derives a
@@ -980,21 +1119,8 @@ public class CapacityUtilizationReportService {
   }
 
   private record WorkActivityRoleKey(UUID workActivityId, UUID roleId) {}
-  private record DprRoleKey(UUID dprId, UUID roleId) {}
 
   private record NormLookup(BigDecimal outputPerDay, String source) {}
-
-  /**
-   * Per-project-activity bottleneck for SERIES activities. {@code governingSide} is the side
-   * (MANPOWER or EQUIPMENT) whose norm capped the activity's expected output. Roles on the
-   * <em>other</em> side were inherently constrained — their utilization % is mathematically
-   * true but the constraint, not their own efficiency, is the reason it's low.
-   *
-   * <p>Absent from the map when norm_combination is PARALLEL/SUBSTITUTE (both sides contribute,
-   * neither is "constrained"), when only one side has norms (no opposite to constrain), or when
-   * both sides' planned expectations tie (no clear bottleneck).
-   */
-  private record BottleneckInfo(String governingSide) {}
 
   private record BucketedPlanned(BigDecimal day, BigDecimal month, BigDecimal cum) {
     static BucketedPlanned empty() {
@@ -1042,18 +1168,16 @@ public class CapacityUtilizationReportService {
     BigDecimal dayActualDays = BigDecimal.ZERO;
     BigDecimal monthActualDays = BigDecimal.ZERO;
     BigDecimal cumActualDays = BigDecimal.ZERO;
+    BigDecimal dayActualHidden = BigDecimal.ZERO;
+    BigDecimal monthActualHidden = BigDecimal.ZERO;
+    BigDecimal cumActualHidden = BigDecimal.ZERO;
     BigDecimal dayQty = BigDecimal.ZERO;
     BigDecimal monthQty = BigDecimal.ZERO;
     BigDecimal cumQty = BigDecimal.ZERO;
-    // Constraint accumulators — populated only for SERIES non-bottleneck contributions.
-    // Kept per-(workActivity,role) just like the rest of the per-activity-role aggregates so
-    // the role rollup can sum them straight into the period totals.
-    BigDecimal dayConstrainedDays = BigDecimal.ZERO;
-    BigDecimal monthConstrainedDays = BigDecimal.ZERO;
-    BigDecimal cumConstrainedDays = BigDecimal.ZERO;
-    /** Same value across all constraint accumulations on this activity (one bottleneck per
-     *  activity by definition); null when this activity isn't a constrained one. */
-    String constrainedBySide;
+    /** Set true once {@link CapacityAllocator} returns a non-null allocation for this role on
+     *  this activity. Drives the {@code tracked} branch in the role roll-up loop — untracked
+     *  rows still report actual NOS but don't drive budget / util%. */
+    boolean normResolved = false;
 
     ActivityRoleAccumulator(UUID wa, String name, String unit, UUID roleId) {
       this.workActivityId = wa;
