@@ -664,12 +664,8 @@ databaseChangeLog:
               - column: { name: created_by,           type: VARCHAR(255) }
               - column: { name: updated_by,           type: VARCHAR(255) }
               - column: { name: version,              type: BIGINT }
-        - addCheckConstraint:
-            schemaName: resource
-            tableName: resource_assignments
-            constraintName: chk_assignment_resource_or_role
-            validate: true
-            constraintBody: resource_id IS NOT NULL OR role_id IS NOT NULL
+        - sql:
+            sql: ALTER TABLE resource.resource_assignments ADD CONSTRAINT chk_assignment_resource_or_role CHECK (resource_id IS NOT NULL OR role_id IS NOT NULL)
         - addForeignKeyConstraint:
             baseTableSchemaName: resource
             baseTableName: resource_assignments

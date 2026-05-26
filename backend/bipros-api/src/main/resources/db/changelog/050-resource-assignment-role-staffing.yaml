@@ -24,12 +24,8 @@ databaseChangeLog:
             schemaName: resource
             constraintName: uk_assignment_activity_resource
 
-        - addCheckConstraint:
-            tableName: resource_assignments
-            schemaName: resource
-            constraintName: chk_assignment_resource_or_role
-            validate: true
-            constraintBody: resource_id IS NOT NULL OR role_id IS NOT NULL
+        - sql:
+            sql: ALTER TABLE resource.resource_assignments ADD CONSTRAINT chk_assignment_resource_or_role CHECK (resource_id IS NOT NULL OR role_id IS NOT NULL)
 
         - createIndex:
             tableName: resource_assignments
