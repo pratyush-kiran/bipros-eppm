@@ -288,9 +288,6 @@ function RunImportPreDpr {
   # Assign each activity the supervisor(s) who file DPRs for it (DPR form filters by supervisor).
   Write-Info '  assign_activity_supervisors.py'; & python "$imp\assign_activity_supervisors.py" 2>&1 | Select-Object -Last 3
 
-  # Seed Quality Control: ~33 IRC/MORTH test types + ~60-90 sample sessions with realistic outcomes.
-  Write-Info '  seed_qc_data.py';          & python "$imp\seed_qc_data.py"          2>&1 | Select-Object -Last 5
-
   Write-Info '  Re-locking activities for DPR ingest'
   $token = Get-Content -Raw (Join-Path $WorkDir 'admin-token.txt')
   $pid_   = Get-Content -Raw (Join-Path $WorkDir 'project-id.txt')
@@ -346,10 +343,7 @@ SELECT
   (SELECT COUNT(*) FROM activity.activities WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS activities,
   (SELECT COUNT(*) FROM resource.resource_assignments) AS role_assigns,
   (SELECT COUNT(*) FROM risk.risks) AS risks,
-  (SELECT COUNT(*) FROM project.dpr_issues) AS dpr_issues,
-  (SELECT COUNT(*) FROM activity.qc_test_types WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026') AND active=true) AS qc_types,
-  (SELECT COUNT(*) FROM activity.qc_sessions WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS qc_sessions,
-  (SELECT COUNT(*) FROM activity.qc_test_items i JOIN activity.qc_sessions s ON s.id=i.session_id WHERE s.project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS qc_items;
+  (SELECT COUNT(*) FROM project.dpr_issues) AS dpr_issues;
 "@ 2>$null
   Write-Host ""
   Write-Host "URLs:" -ForegroundColor White
