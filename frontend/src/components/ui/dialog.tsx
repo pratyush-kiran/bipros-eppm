@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -44,8 +44,103 @@ export function Dialog({ open = false, onOpenChange, children }: DialogProps) {
 
 export type DialogContentProps = React.HTMLAttributes<HTMLDivElement>;
 
+/** Returns every focusable element currently inside `container`. */
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  const sel =
+    'a[href], area[href], input:not([disabled]):not([type="hidden"]), select:not([disabled]),' +
+    ' textarea:not([disabled]), button:not([disabled]), iframe, object, embed,' +
+    ' [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+  return Array.from(container.querySelectorAll<HTMLElement>(sel)).filter(
+    (el) => !el.hasAttribute("disabled") && el.offsetParent !== null,
+  );
+}
+
 export function DialogContent({ className = "", children, ...props }: DialogContentProps) {
   const { isOpen, onOpenChange } = useDialog();
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  // Hold the latest close handler in a ref so the open-effect doesn't re-run
+  // (and thus re-grab focus) every render. The parent's `onOpenChange` is a
+  // fresh function on each pass through {@link Dialog}.
+  const closeRef = useRef(onOpenChange);
+  closeRef.current = onOpenChange;
+
+  // Escape-to-close, body scroll lock, initial focus, focus restore, focus trap.
+  // Everything is gated on `isOpen` so closed dialogs do nothing.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Capture the element that had focus when the dialog opened so we can
+    // restore it on close. Falls back to document.body which is harmless.
+    previouslyFocusedRef.current =
+      (document.activeElement as HTMLElement | null) ?? null;
+
+    // Body scroll lock — preserve the prior overflow so we can restore it.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    // Move initial focus into the dialog. Prefer the first focusable child;
+    // fall back to the dialog container itself (which gets tabIndex={-1}).
+    const focusInitial = () => {
+      const node = contentRef.current;
+      if (!node) return;
+      const focusables = getFocusable(node);
+      if (focusables.length > 0) {
+        focusables[0].focus();
+      } else {
+        node.focus();
+      }
+    };
+    // Run after paint so cmdk-style portals settle first.
+    const raf = requestAnimationFrame(focusInitial);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeRef.current(false);
+        return;
+      }
+      if (e.key === "Tab") {
+        const node = contentRef.current;
+        if (!node) return;
+        const focusables = getFocusable(node);
+        if (focusables.length === 0) {
+          // Nothing to tab to — keep focus on the container.
+          e.preventDefault();
+          node.focus();
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey) {
+          if (active === first || !node.contains(active)) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (active === last || !node.contains(active)) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      // Restore focus to whatever had it before we opened. Guarded because the
+      // node could have been unmounted (e.g. route change) since capture.
+      const prev = previouslyFocusedRef.current;
+      if (prev && document.body.contains(prev)) {
+        prev.focus();
+      }
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -54,10 +149,12 @@ export function DialogContent({ className = "", children, ...props }: DialogCont
       onClick={() => onOpenChange(false)}
     >
       <div
+        ref={contentRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         className={cn(
-          "relative w-full max-w-md rounded-2xl bg-paper shadow-[0_20px_40px_rgba(28,28,28,0.08)]",
+          "relative w-full max-w-md rounded-2xl bg-paper shadow-[0_20px_40px_rgba(28,28,28,0.08)] focus:outline-none",
           className
         )}
         onClick={(e) => e.stopPropagation()}

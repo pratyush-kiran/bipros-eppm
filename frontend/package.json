@@ -21,6 +21,7 @@
     "@tanstack/react-virtual": "^3.13.24",
     "axios": "^1.14.0",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.6",
