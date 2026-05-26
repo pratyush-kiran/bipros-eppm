@@ -15,12 +15,10 @@ import os, json, subprocess
 WORK = os.environ.get("BIPROS_WORK_DIR", "/tmp/khasab")
 PROJECT_ID = open(WORK + "/project-id.txt").read().strip()
 UNITS = json.load(open(WORK + "/activity-units.json"))
-PG_BASE = ["docker", "exec", "-i",
-           "-e", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}",
-           os.environ.get("BIPROS_PG_CONTAINER", "bipros-postgres"),
-           "psql",
-           "-U", os.environ.get("BIPROS_PG_USER", "bipros"),
-           "-d", os.environ.get("BIPROS_PG_DB", "bipros"),
+PSQL = os.environ.get("BIPROS_PSQL", "psql")
+PG_BASE = ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL,
+           "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"),
+           "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"),
            "-A", "-F", "|", "-t", "-c"]
 
 
