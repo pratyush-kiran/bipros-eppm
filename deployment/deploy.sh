@@ -466,6 +466,10 @@ run_import_pre_dpr() {
   log_info "  assign_activity_supervisors.py (activity ↔ supervisor mapping)"
   python3 "$imp/assign_activity_supervisors.py" 2>&1 | tail -3 | tee -a "$DEPLOY_LOG" >&2 || true
 
+  # Seed Quality Control: ~33 IRC/MORTH test types + ~60-90 sample sessions with realistic outcomes.
+  log_info "  seed_qc_data.py (QC test-types master + sample sessions with items)"
+  python3 "$imp/seed_qc_data.py" 2>&1 | tail -5 | tee -a "$DEPLOY_LOG" >&2 || true
+
   # fix_role_assignments unlocks activities; re-lock so DPRs can post
   log_info "  Re-locking activities for DPR ingest"
   local TOKEN PID
@@ -561,7 +565,10 @@ SELECT
   (SELECT COUNT(*) FROM project.boq_items WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS boq,
   (SELECT COUNT(*) FROM risk.risks WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS risks,
   (SELECT COUNT(*) FROM project.dpr_issues WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS dpr_issues,
-  (SELECT COUNT(*) FROM project.daily_weather WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS weather;
+  (SELECT COUNT(*) FROM project.daily_weather WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS weather,
+  (SELECT COUNT(*) FROM activity.qc_test_types WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026') AND active=true) AS qc_types,
+  (SELECT COUNT(*) FROM activity.qc_sessions WHERE project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS qc_sessions,
+  (SELECT COUNT(*) FROM activity.qc_test_items i JOIN activity.qc_sessions s ON s.id=i.session_id WHERE s.project_id=(SELECT id FROM project.projects WHERE code='KHASAB-2026')) AS qc_items;
 " 2>/dev/null || true
   fi
 
