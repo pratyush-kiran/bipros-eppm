@@ -37,7 +37,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: qty_executed
-                  type: DECIMAL(18,3)
+                  type: "DECIMAL(18,3)"
                   constraints:
                     nullable: false
               - column:

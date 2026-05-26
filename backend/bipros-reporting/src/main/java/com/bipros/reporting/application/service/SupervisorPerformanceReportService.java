@@ -7,7 +7,10 @@ import com.bipros.reporting.application.dto.SupervisorPerformanceComparison.Trad
 import com.bipros.reporting.application.dto.SupervisorPerformanceReport;
 import com.bipros.reporting.application.dto.SupervisorPerformanceReport.ActivityDrillDown;
 import com.bipros.reporting.application.dto.SupervisorPerformanceReport.EquipmentRollup;
+import com.bipros.reporting.application.dto.SupervisorPerformanceReport.PeriodMetrics;
+import com.bipros.reporting.application.dto.SupervisorPerformanceReport.PeriodMetricsBuckets;
 import com.bipros.reporting.application.dto.SupervisorPerformanceReport.PlannedActuals;
+import com.bipros.reporting.application.dto.SupervisorPerformanceReport.PlannedActualsBuckets;
 import com.bipros.reporting.application.dto.SupervisorPerformanceReport.ProductivityNorms;
 import com.bipros.reporting.application.dto.SupervisorPerformanceReport.ResourceLine;
 import com.bipros.reporting.application.dto.SupervisorPerformanceReport.Summary;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -64,6 +68,11 @@ public class SupervisorPerformanceReportService {
     LocalDate effectiveTo = toDate == null ? today : toDate;
     LocalDate effectiveFrom = fromDate == null ? effectiveTo.withDayOfMonth(1) : fromDate;
     int effectiveWorkDays = workDays > 0 ? workDays : 26;
+    // Day / CalendarMonth anchor: today when today falls inside the window, otherwise
+    // effectiveTo (the last day of the window). Same rule as CapacityUtilizationReportService.
+    LocalDate referenceDate = effectiveTo.isBefore(today) ? effectiveTo : today;
+    if (referenceDate.isBefore(effectiveFrom)) referenceDate = effectiveFrom;
+    YearMonth referenceMonth = YearMonth.from(referenceDate);
 
     String supervisorName = supervisorUserId == null ? null
         : resolveSupervisorName(projectId, supervisorUserId);
@@ -73,7 +82,8 @@ public class SupervisorPerformanceReportService {
     List<EquipmentCellRow> equipmentCells =
         fetchEquipmentCells(projectId, supervisorUserId, effectiveFrom, effectiveTo);
     Map<UUID, ActivityMeta> activityMeta =
-        fetchActivityMeta(projectId, supervisorUserId, effectiveFrom, effectiveTo);
+        fetchActivityMeta(projectId, supervisorUserId, effectiveFrom, effectiveTo,
+            referenceDate, referenceMonth);
 
     // Resolve norms once per (workActivityId, resourceTypeId) to avoid hammering the DB inside
     // the inner loops. Both the trade rollup and the activity drill-down consume the same map.
@@ -120,22 +130,198 @@ public class SupervisorPerformanceReportService {
     List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> manpowerHidden = new ArrayList<>();
     List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> equipmentHidden = new ArrayList<>();
 
-    List<TradeRollup> tradeRollups = rollUpManpower(
+    // === Cumulative pass — produces the canonical report. Hidden notes only come from this pass. ===
+    List<TradeRollup> tradeRollupsCum = rollUpManpower(
         manpowerCells, equipmentExpected, normCache, normCombosByActivity, subContractorQtyByDpr,
         manpowerHidden, effectiveWorkDays);
-    List<EquipmentRollup> equipmentRollups = rollUpEquipment(
+    List<EquipmentRollup> equipmentRollupsCum = rollUpEquipment(
         equipmentCells, manpowerExpected, normCache, normCombosByActivity, subContractorQtyByDpr,
         equipmentHidden, effectiveWorkDays);
-    List<ActivityDrillDown> drillDown = buildDrillDown(
+    List<ActivityDrillDown> drillDownCum = buildDrillDown(
         manpowerCells, equipmentCells, normCache, activityMeta,
         plannedByActivityRole, manpowerExpected, equipmentExpected, normCombosByActivity,
         subContractorQtyByDpr, effectiveWorkDays);
 
+    // === Day-filtered pass ===
+    LocalDate refDay = referenceDate;
+    List<ManpowerCellRow> mpCellsDay = manpowerCells.stream()
+        .filter(c -> c.reportDate() != null && c.reportDate().equals(refDay))
+        .toList();
+    List<EquipmentCellRow> eqCellsDay = equipmentCells.stream()
+        .filter(c -> c.reportDate() != null && c.reportDate().equals(refDay))
+        .toList();
+    List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> sinkA = new ArrayList<>();
+    List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> sinkB = new ArrayList<>();
+    List<TradeRollup> tradeRollupsDay = rollUpManpower(
+        mpCellsDay, equipmentExpected, normCache, normCombosByActivity, subContractorQtyByDpr,
+        sinkA, effectiveWorkDays);
+    List<EquipmentRollup> equipmentRollupsDay = rollUpEquipment(
+        eqCellsDay, manpowerExpected, normCache, normCombosByActivity, subContractorQtyByDpr,
+        sinkB, effectiveWorkDays);
+    List<ActivityDrillDown> drillDownDay = buildDrillDown(
+        mpCellsDay, eqCellsDay, normCache, activityMeta,
+        plannedByActivityRole, manpowerExpected, equipmentExpected, normCombosByActivity,
+        subContractorQtyByDpr, effectiveWorkDays);
+
+    // === CalendarMonth-filtered pass ===
+    LocalDate monthStart = referenceMonth.atDay(1);
+    LocalDate monthEnd = referenceMonth.atEndOfMonth();
+    List<ManpowerCellRow> mpCellsMonth = manpowerCells.stream()
+        .filter(c -> c.reportDate() != null
+                && !c.reportDate().isBefore(monthStart)
+                && !c.reportDate().isAfter(monthEnd))
+        .toList();
+    List<EquipmentCellRow> eqCellsMonth = equipmentCells.stream()
+        .filter(c -> c.reportDate() != null
+                && !c.reportDate().isBefore(monthStart)
+                && !c.reportDate().isAfter(monthEnd))
+        .toList();
+    List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> sinkC = new ArrayList<>();
+    List<com.bipros.reporting.application.dto.CapacityUtilizationReport.HiddenSideNote> sinkD = new ArrayList<>();
+    List<TradeRollup> tradeRollupsMonth = rollUpManpower(
+        mpCellsMonth, equipmentExpected, normCache, normCombosByActivity, subContractorQtyByDpr,
+        sinkC, effectiveWorkDays);
+    List<EquipmentRollup> equipmentRollupsMonth = rollUpEquipment(
+        eqCellsMonth, manpowerExpected, normCache, normCombosByActivity, subContractorQtyByDpr,
+        sinkD, effectiveWorkDays);
+    List<ActivityDrillDown> drillDownMonth = buildDrillDown(
+        mpCellsMonth, eqCellsMonth, normCache, activityMeta,
+        plannedByActivityRole, manpowerExpected, equipmentExpected, normCombosByActivity,
+        subContractorQtyByDpr, effectiveWorkDays);
+
+    // === Stitch buckets onto the cumulative output ===
+    List<TradeRollup> tradeRollups = attachTradeBuckets(
+        tradeRollupsCum, tradeRollupsDay, tradeRollupsMonth);
+    List<EquipmentRollup> equipmentRollups = attachEquipmentBuckets(
+        equipmentRollupsCum, equipmentRollupsDay, equipmentRollupsMonth);
+    List<ActivityDrillDown> drillDown = attachActivityBuckets(
+        drillDownCum, drillDownDay, drillDownMonth, activityMeta);
+
     return new SupervisorPerformanceReport(
         projectId, supervisorUserId, supervisorName,
         effectiveFrom, effectiveTo, effectiveWorkDays,
+        referenceDate,
         new Summary(tradeRollups, equipmentRollups, manpowerHidden, equipmentHidden),
         drillDown);
+  }
+
+  // ─── 3-pass bucket stitchers ───────────────────────────────────────────────────────────────
+
+  private static PeriodMetrics toMetrics(TradeRollup t) {
+    if (t == null) return null;
+    return new PeriodMetrics(t.qtyDone(), t.budgetedManDays(), t.actualManDays(),
+        t.actualDaysOnHiddenSides(), t.actualDaysUntracked(),
+        t.utilizationPct(), t.costImplication());
+  }
+
+  private static PeriodMetrics toMetrics(EquipmentRollup e) {
+    if (e == null) return null;
+    return new PeriodMetrics(e.qtyDone(), e.budgetedDays(), e.actualDays(),
+        e.actualDaysOnHiddenSides(), e.actualDaysUntracked(),
+        e.utilizationPct(), e.costImplication());
+  }
+
+  private static List<TradeRollup> attachTradeBuckets(
+      List<TradeRollup> cumulative, List<TradeRollup> day, List<TradeRollup> month) {
+    Map<String, TradeRollup> dayMap = new HashMap<>();
+    for (TradeRollup t : day) dayMap.put(t.tradeKey(), t);
+    Map<String, TradeRollup> monthMap = new HashMap<>();
+    for (TradeRollup t : month) monthMap.put(t.tradeKey(), t);
+    List<TradeRollup> out = new ArrayList<>(cumulative.size());
+    for (TradeRollup c : cumulative) {
+      PeriodMetricsBuckets buckets = new PeriodMetricsBuckets(
+          toMetrics(dayMap.get(c.tradeKey())),
+          toMetrics(monthMap.get(c.tradeKey())),
+          toMetrics(c));
+      out.add(new TradeRollup(
+          c.tradeKey(), c.tradeLabel(), c.mmRate(), c.qtyDone(),
+          c.budgetedManDays(), c.actualManDays(),
+          c.actualDaysOnHiddenSides(), c.actualDaysUntracked(),
+          c.utilizationPct(), c.costImplication(), c.normSource(),
+          buckets));
+    }
+    return out;
+  }
+
+  private static List<EquipmentRollup> attachEquipmentBuckets(
+      List<EquipmentRollup> cumulative, List<EquipmentRollup> day, List<EquipmentRollup> month) {
+    Map<String, EquipmentRollup> dayMap = new HashMap<>();
+    for (EquipmentRollup e : day) dayMap.put(e.equipmentKey(), e);
+    Map<String, EquipmentRollup> monthMap = new HashMap<>();
+    for (EquipmentRollup e : month) monthMap.put(e.equipmentKey(), e);
+    List<EquipmentRollup> out = new ArrayList<>(cumulative.size());
+    for (EquipmentRollup c : cumulative) {
+      PeriodMetricsBuckets buckets = new PeriodMetricsBuckets(
+          toMetrics(dayMap.get(c.equipmentKey())),
+          toMetrics(monthMap.get(c.equipmentKey())),
+          toMetrics(c));
+      out.add(new EquipmentRollup(
+          c.equipmentKey(), c.equipmentLabel(), c.hourRate(), c.qtyDone(),
+          c.budgetedDays(), c.actualDays(),
+          c.actualDaysOnHiddenSides(), c.actualDaysUntracked(),
+          c.utilizationPct(), c.costImplication(), c.normSource(),
+          buckets));
+    }
+    return out;
+  }
+
+  private static List<ActivityDrillDown> attachActivityBuckets(
+      List<ActivityDrillDown> cumulative, List<ActivityDrillDown> day,
+      List<ActivityDrillDown> month, Map<UUID, ActivityMeta> activityMeta) {
+    // Index day/month drill-downs by activityId for fast lookup.
+    Map<UUID, ActivityDrillDown> dayByAct = new HashMap<>();
+    for (ActivityDrillDown a : day) dayByAct.put(a.activityId(), a);
+    Map<UUID, ActivityDrillDown> monthByAct = new HashMap<>();
+    for (ActivityDrillDown a : month) monthByAct.put(a.activityId(), a);
+
+    List<ActivityDrillDown> out = new ArrayList<>(cumulative.size());
+    for (ActivityDrillDown c : cumulative) {
+      ActivityDrillDown dayA = dayByAct.get(c.activityId());
+      ActivityDrillDown monthA = monthByAct.get(c.activityId());
+      // For each resource line in cumulative, find matching lines in day/month by (kind, key)
+      // and build PlannedActualsBuckets. Day/month lines may be absent (no contribution in that
+      // bucket) — emit null bucket leaves rather than blanks so the AI can distinguish.
+      Map<String, ResourceLine> dayLines = indexLines(dayA);
+      Map<String, ResourceLine> monthLines = indexLines(monthA);
+      List<ResourceLine> stitched = new ArrayList<>(c.resources().size());
+      for (ResourceLine cr : c.resources()) {
+        String key = cr.kind() + "::" + cr.resourceKey();
+        ResourceLine dr = dayLines.get(key);
+        ResourceLine mr = monthLines.get(key);
+        PlannedActualsBuckets planBuckets = new PlannedActualsBuckets(
+            dr == null ? null : dr.planMonth(),
+            mr == null ? null : mr.planMonth(),
+            cr.planMonth());
+        PlannedActualsBuckets actualBuckets = new PlannedActualsBuckets(
+            dr == null ? null : dr.actualMonth(),
+            mr == null ? null : mr.actualMonth(),
+            cr.actualMonth());
+        stitched.add(new ResourceLine(cr.kind(), cr.resourceKey(), cr.resourceLabel(),
+            cr.norms(), cr.planMonth(), cr.actualMonth(), planBuckets, actualBuckets));
+      }
+      // Pull bucket-anchored qty totals from the enriched ActivityMeta (single source of truth
+      // for activity-level qty per bucket — the filtered drill-down passes reuse the same
+      // cumulative meta so their qty field would otherwise be wrong).
+      ActivityMeta meta = activityMeta == null ? null : activityMeta.get(c.activityId());
+      out.add(new ActivityDrillDown(
+          c.activityId(), c.activityCode(), c.activityName(), c.unit(),
+          c.qtyForMonth(),                                     // cumulative-window (legacy field)
+          meta != null ? meta.qtyForDay() : null,              // single-day anchor
+          meta != null ? meta.qtyForCalendarMonth() : null,    // calendar month of anchor
+          c.subContractorQty(),
+          stitched,
+          c.remarks()));
+    }
+    return out;
+  }
+
+  private static Map<String, ResourceLine> indexLines(ActivityDrillDown a) {
+    Map<String, ResourceLine> out = new HashMap<>();
+    if (a == null) return out;
+    for (ResourceLine rl : a.resources()) {
+      out.put(rl.kind() + "::" + rl.resourceKey(), rl);
+    }
+    return out;
   }
 
   /** Sum of (resolvedNorm × actualNos) per (DPR, activity) on one side. Null/zero norms are
@@ -320,7 +506,8 @@ public class SupervisorPerformanceReportService {
                 + "  SUM(COALESCE(m.nos, 0))                                       AS actual_nos, "
                 + "  SUM(COALESCE(m.nos, 0) * COALESCE(m.unit_rate, mrr.rate, 0))  AS line_cost_total, "
                 + "  m.role_id                                                     AS role_id, "
-                + "  d.id                                                          AS dpr_id "
+                + "  d.id                                                          AS dpr_id, "
+                + "  d.report_date                                                 AS report_date "
                 + "FROM project.daily_progress_reports d "
                 + "JOIN project.dpr_manpower m       ON m.dpr_id = d.id "
                 + "JOIN resource.resource_roles rr  ON rr.id = m.role_id "
@@ -335,7 +522,7 @@ public class SupervisorPerformanceReportService {
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
                 + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
-                + "         a.work_activity_id, a.code, a.name, d.unit, m.role_id, d.id")
+                + "         a.work_activity_id, a.code, a.name, d.unit, m.role_id, d.id, d.report_date")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
@@ -350,7 +537,8 @@ public class SupervisorPerformanceReportService {
           (UUID) r[3], (UUID) r[4],
           (String) r[5], (String) r[6], (String) r[7],
           toBigDecimal(r[8]), toBigDecimal(r[9]), toBigDecimal(r[10]),
-          (UUID) r[11], (UUID) r[12]));
+          (UUID) r[11], (UUID) r[12],
+          toLocalDate(r[13])));
     }
     return out;
   }
@@ -380,7 +568,8 @@ public class SupervisorPerformanceReportService {
                 + "  SUM(COALESCE(e.nos, 0))                                      AS actual_nos, "
                 + "  SUM(COALESCE(e.nos, 0) * COALESCE(e.unit_rate, erv.rate, 0)) AS line_cost_total, "
                 + "  e.role_id                                                    AS role_id, "
-                + "  d.id                                                         AS dpr_id "
+                + "  d.id                                                         AS dpr_id, "
+                + "  d.report_date                                                AS report_date "
                 + "FROM project.daily_progress_reports d "
                 + "JOIN project.dpr_equipment e         ON e.dpr_id = d.id "
                 + "JOIN resource.resource_roles rr     ON rr.id = e.role_id "
@@ -393,7 +582,7 @@ public class SupervisorPerformanceReportService {
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
                 + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY rr.code, rr.name, rr.resource_type_id, d.activity_id, "
-                + "         a.work_activity_id, a.code, a.name, d.unit, e.role_id, d.id")
+                + "         a.work_activity_id, a.code, a.name, d.unit, e.role_id, d.id, d.report_date")
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
@@ -408,22 +597,33 @@ public class SupervisorPerformanceReportService {
           (UUID) r[3], (UUID) r[4],
           (String) r[5], (String) r[6], (String) r[7],
           toBigDecimal(r[8]), toBigDecimal(r[9]), toBigDecimal(r[10]),
-          (UUID) r[11], (UUID) r[12]));
+          (UUID) r[11], (UUID) r[12],
+          toLocalDate(r[13])));
     }
     return out;
   }
 
   @SuppressWarnings("unchecked")
   private Map<UUID, ActivityMeta> fetchActivityMeta(
-      UUID projectId, UUID supervisorUserId, LocalDate fromDate, LocalDate toDate) {
+      UUID projectId, UUID supervisorUserId, LocalDate fromDate, LocalDate toDate,
+      LocalDate referenceDate, YearMonth referenceMonth) {
 
     // LEFT JOIN to dpr_sub_contractor + SUM gives Σ sub-contractor qty per activity in the
     // window. Surfaces as the "(X sub-contractor)" leg of the drill-down header breakdown.
+    // qty_for_day / qty_for_calendar_month — conditional sums anchored on the report's
+    // referenceDate so the AI can answer "qty for the day" vs "for the month" vs "cumulative"
+    // without re-calling with narrower windows.
+    LocalDate monthStart = referenceMonth.atDay(1);
+    LocalDate monthEnd = referenceMonth.atEndOfMonth();
     List<Object[]> raw = em.createNativeQuery(
             "SELECT d.activity_id, "
                 + "       MAX(d.activity_name)                                    AS activity_name, "
                 + "       MAX(d.unit)                                             AS unit, "
                 + "       SUM(d.qty_executed)                                     AS qty_total, "
+                + "       SUM(CASE WHEN d.report_date = :referenceDate "
+                + "                THEN COALESCE(d.qty_executed, 0) ELSE 0 END)   AS qty_for_day, "
+                + "       SUM(CASE WHEN d.report_date BETWEEN :monthStart AND :monthEnd "
+                + "                THEN COALESCE(d.qty_executed, 0) ELSE 0 END)   AS qty_for_month, "
                 + "       COALESCE(SUM(sc_total.sub_qty), 0)                      AS sub_total, "
                 + "       STRING_AGG(DISTINCT NULLIF(d.remarks, ''), ' | ')       AS remarks "
                 + "FROM project.daily_progress_reports d "
@@ -443,6 +643,9 @@ public class SupervisorPerformanceReportService {
         .setParameter("projectId", projectId)
         .setParameter("fromDate", fromDate)
         .setParameter("toDate", toDate)
+        .setParameter("referenceDate", referenceDate)
+        .setParameter("monthStart", monthStart)
+        .setParameter("monthEnd", monthEnd)
         .setParameter("supervisorUserId",
             supervisorUserId != null ? supervisorUserId.toString() : null)
         .getResultList();
@@ -450,11 +653,15 @@ public class SupervisorPerformanceReportService {
     Map<UUID, ActivityMeta> out = new LinkedHashMap<>(raw.size());
     for (Object[] r : raw) {
       UUID actId = (UUID) r[0];
-      BigDecimal subTotal = toBigDecimal(r[4]);
+      BigDecimal qtyDay = toBigDecimal(r[4]);
+      BigDecimal qtyMonth = toBigDecimal(r[5]);
+      BigDecimal subTotal = toBigDecimal(r[6]);
       out.put(actId, new ActivityMeta(actId, (String) r[1], (String) r[2],
           toBigDecimal(r[3]),
+          qtyDay != null && qtyDay.signum() > 0 ? qtyDay : null,
+          qtyMonth != null && qtyMonth.signum() > 0 ? qtyMonth : null,
           subTotal != null && subTotal.signum() > 0 ? subTotal : null,
-          (String) r[5]));
+          (String) r[7]));
     }
     return out;
   }
@@ -1010,6 +1217,14 @@ public class SupervisorPerformanceReportService {
     return null;
   }
 
+  private static LocalDate toLocalDate(Object o) {
+    if (o == null) return null;
+    if (o instanceof LocalDate ld) return ld;
+    if (o instanceof java.sql.Date sd) return sd.toLocalDate();
+    if (o instanceof java.util.Date ud) return ud.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+    return null;
+  }
+
   private static int normSourceRank(String source) {
     if (source == null) return 99;
     return switch (source) {
@@ -1034,7 +1249,10 @@ public class SupervisorPerformanceReportService {
       /** Role FK used by the drill-down to look up RoleAssignment.plannedUnits. */
       UUID roleId,
       /** DPR id — needed by the allocator's per-DPR grouping. */
-      UUID dprId) {}
+      UUID dprId,
+      /** DPR's report_date — used by the 3-pass bucket stitcher (Day / CalendarMonth /
+       *  Cumulative). All cells of a given DPR share the same date by construction. */
+      LocalDate reportDate) {}
 
   private record EquipmentCellRow(
       String equipmentKey, String equipmentLabel, UUID resourceTypeId,
@@ -1045,7 +1263,9 @@ public class SupervisorPerformanceReportService {
       BigDecimal actualNos,
       BigDecimal lineCostTotal,
       UUID roleId,
-      UUID dprId) {}
+      UUID dprId,
+      /** DPR's report_date — see {@link ManpowerCellRow#reportDate}. */
+      LocalDate reportDate) {}
 
   /** (activityId, roleId) → plannedUnits — drill-down uses this for the real Plan column. */
   private record ActivityRoleKey(UUID activityId, UUID roleId) {}
@@ -1129,7 +1349,8 @@ public class SupervisorPerformanceReportService {
 
   private record ActivityMeta(
       UUID activityId, String activityName, String unit,
-      BigDecimal qtyTotal, BigDecimal subContractorQty, String remarks) {}
+      BigDecimal qtyTotal, BigDecimal qtyForDay, BigDecimal qtyForCalendarMonth,
+      BigDecimal subContractorQty, String remarks) {}
 
   private record ActivityHeader(String code, String name, String unit) {}
 

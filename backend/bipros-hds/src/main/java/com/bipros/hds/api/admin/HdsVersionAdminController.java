@@ -25,7 +25,7 @@ import java.util.UUID;
 
 /**
  * Admin endpoints for HDS version (PDF) management:
- *  - Streaming multipart upload + SHA-256 dedup
+ *  - Streaming multipart upload
  *  - GET single version detail (including indexing error)
  *  - SSE progress feed (subscribes to {@link ProgressStreamRegistry})
  *  - Retry a failed indexing run
@@ -48,17 +48,10 @@ public class HdsVersionAdminController {
             @RequestParam(value = "revisionYear", required = false) Integer revisionYear,
             @RequestParam("file") MultipartFile file) throws IOException {
         UUID userId = currentUserIdOrNull();
-        try {
-            var version = library.uploadVersion(docId, versionLabel, revisionYear,
-                file.getInputStream(), file.getSize(), file.getOriginalFilename(), userId);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok(HdsVersionResponse.from(version)));
-        } catch (HdsLibraryService.DuplicateUploadException dup) {
-            // SHA-256 already indexed — return the existing version with 409 so the UI can show
-            // "this PDF was already uploaded as <existing>".
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.ok(HdsVersionResponse.from(dup.getExisting())));
-        }
+        var version = library.uploadVersion(docId, versionLabel, revisionYear,
+            file.getInputStream(), file.getSize(), file.getOriginalFilename(), userId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.ok(HdsVersionResponse.from(version)));
     }
 
     @PreAuthorize("hasPermission(null, 'HDS_LIBRARY.READ')")

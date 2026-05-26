@@ -107,7 +107,7 @@ databaseChangeLog:
                   type: DOUBLE
               - column:
                   name: cost_value
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: date_value
                   type: DATE

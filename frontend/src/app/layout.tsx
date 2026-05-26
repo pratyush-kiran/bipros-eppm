@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
-import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { AppToaster } from "@/components/common/Toaster";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
-// Inline theme bootstrap. Runs before hydration via next/script's
-// beforeInteractive strategy so the cached CSS variables are applied to <head>
-// immediately and we avoid a flash of unstyled theme. React 19 forbids raw
-// <script> elements rendered from components, so we route this through the
-// official next/script component.
+// Inline theme bootstrap injected into the SSR HTML so cached CSS vars apply
+// before hydration (avoids the flash of unstyled theme). Per Next.js 16 docs
+// (app/02-guides/json-ld.md), a native lowercase <script> in a Server Component
+// is the right primitive for inline payloads — next/script is for external
+// loadable scripts and now triggers a React 19 warning when used with
+// dangerouslySetInnerHTML on the client tree.
 const themeInitScript = `(function(){try{var c=localStorage.getItem('bipros-theme-cache');if(c){var e=document.createElement('style');e.id='bipros-theme-vars';document.head.appendChild(e);e.textContent=c;}}catch(e){}})();`;
 
 const fraunces = Fraunces({
@@ -49,9 +49,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="h-full bg-background text-foreground">
-        <Script
+        <script
           id="bipros-theme-init"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />
         <ThemeProvider>

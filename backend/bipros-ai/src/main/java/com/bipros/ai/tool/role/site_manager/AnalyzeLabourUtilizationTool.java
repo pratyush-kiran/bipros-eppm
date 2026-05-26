@@ -50,11 +50,16 @@ public class AnalyzeLabourUtilizationTool extends ProjectScopedTool {
 
     @Override
     public String description() {
-        return "Compute labour utilization (actual man-days vs planned head-count) per contractor "
-                + "and skill category for a single project over a date range. Defaults to last 7 days. "
-                + "Returns rows ordered by lowest utilization first so the Site Manager sees "
-                + "under-deployed or absent crews at the top. Data is sourced from "
-                + "fact_labour_daily, which is populated when Labour Returns are submitted.";
+        return "Site-Manager-framed labour deployment view (actual man-days vs planned head-count) "
+                + "per contractor and skill category. Defaults to last 7 days. Reads from the "
+                + "ClickHouse fact_labour_daily fact table populated when Labour Returns are submitted. "
+                + "**PREFER `get_capacity_utilization` when the user asks about role-level efficiency, "
+                + "productivity vs norm, the per-DPR allocator output, hidden-side (SERIES/SUBSTITUTE) "
+                + "handling, or sub-contractor-netted workdone — this tool's man-days denominator does "
+                + "NOT apply the per-DPR allocator and does NOT net sub-contractor qty out, so its "
+                + "numbers can disagree with the canonical capacity-utilization report. Use THIS tool "
+                + "only when the user explicitly asks for the contractor-level Labour Return deployment "
+                + "view.**";
     }
 
     @Override

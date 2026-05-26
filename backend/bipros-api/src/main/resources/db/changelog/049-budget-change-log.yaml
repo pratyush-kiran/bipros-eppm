@@ -26,7 +26,7 @@ databaseChangeLog:
                   type: UUID
               - column:
                   name: amount
-                  type: DECIMAL(19, 2)
+                  type: "DECIMAL(19, 2)"
                   constraints:
                     nullable: false
               - column:

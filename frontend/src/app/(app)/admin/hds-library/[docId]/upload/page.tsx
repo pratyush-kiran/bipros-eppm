@@ -56,21 +56,11 @@ export default function HdsUploadPage() {
       router.push(`/admin/hds-library/${params.docId}/versions/${ver.id}`);
     } catch (e: unknown) {
       const errAny = e as {
-        response?: { status?: number; data?: { data?: { versionLabel?: string }; error?: { message?: string } } };
+        response?: { data?: { error?: { message?: string } } };
       };
-      const status = errAny?.response?.status;
-      if (status === 409) {
-        const existing = errAny.response?.data?.data;
-        setError(
-          `Identical file already uploaded as version ${
-            existing?.versionLabel ?? "(unknown)"
-          }.`,
-        );
-      } else {
-        setError(
-          errAny?.response?.data?.error?.message ?? (e instanceof Error ? e.message : String(e)),
-        );
-      }
+      setError(
+        errAny?.response?.data?.error?.message ?? (e instanceof Error ? e.message : String(e)),
+      );
       setBusy(false);
     }
   };

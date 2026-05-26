@@ -20,7 +20,7 @@ databaseChangeLog:
               - column: { name: sort_order, type: INTEGER }
               - column: { name: planned_start, type: DATE }
               - column: { name: planned_finish, type: DATE }
-              - column: { name: budget_crores, type: NUMERIC(14, 2) }
+              - column: { name: budget_crores, type: "NUMERIC(14, 2)" }
               - column: { name: created_at, type: TIMESTAMP }
               - column: { name: updated_at, type: TIMESTAMP }
               - column: { name: created_by, type: VARCHAR(100) }
@@ -56,9 +56,9 @@ databaseChangeLog:
               - column: { name: resource_id, type: UUID }
               - column: { name: role_id, type: UUID }
               - column: { name: budgeted_units, type: DOUBLE PRECISION }
-              - column: { name: budgeted_cost, type: NUMERIC(19, 4) }
+              - column: { name: budgeted_cost, type: "NUMERIC(19, 4)" }
               - column: { name: planned_units, type: DOUBLE PRECISION }
-              - column: { name: planned_cost, type: NUMERIC(19, 4) }
+              - column: { name: planned_cost, type: "NUMERIC(19, 4)" }
               - column: { name: rate_type, type: VARCHAR(50) }
               - column: { name: created_at, type: TIMESTAMP }
               - column: { name: updated_at, type: TIMESTAMP }
@@ -94,7 +94,7 @@ databaseChangeLog:
               - column: { name: activity_id, type: UUID }
               - column: { name: name, type: VARCHAR(200) }
               - column: { name: expense_category, type: VARCHAR(100) }
-              - column: { name: budgeted_cost, type: NUMERIC(19, 2) }
+              - column: { name: budgeted_cost, type: "NUMERIC(19, 2)" }
               - column: { name: planned_start_date, type: DATE }
               - column: { name: planned_finish_date, type: DATE }
               - column: { name: created_at, type: TIMESTAMP }

@@ -62,12 +62,17 @@ public class AnalyzeEquipmentUtilizationCostTool extends ProjectScopedTool {
 
     @Override
     public String description() {
-        return "Per equipment, compute utilization % (active hours / available hours) and cost per "
-                + "active hour. Groups output by ownership (OWNED vs HIRED/RENTED) and surfaces "
-                + "owned-vs-rented average cost comparison. Uses fact_dpr_equipment_daily from "
-                + "ClickHouse. Note: hourly_rate is not yet stored in the fact table, so "
-                + "cost_per_active_hour is null until an equipment rate dimension is introduced. "
-                + "Blank/missing ownership values are normalised to UNKNOWN.";
+        return "Project-Manager-framed per-equipment hour-utilization + cost-per-active-hour view, "
+                + "grouped by ownership (OWNED vs HIRED/RENTED). Reads ClickHouse "
+                + "fact_dpr_equipment_daily. Note: hourly_rate is not yet stored in the fact table, "
+                + "so cost_per_active_hour returns null. Blank/missing ownership values are "
+                + "normalised to UNKNOWN. "
+                + "**PREFER `get_capacity_utilization` (with norm_type=EQUIPMENT) for any per-role "
+                + "or per-activity efficiency question — that tool runs the per-DPR allocator and "
+                + "applies hidden-side handling (SERIES / SUBSTITUTE), and is sub-contractor-aware. "
+                + "Use THIS tool only when the user explicitly asks for ownership-grouped hour "
+                + "utilization or cost-per-active-hour (an ownership-and-cost view that the "
+                + "canonical efficiency tool does not provide).**";
     }
 
     @Override

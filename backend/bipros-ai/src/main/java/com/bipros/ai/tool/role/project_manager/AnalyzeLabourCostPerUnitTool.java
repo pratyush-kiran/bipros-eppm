@@ -65,7 +65,13 @@ public class AnalyzeLabourCostPerUnitTool extends ProjectScopedTool {
                 + "Uses fact_cost_daily (labor_cost) and fact_dpr_logs (qty_executed), joined "
                 + "to dim_activity for activity code and unit. Budget unit rate is not currently "
                 + "stored at activity level; budget_per_unit and delta_pct will be null until "
-                + "that data is captured.";
+                + "that data is captured. "
+                + "SUB-CONTRACTOR NOTE: the qty_executed denominator is GROSS workdone (includes "
+                + "sub-contractor qty). For a true company-resource labour-cost-per-unit, the "
+                + "denominator should be effective_company_qty (= gross − sub_contractor_qty); "
+                + "until that variant is computed in the warehouse, mention this caveat in the "
+                + "answer when sub-contractor is present on the activity. Use "
+                + "get_subcontractor_kpis to surface the SC qty/cost separately.";
     }
 
     @Override

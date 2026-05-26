@@ -53,7 +53,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: temperature
-                  type: NUMERIC(3,2)
+                  type: "NUMERIC(3,2)"
                   defaultValueNumeric: 0.2
                   constraints:
                     nullable: false

@@ -209,20 +209,20 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: gross_amount
-                  type: DECIMAL(15, 2)
+                  type: "DECIMAL(15, 2)"
                   constraints:
                     nullable: false
               - column:
                   name: deductions
-                  type: DECIMAL(15, 2)
+                  type: "DECIMAL(15, 2)"
               - column:
                   name: net_amount
-                  type: DECIMAL(15, 2)
+                  type: "DECIMAL(15, 2)"
                   constraints:
                     nullable: false
               - column:
                   name: cumulative_amount
-                  type: DECIMAL(15, 2)
+                  type: "DECIMAL(15, 2)"
               - column:
                   name: status
                   type: VARCHAR(50)

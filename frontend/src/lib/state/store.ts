@@ -69,18 +69,14 @@ export const useAuthStore = create<AuthState>()(
 
 interface AppState {
   currentProjectId: string | null;
-  sidebarCollapsed: boolean;
   setCurrentProjectId: (id: string | null) => void;
-  toggleSidebar: () => void;
 }
 
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       currentProjectId: null,
-      sidebarCollapsed: false,
       setCurrentProjectId: (id) => set({ currentProjectId: id }),
-      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
     }),
     { name: "bipros-app" }
   )

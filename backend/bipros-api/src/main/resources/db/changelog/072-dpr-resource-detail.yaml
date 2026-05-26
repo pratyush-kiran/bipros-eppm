@@ -61,8 +61,8 @@ databaseChangeLog:
               - column: { name: trade, type: VARCHAR(100), constraints: { nullable: false } }
               - column: { name: category, type: VARCHAR(20) }
               - column: { name: nos, type: INT }
-              - column: { name: working_hours, type: DECIMAL(6,2) }
-              - column: { name: ot_hours, type: DECIMAL(6,2) }
+              - column: { name: working_hours, type: "DECIMAL(6,2)" }
+              - column: { name: ot_hours, type: "DECIMAL(6,2)" }
               - column: { name: contractor_name, type: VARCHAR(150) }
               - column: { name: remarks, type: VARCHAR(500) }
               - column: { name: created_at, type: TIMESTAMP, constraints: { nullable: false } }
@@ -95,10 +95,10 @@ databaseChangeLog:
               - column: { name: fleet_no, type: VARCHAR(50) }
               - column: { name: ownership, type: VARCHAR(20) }
               - column: { name: nos, type: INT }
-              - column: { name: working_hours, type: DECIMAL(6,2) }
-              - column: { name: idle_hours, type: DECIMAL(6,2) }
-              - column: { name: breakdown_hours, type: DECIMAL(6,2) }
-              - column: { name: fuel_litres, type: DECIMAL(10,2) }
+              - column: { name: working_hours, type: "DECIMAL(6,2)" }
+              - column: { name: idle_hours, type: "DECIMAL(6,2)" }
+              - column: { name: breakdown_hours, type: "DECIMAL(6,2)" }
+              - column: { name: fuel_litres, type: "DECIMAL(10,2)" }
               - column: { name: operator_name, type: VARCHAR(150) }
               - column: { name: availability_status, type: VARCHAR(20) }
               - column: { name: remarks, type: VARCHAR(500) }
@@ -129,7 +129,7 @@ databaseChangeLog:
                   constraints: { primaryKey: true, nullable: false }
               - column: { name: dpr_id, type: UUID, constraints: { nullable: false } }
               - column: { name: material_name, type: VARCHAR(150), constraints: { nullable: false } }
-              - column: { name: quantity, type: DECIMAL(18,3) }
+              - column: { name: quantity, type: "DECIMAL(18,3)" }
               - column: { name: unit, type: VARCHAR(20) }
               - column: { name: source, type: VARCHAR(150) }
               - column: { name: batch_no, type: VARCHAR(60) }

@@ -48,13 +48,15 @@ public class AnalyzeProductivityFactorTool extends ProjectScopedTool {
 
     @Override
     public String description() {
-        return "Compute productivity factor (actual output per man-hour vs activity norm) "
-                + "per crew and activity for a single project over a date range. Defaults to "
-                + "last 7 days. Rows are sorted by variance_pct ascending (most under-performing "
-                + "crew/activity pairs first). Use this for questions like \"which crews are "
-                + "below productivity norm\", \"show me underperforming activities by crew\", "
-                + "\"productivity factor analysis\". Data is sourced from "
-                + "fact_resource_usage_daily joined to dim_resource and dim_activity.";
+        return "Project-Engineer-framed crew-level productivity-factor view (actual output per "
+                + "man-hour vs activity norm) for a project + date range. Reads ClickHouse "
+                + "fact_resource_usage_daily. Defaults to last 7 days. "
+                + "**PREFER `get_capacity_utilization` for the authoritative answer — that tool runs "
+                + "the per-DPR allocator (2026-05-22), nets sub-contractor qty out of workdone, and "
+                + "applies SERIES/PARALLEL/SUBSTITUTE hiding. This tool's hour-based denominator does "
+                + "NONE of that and can disagree with the canonical service. Use THIS tool only when "
+                + "the user explicitly asks for the crew × activity per-man-hour breakdown.** "
+                + "For sub-contractor productivity questions, use get_subcontractor_kpis.";
     }
 
     @Override

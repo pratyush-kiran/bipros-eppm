@@ -128,6 +128,26 @@ bipros:
     excel-master:
       enabled: ${BIPROS_SEEDERS_EXCEL_MASTER_ENABLED:false}
 
+  # Disable the DBS aggregate backfill on every boot — for the fresh-environment
+  # E2E run we explicitly recompute via /v1/projects/{pid}/dbs/recompute-range
+  # after DPR import (faster + deterministic).
+  dbs:
+    backfill:
+      enabled: ${BIPROS_DBS_BACKFILL_ENABLED:false}
+
+  # Disable the project-team backfill seeder. It iterates over project.projects
+  # and tries to reattach the PM via ownerId; if we wipe projects mid-cycle it
+  # tries to dereference stale FK. We populate project team explicitly via API.
+  seeder:
+    project-team:
+      enabled: ${BIPROS_SEEDER_PROJECT_TEAM_ENABLED:false}
+
+  # Disable the legacy-daily-output backfill so a clean DB doesn't trigger
+  # migration of zero rows.
+  backfill:
+    legacy-daily-output:
+      enabled: ${BIPROS_BACKFILL_LEGACY_DAILY_OUTPUT_ENABLED:false}
+
   # Satellite raster storage. MinIO in dev (docker-compose.yml), AWS S3 in prod
   # via the same config keys (change endpoint + credentials).
   storage:

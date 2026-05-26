@@ -32,22 +32,22 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: output_per_man_per_day
-                  type: DECIMAL(12,4)
+                  type: "DECIMAL(12,4)"
               - column:
                   name: output_per_hour
-                  type: DECIMAL(12,4)
+                  type: "DECIMAL(12,4)"
               - column:
                   name: crew_size
                   type: INTEGER
               - column:
                   name: output_per_day
-                  type: DECIMAL(12,4)
+                  type: "DECIMAL(12,4)"
               - column:
                   name: working_hours_per_day
                   type: DOUBLE
               - column:
                   name: fuel_litres_per_hour
-                  type: DECIMAL(10,2)
+                  type: "DECIMAL(10,2)"
               - column:
                   name: equipment_spec
                   type: VARCHAR(150)

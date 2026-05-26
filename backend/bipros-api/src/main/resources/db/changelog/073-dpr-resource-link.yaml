@@ -28,9 +28,9 @@ databaseChangeLog:
             columns:
               - column: { name: resource_assignment_id, type: UUID }
               - column: { name: resource_id, type: UUID }
-              - column: { name: unit_rate, type: DECIMAL(19,4) }
+              - column: { name: unit_rate, type: "DECIMAL(19,4)" }
               - column: { name: unit_rate_basis, type: VARCHAR(20) }
-              - column: { name: line_cost, type: DECIMAL(19,2) }
+              - column: { name: line_cost, type: "DECIMAL(19,2)" }
 
   # Phase 3 — equipment row: link to resource assignment, snapshot rate / cost.
   - changeSet:
@@ -43,8 +43,8 @@ databaseChangeLog:
             columns:
               - column: { name: resource_assignment_id, type: UUID }
               - column: { name: resource_id, type: UUID }
-              - column: { name: unit_rate, type: DECIMAL(19,4) }
-              - column: { name: line_cost, type: DECIMAL(19,2) }
+              - column: { name: unit_rate, type: "DECIMAL(19,4)" }
+              - column: { name: line_cost, type: "DECIMAL(19,2)" }
 
   # Phase 4 — material row: link to resource assignment, snapshot rate / cost.
   - changeSet:
@@ -58,8 +58,8 @@ databaseChangeLog:
               - column: { name: resource_assignment_id, type: UUID }
               - column: { name: material_id, type: UUID }
               - column: { name: resource_id, type: UUID }
-              - column: { name: unit_rate, type: DECIMAL(19,4) }
-              - column: { name: line_cost, type: DECIMAL(19,2) }
+              - column: { name: unit_rate, type: "DECIMAL(19,4)" }
+              - column: { name: line_cost, type: "DECIMAL(19,2)" }
 
   # Phase 5 — daily_activity_resource_outputs: source tracking + dpr ownership.
   - changeSet:

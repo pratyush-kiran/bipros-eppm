@@ -9,10 +9,10 @@ databaseChangeLog:
             columns:
               - column:
                   name: original_budget
-                  type: DECIMAL(19, 2)
+                  type: "DECIMAL(19, 2)"
               - column:
                   name: current_budget
-                  type: DECIMAL(19, 2)
+                  type: "DECIMAL(19, 2)"
               - column:
                   name: budget_currency
                   type: VARCHAR(3)

@@ -28,6 +28,8 @@ frontend/.env.local
 # OS
 .DS_Store
 Thumbs.db
+# Microsoft Office temporary lock files (e.g. "~$workbook.xlsx")
+~$*
 
 # Docker
 docker/data/

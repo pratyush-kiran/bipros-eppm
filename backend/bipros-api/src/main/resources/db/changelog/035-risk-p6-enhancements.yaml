@@ -43,10 +43,10 @@ databaseChangeLog:
                   type: DATE
               - column:
                   name: pre_response_exposure_cost
-                  type: DECIMAL(19, 2)
+                  type: "DECIMAL(19, 2)"
               - column:
                   name: post_response_exposure_cost
-                  type: DECIMAL(19, 2)
+                  type: "DECIMAL(19, 2)"
               - column:
                   name: response_type
                   type: VARCHAR(20)

@@ -71,7 +71,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: default_daily_rate
-                  type: NUMERIC(10,2)
+                  type: "NUMERIC(10,2)"
                   constraints:
                     nullable: false
               - column:
@@ -184,7 +184,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: actual_daily_rate
-                  type: NUMERIC(10,2)
+                  type: "NUMERIC(10,2)"
               - column:
                   name: notes
                   type: VARCHAR(500)

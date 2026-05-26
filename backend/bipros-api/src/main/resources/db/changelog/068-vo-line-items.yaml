@@ -44,13 +44,13 @@ databaseChangeLog:
                   type: VARCHAR(20)
               - column:
                   name: revised_qty
-                  type: NUMERIC(18, 3)
+                  type: "NUMERIC(18, 3)"
               - column:
                   name: revised_rate
-                  type: NUMERIC(18, 4)
+                  type: "NUMERIC(18, 4)"
               - column:
                   name: line_impact_amount
-                  type: NUMERIC(19, 2)
+                  type: "NUMERIC(19, 2)"
               - column:
                   name: created_at
                   type: TIMESTAMP WITH TIME ZONE

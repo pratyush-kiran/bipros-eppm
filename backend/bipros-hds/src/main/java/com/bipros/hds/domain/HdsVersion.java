@@ -12,8 +12,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "hds_version", schema = "hds",
        uniqueConstraints = {
-         @UniqueConstraint(name = "uk_hds_version_doc_label", columnNames = {"hds_document_id", "version_label"}),
-         @UniqueConstraint(name = "uk_hds_version_sha", columnNames = "file_sha256")
+         @UniqueConstraint(name = "uk_hds_version_doc_label", columnNames = {"hds_document_id", "version_label"})
        })
 @Getter
 @Setter

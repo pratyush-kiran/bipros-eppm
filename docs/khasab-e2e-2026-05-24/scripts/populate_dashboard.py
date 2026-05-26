@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """Populate the blank dashboard pieces:
 1. Link Oman calendar to project + all activities (so Run Schedule works)
@@ -12,8 +13,8 @@ from datetime import date, timedelta
 
 PROJECT_ID = open("/tmp/khasab/project-id.txt").read().strip()
 PSQL = "/Applications/Postgres.app/Contents/Versions/latest/bin/psql"
-PG_BASE = ["env", "PGPASSWORD=bipros_dev", PSQL, "-h", "127.0.0.1", "-U", "bipros", "-d", "bipros", "-A", "-F", "|", "-t", "-c"]
-OMAN_CAL = "a74ca9d7-019f-46a7-8090-ce94c5b802cc"
+PG_BASE = ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL, "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"), "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
+OMAN_CAL = "07331f65-9b82-423c-b7ae-5926e0fe0658"
 
 
 def sql(q, ignore=False):

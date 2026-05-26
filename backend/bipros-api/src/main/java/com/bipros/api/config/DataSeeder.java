@@ -32,7 +32,9 @@ import java.time.LocalTime;
 
 @Slf4j
 @Component
-@Profile({"dev", "seed"})
+// "init-prod" lets a fresh prod boot create the admin + roles without also
+// activating the Khasab demo-data seeders (which only fire under "seed").
+@Profile({"dev", "seed", "init-prod"})
 @Order(100)
 @RequiredArgsConstructor
 public class DataSeeder implements CommandLineRunner {

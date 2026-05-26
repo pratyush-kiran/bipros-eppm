@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """Final demo polish:
 1. Re-extract activity names from the CODE sheet of the Khasab daily-data workbook (where they actually live)
@@ -16,7 +17,7 @@ BASE = "http://localhost:8080"
 TOKEN = open("/tmp/admin-token.txt").read().strip()
 PROJECT_ID = open("/tmp/khasab/project-id.txt").read().strip()
 PSQL = "/Applications/Postgres.app/Contents/Versions/latest/bin/psql"
-PG_BASE = ["env", "PGPASSWORD=bipros_dev", PSQL, "-h", "127.0.0.1", "-U", "bipros", "-d", "bipros", "-A", "-F", "|", "-t", "-c"]
+PG_BASE = ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL, "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"), "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
 
 
 def sql(q, ignore=False):

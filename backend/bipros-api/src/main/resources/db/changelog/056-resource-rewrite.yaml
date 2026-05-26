@@ -97,7 +97,7 @@ databaseChangeLog:
               - column: { name: description,       type: VARCHAR(500) }
               - column: { name: resource_type_id,  type: UUID,         constraints: { nullable: false } }
               - column: { name: productivity_unit, type: VARCHAR(50) }
-              - column: { name: default_rate,      type: DECIMAL(19, 4) }
+              - column: { name: default_rate,      type: "DECIMAL(19, 4)" }
               - column: { name: sort_order,        type: INTEGER, defaultValueNumeric: 0,    constraints: { nullable: false } }
               - column: { name: active,            type: BOOLEAN, defaultValueBoolean: true, constraints: { nullable: false } }
               - column: { name: created_at,        type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
@@ -139,8 +139,8 @@ databaseChangeLog:
               - column: { name: description,      type: VARCHAR(1000) }
               - column: { name: role_id,          type: UUID,         constraints: { nullable: false } }
               - column: { name: resource_type_id, type: UUID,         constraints: { nullable: false } }
-              - column: { name: availability,     type: DECIMAL(5, 2) }
-              - column: { name: cost_per_unit,    type: DECIMAL(19, 4) }
+              - column: { name: availability,     type: "DECIMAL(5, 2)" }
+              - column: { name: cost_per_unit,    type: "DECIMAL(19, 4)" }
               - column: { name: unit,             type: VARCHAR(30) }
               - column: { name: status,           type: VARCHAR(20), defaultValue: 'ACTIVE', constraints: { nullable: false } }
               - column: { name: calendar_id,      type: UUID }
@@ -234,8 +234,8 @@ databaseChangeLog:
               - column: { name: engine_number,           type: VARCHAR(80) }
               - column: { name: registration_number,     type: VARCHAR(80) }
               - column: { name: capacity_spec,           type: VARCHAR(80) }
-              - column: { name: fuel_litres_per_hour,    type: DECIMAL(10, 2) }
-              - column: { name: standard_output_per_day, type: DECIMAL(15, 4) }
+              - column: { name: fuel_litres_per_hour,    type: "DECIMAL(10, 2)" }
+              - column: { name: standard_output_per_day, type: "DECIMAL(15, 4)" }
               - column: { name: standard_output_unit,    type: VARCHAR(30) }
               - column: { name: ownership_type,          type: VARCHAR(30) }
               - column: { name: quantity_available,      type: INTEGER }
@@ -278,9 +278,9 @@ databaseChangeLog:
               - column: { name: standard_code,      type: VARCHAR(80) }
               - column: { name: quality_class,      type: VARCHAR(60) }
               - column: { name: base_unit,          type: VARCHAR(30) }
-              - column: { name: conversion_factor,  type: DECIMAL(15, 6) }
+              - column: { name: conversion_factor,  type: "DECIMAL(15, 6)" }
               - column: { name: alternate_units,    type: JSONB }
-              - column: { name: density,            type: DECIMAL(10, 4) }
+              - column: { name: density,            type: "DECIMAL(10, 4)" }
               - column: { name: created_at,         type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
               - column: { name: updated_at,         type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
               - column: { name: created_by,         type: VARCHAR(255) }
@@ -403,9 +403,9 @@ databaseChangeLog:
             columns:
               - column: { name: resource_id,           type: UUID, constraints: { primaryKey: true, nullable: false } }
               - column: { name: salary_type,           type: VARCHAR(20) }
-              - column: { name: base_salary,           type: DECIMAL(15, 2) }
-              - column: { name: hourly_rate,           type: DECIMAL(15, 4) }
-              - column: { name: overtime_rate,         type: DECIMAL(15, 4) }
+              - column: { name: base_salary,           type: "DECIMAL(15, 2)" }
+              - column: { name: hourly_rate,           type: "DECIMAL(15, 4)" }
+              - column: { name: overtime_rate,         type: "DECIMAL(15, 4)" }
               - column: { name: allowances,            type: JSONB }
               - column: { name: deductions,            type: JSONB }
               - column: { name: currency,              type: CHAR(3) }
@@ -441,11 +441,11 @@ databaseChangeLog:
               - column: { name: daily_attendance_status, type: VARCHAR(20) }
               - column: { name: last_check_in_time,      type: TIMESTAMP WITH TIME ZONE }
               - column: { name: last_check_out_time,     type: TIMESTAMP WITH TIME ZONE }
-              - column: { name: working_hours_per_day,   type: DECIMAL(5, 2) }
+              - column: { name: working_hours_per_day,   type: "DECIMAL(5, 2)" }
               - column: { name: shift_type,              type: VARCHAR(20) }
-              - column: { name: total_work_hours_mtd,    type: DECIMAL(8, 2) }
-              - column: { name: overtime_hours_mtd,      type: DECIMAL(8, 2) }
-              - column: { name: leave_balance,           type: DECIMAL(6, 2) }
+              - column: { name: total_work_hours_mtd,    type: "DECIMAL(8, 2)" }
+              - column: { name: overtime_hours_mtd,      type: "DECIMAL(8, 2)" }
+              - column: { name: leave_balance,           type: "DECIMAL(6, 2)" }
               - column: { name: leave_schedule,          type: JSONB }
               - column: { name: created_at,              type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
               - column: { name: updated_at,              type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
@@ -477,13 +477,13 @@ databaseChangeLog:
               - column: { name: site_name,                type: VARCHAR(120) }
               - column: { name: role_in_project,          type: VARCHAR(120) }
               - column: { name: crew_id,                  type: UUID }
-              - column: { name: utilization_percentage,   type: DECIMAL(5, 2) }
-              - column: { name: standard_output_per_hour, type: DECIMAL(15, 4) }
+              - column: { name: utilization_percentage,   type: "DECIMAL(5, 2)" }
+              - column: { name: standard_output_per_hour, type: "DECIMAL(15, 4)" }
               - column: { name: output_unit,              type: VARCHAR(30) }
-              - column: { name: efficiency_factor,        type: DECIMAL(5, 4) }
-              - column: { name: performance_rating,       type: DECIMAL(4, 2) }
+              - column: { name: efficiency_factor,        type: "DECIMAL(5, 4)" }
+              - column: { name: performance_rating,       type: "DECIMAL(4, 2)" }
               - column: { name: productivity_trend,       type: JSONB }
-              - column: { name: attrition_risk_score,     type: DECIMAL(5, 4) }
+              - column: { name: attrition_risk_score,     type: "DECIMAL(5, 4)" }
               - column: { name: skill_gap_analysis,       type: JSONB }
               - column: { name: recommended_training,     type: JSONB }
               - column: { name: optimal_assignment,       type: JSONB }
@@ -594,7 +594,7 @@ databaseChangeLog:
               - column: { name: id,                  type: UUID, constraints: { primaryKey: true, nullable: false } }
               - column: { name: resource_id,         type: UUID, constraints: { nullable: false } }
               - column: { name: rate_type,           type: VARCHAR(50), constraints: { nullable: false } }
-              - column: { name: price_per_unit,      type: DECIMAL(19, 4), constraints: { nullable: false } }
+              - column: { name: price_per_unit,      type: "DECIMAL(19, 4)", constraints: { nullable: false } }
               - column: { name: effective_date,      type: DATE, constraints: { nullable: false } }
               - column: { name: max_units_per_time,  type: DOUBLE PRECISION }
               - column: { name: created_at,          type: TIMESTAMP WITH TIME ZONE, constraints: { nullable: false } }
@@ -649,10 +649,10 @@ databaseChangeLog:
               - column: { name: actual_units,         type: DOUBLE PRECISION }
               - column: { name: remaining_units,      type: DOUBLE PRECISION }
               - column: { name: at_completion_units,  type: DOUBLE PRECISION }
-              - column: { name: planned_cost,         type: DECIMAL(19, 4) }
-              - column: { name: actual_cost,          type: DECIMAL(19, 4) }
-              - column: { name: remaining_cost,       type: DECIMAL(19, 4) }
-              - column: { name: at_completion_cost,   type: DECIMAL(19, 4) }
+              - column: { name: planned_cost,         type: "DECIMAL(19, 4)" }
+              - column: { name: actual_cost,          type: "DECIMAL(19, 4)" }
+              - column: { name: remaining_cost,       type: "DECIMAL(19, 4)" }
+              - column: { name: at_completion_cost,   type: "DECIMAL(19, 4)" }
               - column: { name: rate_type,            type: VARCHAR(50) }
               - column: { name: resource_curve_id,    type: UUID }
               - column: { name: planned_start_date,   type: DATE }

@@ -152,7 +152,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: price_per_unit
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
                   constraints:
                     nullable: false
               - column:
@@ -329,16 +329,16 @@ databaseChangeLog:
                   type: DOUBLE
               - column:
                   name: planned_cost
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: actual_cost
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: remaining_cost
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: at_completion_cost
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: rate_type
                   type: VARCHAR(50)

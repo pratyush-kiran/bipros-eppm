@@ -25,7 +25,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: rate_override
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
               - column:
                   name: availability_override
                   type: double

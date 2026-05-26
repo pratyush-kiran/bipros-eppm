@@ -12,5 +12,5 @@ databaseChangeLog:
             columns:
               - column:
                   name: idle_hours
-                  type: DECIMAL(6,2)
+                  type: "DECIMAL(6,2)"
                   defaultValueNumeric: 0

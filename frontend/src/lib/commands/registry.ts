@@ -4,7 +4,7 @@ import {
   ClipboardCheck, Contact, FileText, FolderTree, Gauge,
   Grid, HardHat, Home, LayoutGrid, Layers, Library, ListChecks,
   Network, Plug, Settings, ShieldCheck, SlidersHorizontal, Sparkles,
-  Tag, Users, UsersRound, Workflow, Bot, PanelLeft, SunMoon,
+  Tag, Users, UsersRound, Workflow, Bot, SunMoon,
 } from "lucide-react";
 import type { IcpmsModule } from "@/lib/types";
 
@@ -129,7 +129,6 @@ export const commands: Command[] = [
   nav("permits-workflow", "Workflow Reference", "/permits/workflow", Workflow, "Master Data", { permission: "PERMIT.READ" }),
 
   // Actions (placeholders — actual functions injected at runtime)
-  action("toggle-sidebar", "Toggle Sidebar", PanelLeft, "Actions", () => {}, { keywords: ["collapse", "expand", "nav"] }),
   action("toggle-ai", "Open AI Chat", Bot, "Actions", () => {}, { keywords: ["ask", "assistant", "chat"] }),
   action("toggle-theme", "Toggle Theme", SunMoon, "Actions", () => {}, { keywords: ["dark", "light", "mode"] }),
 ];

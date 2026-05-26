@@ -39,7 +39,13 @@ public class AnalyzeCostTool extends ProjectScopedTool {
                 + "NOTE: this tool queries the analytics warehouse (fact_cost_daily) which carries no "
                 + "rate-basis or pool-override metadata. For per-resource rate questions or 'is this "
                 + "rate the project override?' prefer list_activity_resources / find_resource_deployment "
-                + "/ get_resource_profile (live JPA tools that emit effective_rate + override_applied).";
+                + "/ get_resource_profile (live JPA tools that emit effective_rate + override_applied). "
+                + "SUB-CONTRACTOR NOTE: actual_cost in fact_cost_daily already includes sub-contractor "
+                + "cost alongside manpower/equipment/material — do not add SC cost on top. To isolate "
+                + "sub-contractor cost vs company cost, call get_subcontractor_kpis. For BOQ-item cost "
+                + "variance specifically, prefer query_boq — its cost_variance comes directly from "
+                + "BoqItem.costVariance = actualAmount − (qtyExecutedToDate × BUDGETED rate). Do NOT "
+                + "use the BOQ/client rate and do NOT recompute client-side.";
     }
 
     @Override

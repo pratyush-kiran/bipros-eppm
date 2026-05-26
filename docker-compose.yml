@@ -8,9 +8,12 @@ services:
     image: bipros-postgis-pgvector:17-3.5
     container_name: bipros-postgres
     environment:
-      POSTGRES_PASSWORD: postgres_password
+      # Credentials chosen to match what the Khasab import scripts expect
+      # (so they can target this container by adding `-p 5433` without any
+      # other env-var override).
+      POSTGRES_PASSWORD: bipros_dev
       POSTGRES_DB: bipros
-      POSTGRES_USER: postgres
+      POSTGRES_USER: bipros
       POSTGRES_INITDB_ARGS: ""
     ports:
       # Host port 5433 → container port 5432 so this can coexist with native
@@ -113,6 +116,71 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # Bipros backend (Spring Boot, Java 23). Multi-stage build defined in
+  # backend/Dockerfile. Use SPRING_PROFILES_ACTIVE=prod for steady-state.
+  # For the very first boot on an empty DB add ",init-prod" so DataSeeder
+  # creates admin user + roles (Liquibase has no admin migration). The
+  # narrower init-prod profile DOES NOT activate the bundled Khasab demo
+  # seeders (those still gate on "seed" only) — keeps the DB empty for our
+  # import scripts. Drop init-prod after the first boot.
+  # ---------------------------------------------------------------------------
+  bipros-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: bipros-api:prod
+    container_name: bipros-api
+    environment:
+      SPRING_PROFILES_ACTIVE: ${BIPROS_PROFILES:-prod,init-prod}
+      DATABASE_URL: jdbc:postgresql://postgresql:5432/bipros
+      DB_USERNAME: bipros
+      DB_PASSWORD: bipros_dev
+      DB_POOL_MAX: "60"
+      JWT_SECRET: ${JWT_SECRET:-change-me-32-byte-random-prod-secret-please-rotate}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      BIPROS_AI_ENABLED: ${BIPROS_AI_ENABLED:-true}
+      # Default is the local dev KEK — fine for this Docker stack, but the
+      # backend refuses to start in non-dev profiles without one set. ROTATE
+      # before exposing this stack to anything that isn't your laptop.
+      BIPROS_AI_KEK: ${BIPROS_AI_KEK:-Vd/RdHKwlLA1vFuDVUr/ou0CMHAsha99Cfi8UXzXUlA=}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # ---------------------------------------------------------------------
+      # Schema build strategy
+      # ---------------------------------------------------------------------
+      # The committed Liquibase changelog has latent parse errors (it has been
+      # disabled in dev — see SPRING_LIQUIBASE_ENABLED=false in application.yml
+      # default profile — so it has never been exercised). Until the team
+      # cleans up the YAML changesets, override the prod-profile defaults so
+      # Hibernate builds the schema from @Entity classes (same as dev). This
+      # gives us a working Docker stack today; for true prod (regulated
+      # change-control, audit trail), fix the Liquibase changelog first.
+      # See DEPLOY-DOCKER-PROD.md §"Known issue: Liquibase".
+      SPRING_LIQUIBASE_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # In-container hostnames for sibling services. Defaults in application.yml
+      # point at 127.0.0.1 which from inside a container is itself.
+      CLICKHOUSE_URL: jdbc:clickhouse://clickhouse:8123/bipros_analytics
+      CLICKHOUSE_USERNAME: bipros
+      CLICKHOUSE_PASSWORD: bipros_dev
+      SPRING_REDIS_HOST: redis
+      SPRING_DATA_REDIS_HOST: redis
+      JAVA_OPTS: "-Xmx2g -XX:MaxRAMPercentage=75"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+    restart: unless-stopped
 
 volumes:
   postgres_data:

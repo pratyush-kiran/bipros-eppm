@@ -15,8 +15,8 @@ databaseChangeLog:
               - column: { name: loa_number,                  type: VARCHAR(50),    constraints: { unique: true } }
               - column: { name: contractor_name,             type: VARCHAR(200),   constraints: { nullable: false } }
               - column: { name: contractor_code,             type: VARCHAR(50) }
-              - column: { name: contract_value,              type: DECIMAL(15, 2) }
-              - column: { name: revised_value,               type: DECIMAL(15, 2) }
+              - column: { name: contract_value,              type: "DECIMAL(15, 2)" }
+              - column: { name: revised_value,               type: "DECIMAL(15, 2)" }
               - column: { name: loa_date,                    type: DATE }
               - column: { name: start_date,                  type: DATE }
               - column: { name: completion_date,             type: DATE }
@@ -29,22 +29,22 @@ databaseChangeLog:
               - column: { name: currency,                    type: VARCHAR(3),     defaultValue: INR, constraints: { nullable: false } }
               - column: { name: ntp_date,                    type: DATE }
               - column: { name: revised_completion_date,     type: DATE }
-              - column: { name: mobilisation_advance_pct,    type: DECIMAL(5, 2) }
-              - column: { name: retention_pct,               type: DECIMAL(5, 2) }
-              - column: { name: performance_bg_pct,          type: DECIMAL(5, 2) }
+              - column: { name: mobilisation_advance_pct,    type: "DECIMAL(5, 2)" }
+              - column: { name: retention_pct,               type: "DECIMAL(5, 2)" }
+              - column: { name: performance_bg_pct,          type: "DECIMAL(5, 2)" }
               - column: { name: payment_terms_days,          type: INT }
               - column: { name: billing_cycle,               type: VARCHAR(30) }
               # IC-PMS denormalised KPI fields (refreshed by ContractKpiService)
               - column: { name: wbs_package_code,            type: VARCHAR(60) }
               - column: { name: package_description,         type: VARCHAR(300) }
               - column: { name: actual_completion_date,      type: DATE }
-              - column: { name: spi,                         type: DECIMAL(6, 3) }
-              - column: { name: cpi,                         type: DECIMAL(6, 3) }
-              - column: { name: physical_progress_ai,        type: DECIMAL(5, 2) }
-              - column: { name: cumulative_ra_bills_crores,  type: DECIMAL(14, 2) }
+              - column: { name: spi,                         type: "DECIMAL(6, 3)" }
+              - column: { name: cpi,                         type: "DECIMAL(6, 3)" }
+              - column: { name: physical_progress_ai,        type: "DECIMAL(5, 2)" }
+              - column: { name: cumulative_ra_bills_crores,  type: "DECIMAL(14, 2)" }
               - column: { name: vo_numbers_issued,           type: INT }
-              - column: { name: vo_value_crores,             type: DECIMAL(14, 2) }
-              - column: { name: performance_score,           type: DECIMAL(5, 2) }
+              - column: { name: vo_value_crores,             type: "DECIMAL(14, 2)" }
+              - column: { name: performance_score,           type: "DECIMAL(5, 2)" }
               - column: { name: bg_expiry,                   type: DATE }
               - column: { name: kpi_refreshed_at,            type: TIMESTAMP WITH TIME ZONE }
               # BaseEntity audit columns
@@ -80,7 +80,7 @@ databaseChangeLog:
               - column: { name: target_date,         type: DATE }
               - column: { name: actual_date,         type: DATE }
               - column: { name: payment_percentage,  type: DOUBLE PRECISION }
-              - column: { name: amount,              type: DECIMAL(15, 2) }
+              - column: { name: amount,              type: "DECIMAL(15, 2)" }
               - column: { name: status,              type: VARCHAR(50),    defaultValue: PENDING, constraints: { nullable: false } }
               - column: { name: created_at,          type: TIMESTAMP,      constraints: { nullable: false } }
               - column: { name: updated_at,          type: TIMESTAMP,      constraints: { nullable: false } }
@@ -104,10 +104,10 @@ databaseChangeLog:
               - column: { name: contract_id,              type: UUID,           constraints: { nullable: false, foreignKeyName: fk_vo_contract, references: "contract.contracts(id)" } }
               - column: { name: vo_number,                type: VARCHAR(50),    constraints: { nullable: false } }
               - column: { name: description,              type: TEXT }
-              - column: { name: vo_value,                 type: DECIMAL(15, 2) }
+              - column: { name: vo_value,                 type: "DECIMAL(15, 2)" }
               - column: { name: justification,            type: TEXT }
               - column: { name: status,                   type: VARCHAR(50),    defaultValue: INITIATED, constraints: { nullable: false } }
-              - column: { name: impact_on_budget,         type: DECIMAL(15, 2) }
+              - column: { name: impact_on_budget,         type: "DECIMAL(15, 2)" }
               - column: { name: impact_on_schedule_days,  type: INT }
               - column: { name: approved_by,              type: VARCHAR(100) }
               - column: { name: approved_at,              type: TIMESTAMP }
@@ -132,7 +132,7 @@ databaseChangeLog:
               - column: { name: id,            type: UUID,           constraints: { primaryKey: true, nullable: false } }
               - column: { name: contract_id,   type: UUID,           constraints: { nullable: false, foreignKeyName: fk_bond_contract, references: "contract.contracts(id)" } }
               - column: { name: bond_type,     type: VARCHAR(50),    constraints: { nullable: false } }
-              - column: { name: bond_value,    type: DECIMAL(15, 2) }
+              - column: { name: bond_value,    type: "DECIMAL(15, 2)" }
               - column: { name: bank_name,     type: VARCHAR(200) }
               - column: { name: issue_date,    type: DATE }
               - column: { name: expiry_date,   type: DATE }
@@ -188,7 +188,7 @@ databaseChangeLog:
               - column: { name: plan_code,           type: VARCHAR(50),    constraints: { nullable: false, unique: true } }
               - column: { name: description,         type: TEXT }
               - column: { name: procurement_method,  type: VARCHAR(50),    constraints: { nullable: false } }
-              - column: { name: estimated_value,     type: DECIMAL(15, 2) }
+              - column: { name: estimated_value,     type: "DECIMAL(15, 2)" }
               - column: { name: currency,            type: VARCHAR(3),     defaultValue: INR }
               - column: { name: target_nit_date,     type: DATE }
               - column: { name: target_award_date,   type: DATE }
@@ -220,8 +220,8 @@ databaseChangeLog:
               - column: { name: tender_number,            type: VARCHAR(50),    constraints: { nullable: false, unique: true } }
               - column: { name: nit_date,                 type: DATE }
               - column: { name: scope,                    type: TEXT }
-              - column: { name: estimated_value,          type: DECIMAL(15, 2) }
-              - column: { name: emd_amount,               type: DECIMAL(15, 2) }
+              - column: { name: estimated_value,          type: "DECIMAL(15, 2)" }
+              - column: { name: emd_amount,               type: "DECIMAL(15, 2)" }
               - column: { name: completion_period_days,   type: INT }
               - column: { name: bid_due_date,             type: DATE }
               - column: { name: bid_open_date,            type: DATE }
@@ -257,7 +257,7 @@ databaseChangeLog:
               - column: { name: bidder_name,         type: VARCHAR(200),   constraints: { nullable: false } }
               - column: { name: bidder_code,         type: VARCHAR(50) }
               - column: { name: technical_score,     type: DOUBLE PRECISION }
-              - column: { name: financial_bid,       type: DECIMAL(15, 2) }
+              - column: { name: financial_bid,       type: "DECIMAL(15, 2)" }
               - column: { name: status,              type: VARCHAR(50),    defaultValue: SUBMITTED, constraints: { nullable: false } }
               - column: { name: evaluation_remarks,  type: TEXT }
               - column: { name: created_at,          type: TIMESTAMP,      constraints: { nullable: false } }

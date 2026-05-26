@@ -35,7 +35,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: rate
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
                   constraints:
                     nullable: false
               - column:
@@ -147,7 +147,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: rate
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
                   constraints:
                     nullable: false
               - column:
@@ -230,7 +230,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: rate
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
                   constraints:
                     nullable: false
               - column:
@@ -308,7 +308,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: override_rate
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
                   constraints:
                     nullable: false
               - column:
@@ -398,7 +398,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: override_rate
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
                   constraints:
                     nullable: false
               - column:
@@ -488,7 +488,7 @@ databaseChangeLog:
                     nullable: false
               - column:
                   name: override_rate
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
                   constraints:
                     nullable: false
               - column:

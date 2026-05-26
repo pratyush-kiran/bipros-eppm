@@ -49,7 +49,6 @@ export function useFilteredCommands() {
   const { isAdmin, hasAnyRole } = useAuth();
   const { canAccessModule } = useAccess();
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const { toggleSidebar } = useAppStore();
   const aiSetOpen = useAiStore((s) => s.setOpen);
   const { setTheme, resolvedTheme } = useTheme();
 
@@ -58,7 +57,6 @@ export function useFilteredCommands() {
 
     // Wire up action command handlers at runtime so we avoid importing React hooks in registry.ts
     const actionMap: Record<string, () => void> = {
-      "toggle-sidebar": toggleSidebar,
       "toggle-ai": () => aiSetOpen(true),
       "toggle-theme": () => setTheme(resolvedTheme === "dark" ? "light" : "dark"),
     };
@@ -72,7 +70,7 @@ export function useFilteredCommands() {
       base.push(...buildProjectCommands(projectId));
     }
     return base;
-  }, [projectId, toggleSidebar, aiSetOpen, setTheme, resolvedTheme]);
+  }, [projectId, aiSetOpen, setTheme, resolvedTheme]);
 
   const visible = useMemo(() => {
     return allCommands.filter((cmd) =>

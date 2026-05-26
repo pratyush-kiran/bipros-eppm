@@ -1,0 +1,10 @@
+# Per-environment overrides — never check in
+configs/.env
+
+# Per-run logs
+logs/*.log
+logs/deploy-latest.log
+
+# Python compiled
+imports/__pycache__/
+imports/*.pyc

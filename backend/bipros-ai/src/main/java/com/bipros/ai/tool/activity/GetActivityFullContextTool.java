@@ -15,8 +15,10 @@ import com.bipros.project.domain.model.DailyProgressReport;
 import com.bipros.project.domain.model.WbsNode;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.WbsNodeRepository;
+import com.bipros.resource.domain.model.ActivitySubContractorAssignment;
 import com.bipros.resource.domain.model.Resource;
 import com.bipros.resource.domain.model.ResourceAssignment;
+import com.bipros.resource.domain.repository.ActivitySubContractorAssignmentRepository;
 import com.bipros.resource.domain.repository.ResourceAssignmentRepository;
 import com.bipros.resource.domain.repository.ResourceRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -64,6 +66,7 @@ public class GetActivityFullContextTool implements Tool {
   private final WbsNodeRepository wbsRepository;
   private final ResourceAssignmentRepository assignmentRepository;
   private final ResourceRepository resourceRepository;
+  private final ActivitySubContractorAssignmentRepository subContractorAssignmentRepository;
   private final ActivityExpenseRepository expenseRepository;
   private final EvmCalculationRepository evmRepository;
   private final DailyProgressReportRepository dprRepository;
@@ -78,12 +81,15 @@ public class GetActivityFullContextTool implements Tool {
   @Override
   public String description() {
     return "Everything about one activity in a single call: activity record, WBS path "
-        + "(root → leaf), resource assignment summary, activity expense (budgeted vs actual "
-        + "vs at-completion cost), latest EVM (CV, SV, CPI, SPI, EAC, ETC, VAC), and recent "
-        + "DPRs. Identify by activity_id (UUID) OR activity_code. Tunable: dpr_days "
-        + "(default 7), include_evm (default true), include_cost_variance (default true). "
-        + "Use this for: \"Tell me about activity X\", \"What's the cost variance and progress "
-        + "on this activity?\", \"Drill into the foundation activity\". Project-scoped.";
+        + "(root → leaf), resource assignment summary, sub-contractor assignments block "
+        + "(per-SC + work-type planned vs actual qty/cost, qty_completion_pct), activity "
+        + "expense (budgeted vs actual vs at-completion cost), latest EVM (CV, SV, CPI, SPI, "
+        + "EAC, ETC, VAC), and recent DPRs. Identify by activity_id (UUID) OR activity_code. "
+        + "Tunable: dpr_days (default 7), include_evm (default true), include_cost_variance "
+        + "(default true). Use this for: \"Tell me about activity X\", \"What's the cost "
+        + "variance and progress on this activity?\", \"Is a sub-contractor on this "
+        + "activity?\", \"Drill into the foundation activity\". For richer sub-contractor "
+        + "analysis across the project use get_subcontractor_kpis. Project-scoped.";
   }
 
   @Override
@@ -214,6 +220,58 @@ public class GetActivityFullContextTool implements Tool {
     if (overrideAssignmentCount > 0) assignNotes.add("totals_include_project_pool_overrides");
     assignSummary.set("formula_overrides", assignNotes);
     wrapper.set("resource_assignments", assignSummary);
+
+    // Sub-contractor assignments for this activity (4th section in the Resource Demand panel).
+    // For each (SC, work-type) pair we surface: planned vs actual qty + cost, the rate, the
+    // master norm/day, and a derived qty_completion_pct so the LLM can answer
+    // "what's the sub-contractor doing on this activity" without a second tool call.
+    List<ActivitySubContractorAssignment> scAssignments =
+        subContractorAssignmentRepository.findByProjectIdAndActivityId(projectId, activity.getId());
+    ObjectNode scBlock = objectMapper.createObjectNode();
+    ArrayNode scRows = objectMapper.createArrayNode();
+    BigDecimal scPlannedUnitsTotal = BigDecimal.ZERO;
+    BigDecimal scActualUnitsTotal = BigDecimal.ZERO;
+    BigDecimal scPlannedCostTotal = BigDecimal.ZERO;
+    BigDecimal scActualCostTotal = BigDecimal.ZERO;
+    for (ActivitySubContractorAssignment sa : scAssignments) {
+      ObjectNode n = objectMapper.createObjectNode();
+      n.put("assignment_id", sa.getId() == null ? null : sa.getId().toString());
+      n.put("sub_contractor_master_id",
+          sa.getSubContractorMasterId() == null ? null : sa.getSubContractorMasterId().toString());
+      n.put("sc_work_type_id",
+          sa.getScWorkTypeId() == null ? null : sa.getScWorkTypeId().toString());
+      n.put("work_type_name", sa.getWorkTypeName());
+      n.put("unit", sa.getUnit());
+      n.put("rate_per_unit", toDouble(sa.getRatePerUnit()));
+      n.put("planned_units", toDouble(sa.getPlannedUnits()));
+      n.put("planned_cost", toDouble(sa.getPlannedCost()));
+      n.put("actual_units", toDouble(sa.getActualUnits()));
+      n.put("actual_cost", toDouble(sa.getActualCost()));
+      BigDecimal planned = sa.getPlannedUnits() == null ? BigDecimal.ZERO : sa.getPlannedUnits();
+      BigDecimal actual = sa.getActualUnits() == null ? BigDecimal.ZERO : sa.getActualUnits();
+      if (planned.signum() > 0) {
+        n.put("qty_completion_pct",
+            actual.multiply(new BigDecimal("100"))
+                .divide(planned, 2, java.math.RoundingMode.HALF_UP)
+                .doubleValue());
+      }
+      scRows.add(n);
+      scPlannedUnitsTotal = scPlannedUnitsTotal.add(planned);
+      scActualUnitsTotal = scActualUnitsTotal.add(actual);
+      scPlannedCostTotal = scPlannedCostTotal.add(
+          sa.getPlannedCost() == null ? BigDecimal.ZERO : sa.getPlannedCost());
+      scActualCostTotal = scActualCostTotal.add(
+          sa.getActualCost() == null ? BigDecimal.ZERO : sa.getActualCost());
+    }
+    scBlock.set("assignments", scRows);
+    scBlock.put("count", scAssignments.size());
+    scBlock.put("planned_units_total", scPlannedUnitsTotal.doubleValue());
+    scBlock.put("actual_units_total", scActualUnitsTotal.doubleValue());
+    scBlock.put("planned_cost_total", scPlannedCostTotal.doubleValue());
+    scBlock.put("actual_cost_total", scActualCostTotal.doubleValue());
+    BigDecimal scCostVariance = scPlannedCostTotal.subtract(scActualCostTotal);
+    scBlock.put("cost_variance", scCostVariance.doubleValue());
+    wrapper.set("sub_contractor", scBlock);
 
     if (includeCost) {
       List<ActivityExpense> expenses = expenseRepository.findByProjectIdAndActivityId(projectId, activity.getId());

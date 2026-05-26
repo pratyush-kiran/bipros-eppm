@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!--
+      Concurrency hardening for the DBS rollup upserts.
+
+      The AFTER_COMMIT DbsRecomputeListener treats each dbs_daily_* row as an idempotent
+      upsert on its natural key (find-by-natural-key, else insert). With no unique key the
+      "find" half could not see a row another transaction was inserting concurrently, so two
+      DPRs committed for the same (project, date) could each insert a row -> duplicate rows ->
+      later findByProjectIdAndReportDate throws NonUniqueResultException. The matching
+      ObjectOptimisticLockingFailureException on the UPDATE path is handled by retry in the
+      listener; this changeset closes the INSERT-race half by giving the upsert a real key to
+      collide on (the loser then retries into the winner's row).
+
+      dbs_daily_cm already has uk_dbs_daily_cm_project_cm_date (see add-dbs-cm). These three are
+      the remaining rollup tables. Each changeSet de-duplicates first (keeping the most recently
+      recomputed row per key) so ADD CONSTRAINT cannot fail on pre-existing duplicates.
+
+      supervisor_user_id / engineer_user_id are nullable (the phantom DRD/MCL rollup row and
+      free-text "Other" supervisors carry NULL), so those two keys use UNIQUE NULLS NOT DISTINCT
+      (Postgres 15+) — without it two NULL-identity rows would still be allowed. The project key
+      is over two NOT NULL columns and needs no such treatment.
+
+      Liquibase is disabled in the dev profile (ddl-auto=update); dev relies on the listener
+      retry. These constraints apply in the prod profile (ddl-auto=validate, Liquibase enabled).
+    -->
+
+    <changeSet id="dbs-uk-1-project" author="hemendra">
+        <comment>Dedupe + (project_id, report_date) unique key on dbs_daily_project</comment>
+        <sql>
+            DELETE FROM dbs.dbs_daily_project
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, row_number() OVER (
+                        PARTITION BY project_id, report_date
+                        ORDER BY recomputed_at DESC NULLS LAST, version DESC NULLS LAST, id DESC
+                    ) AS rn
+                    FROM dbs.dbs_daily_project
+                ) d WHERE d.rn > 1
+            );
+        </sql>
+        <addUniqueConstraint schemaName="dbs"
+                             tableName="dbs_daily_project"
+                             columnNames="project_id, report_date"
+                             constraintName="uk_dbs_daily_project_project_date"/>
+        <rollback>
+            <dropUniqueConstraint schemaName="dbs"
+                                  tableName="dbs_daily_project"
+                                  constraintName="uk_dbs_daily_project_project_date"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="dbs-uk-2-supervisor" author="hemendra">
+        <comment>Dedupe + (project_id, supervisor_user_id, report_date) unique key, NULLS NOT DISTINCT</comment>
+        <sql>
+            DELETE FROM dbs.dbs_daily_supervisor
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, row_number() OVER (
+                        PARTITION BY project_id, supervisor_user_id, report_date
+                        ORDER BY recomputed_at DESC NULLS LAST, version DESC NULLS LAST, id DESC
+                    ) AS rn
+                    FROM dbs.dbs_daily_supervisor
+                ) d WHERE d.rn > 1
+            );
+        </sql>
+        <sql>
+            ALTER TABLE dbs.dbs_daily_supervisor
+                ADD CONSTRAINT uk_dbs_daily_sup_project_sup_date
+                UNIQUE NULLS NOT DISTINCT (project_id, supervisor_user_id, report_date);
+        </sql>
+        <rollback>
+            ALTER TABLE dbs.dbs_daily_supervisor DROP CONSTRAINT uk_dbs_daily_sup_project_sup_date;
+        </rollback>
+    </changeSet>
+
+    <changeSet id="dbs-uk-3-engineer" author="hemendra">
+        <comment>Dedupe + (project_id, engineer_user_id, report_date) unique key, NULLS NOT DISTINCT</comment>
+        <sql>
+            DELETE FROM dbs.dbs_daily_engineer
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, row_number() OVER (
+                        PARTITION BY project_id, engineer_user_id, report_date
+                        ORDER BY recomputed_at DESC NULLS LAST, version DESC NULLS LAST, id DESC
+                    ) AS rn
+                    FROM dbs.dbs_daily_engineer
+                ) d WHERE d.rn > 1
+            );
+        </sql>
+        <sql>
+            ALTER TABLE dbs.dbs_daily_engineer
+                ADD CONSTRAINT uk_dbs_daily_eng_project_eng_date
+                UNIQUE NULLS NOT DISTINCT (project_id, engineer_user_id, report_date);
+        </sql>
+        <rollback>
+            ALTER TABLE dbs.dbs_daily_engineer DROP CONSTRAINT uk_dbs_daily_eng_project_eng_date;
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

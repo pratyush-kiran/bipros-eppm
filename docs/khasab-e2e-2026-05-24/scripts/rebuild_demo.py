@@ -20,7 +20,7 @@ from datetime import date, timedelta
 BASE = "http://localhost:8080"
 PSQL = "/Applications/Postgres.app/Contents/Versions/latest/bin/psql"
 PG_DUMP = "/Applications/Postgres.app/Contents/Versions/latest/bin/pg_restore"
-PG_BASE = ["env", "PGPASSWORD=bipros_dev", PSQL, "-h", "127.0.0.1", "-U", "bipros", "-d", "bipros", "-A", "-F", "|", "-t", "-c"]
+PG_BASE = ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL, "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"), "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
 BACKUP = "/tmp/bipros-backup-2026-05-24.dump"
 TOKEN_FILE = "/tmp/admin-token.txt"
 
@@ -72,7 +72,7 @@ print("STEP 1: WIPE TRANSACTIONAL + RESTORE VARIANT TABLES")
 print("=" * 70)
 print("Running wipe-transactional.sql...")
 result = subprocess.run(
-    ["env", "PGPASSWORD=bipros_dev", PSQL, "-h", "127.0.0.1", "-U", "bipros", "-d", "bipros",
+    ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL, "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"), "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"),
      "-v", "ON_ERROR_STOP=1", "-f", "/tmp/wipe-transactional.sql"],
     capture_output=True, text=True, timeout=120
 )
@@ -142,7 +142,7 @@ ravi = USER_IDS["ravi"]
 sc, resp = http("POST", "/v1/projects", {
     "code": "KHASAB-2026",
     "name": "Khasab Road Project 2026",
-    "epsNodeId": "e38edde8-b6cb-4d2c-8e16-72a8336e7c0a",
+    "epsNodeId": "7787fff1-8fbc-4ec4-a89d-e5d198bde394",
     "currencyCode": "INR",
     "ownerId": ravi,
 })
@@ -153,7 +153,7 @@ print(f"  Project: {PROJECT_ID}")
 # Set dates + status
 sc, resp = http("PUT", f"/v1/projects/{PROJECT_ID}", {
     "code": "KHASAB-2026", "name": "Khasab Road Project 2026",
-    "epsNodeId": "e38edde8-b6cb-4d2c-8e16-72a8336e7c0a",
+    "epsNodeId": "7787fff1-8fbc-4ec4-a89d-e5d198bde394",
     "plannedStartDate": "2026-01-01",
     "plannedFinishDate": "2026-12-31",
     "dataDate": "2026-01-01",

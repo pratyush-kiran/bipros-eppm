@@ -233,25 +233,3 @@ export function heroForRole(role: string | null): HeroTile[] {
   if (!role) return FALLBACK_HERO;
   return HEROES_BY_ROLE[role] ?? FALLBACK_HERO;
 }
-
-/**
- * Group(s) to expand by default in the sidebar for a given role. "Plan" is always
- * expanded; this returns additional groups so the user lands with their primary
- * work-context already open. Order doesn't matter — the consumer turns it into a Set.
- */
-export function defaultExpandedGroups(role: string | null): string[] {
-  switch (role) {
-    case "ROLE_ADMIN":
-      return ["Plan", "Master Data"];
-    case "ROLE_HSE_OFFICER":
-    case "ROLE_FOREMAN":
-    case "ROLE_SITE_ENGINEER":
-      return ["Plan", "HSE & Permits"];
-    case "ROLE_PROJECT_MANAGER":
-      return ["Plan", "Control"];
-    case "ROLE_RESOURCE_MANAGER":
-      return ["Plan", "Resources"];
-    default:
-      return ["Plan"];
-  }
-}

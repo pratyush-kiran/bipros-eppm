@@ -27,25 +27,25 @@ databaseChangeLog:
             schemaName: contract
             tableName: contracts
             columns:
-              - column: { name: revised_value,                type: DECIMAL(15, 2) }
+              - column: { name: revised_value,                type: "DECIMAL(15, 2)" }
               - column: { name: description,                  type: TEXT }
               - column: { name: ntp_date,                     type: DATE }
               - column: { name: revised_completion_date,      type: DATE }
-              - column: { name: mobilisation_advance_pct,     type: DECIMAL(5, 2) }
-              - column: { name: retention_pct,                type: DECIMAL(5, 2) }
-              - column: { name: performance_bg_pct,           type: DECIMAL(5, 2) }
+              - column: { name: mobilisation_advance_pct,     type: "DECIMAL(5, 2)" }
+              - column: { name: retention_pct,                type: "DECIMAL(5, 2)" }
+              - column: { name: performance_bg_pct,           type: "DECIMAL(5, 2)" }
               - column: { name: payment_terms_days,           type: INT }
               - column: { name: billing_cycle,                type: VARCHAR(30) }
               - column: { name: wbs_package_code,             type: VARCHAR(60) }
               - column: { name: package_description,          type: VARCHAR(300) }
               - column: { name: actual_completion_date,       type: DATE }
-              - column: { name: spi,                          type: DECIMAL(6, 3) }
-              - column: { name: cpi,                          type: DECIMAL(6, 3) }
-              - column: { name: physical_progress_ai,         type: DECIMAL(5, 2) }
-              - column: { name: cumulative_ra_bills_crores,   type: DECIMAL(14, 2) }
+              - column: { name: spi,                          type: "DECIMAL(6, 3)" }
+              - column: { name: cpi,                          type: "DECIMAL(6, 3)" }
+              - column: { name: physical_progress_ai,         type: "DECIMAL(5, 2)" }
+              - column: { name: cumulative_ra_bills_crores,   type: "DECIMAL(14, 2)" }
               - column: { name: vo_numbers_issued,            type: INT }
-              - column: { name: vo_value_crores,              type: DECIMAL(14, 2) }
-              - column: { name: performance_score,            type: DECIMAL(5, 2) }
+              - column: { name: vo_value_crores,              type: "DECIMAL(14, 2)" }
+              - column: { name: performance_score,            type: "DECIMAL(5, 2)" }
               - column: { name: bg_expiry,                    type: DATE }
               - column: { name: kpi_refreshed_at,             type: TIMESTAMP WITH TIME ZONE }
 

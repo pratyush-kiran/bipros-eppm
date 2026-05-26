@@ -1,8 +1,7 @@
-import { Sidebar } from "@/components/common/Sidebar";
-import { Header } from "@/components/common/Header";
 import { AccessProvider } from "@/lib/auth/AccessProvider";
 import { AiChatPanel } from "@/components/ai/AiChatPanel";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
+import { AppShell } from "@/components/common/AppShell";
 
 export default function AppLayout({
   children,
@@ -11,19 +10,9 @@ export default function AppLayout({
 }) {
   return (
     <AccessProvider>
-      <div className="flex h-full">
-        <Sidebar />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto bg-ivory">
-            <div className="px-6 py-6 h-full">
-              {children}
-            </div>
-          </main>
-        </div>
-        <AiChatPanel />
-        <CommandPalette />
-      </div>
+      <AppShell>{children}</AppShell>
+      <AiChatPanel />
+      <CommandPalette />
     </AccessProvider>
   );
 }

@@ -7,12 +7,6 @@ import com.bipros.ai.tool.Tool;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.evm.domain.entity.EvmCalculation;
 import com.bipros.evm.domain.repository.EvmCalculationRepository;
-import com.bipros.project.domain.model.DailyProgressReport;
-import com.bipros.project.domain.model.DprEquipment;
-import com.bipros.project.domain.model.DprManpower;
-import com.bipros.project.domain.repository.DailyProgressReportRepository;
-import com.bipros.project.domain.repository.DprEquipmentRepository;
-import com.bipros.project.domain.repository.DprManpowerRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -26,37 +20,29 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Given a metric (CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI, MANPOWER_UTIL_PCT, EQUIP_UTIL_PCT,
- * PRODUCTIVITY_RATIO) and a scope (project / supervisor / activity / date range), returns
- * the formula in human-readable form, the named numeric inputs that were used, the computed
- * value, and a small source-rows envelope so callers can audit the math.
+ * Given an EVM metric (CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI) and a scope (project /
+ * activity / date range), returns the formula in human-readable form, the named numeric
+ * inputs that were used, the computed value, and a small source-rows envelope so callers
+ * can audit the math. Anchored on the most recent {@link EvmCalculation} matching the
+ * scope (activity if supplied, else project).
  *
- * <p>EVM metrics are anchored on the most recent {@link EvmCalculation} matching the scope
- * (activity if supplied, else project). Utilization metrics aggregate DPR child rows
- * (manpower / equipment) for the scope; budget hours are derived from {@code nos × 11h × workingDays}
- * when no explicit budget exists — that fallback is reported verbatim in {@code inputs.notes}.
+ * <p><b>Utilization / productivity metrics are NOT handled here.</b> The previous
+ * MANPOWER_UTIL_PCT / EQUIP_UTIL_PCT / PRODUCTIVITY_RATIO branches used HRS-based math
+ * (Σ actual_hours ÷ Σ budget_hours) that ignored the per-DPR allocator, sub-contractor
+ * netting, and SERIES/PARALLEL/SUBSTITUTE side handling. Those questions must go to
+ * {@code get_capacity_utilization} (canonical per-role allocator) or
+ * {@code get_subcontractor_kpis} (per-SC × work-type).
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class FormulaValidatorTool implements Tool {
 
-    /** Hours per shift assumed by SC-180 site operations when no budget hours exist. */
-    private static final BigDecimal SHIFT_HOURS = new BigDecimal("11");
-
     private final EvmCalculationRepository evmRepository;
-    private final DailyProgressReportRepository dprRepository;
-    private final DprManpowerRepository manpowerRepository;
-    private final DprEquipmentRepository equipmentRepository;
     private final ActivityRepository activityRepository;
     private final ObjectMapper objectMapper;
 
@@ -67,15 +53,14 @@ public class FormulaValidatorTool implements Tool {
 
     @Override
     public String description() {
-        return "Given a metric (CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI, MANPOWER_UTIL_PCT, "
-                + "EQUIP_UTIL_PCT, PRODUCTIVITY_RATIO) and scope (project / supervisor / activity / "
-                + "date range), return the formula, the named numeric inputs, the computed value, "
-                + "and the source rows so callers can verify the math. Use this any time the user "
-                + "asks 'how did you compute X', 'show the formula for CPI', 'why is variance Y', "
-                + "or 'what's the manpower utilization on activity Z'. Numbers are returned exactly "
-                + "as stored — no rounding, no recomputation in prose. "
-                + "EVM SCOPE — IMPORTANT: for EVM metrics (CPI/SPI/CV/SV/EAC/ETC/VAC/TCPI), the "
-                + "response carries `source.scope` ∈ {activity | project | project_fallback}. "
+        return "Given an EVM metric (CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI) and scope "
+                + "(project / activity / date range), return the formula, the named numeric "
+                + "inputs, the computed value, and the source rows so callers can verify the "
+                + "math. Use this any time the user asks 'how did you compute CPI', 'show the "
+                + "formula for SPI', 'why is variance Y', or any EVM audit question. Numbers "
+                + "are returned exactly as stored — no rounding, no recomputation in prose. "
+                + "EVM SCOPE — IMPORTANT: the response carries `source.scope` ∈ "
+                + "{activity | project | project_fallback}. "
                 + "'activity' = we found an activity-level EvmCalculation row matching activityCode. "
                 + "'project' = no activityCode was asked, so the latest project-level row was used. "
                 + "'project_fallback' = activityCode WAS asked but no activity-level EVM row "
@@ -83,7 +68,13 @@ public class FormulaValidatorTool implements Tool {
                 + "When scope='project_fallback' you MUST NOT report the numbers as activity-specific. "
                 + "Either skip the EVM block in your answer, or explicitly say 'no activity-level "
                 + "earned value yet for <activityCode>; the project-level CPI/SPI/CV is X'. The "
-                + "`source.note` field will spell out the fallback condition — disclose it.";
+                + "`source.note` field will spell out the fallback condition — disclose it. "
+                + "DO NOT USE THIS TOOL FOR: manpower utilization, equipment utilization, "
+                + "capacity utilization, productivity factor, role efficiency, per-role "
+                + "allocated qty, or any question about hours vs budget. Those questions go to "
+                + "`get_capacity_utilization` (canonical per-role allocator with sub-contractor "
+                + "netting and SERIES/PARALLEL/SUBSTITUTE handling) or `get_subcontractor_kpis` "
+                + "(sub-contractor productivity / cost). This tool only validates EVM math.";
     }
 
     @Override
@@ -103,18 +94,15 @@ public class FormulaValidatorTool implements Tool {
         props.set("projectId", objectMapper.createObjectNode()
                 .put("type", "string").put("format", "uuid")
                 .put("description", "Project UUID. Falls back to the current project in scope."));
-        props.set("supervisorUserId", objectMapper.createObjectNode()
-                .put("type", "string").put("format", "uuid")
-                .put("description", "Optional supervisor (user) filter for utilization metrics."));
         props.set("activityCode", objectMapper.createObjectNode()
                 .put("type", "string")
                 .put("description", "Activity code (e.g. ACT-1.3.5). Narrows EVM lookup to one activity."));
         props.set("fromDate", objectMapper.createObjectNode()
                 .put("type", "string").put("format", "date")
-                .put("description", "ISO date — inclusive lower bound for DPR-based metrics."));
+                .put("description", "ISO date — inclusive lower bound (reserved; EVM lookup uses latest snapshot)."));
         props.set("toDate", objectMapper.createObjectNode()
                 .put("type", "string").put("format", "date")
-                .put("description", "ISO date — inclusive upper bound for DPR-based metrics."));
+                .put("description", "ISO date — inclusive upper bound (reserved; EVM lookup uses latest snapshot)."));
 
         schema.set("properties", props);
         ArrayNode required = objectMapper.createArrayNode();
@@ -134,9 +122,21 @@ public class FormulaValidatorTool implements Tool {
         try {
             metric = Metric.valueOf(metricRaw.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
+            String redirect = "";
+            String u = metricRaw.trim().toUpperCase();
+            if (u.equals("MANPOWER_UTIL_PCT") || u.equals("EQUIP_UTIL_PCT")
+                    || u.equals("EQUIPMENT_UTIL_PCT")) {
+                redirect = " For capacity / utilization metrics call get_capacity_utilization "
+                        + "(canonical per-role allocator — applies SC netting + SERIES/PARALLEL/"
+                        + "SUBSTITUTE hiding) instead.";
+            } else if (u.equals("PRODUCTIVITY_RATIO")) {
+                redirect = " For productivity / role-level efficiency call "
+                        + "get_capacity_utilization. For sub-contractor productivity factor "
+                        + "call get_subcontractor_kpis.";
+            }
             return ToolResult.error("Unknown metric: " + metricRaw
-                    + ". Allowed: CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI, "
-                    + "MANPOWER_UTIL_PCT, EQUIP_UTIL_PCT, PRODUCTIVITY_RATIO.");
+                    + ". This tool only validates EVM math. Allowed metrics: "
+                    + "CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI." + redirect);
         }
 
         UUID projectId = parseUuid(input.path("projectId").asText(null));
@@ -149,7 +149,6 @@ public class FormulaValidatorTool implements Tool {
             throw new AccessDeniedException("project not in user scope");
         }
 
-        UUID supervisorUserId = parseUuid(input.path("supervisorUserId").asText(null));
         String activityCode = orNull(input.path("activityCode").asText(null));
         LocalDate fromDate = parseDate(input.path("fromDate").asText(null));
         LocalDate toDate = parseDate(input.path("toDate").asText(null));
@@ -159,16 +158,7 @@ public class FormulaValidatorTool implements Tool {
             toDate = t;
         }
 
-        return switch (metric) {
-            case CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI ->
-                    evaluateEvm(metric, projectId, activityCode, fromDate, toDate);
-            case MANPOWER_UTIL_PCT ->
-                    evaluateManpowerUtil(projectId, supervisorUserId, activityCode, fromDate, toDate);
-            case EQUIP_UTIL_PCT ->
-                    evaluateEquipmentUtil(projectId, activityCode, fromDate, toDate);
-            case PRODUCTIVITY_RATIO ->
-                    evaluateProductivityRatio(projectId, supervisorUserId, activityCode, fromDate, toDate);
-        };
+        return evaluateEvm(metric, projectId, activityCode, fromDate, toDate);
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -378,249 +368,8 @@ public class FormulaValidatorTool implements Tool {
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    // Utilization / productivity metrics
-    // ──────────────────────────────────────────────────────────────────────
-
-    private ToolResult evaluateManpowerUtil(UUID projectId, UUID supervisorUserId, String activityCode,
-                                            LocalDate fromDate, LocalDate toDate) {
-        List<DailyProgressReport> dprs = loadDprs(projectId, supervisorUserId, activityCode, fromDate, toDate);
-        if (dprs.isEmpty()) {
-            return emptyResult("MANPOWER_UTIL_PCT",
-                    "MANPOWER_UTIL_PCT = Σ actual_hours / Σ budget_hours × 100",
-                    fromDate, toDate);
-        }
-        List<UUID> dprIds = dprs.stream().map(DailyProgressReport::getId).toList();
-        List<DprManpower> rows = batchManpower(dprIds);
-        Map<LocalDate, Integer> dprsPerDate = new HashMap<>();
-        for (DailyProgressReport d : dprs) {
-            dprsPerDate.merge(d.getReportDate(), 1, Integer::sum);
-        }
-        int workingDays = dprsPerDate.size();
-
-        BigDecimal actualHours = BigDecimal.ZERO;
-        BigDecimal headcount = BigDecimal.ZERO;
-        for (DprManpower r : rows) {
-            actualHours = actualHours
-                    .add(nz(r.getWorkingHours()).multiply(nz(toBd(r.getNos()))))
-                    .add(nz(r.getOtHours()).multiply(nz(toBd(r.getNos()))));
-            headcount = headcount.add(nz(toBd(r.getNos())));
-        }
-        BigDecimal budgetHours = headcount.multiply(SHIFT_HOURS); // headcount already a sum over (row × day)
-
-        ObjectNode out = objectMapper.createObjectNode();
-        out.put("metric", "MANPOWER_UTIL_PCT");
-        out.put("formula", "MANPOWER_UTIL_PCT = Σ actual_hours / Σ budget_hours × 100");
-
-        ObjectNode inputs = objectMapper.createObjectNode();
-        inputs.put("actual_hours", actualHours.setScale(2, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("budget_hours", budgetHours.setScale(2, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("budget_basis", "Σ nos × 11h (no explicit budget rows available — fallback)");
-        inputs.put("working_days", workingDays);
-        inputs.put("manpower_rows", rows.size());
-        out.set("inputs", inputs);
-
-        String computed;
-        String interpretation;
-        if (budgetHours.signum() == 0) {
-            computed = "n/a (no manpower nos)";
-            interpretation = "No manpower deployed in scope.";
-        } else {
-            BigDecimal util = actualHours.divide(budgetHours, 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"))
-                    .setScale(2, RoundingMode.HALF_UP);
-            computed = util.toPlainString();
-            interpretation = util.compareTo(new BigDecimal("80")) >= 0
-                    ? "Healthy utilization — crews are productive on shift."
-                    : "Under-utilized — crews are idle for a meaningful share of the shift.";
-        }
-        out.put("computed", computed);
-        out.put("interpretation", interpretation);
-
-        ObjectNode source = objectMapper.createObjectNode();
-        source.put("entity", "DprManpower");
-        source.put("dprRowsUsed", dprs.size());
-        source.put("manpowerRowsAggregated", rows.size());
-        out.set("source", source);
-        out.set("dateRange", renderRange(fromDate, toDate));
-        return ToolResult.ok("MANPOWER_UTIL_PCT = " + computed + "% over "
-                + dprs.size() + " DPR rows", out);
-    }
-
-    private ToolResult evaluateEquipmentUtil(UUID projectId, String activityCode,
-                                             LocalDate fromDate, LocalDate toDate) {
-        List<DailyProgressReport> dprs = loadDprs(projectId, null, activityCode, fromDate, toDate);
-        if (dprs.isEmpty()) {
-            return emptyResult("EQUIP_UTIL_PCT",
-                    "EQUIP_UTIL_PCT = Σ working_hours / Σ (working + idle + breakdown) × 100",
-                    fromDate, toDate);
-        }
-        List<UUID> dprIds = dprs.stream().map(DailyProgressReport::getId).toList();
-        List<DprEquipment> rows = batchEquipment(dprIds);
-
-        BigDecimal working = BigDecimal.ZERO;
-        BigDecimal idle = BigDecimal.ZERO;
-        BigDecimal breakdown = BigDecimal.ZERO;
-        BigDecimal nosTotal = BigDecimal.ZERO;
-        for (DprEquipment r : rows) {
-            BigDecimal nos = nz(toBd(r.getNos()));
-            working = working.add(nz(r.getWorkingHours()).multiply(nos));
-            idle = idle.add(nz(r.getIdleHours()).multiply(nos));
-            breakdown = breakdown.add(nz(r.getBreakdownHours()).multiply(nos));
-            nosTotal = nosTotal.add(nos);
-        }
-        BigDecimal totalAvailable = working.add(idle).add(breakdown);
-
-        ObjectNode out = objectMapper.createObjectNode();
-        out.put("metric", "EQUIP_UTIL_PCT");
-        out.put("formula", "EQUIP_UTIL_PCT = Σ working_hours / Σ (working + idle + breakdown) × 100");
-
-        ObjectNode inputs = objectMapper.createObjectNode();
-        inputs.put("working_hours", working.setScale(2, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("idle_hours", idle.setScale(2, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("breakdown_hours", breakdown.setScale(2, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("total_available_hours", totalAvailable.setScale(2, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("equipment_unit_days", nosTotal.toPlainString());
-        inputs.put("equipment_rows", rows.size());
-        out.set("inputs", inputs);
-
-        String computed;
-        String interpretation;
-        if (totalAvailable.signum() == 0) {
-            computed = "n/a";
-            interpretation = "No equipment hours logged in scope.";
-        } else {
-            BigDecimal util = working.divide(totalAvailable, 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"))
-                    .setScale(2, RoundingMode.HALF_UP);
-            computed = util.toPlainString();
-            interpretation = util.compareTo(new BigDecimal("70")) >= 0
-                    ? "Healthy equipment utilization."
-                    : "Under-utilized — significant idle or breakdown share.";
-        }
-        out.put("computed", computed);
-        out.put("interpretation", interpretation);
-
-        ObjectNode source = objectMapper.createObjectNode();
-        source.put("entity", "DprEquipment");
-        source.put("dprRowsUsed", dprs.size());
-        source.put("equipmentRowsAggregated", rows.size());
-        out.set("source", source);
-        out.set("dateRange", renderRange(fromDate, toDate));
-        return ToolResult.ok("EQUIP_UTIL_PCT = " + computed + "% over "
-                + dprs.size() + " DPR rows", out);
-    }
-
-    private ToolResult evaluateProductivityRatio(UUID projectId, UUID supervisorUserId,
-                                                 String activityCode, LocalDate fromDate, LocalDate toDate) {
-        List<DailyProgressReport> dprs = loadDprs(projectId, supervisorUserId, activityCode, fromDate, toDate);
-        if (dprs.isEmpty()) {
-            return emptyResult("PRODUCTIVITY_RATIO",
-                    "PRODUCTIVITY_RATIO = Σ qty_executed / Σ manpower_hours",
-                    fromDate, toDate);
-        }
-        BigDecimal qty = BigDecimal.ZERO;
-        for (DailyProgressReport d : dprs) qty = qty.add(nz(d.getQtyExecuted()));
-
-        List<UUID> dprIds = dprs.stream().map(DailyProgressReport::getId).toList();
-        List<DprManpower> rows = batchManpower(dprIds);
-        BigDecimal manhours = BigDecimal.ZERO;
-        for (DprManpower r : rows) {
-            BigDecimal nos = nz(toBd(r.getNos()));
-            manhours = manhours
-                    .add(nz(r.getWorkingHours()).multiply(nos))
-                    .add(nz(r.getOtHours()).multiply(nos));
-        }
-
-        ObjectNode out = objectMapper.createObjectNode();
-        out.put("metric", "PRODUCTIVITY_RATIO");
-        out.put("formula", "PRODUCTIVITY_RATIO = Σ qty_executed / Σ manpower_hours (units per man-hour)");
-
-        ObjectNode inputs = objectMapper.createObjectNode();
-        inputs.put("qty_executed", qty.setScale(3, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("manpower_hours", manhours.setScale(2, RoundingMode.HALF_UP).toPlainString());
-        inputs.put("unit_note", "qty unit comes from DPR.unit (varies per activity — Cum / MT / Rm / Each).");
-        out.set("inputs", inputs);
-
-        String computed;
-        String interpretation;
-        if (manhours.signum() == 0) {
-            computed = "n/a (no manpower hours)";
-            interpretation = "Cannot compute productivity — no manpower hours in scope.";
-        } else {
-            BigDecimal ratio = qty.divide(manhours, 4, RoundingMode.HALF_UP);
-            computed = ratio.toPlainString();
-            interpretation = "Units of work delivered per man-hour. Compare against the ProductivityNorm for the activity to judge.";
-        }
-        out.put("computed", computed);
-        out.put("interpretation", interpretation);
-
-        ObjectNode source = objectMapper.createObjectNode();
-        source.put("entity", "DailyProgressReport + DprManpower");
-        source.put("dprRowsUsed", dprs.size());
-        source.put("manpowerRowsAggregated", rows.size());
-        out.set("source", source);
-        out.set("dateRange", renderRange(fromDate, toDate));
-        return ToolResult.ok("PRODUCTIVITY_RATIO = " + computed
-                + " (qty/man-hour) over " + dprs.size() + " DPR rows", out);
-    }
-
-    // ──────────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────────
-
-    private List<DailyProgressReport> loadDprs(UUID projectId, UUID supervisorUserId, String activityCode,
-                                               LocalDate fromDate, LocalDate toDate) {
-        List<DailyProgressReport> base;
-        if (fromDate != null && toDate != null) {
-            base = dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-                    projectId, fromDate, toDate);
-        } else {
-            base = dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId);
-        }
-        List<DailyProgressReport> out = new ArrayList<>(base.size());
-        for (DailyProgressReport d : base) {
-            if (supervisorUserId != null
-                    && (d.getSupervisorUserId() == null || !d.getSupervisorUserId().equals(supervisorUserId))) {
-                continue;
-            }
-            if (activityCode != null) {
-                String name = d.getActivityName();
-                if (name == null || !name.equalsIgnoreCase(activityCode)) {
-                    // DPR captures activity_name as the user-facing label, which usually equals code on
-                    // SC-180-style projects. Also accept exact code match through activity_id below.
-                    if (d.getActivityId() == null) continue;
-                    Optional<Activity> a = activityRepository.findById(d.getActivityId());
-                    if (a.isEmpty() || !activityCode.equalsIgnoreCase(a.get().getCode())) continue;
-                }
-            }
-            out.add(d);
-        }
-        return out;
-    }
-
-    private List<DprManpower> batchManpower(Collection<UUID> dprIds) {
-        if (dprIds.isEmpty()) return List.of();
-        return manpowerRepository.findByDprIdIn(dprIds);
-    }
-
-    private List<DprEquipment> batchEquipment(Collection<UUID> dprIds) {
-        if (dprIds.isEmpty()) return List.of();
-        return equipmentRepository.findByDprIdIn(dprIds);
-    }
-
-    private ToolResult emptyResult(String metric, String formula, LocalDate fromDate, LocalDate toDate) {
-        ObjectNode out = objectMapper.createObjectNode();
-        out.put("metric", metric);
-        out.put("formula", formula);
-        out.set("inputs", objectMapper.createObjectNode());
-        out.put("computed", "n/a");
-        out.put("interpretation", "No DPR rows matched the supplied scope.");
-        ObjectNode source = objectMapper.createObjectNode();
-        source.put("dprRowsUsed", 0);
-        out.set("source", source);
-        out.set("dateRange", renderRange(fromDate, toDate));
-        return ToolResult.ok(metric + " = n/a (no source rows)", out);
-    }
 
     private ObjectNode renderRange(LocalDate from, LocalDate to) {
         ObjectNode n = objectMapper.createObjectNode();
@@ -631,10 +380,6 @@ public class FormulaValidatorTool implements Tool {
 
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
-    }
-
-    private static BigDecimal toBd(Integer i) {
-        return i == null ? BigDecimal.ZERO : BigDecimal.valueOf(i);
     }
 
     private static UUID parseUuid(String s) {
@@ -660,7 +405,6 @@ public class FormulaValidatorTool implements Tool {
     }
 
     private enum Metric {
-        CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI,
-        MANPOWER_UTIL_PCT, EQUIP_UTIL_PCT, PRODUCTIVITY_RATIO
+        CPI, SPI, CV, SV, EAC, ETC, VAC, TCPI
     }
 }

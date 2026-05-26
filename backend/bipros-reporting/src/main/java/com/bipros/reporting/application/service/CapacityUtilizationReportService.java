@@ -118,6 +118,15 @@ public class CapacityUtilizationReportService {
   public CapacityUtilizationAggregateReport aggregate(
       UUID projectId, String periodType, LocalDate fromDate, LocalDate toDate,
       String groupBy) {
+    return aggregate(projectId, periodType, fromDate, toDate, groupBy, null);
+  }
+
+  /** Supervisor-scoped overload — when {@code supervisorUserId} is non-null, every per-bucket
+   *  section is restricted to DPRs filed by that user. */
+  @Transactional(readOnly = true)
+  public CapacityUtilizationAggregateReport aggregate(
+      UUID projectId, String periodType, LocalDate fromDate, LocalDate toDate,
+      String groupBy, UUID supervisorUserId) {
     LocalDate today = LocalDate.now();
     LocalDate effectiveTo = toDate == null ? today : toDate;
     LocalDate effectiveFrom = fromDate == null ? effectiveTo.withDayOfYear(1) : fromDate;
@@ -149,11 +158,11 @@ public class CapacityUtilizationReportService {
       Section manpowerSection = buildSection(projectId, "MANPOWER",
           bucketStart, bucketEnd,
           bucketEnd, YearMonth.from(bucketEnd),
-          null, defaultWorkDays());
+          supervisorUserId, defaultWorkDays());
       Section equipmentSection = buildSection(projectId, "EQUIPMENT",
           bucketStart, bucketEnd,
           bucketEnd, YearMonth.from(bucketEnd),
-          null, defaultWorkDays());
+          supervisorUserId, defaultWorkDays());
 
       // Per bucket we only want the cumulative-over-bucket view — strip the Day/Month
       // fields so the wire payload is tight and the frontend doesn't accidentally render

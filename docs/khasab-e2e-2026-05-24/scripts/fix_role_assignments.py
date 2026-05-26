@@ -1,3 +1,4 @@
+import os
 #!/usr/bin/env python3
 """Add role-assignments for ALL activities using fuzzy match + create-on-fly.
 DPR role names like 'Helper' / 'Excavator' map to variant table rows like
@@ -16,7 +17,7 @@ PLAN = json.load(open("/tmp/khasab/activity-plan.json"))
 ACT_IDS = json.load(open("/tmp/khasab/activity-ids.json"))
 
 PSQL = "/Applications/Postgres.app/Contents/Versions/latest/bin/psql"
-PG_BASE = ["env", "PGPASSWORD=bipros_dev", PSQL, "-h", "127.0.0.1", "-U", "bipros", "-d", "bipros", "-A", "-F", "|", "-t", "-c"]
+PG_BASE = ["env", f"PGPASSWORD={os.environ.get('BIPROS_PG_PASS', 'bipros_dev')}", PSQL, "-h", os.environ.get("BIPROS_PG_HOST", "127.0.0.1"), "-p", os.environ.get("BIPROS_PG_PORT", "5432"), "-U", os.environ.get("BIPROS_PG_USER", "bipros"), "-d", os.environ.get("BIPROS_PG_DB", "bipros"), "-A", "-F", "|", "-t", "-c"]
 
 
 def sql(q):

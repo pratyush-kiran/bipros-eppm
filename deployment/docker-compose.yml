@@ -1,0 +1,173 @@
+# Bipros EPPM — single-host deployment.
+# Build context is the parent repo so the backend image can read backend/ sources.
+# Run from inside deployment/: `docker compose up -d`
+
+services:
+
+  postgresql:
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    image: bipros-postgis-pgvector:17-3.5
+    container_name: bipros-postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bipros_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-bipros}
+      POSTGRES_USER: ${POSTGRES_USER:-bipros}
+    ports:
+      - "${PG_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/sql/00-init-schemas.sql:/docker-entrypoint-initdb.d/00-init-schemas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bipros}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: bipros-redis
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.12-alpine
+    container_name: bipros-clickhouse
+    environment:
+      CLICKHOUSE_DB: bipros_analytics
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-bipros}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bipros_dev}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9002}:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./data/sql/clickhouse-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: bipros-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  docling:
+    image: quay.io/docling-project/docling-serve-cpu:latest
+    container_name: bipros-docling
+    ports:
+      - "${DOCLING_PORT:-5001}:5001"
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+      DOCLING_SERVE_API_HOST: "0.0.0.0"
+    deploy:
+      resources:
+        limits:
+          memory: 12G
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bipros-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@bipros.io}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    restart: unless-stopped
+
+  bipros-api:
+    build:
+      # Backend sources live in the parent repo
+      context: ../backend
+      dockerfile: ../deployment/docker/backend.Dockerfile
+    image: bipros-api:prod
+    container_name: bipros-api
+    environment:
+      # First-boot defaults to prod,init-prod so DataSeeder creates admin
+      # without activating the Khasab-bundled demo seeders. Override with
+      # BIPROS_PROFILES=prod after the first successful boot.
+      SPRING_PROFILES_ACTIVE: ${BIPROS_PROFILES:-prod,init-prod}
+      DATABASE_URL: jdbc:postgresql://postgresql:5432/${POSTGRES_DB:-bipros}
+      DB_USERNAME: ${POSTGRES_USER:-bipros}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-bipros_dev}
+      DB_POOL_MAX: "${DB_POOL_MAX:-60}"
+      JWT_SECRET: ${JWT_SECRET:-change-me-32-byte-random-prod-secret-please-rotate}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      BIPROS_AI_ENABLED: ${BIPROS_AI_ENABLED:-true}
+      BIPROS_AI_KEK: ${BIPROS_AI_KEK:-Vd/RdHKwlLA1vFuDVUr/ou0CMHAsha99Cfi8UXzXUlA=}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # See deployment/README.md §"Known issues" — Liquibase is off for now
+      SPRING_LIQUIBASE_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # In-container hostnames for sibling services
+      CLICKHOUSE_URL: jdbc:clickhouse://clickhouse:8123/bipros_analytics
+      CLICKHOUSE_USERNAME: ${CLICKHOUSE_USER:-bipros}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-bipros_dev}
+      SPRING_DATA_REDIS_HOST: redis
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
+      JAVA_OPTS: "${JAVA_OPTS:--Xmx2g -XX:MaxRAMPercentage=75}"
+    ports:
+      - "${API_HOST_PORT:-8080}:8080"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  clickhouse_data:

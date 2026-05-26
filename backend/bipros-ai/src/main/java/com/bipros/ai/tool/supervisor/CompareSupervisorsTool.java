@@ -48,16 +48,24 @@ public class CompareSupervisorsTool implements Tool {
 
   @Override
   public String description() {
-    return "Compare two to six supervisors side-by-side for one project over a date window. "
-        + "Returns one ranked row per supervisor with: supervised activity count + status (delayed "
-        + "/ in-progress / completed), planned & actual cost + variance %, EVM (BAC/PV/EV/AC, CPI, "
-        + "SPI), DPR cadence, qty executed, team hours/days. Identify supervisors by "
-        + "supervisor_resource_ids (preferred) or supervisor_names (resolved fuzzily). Use "
-        + "rank_by to choose the ranking metric: cpi (higher is better, default), spi (higher), "
-        + "cost_variance_pct (lower is better), qty_executed (higher), dpr_count (higher). Pair "
-        + "this tool with prompts like \"Compare A.K. Singh, Anbazhagan, T. Swamy on cost & "
-        + "schedule for the last 30 days\" or \"Rank my foremen by CPI this month\". For a single "
-        + "supervisor, use the supervisor tool instead. Project-scoped.";
+    return "**COST / EVM / DPR-cadence comparison ONLY — uses LEGACY Resource UUIDs, "
+        + "not User UUIDs.** Compare two to six supervisors side-by-side for one project over "
+        + "a date window. Returns one ranked row per supervisor with: supervised activity "
+        + "count + status (delayed / in-progress / completed), planned & actual cost + "
+        + "variance percent, EVM (BAC/PV/EV/AC, CPI, SPI), DPR cadence, qty executed, team "
+        + "hours/days. Identify supervisors by supervisor_resource_ids (legacy Resource UUIDs "
+        + "— NOT User UUIDs) or supervisor_names (resolved fuzzily). rank_by: cpi "
+        + "(default, higher better), spi (higher), cost_variance_pct (lower better), "
+        + "qty_executed (higher), dpr_count (higher). "
+        + "**DO NOT USE THIS TOOL FOR:** capacity utilization, manpower / equipment "
+        + "efficiency, per-role allocated qty, productivity vs norm, activity drill-down, "
+        + "best-supervisor-per-trade, suppressed / hidden-side counts, or any post-allocator "
+        + "metric. For all of those, call `get_supervisor_performance` instead — that "
+        + "tool uses canonical RBAC User UUIDs (resolve names via list_project_supervisors), "
+        + "applies the per-DPR allocator, nets sub-contractor qty, and returns server-computed "
+        + "best-per-trade rankings plus full activity drill-down. "
+        + "For a single supervisor on cost/EVM only, use the `supervisor` tool instead. "
+        + "Project-scoped.";
   }
 
   @Override

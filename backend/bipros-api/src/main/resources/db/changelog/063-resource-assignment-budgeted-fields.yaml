@@ -23,7 +23,7 @@ databaseChangeLog:
                   type: DOUBLE PRECISION
               - column:
                   name: budgeted_cost
-                  type: NUMERIC(19, 4)
+                  type: "NUMERIC(19, 4)"
 
   - changeSet:
       id: 063-resource-assignment-budgeted-backfill

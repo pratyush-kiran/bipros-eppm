@@ -201,3 +201,5 @@ databaseChangeLog:
       file: db/changelog/changeset-2026-05-add-dbs-project-subcontract-lines.xml
   - include:
       file: db/changelog/106-resource-assignment-planned-units-backfill.yaml
+  - include:
+      file: db/changelog/changeset-2026-05-add-dbs-unique-keys.xml

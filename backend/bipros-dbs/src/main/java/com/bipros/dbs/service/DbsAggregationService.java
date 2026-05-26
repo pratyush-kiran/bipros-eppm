@@ -73,12 +73,14 @@ public class DbsAggregationService {
     private final ObjectMapper objectMapper;
     private final RegisterAggregationService registerAggregationService;
     private final com.bipros.project.domain.repository.DailyProgressReportRepository dprRepository;
+    private final DbsRecomputeLock recomputeLock;
 
     /**
      * Recompute the supervisor-day row by running the six section calculators and
      * upserting on {@code (projectId, supervisorUserId, reportDate)}.
      */
     public DbsDailySupervisor recomputeSupervisorDay(UUID projectId, UUID supervisorUserId, LocalDate date) {
+        recomputeLock.lock(projectId, date);
         log.debug("DBS recompute supervisor projectId={} supervisor={} date={}", projectId, supervisorUserId, date);
 
         SectionResult manpower = manpowerCalc.compute(projectId, supervisorUserId, date);
@@ -177,6 +179,7 @@ public class DbsAggregationService {
      * {@code engineerUserId} matches for that date.
      */
     public DbsDailyEngineer recomputeEngineerDay(UUID projectId, UUID engineerUserId, LocalDate date) {
+        recomputeLock.lock(projectId, date);
         log.debug("DBS recompute engineer projectId={} engineer={} date={}", projectId, engineerUserId, date);
 
         List<DbsDailySupervisor> supRows = supervisorRepo.findByProjectIdAndReportDate(projectId, date).stream()
@@ -258,6 +261,7 @@ public class DbsAggregationService {
      * planned / achieved totals.
      */
     public DbsDailyCm recomputeCmDay(UUID projectId, UUID cmUserId, LocalDate date) {
+        recomputeLock.lock(projectId, date);
         log.debug("DBS recompute cm projectId={} cm={} date={}", projectId, cmUserId, date);
 
         List<DbsDailySupervisor> supRows = supervisorRepo
@@ -403,6 +407,7 @@ public class DbsAggregationService {
      * rollup, because the per-supervisor calculators return empty for it.
      */
     public DbsDailyProject recomputeProjectDay(UUID projectId, LocalDate date) {
+        recomputeLock.lock(projectId, date);
         log.debug("DBS recompute project projectId={} date={}", projectId, date);
 
         List<DbsDailySupervisor> supRows = supervisorRepo.findByProjectIdAndReportDate(projectId, date);
@@ -521,6 +526,10 @@ public class DbsAggregationService {
         // Phase 5: rebuild the equipment + manpower deployment register for this day.
         // Idempotent (delete + re-insert), runs at the tail of project recompute so the
         // register is consistent with the freshly-written aggregate rows.
+        // NOTE: registerAggregationService.recompute is REQUIRES_NEW and intentionally does
+        // NOT take the (project, date) advisory lock — this thread already holds it here, and a
+        // second acquire on the register's own connection would self-deadlock. It is serialised
+        // transitively: only the thread inside this lock-protected method ever reaches it.
         try {
             registerAggregationService.recompute(projectId, date);
         } catch (Exception ex) {

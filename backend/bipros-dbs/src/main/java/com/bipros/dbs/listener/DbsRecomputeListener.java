@@ -10,6 +10,8 @@ import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -19,6 +21,7 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * AFTER_COMMIT listener that recomputes the DBS rollups after a relevant source event:
@@ -103,7 +106,8 @@ public class DbsRecomputeListener {
             LocalDate cur = yearMonth.atDay(1);
             LocalDate end = yearMonth.atEndOfMonth();
             while (!cur.isAfter(end)) {
-                aggregationService.recomputeProjectDay(e.projectId(), cur);
+                final LocalDate day = cur;
+                withRetry("project(sectionG)", () -> aggregationService.recomputeProjectDay(e.projectId(), day));
                 cur = cur.plusDays(1);
             }
         } catch (Exception ex) {
@@ -114,23 +118,26 @@ public class DbsRecomputeListener {
 
     private void recomputeChain(UUID projectId, UUID supervisorUserId, LocalDate date) {
         try {
-            aggregationService.recomputeSupervisorDay(projectId, supervisorUserId, date);
+            withRetry("supervisor", () ->
+                aggregationService.recomputeSupervisorDay(projectId, supervisorUserId, date));
             if (supervisorUserId != null) {
                 UUID engineerUserId = projectTeamService
                     .resolveEngineerFor(projectId, supervisorUserId)
                     .orElse(null);
                 if (engineerUserId != null) {
-                    aggregationService.recomputeEngineerDay(projectId, engineerUserId, date);
+                    withRetry("engineer", () ->
+                        aggregationService.recomputeEngineerDay(projectId, engineerUserId, date));
                 }
                 // Phase 4: roll up to the CM tier when this supervisor reports through a CM.
                 UUID cmUserId = projectTeamService
                     .resolveCmFor(projectId, supervisorUserId)
                     .orElse(null);
                 if (cmUserId != null) {
-                    aggregationService.recomputeCmDay(projectId, cmUserId, date);
+                    withRetry("cm", () ->
+                        aggregationService.recomputeCmDay(projectId, cmUserId, date));
                 }
             }
-            aggregationService.recomputeProjectDay(projectId, date);
+            withRetry("project", () -> aggregationService.recomputeProjectDay(projectId, date));
             log.info("DBS recompute OK projectId={} supervisor={} date={}",
                 projectId, supervisorUserId, date);
         } catch (Exception ex) {
@@ -152,10 +159,46 @@ public class DbsRecomputeListener {
             for (UUID sup : supervisorIds) {
                 recomputeChain(projectId, sup, date);
             }
-            aggregationService.recomputeProjectDay(projectId, date);
+            withRetry("project", () -> aggregationService.recomputeProjectDay(projectId, date));
         } catch (Exception ex) {
             log.warn("DBS recompute (project fan-out) failed projectId={} date={}",
                 projectId, date, ex);
+        }
+    }
+
+    /**
+     * Recompute is an idempotent upsert on a row shared by every supervisor of the
+     * {@code (project, date)}. When two source mutations for the same {@code (project, date)}
+     * commit concurrently, both AFTER_COMMIT threads read the same {@code version} and the
+     * loser's version-guarded UPDATE matches zero rows →
+     * {@link org.springframework.orm.ObjectOptimisticLockingFailureException} (a
+     * {@link ConcurrencyFailureException}); a first-time INSERT race instead trips the
+     * {@code (project, date)} unique key → {@link DataIntegrityViolationException}. Both are
+     * transient for an idempotent upsert — re-reading the now-committed row and recomputing
+     * converges on the correct value — so retry a bounded number of times with a little
+     * randomised jitter to break the tie. Each {@code recomputeXxx} call is
+     * {@code REQUIRES_NEW}, so a retry runs in a fresh transaction that reads the latest row.
+     */
+    static final int MAX_RETRY_ATTEMPTS = 5;
+
+    private void withRetry(String what, Runnable op) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                op.run();
+                return;
+            } catch (ConcurrencyFailureException | DataIntegrityViolationException ex) {
+                if (attempt >= MAX_RETRY_ATTEMPTS) {
+                    throw ex;
+                }
+                log.debug("DBS {} hit a concurrent-write conflict (attempt {}/{}), retrying: {}",
+                    what, attempt, MAX_RETRY_ATTEMPTS, ex.getMessage());
+                try {
+                    Thread.sleep(ThreadLocalRandom.current().nextLong(10L, 60L));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw ex;
+                }
+            }
         }
     }
 }

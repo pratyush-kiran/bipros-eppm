@@ -37,10 +37,10 @@ databaseChangeLog:
                   type: UUID
               - column:
                   name: unit_rate
-                  type: NUMERIC(19,4)
+                  type: "NUMERIC(19,4)"
               - column:
                   name: line_cost
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
               - column:
                   name: material_rate_master_id
                   type: UUID

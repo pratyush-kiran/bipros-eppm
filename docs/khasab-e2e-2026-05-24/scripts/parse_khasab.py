@@ -191,14 +191,17 @@ for sheet in SHEETS:
                 groups[key]["unit"] = unit
 
         g = groups[key]
-        if mp_role and mp_count:
+        # A blank "Nr." column means 1 — it is blank on ~94% of manpower and ~92% of
+        # equipment rows in the source workbook. Gate inclusion on the role/name (plus any
+        # of count/hours/rate) so those rows aren't dropped; default the count to 1.
+        if mp_role and (mp_count or mp_hours or mp_rate):
             g["manpower"].append({
-                "role": mp_role, "count": int(mp_count),
+                "role": mp_role, "count": int(mp_count) if mp_count else 1,
                 "hours": mp_hours, "rate": mp_rate, "cost": mp_cost
             })
-        if eq_name and eq_count:
+        if eq_name and (eq_count or eq_hours or eq_rate):
             g["equipment"].append({
-                "name": eq_name, "count": int(eq_count),
+                "name": eq_name, "count": int(eq_count) if eq_count else 1,
                 "hours": eq_hours, "rate": eq_rate, "cost": eq_cost
             })
         if mat_desc and mat_qty:

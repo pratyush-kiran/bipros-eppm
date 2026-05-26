@@ -36,6 +36,9 @@ public class RolePersonaProvider {
                             "Material wastage %",
                             "Stockpile-to-need ratio"),
                     List.of(
+                            "get_capacity_utilization",
+                            "deployment_utilization",
+                            "get_subcontractor_kpis",
                             "analyze_labour_utilization",
                             "analyze_machine_idle_time",
                             "analyze_material_wastage",
@@ -50,6 +53,8 @@ public class RolePersonaProvider {
                             "Yield variance % (actual vs design)",
                             "Cycle time"),
                     List.of(
+                            "get_capacity_utilization",
+                            "get_subcontractor_kpis",
                             "analyze_productivity_factor",
                             "analyze_yield_variance",
                             "analyze_equipment_cycle_time",
@@ -67,6 +72,8 @@ public class RolePersonaProvider {
                             "Equipment utilization %"),
                     List.of(
                             "portfolio_kpi",
+                            "get_capacity_utilization",
+                            "get_subcontractor_kpis",
                             "analyze_cost",
                             "analyze_labour_cost_per_unit",
                             "analyze_material_burn_rate",

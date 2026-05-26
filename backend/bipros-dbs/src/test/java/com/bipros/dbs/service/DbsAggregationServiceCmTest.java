@@ -58,6 +58,7 @@ class DbsAggregationServiceCmTest {
     @Mock private ProjectTeamService projectTeamService;
     @Mock private ObjectMapper objectMapper;
     @Mock private RegisterAggregationService registerAggregationService;
+    @Mock private DbsRecomputeLock recomputeLock;
 
     @InjectMocks private DbsAggregationService service;
 

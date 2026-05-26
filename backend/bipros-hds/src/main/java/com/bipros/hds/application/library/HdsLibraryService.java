@@ -20,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -70,42 +69,30 @@ public class HdsLibraryService {
         docRepo.deleteById(id);
     }
 
-    @Transactional(noRollbackFor = DuplicateUploadException.class)
     public HdsVersion uploadVersion(UUID documentId, String versionLabel, Integer revisionYear,
                                     InputStream pdfStream, long contentLength, String fileName,
                                     UUID uploadedBy) {
         docRepo.findById(documentId).orElseThrow();
 
-        // Save the row first so JPA generates the id; we can't pre-assign the UUID without
-        // tripping Spring Data's "detached entity" / @Version optimistic lock check.
         var version = HdsVersion.builder()
             .hdsDocumentId(documentId)
             .versionLabel(versionLabel)
             .revisionYear(revisionYear)
             .fileName(fileName)
-            .storageKey("__pending__")    // placeholder; set after upload
-            .fileSha256(null)             // tolerable: SHA uniqueness lookup runs after upload
+            .storageKey("__pending__")
+            .fileSha256(null)
             .status(HdsVersionStatus.PENDING)
             .uploadedBy(uploadedBy)
             .uploadedAt(Instant.now())
             .build();
         version = versionRepo.save(version);
 
-        // Now upload using the saved id so the MinIO key matches the row.
         HdsStorageService.UploadResult uploadResult;
         try {
             uploadResult = storage.upload(pdfStream, contentLength, version.getId().toString(), fileName);
         } catch (RuntimeException uploadFail) {
-            versionRepo.delete(version);   // undo placeholder
-            throw uploadFail;
-        }
-
-        // Idempotency by SHA-256: if another version already has this hash, throw away ours.
-        Optional<HdsVersion> existing = versionRepo.findByFileSha256(uploadResult.sha256());
-        if (existing.isPresent() && !existing.get().getId().equals(version.getId())) {
-            storage.delete(uploadResult.storageKey());
             versionRepo.delete(version);
-            throw new DuplicateUploadException(existing.get());
+            throw uploadFail;
         }
 
         version.setFileSizeBytes(uploadResult.size());
@@ -168,14 +155,5 @@ public class HdsLibraryService {
         try { storage.delete(version.getStorageKey()); } catch (Exception ignored) {}
         jobRepo.findByHdsVersionId(versionId).ifPresent(jobRepo::delete);
         versionRepo.deleteById(versionId);
-    }
-
-    public static class DuplicateUploadException extends RuntimeException {
-        private final HdsVersion existing;
-        public DuplicateUploadException(HdsVersion existing) {
-            super("Duplicate SHA-256: existing version " + existing.getId());
-            this.existing = existing;
-        }
-        public HdsVersion getExisting() { return existing; }
     }
 }

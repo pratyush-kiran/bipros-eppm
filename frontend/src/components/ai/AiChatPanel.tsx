@@ -1066,13 +1066,28 @@ export function AiChatPanel() {
                         {msg.role === "assistant" &&
                           msg.hdsCitations &&
                           msg.hdsCitations.length > 0 && (
-                            <div className="mt-3 space-y-2">
-                              <div className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
-                                Sources
+                            <div className="mt-4 space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  aria-hidden
+                                  className="h-px flex-1 bg-gradient-to-r from-gold/0 via-gold/40 to-gold/0"
+                                />
+                                <span className="font-display text-[10px] font-medium uppercase tracking-[0.32em] text-slate">
+                                  Sources
+                                </span>
+                                <span className="font-mono text-[10px] tabular-nums text-gold-ink/70">
+                                  {msg.hdsCitations.length}
+                                </span>
+                                <span
+                                  aria-hidden
+                                  className="h-px flex-1 bg-gradient-to-r from-gold/40 via-gold/0 to-gold/0"
+                                />
                               </div>
-                              {msg.hdsCitations.map((c) => (
-                                <HdsCitationCard key={c.marker} citation={c} />
-                              ))}
+                              <div className="space-y-2 pt-1">
+                                {msg.hdsCitations.map((c) => (
+                                  <HdsCitationCard key={c.marker} citation={c} />
+                                ))}
+                              </div>
                             </div>
                           )}
                       </div>

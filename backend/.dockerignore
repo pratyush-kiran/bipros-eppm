@@ -1,0 +1,12 @@
+**/target/
+**/.idea/
+**/.vscode/
+**/.classpath
+**/.project
+**/.settings/
+**/.factorypath
+**/*.log
+.git/
+.gitignore
+.DS_Store
+**/node_modules/

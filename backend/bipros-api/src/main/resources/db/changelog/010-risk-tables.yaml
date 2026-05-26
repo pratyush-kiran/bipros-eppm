@@ -63,7 +63,7 @@ databaseChangeLog:
                   type: TEXT
               - column:
                   name: cost_impact
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: schedule_impact_days
                   type: INTEGER
@@ -138,10 +138,10 @@ databaseChangeLog:
                   type: DATE
               - column:
                   name: estimated_cost
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: actual_cost
-                  type: DECIMAL(19, 4)
+                  type: "DECIMAL(19, 4)"
               - column:
                   name: status
                   type: VARCHAR(50)

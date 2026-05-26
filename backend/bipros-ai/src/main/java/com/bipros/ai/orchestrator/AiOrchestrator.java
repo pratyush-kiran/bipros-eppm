@@ -213,9 +213,11 @@ public class AiOrchestrator {
         String lastAssistantText = "";
         boolean naturalEnd = false;
         boolean anyToolCalled = false;       // any tool used this turn → answer is data-backed → must verify
+        boolean dbsToolCalled = false;       // a dbs_* tool fired this turn → DBS gate is satisfied
         boolean verificationInjected = false; // we only run the standard verification pass once per request
         boolean toolUseGateFired = false;     // distinct from verificationInjected: fires when first draft was tool-less
         boolean currencyGateFired = false;    // fires once if the currency cross-check forces a round
+        boolean dbsGateFired = false;         // fires once if the DBS gate forces a re-round
         String knownBudgetCurrency = resolveBudgetCurrency(ctx);
 
         for (int round = 0; round < cap; round++) {
@@ -232,6 +234,12 @@ public class AiOrchestrator {
                 executeToolsAndAppend(outcome.toolCalls, ctx, messages, sink);
                 lastAssistantText = outcome.text;
                 anyToolCalled = true;
+                for (LlmProvider.ToolCall tc : outcome.toolCalls) {
+                    if (tc.name() != null && tc.name().startsWith("dbs_")) {
+                        dbsToolCalled = true;
+                        break;
+                    }
+                }
                 // Refresh the project's budget_currency cache from the latest tool
                 // results — list_projects rows expose it on the row objects, so a
                 // call we just made may have populated what we need for the
@@ -259,6 +267,25 @@ public class AiOrchestrator {
                 sink.tryEmitNext(new ChatEvent("gate_blocked",
                         Map.of("reason", "tool_less_data_claim",
                                 "note", "Drafted a data answer without calling a tool — re-checking.")));
+                continue;
+            }
+
+            // Gate A2 — DBS RULES GATE.
+            // If the draft references DBS / sub-contractor money tokens (expense,
+            // income, contribution, margin, cumulative, section A–G, BOQ, …) but
+            // NO dbs_* tool fired this request, force a re-round that REQUIRES a
+            // dbs_* tool call. DBS rollups live in Postgres snapshot tables — the
+            // only honest source is the dbs_* tool family. Fires once per request.
+            if (!dbsGateFired && !dbsToolCalled && mentionsDbsTokens(candidate)) {
+                dbsGateFired = true;
+                messages.add(new LlmProvider.Message("assistant", candidate));
+                messages.add(new LlmProvider.Message("system",
+                        "You referenced DBS values but did not call a dbs_* tool. "
+                                + "Call the appropriate DBS tool and re-answer with the tool's exact numbers. "
+                                + "Do not estimate."));
+                sink.tryEmitNext(new ChatEvent("gate_blocked",
+                        Map.of("reason", "dbs_tokens_without_dbs_tool",
+                                "note", "Drafted DBS values without calling a dbs_* tool — re-checking.")));
                 continue;
             }
 
@@ -673,6 +700,138 @@ public class AiOrchestrator {
               × rate.
             DPR rows carry their HISTORICAL unit_rate snapshot. NEVER recompute from
             current rates. Equipment idle / breakdown hours are excluded from the rollup.
+
+            **SUB-CONTRACTOR & EFFECTIVE WORKDONE (MANDATORY for workdone / productivity / capacity questions).**
+
+            Every DPR may record sub-contractor work alongside company manpower /
+            equipment / material. A DPR's workdone always splits into:
+              gross_workdone = sub_contractor_qty + effective_company_qty
+            When sub_contractor_qty > 0, ALWAYS report both numbers. Example phrasing:
+              "100 Tonne total — sub-contractor Apex Infrastructure (SUB-INFRA-001 ·
+               Asphalt Laying) 30 Tonne · company resources 70 Tonne."
+            Capacity utilization (manpower / equipment / per-role) is computed on the
+            EFFECTIVE COMPANY QTY only. The canonical service (
+            CapacityUtilizationReportService.loadSubContractorQtyByDpr) already nets
+            sub_contractor_qty out of dpr.qty_executed before allocating across roles.
+            Never attribute sub-contractor output to a company role.
+            Sub-contractor has its own productivity norm (output/day per work-type) and
+            unit rate defined on the sub-contractor master
+            (sub_contractor_work_activity_mappings). For sub-contractor-specific
+            questions use get_subcontractor_kpis — default detail level: SC code + name
+            + work-type + qty + cost + productivity factor.
+
+            """
+            + DBS_RULES_BLOCK
+            + """
+
+            **CAPACITY UTILIZATION RULES (post-2026-05-22 allocator).**
+
+            Per-DPR role allocation: for each (DPR, activity, side) the effective qty
+            is distributed across roles in proportion to (resolved_norm × NOS). NEVER
+            attribute the full DPR qty to every role on the side.
+            norm_combination determines side handling on each (DPR, activity):
+              SERIES     → smaller-expected side wins; losing side is HIDDEN (N/A).
+              PARALLEL   → both sides get a proportional share of qty.
+              SUBSTITUTE → larger-expected side wins; losing side is HIDDEN (N/A).
+            When a side is hidden, cite the tool's hidden_side_notes verbatim — never
+            invent your own explanation. Example: "Equipment utilization not applicable
+            for ACT-2-1-5-I on 22 May — Manpower governed the day (SERIES)."
+            HRS is a logging-only field on DPR rows. NEVER multiply or divide HRS into
+            productivity or utilization math. Norms are per-day, NOS-based only.
+            Untracked roles (no resolved norm on the activity) show actual NOS only;
+            no budget, no efficiency. Surface this honestly with "No norm for this role
+            on this activity" — do not fabricate.
+            Tool selection — MANDATORY routing for utilization / productivity / capacity:
+              get_capacity_utilization     → efficiency (allocated qty ÷ norm), per role,
+                                              PROJECT-WIDE (no per-supervisor or per-activity
+                                              drill-down). THE canonical tool for "what is the
+                                              manpower utilization for the project".
+              get_supervisor_performance   → per-supervisor capacity report WITH activity
+                                              drill-down (Foreman/Helper/Supervisor on activity
+                                              X). Pass 1 supervisor_user_id for one supervisor;
+                                              pass 2+ for COMPARISON with server-computed
+                                              bestSupervisorId per trade (trade_deltas) and per
+                                              equipment (equipment_deltas). Use for "compare
+                                              supervisors", "best supervisor for Helpers",
+                                              "activity-level breakdown for supervisor X",
+                                              "suppressed days for Carpenter under supervisor Y".
+                                              Call list_project_supervisors FIRST to resolve
+                                              names → User UUIDs.
+              deployment_utilization       → deployment (actual ÷ available capacity, idle
+                                              hours, machine uptime, headcount on site).
+              get_capacity_utilization_trend → multi-period TREND (WEEKLY or MONTHLY
+                                              buckets across a long window). Use when the user
+                                              asks "show me the trend", "compare June vs July",
+                                              "week-by-week", "monthly utilization series".
+                                              Caps: WEEKLY <= 90 days, MONTHLY <= 24 months.
+                                              Optional supervisor_user_id to scope.
+              get_subcontractor_kpis       → SC qty / cost / productivity factor / CPI.
+            Use multiple capacity tools when the user asks a broad question.
+
+            TIME-PERIOD SEMANTICS (MANDATORY)
+            The UI shows three time-period columns per row: "For the Day", "For the Month",
+            and "Cumulative". The AI must answer with the matching bucket / window:
+            - get_capacity_utilization returns ALL THREE BUCKETS IN ONE CALL on every role
+              row: forTheDay, forTheMonth, cumulative. Anchoring rule (already applied by
+              the service): the day anchors on TODAY when today falls inside [from_date,
+              to_date], otherwise on to_date. The month is the calendar month of that anchor
+              day. Cumulative is the full window. Routing:
+                user says "today" / "for the day" / "on 2026-05-22"  → quote forTheDay
+                user says "this month" / "for the month" / "in May"  → quote forTheMonth
+                user says "cumulative" / "to date" / "so far"        → quote cumulative
+                user is vague ("what is the utilization")            → quote all three
+                                                                       explicitly labelled
+              NEVER quote a number without naming which bucket it came from.
+            - get_supervisor_performance (post-2026-05-25) ALSO returns Day / CalendarMonth /
+              Cumulative buckets per trade, per equipment, AND per activity-resource line.
+              Look for `buckets.{day,calendar_month,cumulative}` on summary rollups and
+              `actual_buckets` / `plan_buckets` on activities[].resources[]. Activity headers
+              carry `qty_for_day`, `qty_for_calendar_month`, `qty_cumulative_window`.
+              Anchor rule: same as get_capacity_utilization (today if today ∈ window, else
+              to_date). Routing per user phrasing:
+                "for the day"   → lead with .day bucket
+                "this month"    → lead with .calendar_month
+                "cumulative"    → lead with .cumulative (matches legacy flat fields)
+              For custom date ranges ("last 7 days", "May 1-10"), pass that as from_date /
+              to_date and quote the .cumulative bucket — the day / calendarMonth slices are
+              anchored within the window, not the same as the custom range.
+            - For multi-period TRENDS (a series of buckets across a long window — week-by-
+              week, month-by-month), use get_capacity_utilization_trend instead. That tool
+              returns N buckets across the window so the user can see a time-series.
+              get_supervisor_performance returns ONE per-bucket snapshot inside ONE window;
+              get_capacity_utilization_trend returns MANY snapshots one per slice.
+
+            INTERPRETING get_supervisor_performance OUTPUT:
+            - reports[].summary.manpower[] / equipment[] each carry actualDaysOnHiddenSides
+              (norm exists but allocator suppressed this side) and actualDaysUntracked (no
+              norm). When either is non-zero, render the actual-days line as
+              "(X tracked · Y suppressed · Z untracked)" — matches the UI badge.
+            - reports[].activities[] carries subContractorQty alongside qtyForMonth. When
+              subContractorQty > 0, render as "qtyForMonth total — Z company resources +
+              subContractorQty sub-contractor" (effective_company_qty is pre-computed).
+            - trade_deltas[].bestSupervisorId / equipment_deltas[].bestSupervisorId are
+              SERVER-COMPUTED — quote them verbatim. NEVER recompute the max across
+              by_supervisor yourself.
+            - manpower_hidden_notes[] / equipment_hidden_notes[] — cite verbatim
+              (governing_side + mode), do not invent.
+
+            **formula_validate IS EVM-ONLY.** It handles CPI, SPI, CV, SV, EAC, ETC, VAC,
+            TCPI — nothing else. The previous MANPOWER_UTIL_PCT / EQUIP_UTIL_PCT /
+            PRODUCTIVITY_RATIO metrics WERE REMOVED because they used HRS-based math that
+            ignored the per-DPR allocator and sub-contractor netting. NEVER call
+            formula_validate with those metrics; NEVER report a manpower or equipment
+            utilization computed as Σ actual_hours / Σ budget_hours × 100 — that formula
+            is forbidden. For utilization / productivity questions, the LLM MUST call
+            get_capacity_utilization and lead the answer with per-role allocated qty +
+            budget days + actual days + efficiency percent (the same shape the UI shows).
+
+            **COST VARIANCE (BOQ).**
+
+            BOQ cost_variance = actualAmount − (qtyExecutedToDate × BUDGETED_RATE).
+            Use the BUDGETED rate from the BoqItem, NOT the BOQ/client rate (they
+            can differ). Read costVariance directly from the BoqItem response — do
+            not recompute it client-side. The actualAmount on a BOQ item already
+            includes sub-contractor cost; do not double-count.
 
             RESOURCE LOOKUP — CATALOGUE vs ASSIGNMENTS (always disambiguate):
             Two distinct surfaces; pick the right one or you will report "no
@@ -1829,6 +1988,90 @@ public class AiOrchestrator {
         if (CODE_PATTERN.matcher(t).find()) return true;
         return false;
     }
+
+    /**
+     * Does the draft mention DBS / sub-contractor money tokens that REQUIRE a
+     * dbs_* tool call? Case-insensitive substring match across the token list.
+     * Used by the DBS gate to detect drafts that talk about DBS values without
+     * having called any DBS tool.
+     */
+    static boolean mentionsDbsTokens(String text) {
+        if (text == null || text.isEmpty()) return false;
+        String lower = text.toLowerCase();
+        for (String token : DBS_TOKENS) {
+            if (lower.contains(token)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Mandatory DBS subsection of the system prompt — extracted from the main
+     * prompt text block to keep that block under the JVM's 65,535-byte string
+     * constant limit. Concatenated into the prompt at build time.
+     */
+    private static final String DBS_RULES_BLOCK = """
+            === DBS RULES (read before answering any cost / income / contribution / sub-contractor question) ===
+
+            1. TOOL ROUTING (strict — DO NOT improvise):
+               - Money questions (expense, income, contribution, margin, sub-contractor cost, fuel cost, material cost, BOQ achieved value, cumulative cost/revenue): call `dbs_financial`.
+               - Headcount / utilization / "how many helpers were on site": call `dbs_report`.
+               - "Today's equipment-days" or "cumulative equipment-days": call `dbs_equipment_register`.
+               - "Today's man-days by trade" or "cumulative man-days": call `dbs_manpower_register`.
+               - "Who submitted DBS today" / supervisor roster for a date: call `dbs_list_supervisors`.
+               - Alert flags / negative-contribution scan: call `dbs_alerts`.
+               - "List sub-contractors" / "who are the sub-contractors" / "show the sub-contractor master" / "which activities use sub-contractor X" / "what work types is SC X configured for" / "what's the rate for SC X": call `list_sub_contractors` (NOT `get_subcontractor_kpis` — that's for performance / actual vs planned only).
+               - "Sub-contractor productivity" / "is SC under-performing" / "actual qty vs planned" / "cost variance" / "CPI" / "productivity factor": call `get_subcontractor_kpis`.
+               - NEVER call `query_clickhouse` for DBS — DBS rollups live in Postgres snapshot tables, not in ClickHouse.
+
+            2. LEVEL MAPPING (from UI tab):
+               - "Project Manager tab" / "project-wide" / "overall" / "total project" → level=PROJECT.
+               - "Supervisor X" / "Illayaraja" / "under <name>" / per-supervisor → level=SUPERVISOR + supervisorUserId. If user gives a name not a UUID, FIRST call `dbs_list_supervisors` to resolve the UUID.
+               - "Construction Manager" / "CM tab" / "under CM <name>" → level=CM + cmUserId.
+               - "Engineer" / "Site Manager tab" → level=ENGINEER + engineerUserId.
+
+            3. PERIOD MAPPING:
+               - "today", "yesterday", a specific date → periodType=DAY.
+               - "this week", "last week", "week of <date>" → periodType=WEEK.
+               - "this month", "May 2026", "last month" → periodType=MONTH.
+
+            4. SECTION ASYMMETRY (critical — easy to get wrong):
+               - Sections B (Admin/Catering), F (Sub-Contractor), G (General Expenses) are PROJECT-ONLY. Supervisor rows always carry 0 for these. Never attribute sub-contractor cost to an individual supervisor.
+               - Supervisor `totalIncome` is BOQ qty × rate NET of sub-contractor qty (because SC qty is invoiced via the project, not the supervisor). Project `totalIncome` is the FULL qty × rate.
+               - PM Section F. Sub-Contractor shows three numbers per SC line: expense = qty × scRate, imputedIncome = qty × boqRate, margin = imputedIncome − expense. `imputedIncome` is ALREADY INSIDE PM Total Income — do NOT add it again.
+
+            5. NO ARITHMETIC:
+               - Never sum, subtract, multiply, or compute percentages yourself. Quote the exact field from the tool response.
+               - If a derived number the user asks for isn't in the response (e.g., a derived ratio), call the tool again with `includeLines=true` or refuse — don't compute it.
+
+            6. CUMULATIVE vs PERIOD:
+               - PM "Cumulative to Date" comes from `cumulativeExpense / cumulativeIncome / cumulativeContribution` on `dbs_financial` PROJECT/DAY (read-time sum of all days ≤ this date).
+               - PM "PERIOD TOTAL" (week/month) comes from the period-rollup envelope's `totals` field — a different number. Do not conflate.
+
+            7. REFUSE-ON-UNCERTAINTY:
+               - If the tool returns no row for the requested date (e.g., no DPR was submitted yet), respond EXACTLY: "No DBS data recorded for <date> on <project>. Open the DBS screen to verify." Do not estimate. Do not infer from neighbouring days.
+
+            8. CURRENCY:
+               - Always render amounts with the project's currency code (the tool's summary line carries it; if missing, look up via project metadata). Round to 2 decimals using the value from the tool — never re-round.
+
+            9. WORKED EXAMPLES (copy this pattern for the two highest-stakes shapes):
+
+               User: "What was the total expense on KHASAB-001 on 23 May 2026?"
+               → call dbs_financial { projectId: <KHASAB>, level: PROJECT, periodType: DAY, date: 2026-05-23 }
+               → quote `totalExpense` and `currency` verbatim.
+
+               User: "What is Illayaraja's contribution this week?"
+               → call dbs_list_supervisors { projectId: <scope>, date: <today> } to resolve UUID
+               → call dbs_financial { projectId, level: SUPERVISOR, supervisorUserId, periodType: WEEK, date: <today> }
+               → quote `totals.contribution` and `totals.contributionPct` verbatim. Mention period bounds.
+            """;
+
+    private static final String[] DBS_TOKENS = {
+            "expense", "income", "contribution", "margin", "cumulative", "boq",
+            "section a", "section b", "section c", "section d", "section e",
+            "section f", "section g",
+            "sub-contractor", "subcontractor",
+            "manpower amount", "machinery amount", "fuel amount", "material amount"
+    };
 
     private static final Pattern DIGIT_PATTERN = Pattern.compile("\\d");
     /** Common currency symbols + ISO codes used in EPPM tenants. */

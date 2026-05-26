@@ -21,13 +21,13 @@ databaseChangeLog:
                   type: integer
               - column:
                   name: duration
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
               - column:
                   name: quantity
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
               - column:
                   name: effective_rate
-                  type: numeric(19, 4)
+                  type: "numeric(19, 4)"
               - column:
                   name: unit
                   type: varchar(30)

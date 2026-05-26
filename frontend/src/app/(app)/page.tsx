@@ -1,7 +1,7 @@
 "use client";
 
-import { Hub } from "@/components/hub/Hub";
+import { MissionControl } from "@/components/hub/mission-control/MissionControl";
 
 export default function HomePage() {
-  return <Hub />;
+  return <MissionControl />;
 }

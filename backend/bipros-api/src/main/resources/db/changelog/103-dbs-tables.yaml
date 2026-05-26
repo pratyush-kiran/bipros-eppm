@@ -38,55 +38,55 @@ databaseChangeLog:
                   type: UUID
               - column:
                   name: material_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: manpower_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: admin_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: machinery_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: fuel_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: subcontract_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_for_the_day_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_planned_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_achieved_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: total_expense
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: total_income
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: contribution
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: contribution_pct
-                  type: NUMERIC(9,4)
+                  type: "NUMERIC(9,4)"
                   defaultValueNumeric: 0
               - column:
                   name: material_lines_json
@@ -173,55 +173,55 @@ databaseChangeLog:
                   type: TEXT
               - column:
                   name: material_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: manpower_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: admin_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: machinery_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: fuel_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: subcontract_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_for_the_day_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_planned_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_achieved_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: total_expense
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: total_income
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: contribution
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: contribution_pct
-                  type: NUMERIC(9,4)
+                  type: "NUMERIC(9,4)"
                   defaultValueNumeric: 0
               - column:
                   name: recomputed_at
@@ -287,55 +287,55 @@ databaseChangeLog:
                   type: INT
               - column:
                   name: material_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: manpower_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: admin_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: machinery_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: fuel_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: subcontract_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_for_the_day_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_planned_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: boq_achieved_amount
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: total_expense
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: total_income
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: contribution
-                  type: NUMERIC(19,2)
+                  type: "NUMERIC(19,2)"
                   defaultValueNumeric: 0
               - column:
                   name: contribution_pct
-                  type: NUMERIC(9,4)
+                  type: "NUMERIC(9,4)"
                   defaultValueNumeric: 0
               - column:
                   name: recomputed_at

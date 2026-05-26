@@ -6,8 +6,10 @@ import com.bipros.ai.context.AiContext;
 import com.bipros.ai.tool.Tool;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprSubContractor;
 import com.bipros.project.domain.model.WbsNode;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
+import com.bipros.project.domain.repository.DprSubContractorRepository;
 import com.bipros.project.domain.repository.WbsNodeRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,6 +51,7 @@ public class QueryDprTool implements Tool {
   private final DailyProgressReportRepository dprRepository;
   private final ActivityRepository activityRepository;
   private final WbsNodeRepository wbsRepository;
+  private final DprSubContractorRepository dprSubContractorRepository;
   private final ObjectMapper objectMapper;
 
   @Override
@@ -73,7 +76,14 @@ public class QueryDprTool implements Tool {
         + "LIFECYCLE NOTE: activities in DRAFT edit_status reject DPR submissions, so they "
         + "have zero DPRs by definition — don't waste a call querying DPRs for an activity "
         + "you already know is Draft; check edit_status via list_activities / "
-        + "get_activity_full_context first.";
+        + "get_activity_full_context first. "
+        + "SUB-CONTRACTOR BREAKDOWN: each returned row includes sub_contractor_rows[] "
+        + "(sc_code, sc_name, quantity, remarks) for any sub-contractor work on that DPR, "
+        + "plus workdone_breakdown{gross_qty, sub_contractor_qty, effective_company_qty} "
+        + "showing the canonical split (effective = gross - sub_contractor). The wrapper "
+        + "also returns total_sub_contractor_qty and total_effective_company_qty so the LLM "
+        + "can answer \"how much workdone\" correctly: ALWAYS report both numbers when "
+        + "sub_contractor_qty > 0.";
   }
 
   @Override
@@ -242,6 +252,23 @@ public class QueryDprTool implements Tool {
     }
     distinctSupervisors = supervisors.size();
 
+    // Batch-load sub-contractor rows for the capped DPRs and group by dprId so each row
+    // can carry its own sub_contractor_rows[] + workdone_breakdown. Empty list when none.
+    Map<UUID, List<DprSubContractor>> scByDpr = new HashMap<>();
+    BigDecimal totalScQty = BigDecimal.ZERO;
+    if (!capped.isEmpty()) {
+      List<UUID> dprIds = new ArrayList<>(capped.size());
+      for (DailyProgressReport d : capped) if (d.getId() != null) dprIds.add(d.getId());
+      if (!dprIds.isEmpty()) {
+        List<DprSubContractor> scRows = dprSubContractorRepository.findByDprIdIn(dprIds);
+        for (DprSubContractor sc : scRows) {
+          if (sc.getDprId() == null) continue;
+          scByDpr.computeIfAbsent(sc.getDprId(), k -> new ArrayList<>()).add(sc);
+          if (sc.getQuantity() != null) totalScQty = totalScQty.add(sc.getQuantity());
+        }
+      }
+    }
+
     ArrayNode rows = objectMapper.createArrayNode();
     for (DailyProgressReport d : capped) {
       ObjectNode row = objectMapper.createObjectNode();
@@ -258,6 +285,37 @@ public class QueryDprTool implements Tool {
       row.put("chainage_to_m", d.getChainageToM());
       row.put("weather_condition", d.getWeatherCondition());
       if (includeRemarks) row.put("remarks", d.getRemarks());
+
+      // Sub-contractor rows + workdone_breakdown.
+      List<DprSubContractor> scRows = scByDpr.getOrDefault(d.getId(), List.of());
+      ArrayNode scArr = objectMapper.createArrayNode();
+      BigDecimal scQtyForDpr = BigDecimal.ZERO;
+      for (DprSubContractor sc : scRows) {
+        ObjectNode scNode = objectMapper.createObjectNode();
+        if (sc.getSubContractorCode() != null) scNode.put("sc_code", sc.getSubContractorCode());
+        if (sc.getSubContractorName() != null) scNode.put("sc_name", sc.getSubContractorName());
+        if (sc.getSubContractorMasterId() != null)
+          scNode.put("sc_master_id", sc.getSubContractorMasterId().toString());
+        if (sc.getActivitySubContractorAssignmentId() != null)
+          scNode.put("assignment_id", sc.getActivitySubContractorAssignmentId().toString());
+        if (sc.getQuantity() != null) {
+          scNode.put("quantity", sc.getQuantity().doubleValue());
+          scQtyForDpr = scQtyForDpr.add(sc.getQuantity());
+        }
+        if (sc.getRemarks() != null) scNode.put("remarks", sc.getRemarks());
+        scArr.add(scNode);
+      }
+      row.set("sub_contractor_rows", scArr);
+
+      ObjectNode breakdown = objectMapper.createObjectNode();
+      BigDecimal gross = d.getQtyExecuted() == null ? BigDecimal.ZERO : d.getQtyExecuted();
+      BigDecimal effective = gross.subtract(scQtyForDpr);
+      if (effective.signum() < 0) effective = BigDecimal.ZERO;
+      breakdown.put("gross_qty", gross.doubleValue());
+      breakdown.put("sub_contractor_qty", scQtyForDpr.doubleValue());
+      breakdown.put("effective_company_qty", effective.doubleValue());
+      row.set("workdone_breakdown", breakdown);
+
       rows.add(row);
     }
 
@@ -293,6 +351,10 @@ public class QueryDprTool implements Tool {
     wrapper.put("returned", capped.size());
     wrapper.put("distinct_supervisors", distinctSupervisors);
     wrapper.put("total_qty_executed", totalQty.doubleValue());
+    wrapper.put("total_sub_contractor_qty", totalScQty.doubleValue());
+    BigDecimal totalEffective = totalQty.subtract(totalScQty);
+    if (totalEffective.signum() < 0) totalEffective = BigDecimal.ZERO;
+    wrapper.put("total_effective_company_qty", totalEffective.doubleValue());
     if (matchedActivity != null) {
       wrapper.put("filtered_activity_code", matchedActivity.getCode());
       wrapper.put("filtered_activity_name", matchedActivity.getName());
