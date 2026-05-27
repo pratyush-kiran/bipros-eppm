@@ -19,7 +19,7 @@ export default function InsightsLayout({ children }: { children: React.ReactNode
 
   return (
     <div>
-      <div className="border-b border-hairline px-6 pb-3">
+      <div className="border-b border-hairline px-6 pt-4 pb-3">
         <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gold-deep mb-2">
           Project performance · Insights
         </div>

@@ -19,7 +19,7 @@ export function SectionCard({
 }) {
   return (
     <section
-      className={`group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)] transition-all duration-300 hover:border-gold/30 hover:shadow-[0_2px_4px_rgba(28,28,28,0.04),0_16px_40px_-16px_rgba(212,175,55,0.18)] ${
+      className={`group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)] transition-all duration-300 hover:border-gold/30 hover:shadow-[0_2px_4px_rgba(28,28,28,0.04),0_16px_40px_-16px_rgba(0,88,202,0.18)] ${
         accent ? "before:absolute before:inset-y-6 before:left-0 before:w-[3px] before:rounded-r-full before:bg-gradient-to-b before:from-gold before:to-gold-deep" : ""
       }`}
     >

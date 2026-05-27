@@ -262,7 +262,7 @@ export default function HdsVersionDetailPage() {
                     isFinal
                       ? "border-emerald bg-emerald text-paper"
                       : isCurrent
-                        ? "border-gold bg-gold-tint text-gold-ink shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+                        ? "border-gold bg-gold-tint text-gold-ink shadow-[0_0_0_3px_rgba(0,88,202,0.18)]"
                         : reached
                           ? "border-gold/60 bg-paper text-gold-deep"
                           : "border-divider bg-paper text-ash",

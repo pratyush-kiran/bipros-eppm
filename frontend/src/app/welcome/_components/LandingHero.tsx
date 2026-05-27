@@ -100,12 +100,12 @@ export function LandingHero() {
       <div
         aria-hidden
         className="pointer-events-none absolute -top-48 -right-40 h-[560px] w-[560px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(212,175,55,0.20) 0%, transparent 65%)" }}
+        style={{ background: "radial-gradient(circle, rgba(0,88,202,0.20) 0%, transparent 65%)" }}
       />
       <div
         aria-hidden
         className="pointer-events-none absolute top-[30%] -left-40 h-[360px] w-[360px] rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(212,175,55,0.08) 0%, transparent 70%)" }}
+        style={{ background: "radial-gradient(circle, rgba(0,88,202,0.08) 0%, transparent 70%)" }}
       />
       {/* Vertical gold thread between columns */}
       <div
@@ -115,7 +115,7 @@ export function LandingHero() {
           left: "calc(50% + 56px)",
           width: "1px",
           background:
-            "linear-gradient(180deg, transparent 0%, rgba(212,175,55,0.30) 25%, rgba(212,175,55,0.30) 75%, transparent 100%)",
+            "linear-gradient(180deg, transparent 0%, rgba(0,88,202,0.30) 25%, rgba(0,88,202,0.30) 75%, transparent 100%)",
         }}
       />
 
@@ -170,7 +170,7 @@ export function LandingHero() {
           <div className="mt-6 flex flex-wrap gap-2.5">
             <button
               type="button"
-              className="group inline-flex h-12 items-center gap-2 rounded-xl bg-gold px-5 text-sm font-semibold text-paper shadow-[0_4px_14px_rgba(212,175,55,0.28)] transition-all duration-200 hover:bg-gold-deep hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(212,175,55,0.38)]"
+              className="group inline-flex h-12 items-center gap-2 rounded-xl bg-gold px-5 text-sm font-semibold text-paper shadow-[0_4px_14px_rgba(0,88,202,0.28)] transition-all duration-200 hover:bg-gold-deep hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(0,88,202,0.38)]"
             >
               Request demo
               <ArrowUpRight
@@ -270,7 +270,7 @@ export function LandingHero() {
             placeholder="you@company.com"
             required
             autoComplete="username"
-            className="mb-3 h-10 w-full rounded-[10px] border border-divider bg-paper px-3.5 text-sm text-charcoal outline-none transition-all duration-[120ms] placeholder:text-ash hover:border-gold-deep/50 focus:border-gold focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+            className="mb-3 h-10 w-full rounded-[10px] border border-divider bg-paper px-3.5 text-sm text-charcoal outline-none transition-all duration-[120ms] placeholder:text-ash hover:border-gold-deep/50 focus:border-gold focus:shadow-[0_0_0_3px_rgba(0,88,202,0.18)]"
           />
 
           <label className="mb-1.5 block text-xs font-semibold text-charcoal">Password</label>
@@ -281,7 +281,7 @@ export function LandingHero() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="h-10 w-full rounded-[10px] border border-divider bg-paper px-3.5 pr-10 text-sm text-charcoal outline-none transition-all duration-[120ms] hover:border-gold-deep/50 focus:border-gold focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+              className="h-10 w-full rounded-[10px] border border-divider bg-paper px-3.5 pr-10 text-sm text-charcoal outline-none transition-all duration-[120ms] hover:border-gold-deep/50 focus:border-gold focus:shadow-[0_0_0_3px_rgba(0,88,202,0.18)]"
             />
             <button
               type="button"
@@ -311,7 +311,7 @@ export function LandingHero() {
           <button
             type="submit"
             disabled={submitting}
-            className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-gold text-sm font-semibold text-paper shadow-[0_4px_14px_rgba(212,175,55,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-gold-deep hover:shadow-[0_10px_28px_rgba(212,175,55,0.38)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:shadow-none"
+            className="inline-flex h-12 w-full items-center justify-center rounded-xl bg-gold text-sm font-semibold text-paper shadow-[0_4px_14px_rgba(0,88,202,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-gold-deep hover:shadow-[0_10px_28px_rgba(0,88,202,0.38)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:shadow-none"
           >
             {submitting ? "Signing in…" : "Sign in"}
           </button>

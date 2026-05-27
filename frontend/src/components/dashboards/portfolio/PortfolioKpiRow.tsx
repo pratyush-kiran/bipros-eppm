@@ -73,13 +73,13 @@ export function PortfolioKpiRow() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         {/* Hero card — gold gradient */}
         <div className="lg:col-span-5">
-          <div className="group relative h-full overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-tint/60 via-paper to-paper p-6 shadow-[0_4px_20px_-8px_rgba(212,175,55,0.25)] transition-all duration-300 hover:shadow-[0_12px_40px_-12px_rgba(212,175,55,0.35)]">
+          <div className="group relative h-full overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-tint/60 via-paper to-paper p-6 shadow-[0_4px_20px_-8px_rgba(0,88,202,0.25)] transition-all duration-300 hover:shadow-[0_12px_40px_-12px_rgba(0,88,202,0.35)]">
             <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gold/10 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-gold-deep/8 blur-2xl" />
 
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)]">
                   <Wallet size={18} strokeWidth={2} />
                 </div>
                 <div>
@@ -239,7 +239,7 @@ function StatusPill({
       className={`group relative overflow-hidden rounded-xl border p-3 transition-all duration-200 hover:-translate-y-0.5 ${
         isZero
           ? "border-hairline bg-ivory/50"
-          : "border-hairline bg-paper hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(212,175,55,0.25)]"
+          : "border-hairline bg-paper hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(0,88,202,0.25)]"
       }`}
     >
       <div className="flex items-center justify-between">

@@ -31,7 +31,7 @@ export function CinematicForm() {
           className="pointer-events-none absolute inset-x-7 top-0 h-px"
           style={{
             background:
-              "linear-gradient(90deg,transparent,#F4B36A,transparent)",
+              "linear-gradient(90deg,transparent,#B0C6FF,transparent)",
           }}
         />
         <form
@@ -41,8 +41,8 @@ export function CinematicForm() {
         >
           <div className="flex items-start justify-between">
             <div>
-              <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.22em] text-[#F4B36A]">
-                <span aria-hidden className="inline-block h-px w-5 bg-[#F4B36A]" />
+              <div className="flex items-center gap-2 text-[10.5px] uppercase tracking-[0.22em] text-[#B0C6FF]">
+                <span aria-hidden className="inline-block h-px w-5 bg-[#B0C6FF]" />
                 Sign in
               </div>
               <h2 className="mt-2 text-[28px] font-medium leading-[1.05] tracking-[-0.015em] text-white" style={{ fontVariationSettings: "'opsz' 144" }}>
@@ -70,7 +70,7 @@ export function CinematicForm() {
                 onChange={(e) => f.setUsername(e.target.value)}
                 disabled={f.submitting}
                 placeholder="you@company.com"
-                className="block h-11 w-full rounded-xl border border-white/[0.10] bg-black/30 px-3.5 text-[14px] text-white placeholder:text-white/30 transition focus:border-[#F4B36A]/60 focus:bg-black/50 focus:outline-none focus:ring-2 focus:ring-[#F4B36A]/25"
+                className="block h-11 w-full rounded-xl border border-white/[0.10] bg-black/30 px-3.5 text-[14px] text-white placeholder:text-white/30 transition focus:border-[#B0C6FF]/60 focus:bg-black/50 focus:outline-none focus:ring-2 focus:ring-[#B0C6FF]/25"
               />
             </div>
             <div>
@@ -87,12 +87,12 @@ export function CinematicForm() {
                   onChange={(e) => f.setPassword(e.target.value)}
                   disabled={f.submitting}
                   placeholder="••••••••"
-                  className="block h-11 w-full rounded-xl border border-white/[0.10] bg-black/30 px-3.5 pr-10 text-[14px] text-white placeholder:text-white/30 transition focus:border-[#F4B36A]/60 focus:bg-black/50 focus:outline-none focus:ring-2 focus:ring-[#F4B36A]/25"
+                  className="block h-11 w-full rounded-xl border border-white/[0.10] bg-black/30 px-3.5 pr-10 text-[14px] text-white placeholder:text-white/30 transition focus:border-[#B0C6FF]/60 focus:bg-black/50 focus:outline-none focus:ring-2 focus:ring-[#B0C6FF]/25"
                 />
                 <button
                   type="button"
                   onClick={() => f.setShowPassword((v) => !v)}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-white/50 hover:text-[#F4B36A]"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-white/50 hover:text-[#B0C6FF]"
                   aria-label={f.showPassword ? "Hide password" : "Show password"}
                   tabIndex={-1}
                 >
@@ -107,7 +107,7 @@ export function CinematicForm() {
               type="checkbox"
               checked={f.remember}
               onChange={(e) => f.setRemember(e.target.checked)}
-              className="h-3.5 w-3.5 rounded border-white/30 accent-[#F4B36A]"
+              className="h-3.5 w-3.5 rounded border-white/30 accent-[#B0C6FF]"
             />
             Keep me signed in for 7 days
           </label>
@@ -122,7 +122,7 @@ export function CinematicForm() {
             type="submit"
             disabled={f.submitting}
             className="group relative mt-5 inline-flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-xl text-[14.5px] font-semibold text-[#0B1224] transition disabled:opacity-60"
-            style={{ background: "linear-gradient(180deg,#FFC988,#F4B36A 55%,#C97A3A)", boxShadow: "0 18px 40px rgba(244,179,106,0.28)" }}
+            style={{ background: "linear-gradient(180deg,#A8C7FF,#B0C6FF 55%,#5E8BE0)", boxShadow: "0 18px 40px rgba(176, 198, 255,0.28)" }}
           >
             {f.submitting ? (
               <>
@@ -139,7 +139,7 @@ export function CinematicForm() {
 
           <div className="mt-6 flex items-center justify-between border-t border-white/[0.08] pt-4">
             <span className="flex items-center gap-1.5 text-[11.5px] text-white/60">
-              <ShieldCheck size={12} className="text-[#F4B36A]" />
+              <ShieldCheck size={12} className="text-[#B0C6FF]" />
               JWT-bound · end-to-end
             </span>
             <div className="flex flex-wrap justify-end gap-1">
@@ -152,7 +152,7 @@ export function CinematicForm() {
           </div>
           <p className="mt-4 text-center text-[12.5px] text-white/60">
             New here?{" "}
-            <Link href="/welcome" className="font-medium text-[#F4B36A] hover:text-white">Take the tour →</Link>
+            <Link href="/welcome" className="font-medium text-[#B0C6FF] hover:text-white">Take the tour →</Link>
           </p>
         </form>
       </div>

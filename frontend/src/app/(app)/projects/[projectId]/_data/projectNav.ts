@@ -45,7 +45,7 @@ export const SECTION_GROUPS: readonly SectionGroupDef[] = [
     accentClass: "bg-gradient-to-b from-gold to-gold-deep",
     iconChipClass: "bg-gold-tint/60 text-gold-deep dark:bg-gold/25 dark:text-gold",
     tileGradient: "bg-gradient-to-br from-gold via-gold-deep to-gold-ink",
-    tileGlow: "hover:shadow-[0_14px_34px_-12px_rgba(212,175,55,0.40)]",
+    tileGlow: "hover:shadow-[0_14px_34px_-12px_rgba(0,88,202,0.40)]",
     cardIcon: Home },
   { id: "plan", label: "Plan", blurb: "The structural backbone of the project",
     chipClass: "bg-blue-100 text-blue-800",

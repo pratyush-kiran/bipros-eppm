@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActiveLogo, useAppName } from "@/hooks/useThemeManager";
+import { withBasePath } from "@/lib/basePath";
 
 export function Brand() {
   const logoSrc = useActiveLogo();
@@ -14,7 +15,7 @@ export function Brand() {
       className="group flex shrink-0 items-center gap-2.5 rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
     >
       <img
-        src={logoSrc}
+        src={withBasePath(logoSrc)}
         alt={appName.primary}
         width={28}
         height={28}

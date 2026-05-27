@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { isAxiosError } from "axios";
 import { authApi } from "@/lib/api/authApi";
 import { useAuthStore } from "@/lib/state/store";
+import { withBasePath } from "@/lib/basePath";
 
 export type LoginState = {
   username: string;
@@ -55,7 +56,9 @@ export function useLoginSubmit(): LoginState {
       if (!user) throw new Error("Failed to load current user");
       setAuth(user, accessToken, refreshToken);
 
-      window.location.href = safeNext;
+      // Raw navigation (full reload to re-run the proxy auth gate) → prefix the
+      // in-app `next` path with the basePath, which window.location won't add.
+      window.location.href = withBasePath(safeNext);
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 401) {
         setFieldError("Invalid username or password.");

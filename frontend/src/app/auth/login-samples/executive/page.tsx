@@ -231,7 +231,7 @@ function AuthPanel() {
         <button
           type="submit"
           disabled={f.submitting}
-          className="group relative mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] bg-[#D4AF37] text-[13.5px] font-semibold tracking-[0.01em] text-[#0A0E18] shadow-[0_8px_24px_rgba(212,175,55,0.25)] transition hover:bg-[#E6BF42] disabled:opacity-60"
+          className="group relative mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] bg-[#D4AF37] text-[13.5px] font-semibold tracking-[0.01em] text-[#0A0E18] shadow-[0_8px_24px_rgba(0,88,202,0.25)] transition hover:bg-[#E6BF42] disabled:opacity-60"
         >
           {f.submitting ? (
             <>

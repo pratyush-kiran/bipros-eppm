@@ -29,12 +29,12 @@ export function LandingModules() {
           <div
             key={m.n}
             className="group cursor-pointer rounded-[10px] border p-5 transition-all duration-200 hover:-translate-y-0.5"
-            style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(212,175,55,0.18)" }}
+            style={{ background: "rgba(255,255,255,0.02)", borderColor: "rgba(0,88,202,0.18)" }}
           >
             <div className="font-mono text-[10px] tracking-[0.14em] text-gold">{m.n}</div>
             <div
               className="mt-2.5 flex h-7 w-7 items-center justify-center rounded-[7px] text-gold"
-              style={{ background: "rgba(212,175,55,0.12)" }}
+              style={{ background: "rgba(0,88,202,0.12)" }}
             >
               <m.Icon size={14} strokeWidth={1.5} />
             </div>

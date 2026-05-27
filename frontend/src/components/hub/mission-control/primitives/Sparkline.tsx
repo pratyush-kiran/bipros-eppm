@@ -18,7 +18,7 @@ export function Sparkline({
   width = 160,
   height = 44,
   stroke = "var(--gold)",
-  fill = "rgba(212,175,55,0.12)",
+  fill = "rgba(0,88,202,0.12)",
   strokeWidth = 1.5,
   className,
   animate = true,

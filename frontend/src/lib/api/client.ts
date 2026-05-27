@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { withBasePath } from "@/lib/basePath";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -50,16 +51,16 @@ apiClient.interceptors.response.use(
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
             document.cookie = 'access_token=; path=/; max-age=0; Secure; SameSite=Strict';
-            if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth/")) {
-              window.location.href = "/auth/login";
+            if (typeof window !== "undefined" && !window.location.pathname.startsWith(withBasePath("/auth/"))) {
+              window.location.href = withBasePath("/auth/login");
             }
           }
         } else {
           // no refresh token, redirect to login (but not if already on an auth page)
           localStorage.removeItem("access_token");
           document.cookie = 'access_token=; path=/; max-age=0; Secure; SameSite=Strict';
-          if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth/")) {
-            window.location.href = "/auth/login";
+          if (typeof window !== "undefined" && !window.location.pathname.startsWith(withBasePath("/auth/"))) {
+            window.location.href = withBasePath("/auth/login");
           }
         }
       }

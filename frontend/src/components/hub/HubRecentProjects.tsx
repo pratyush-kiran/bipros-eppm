@@ -39,7 +39,7 @@ export function HubRecentProjects() {
             href={`/projects/${p.id}`}
             data-testid="hub-recent-project"
             data-project-id={p.id}
-            className="group flex items-center gap-3 rounded-2xl border border-hairline bg-paper px-4 py-3.5 shadow-[0_1px_2px_rgba(28,28,28,0.03)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_8px_24px_-14px_rgba(212,175,55,0.25)]"
+            className="group flex items-center gap-3 rounded-2xl border border-hairline bg-paper px-4 py-3.5 shadow-[0_1px_2px_rgba(28,28,28,0.03)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_8px_24px_-14px_rgba(0,88,202,0.25)]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-hairline bg-ivory/40 text-gold-deep">
               <FolderTree size={15} strokeWidth={1.75} />

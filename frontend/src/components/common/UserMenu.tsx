@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/state/store";
 import { useThemeStore } from "@/lib/state/themeStore";
 import { useMostSeniorRole } from "@/hooks/useMostSeniorRole";
 import { cn } from "@/lib/utils/cn";
+import { withBasePath } from "@/lib/basePath";
 
 export function UserMenu() {
   const user = useAuthStore((s) => s.user);
@@ -49,7 +50,7 @@ export function UserMenu() {
     // Hard navigation guarantees the AccessProvider re-runs against an empty
     // auth store; a soft router.push after clearAuth can race with React's
     // state flush and leave the user on the (now broken) authenticated page.
-    window.location.href = "/auth/login";
+    window.location.href = withBasePath("/auth/login");
   };
 
   // SSR-safe placeholder until auth rehydrates from localStorage on the client.
@@ -72,7 +73,7 @@ export function UserMenu() {
         className={cn(
           "flex h-10 w-10 items-center justify-center rounded-full border border-hairline bg-paper text-[11px] font-semibold uppercase tracking-[0.06em] text-charcoal transition-colors",
           "hover:border-gold/45 hover:bg-ivory",
-          open && "border-gold/50 bg-ivory shadow-[0_0_0_3px_rgba(212,175,55,0.12)]",
+          open && "border-gold/50 bg-ivory shadow-[0_0_0_3px_rgba(0,88,202,0.12)]",
         )}
       >
         <span suppressHydrationWarning>{initials}</span>

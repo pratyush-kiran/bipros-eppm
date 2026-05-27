@@ -237,7 +237,7 @@ export default function FinancialDashboardPage() {
             <Link
               href="/dashboards"
               aria-label="Back to dashboards"
-              className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-hairline bg-paper text-slate shadow-sm transition-all duration-200 hover:-translate-x-0.5 hover:border-gold/40 hover:text-gold-deep hover:shadow-[0_4px_12px_-4px_rgba(212,175,55,0.3)]"
+              className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-hairline bg-paper text-slate shadow-sm transition-all duration-200 hover:-translate-x-0.5 hover:border-gold/40 hover:text-gold-deep hover:shadow-[0_4px_12px_-4px_rgba(0,88,202,0.3)]"
             >
               <ArrowLeft size={16} strokeWidth={1.75} />
             </Link>
@@ -328,7 +328,7 @@ export default function FinancialDashboardPage() {
               type="button"
               onClick={handleExport}
               disabled={!projectId}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3.5 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(212,175,55,0.55)] disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3.5 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(0,88,202,0.55)] disabled:opacity-50"
             >
               <Download size={14} strokeWidth={1.75} />
               Export

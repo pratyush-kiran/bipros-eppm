@@ -54,7 +54,7 @@ function HeroCard({ tile, count }: { tile: HeroTile; count: number }) {
       href={tile.href}
       data-testid="hub-hero-card"
       data-hero-title={tile.title}
-      className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_18px_42px_-18px_rgba(212,175,55,0.3)] sm:p-7"
+      className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_18px_42px_-18px_rgba(0,88,202,0.3)] sm:p-7"
     >
       <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-gold/8 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
 

@@ -16,9 +16,12 @@ export function useStickyMeasure<T extends HTMLElement>() {
       return;
     }
     setHeight(el.offsetHeight);
-    const ro = new ResizeObserver((entries) => {
-      const h = entries[0]?.contentRect.height ?? el.offsetHeight;
-      setHeight(Math.ceil(h));
+    const ro = new ResizeObserver(() => {
+      // Must be the border-box height (offsetHeight) so a sibling sticky element can park
+      // flush beneath this one. ResizeObserver's `contentRect` is the *content* box — it drops
+      // padding + border, which would make the next sticky header park that many pixels too
+      // high and tuck behind this one (z-stacked). offsetHeight matches the initial read above.
+      setHeight(el.offsetHeight);
     });
     ro.observe(el);
     roRef.current = ro;

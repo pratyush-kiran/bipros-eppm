@@ -1,13 +1,9 @@
 @import "tailwindcss";
 
-/* Self-hosted Material Symbols (no external CDN — works offline / under CSP). */
-@font-face {
-  font-family: "Material Symbols Outlined";
-  font-style: normal;
-  font-weight: 100 700;
-  font-display: block;
-  src: url("/fonts/material-symbols-outlined.woff2") format("woff2");
-}
+/* Material Symbols is loaded via next/font/local in app/layout.tsx, which serves
+   the file from /_next/static/media with the base path applied automatically —
+   no @font-face / hardcoded URL here. The font-family is exposed as the
+   --font-material-symbols CSS variable (see .material-symbols-outlined below). */
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -389,7 +385,7 @@ body {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
 }
 .material-symbols-outlined {
-  font-family: "Material Symbols Outlined";
+  font-family: var(--font-material-symbols), "Material Symbols Outlined";
   font-weight: normal;
   font-style: normal;
   line-height: 1;
@@ -420,15 +416,15 @@ body {
    rule below). */
 .hub-ambient {
   background:
-    radial-gradient(55% 45% at 12% 0%, rgba(212, 175, 55, 0.10), transparent 60%),
-    radial-gradient(45% 40% at 100% 6%, rgba(71, 85, 105, 0.08), transparent 60%),
-    radial-gradient(45% 45% at 85% 100%, rgba(184, 150, 46, 0.06), transparent 62%);
+    radial-gradient(55% 45% at 12% 0%, rgba(0, 88, 202, 0.07), transparent 60%),
+    radial-gradient(45% 40% at 100% 6%, rgba(71, 85, 105, 0.06), transparent 60%),
+    radial-gradient(45% 45% at 85% 100%, rgba(0, 108, 78, 0.05), transparent 62%);
 }
 .dark .hub-ambient {
   background:
-    radial-gradient(58% 48% at 12% 0%, rgba(212, 175, 55, 0.16), transparent 60%),
-    radial-gradient(52% 46% at 100% 4%, rgba(120, 140, 185, 0.13), transparent 60%),
-    radial-gradient(50% 46% at 85% 100%, rgba(229, 196, 88, 0.10), transparent 62%);
+    radial-gradient(58% 48% at 12% 0%, rgba(176, 198, 255, 0.12), transparent 60%),
+    radial-gradient(52% 46% at 100% 4%, rgba(120, 140, 185, 0.12), transparent 60%),
+    radial-gradient(50% 46% at 85% 100%, rgba(78, 222, 163, 0.07), transparent 62%);
 }
 @keyframes hub-drift {
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }

@@ -97,7 +97,7 @@ export function HubBanner() {
           <Link
             href="/dashboard"
             data-testid="mc-banner-dashboard-link"
-            className="group inline-flex items-center gap-2 self-start rounded-xl border border-hairline bg-paper/95 px-4 py-2.5 text-[12.5px] font-semibold text-charcoal shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-gold/50 hover:text-gold-deep hover:shadow-[0_12px_28px_-14px_rgba(212,175,55,0.45)]"
+            className="group inline-flex items-center gap-2 self-start rounded-xl border border-hairline bg-paper/95 px-4 py-2.5 text-[12.5px] font-semibold text-charcoal shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-gold/50 hover:text-gold-deep hover:shadow-[0_12px_28px_-14px_rgba(0,88,202,0.45)]"
           >
             View programme dashboard
             <ArrowUpRight

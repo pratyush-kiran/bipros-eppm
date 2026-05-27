@@ -401,7 +401,7 @@ export function ProjectStatusSnapshot({ projectId }: { projectId: string }) {
           )}
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-hairline bg-paper p-3 transition-all hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(212,175,55,0.25)]">
+            <div className="rounded-xl border border-hairline bg-paper p-3 transition-all hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(0,88,202,0.25)]">
               <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate">
                 <ShieldAlert size={11} className="text-bronze-warn" />
                 Active risks
@@ -415,7 +415,7 @@ export function ProjectStatusSnapshot({ projectId }: { projectId: string }) {
                 {s.activeRisksCount}
               </div>
             </div>
-            <div className="rounded-xl border border-hairline bg-paper p-3 transition-all hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(212,175,55,0.25)]">
+            <div className="rounded-xl border border-hairline bg-paper p-3 transition-all hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(0,88,202,0.25)]">
               <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate">
                 <HardHat size={11} className="text-burgundy" />
                 Open HSE

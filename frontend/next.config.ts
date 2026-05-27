@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
+import { BASE_PATH } from "./src/lib/basePath";
 
 const nextConfig: NextConfig = {
+  // Base path is driven by NEXT_PUBLIC_BASE_PATH via src/lib/basePath.ts (single
+  // source of truth). Blank → served at root; `/v2` → served under /v2. next/link
+  // + useRouter prepend it automatically; raw window.location / <img src> use
+  // withBasePath(). `|| undefined` so an empty value omits the option entirely.
+  basePath: BASE_PATH || undefined,
   async headers() {
     return [
       {

@@ -16,7 +16,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         "placeholder:text-ash",
         "transition-all duration-[120ms]",
         "hover:border-gold-deep/50",
-        "focus-visible:outline-none focus-visible:border-gold focus-visible:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]",
+        "focus-visible:outline-none focus-visible:border-gold focus-visible:shadow-[0_0_0_3px_rgba(0,88,202,0.18)]",
         "disabled:cursor-not-allowed disabled:bg-parchment disabled:text-ash",
         invalid
           ? "border-burgundy focus-visible:border-burgundy focus-visible:shadow-[0_0_0_3px_rgba(155,44,44,0.12)]"

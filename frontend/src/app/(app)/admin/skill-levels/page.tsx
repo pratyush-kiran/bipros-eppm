@@ -204,7 +204,7 @@ export default function SkillLevelsPage() {
         </div>
         <button
           onClick={() => (showForm ? closeForm() : openCreate())}
-          className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-gold px-4 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.3)] hover:-translate-y-px"
+          className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-gold px-4 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(0,88,202,0.3)] hover:-translate-y-px"
         >
           <Plus size={14} strokeWidth={2.5} />
           {showForm ? "Cancel" : "Add Level"}
@@ -345,7 +345,7 @@ export default function SkillLevelsPage() {
 }
 
 const inputCls =
-  "w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]";
+  "w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-charcoal placeholder:text-ash focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,88,202,0.18)]";
 
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (

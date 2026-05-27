@@ -1,5 +1,7 @@
 "use client";
 
+import { withBasePath } from "@/lib/basePath";
+
 export function LandingNav() {
   return (
     <nav className="relative flex items-center bg-paper border-b border-hairline px-9 py-4">
@@ -10,7 +12,7 @@ export function LandingNav() {
       />
       <div className="flex items-center gap-2.5">
         <img
-          src="/bipros-logo.png"
+          src={withBasePath("/bipros-logo.png")}
           alt="Bipros"
           width={28}
           height={28}
@@ -31,7 +33,7 @@ export function LandingNav() {
         </button>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gold px-4 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.3)] hover:-translate-y-px"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gold px-4 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(0,88,202,0.3)] hover:-translate-y-px"
         >
           Request demo
         </button>

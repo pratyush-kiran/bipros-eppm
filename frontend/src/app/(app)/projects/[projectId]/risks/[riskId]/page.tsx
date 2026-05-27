@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { riskApi, type UpdateRiskRequest } from "@/lib/api/riskApi";
 import { getErrorMessage } from "@/lib/utils/error";
+import { stripBasePath } from "@/lib/basePath";
 import { RiskGeneralTab } from "@/components/risk/RiskGeneralTab";
 import { RiskImpactTab } from "@/components/risk/RiskImpactTab";
 import { RiskActivitiesTab } from "@/components/risk/RiskActivitiesTab";
@@ -59,7 +60,9 @@ function RiskDetailPageInner() {
     const url = new URL(window.location.href);
     if (id === "general") url.searchParams.delete("tab");
     else url.searchParams.set("tab", id);
-    router.replace(url.pathname + url.search, { scroll: false });
+    // url.pathname includes the basePath (from window.location); strip it so
+    // router.replace (which re-adds the basePath) doesn't double it.
+    router.replace(stripBasePath(url.pathname) + url.search, { scroll: false });
   };
 
   const { data: riskData, isLoading } = useQuery({

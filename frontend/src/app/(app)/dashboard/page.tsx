@@ -345,7 +345,7 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/projects/new"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3.5 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(212,175,55,0.55)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3.5 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(0,88,202,0.55)]"
             >
               <Plus size={14} strokeWidth={2.5} />
               New project
@@ -359,12 +359,12 @@ export default function DashboardPage() {
         {/* Hero — Portfolio value */}
         <div className="lg:col-span-5">
           {scorecard ? (
-            <div className="group relative h-full overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-tint/60 via-paper to-paper p-6 shadow-[0_4px_20px_-8px_rgba(212,175,55,0.25)] transition-all duration-300 hover:shadow-[0_12px_40px_-12px_rgba(212,175,55,0.35)]">
+            <div className="group relative h-full overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-gold-tint/60 via-paper to-paper p-6 shadow-[0_4px_20px_-8px_rgba(0,88,202,0.25)] transition-all duration-300 hover:shadow-[0_12px_40px_-12px_rgba(0,88,202,0.35)]">
               <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gold/10 blur-3xl" />
               <div className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-gold-deep/8 blur-2xl" />
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)]">
                     <Wallet size={18} strokeWidth={2} />
                   </div>
                   <div>
@@ -818,7 +818,7 @@ export default function DashboardPage() {
             <Link
               key={card.title}
               href={card.href}
-              className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-5 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_12px_32px_-14px_rgba(212,175,55,0.25)]"
+              className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-5 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_12px_32px_-14px_rgba(0,88,202,0.25)]"
             >
               <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-gold/8 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
               <div className="mb-3.5 flex h-10 w-10 items-center justify-center rounded-xl border border-gold/25 bg-gradient-to-br from-gold-tint/60 to-paper text-gold-deep shadow-sm">
@@ -864,7 +864,7 @@ function StatusPill({
       className={`group relative overflow-hidden rounded-xl border p-3 transition-all duration-200 hover:-translate-y-0.5 ${
         isZero
           ? "border-hairline bg-ivory/50"
-          : "border-hairline bg-paper hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(212,175,55,0.25)]"
+          : "border-hairline bg-paper hover:border-gold/30 hover:shadow-[0_6px_16px_-10px_rgba(0,88,202,0.25)]"
       }`}
     >
       <div className="flex items-center justify-between">
@@ -908,7 +908,7 @@ function RagMini({
   color: string;
 }) {
   return (
-    <div className="rounded-lg border border-hairline bg-paper p-2.5 transition-all hover:-translate-y-0.5 hover:border-gold/25 hover:shadow-[0_6px_16px_-10px_rgba(212,175,55,0.25)]">
+    <div className="rounded-lg border border-hairline bg-paper p-2.5 transition-all hover:-translate-y-0.5 hover:border-gold/25 hover:shadow-[0_6px_16px_-10px_rgba(0,88,202,0.25)]">
       <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate">
         {label}
       </div>

@@ -79,7 +79,7 @@ export function AppSwitcherOverlay({ open, onClose }: Props) {
           className="pointer-events-none absolute inset-x-0 top-0 h-px"
           style={{
             background:
-              "linear-gradient(90deg, transparent, #D4AF37 18%, #D4AF37 82%, transparent)",
+              "linear-gradient(90deg, transparent, var(--accent) 18%, var(--accent) 82%, transparent)",
             opacity: 0.5,
           }}
         />
@@ -142,13 +142,13 @@ export function AppSwitcherOverlay({ open, onClose }: Props) {
                     key={p.id}
                     href={`/projects/${p.id}`}
                     onClick={onClose}
-                    className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[0_14px_32px_-18px_rgba(212,175,55,0.45)]"
+                    className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[0_14px_32px_-18px_rgba(0,88,202,0.45)]"
                   >
                     <span
                       aria-hidden
                       className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full blur-3xl transition-opacity duration-300"
                       style={{
-                        background: "#D4AF37",
+                        background: "var(--accent)",
                         opacity: 0.06,
                       }}
                     />
@@ -156,7 +156,7 @@ export function AppSwitcherOverlay({ open, onClose }: Props) {
                       <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-hairline bg-ivory text-gold-deep">
                         <FolderTree size={15} strokeWidth={1.75} />
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-[color-mix(in_srgb,#D4AF37_8%,var(--paper))] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-gold-deep">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-[color-mix(in_srgb,var(--accent)_8%,var(--paper))] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-gold-deep">
                         <History size={9} strokeWidth={1.75} />
                         Recent
                       </span>

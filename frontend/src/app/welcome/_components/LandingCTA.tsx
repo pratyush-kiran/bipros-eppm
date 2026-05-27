@@ -7,7 +7,7 @@ export function LandingCTA() {
       <div
         aria-hidden
         className="absolute inset-0"
-        style={{ background: "radial-gradient(circle at 50% 50%, rgba(212,175,55,0.12), transparent 60%)" }}
+        style={{ background: "radial-gradient(circle at 50% 50%, rgba(0,88,202,0.12), transparent 60%)" }}
       />
       <div className="relative mx-auto max-w-[720px]">
         <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold">
@@ -26,13 +26,13 @@ export function LandingCTA() {
         <div className="mt-7 flex justify-center gap-2.5">
           <button
             type="button"
-            className="inline-flex h-12 items-center rounded-xl bg-gold px-5 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.3)] hover:-translate-y-px"
+            className="inline-flex h-12 items-center rounded-xl bg-gold px-5 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(0,88,202,0.3)] hover:-translate-y-px"
           >
             Request demo →
           </button>
           <button
             type="button"
-            className="inline-flex h-12 items-center rounded-xl border border-gold bg-transparent px-5 text-sm font-semibold text-gold hover:bg-[rgba(212,175,55,0.1)]"
+            className="inline-flex h-12 items-center rounded-xl border border-gold bg-transparent px-5 text-sm font-semibold text-gold hover:bg-[rgba(0,88,202,0.1)]"
           >
             Download the whitepaper
           </button>

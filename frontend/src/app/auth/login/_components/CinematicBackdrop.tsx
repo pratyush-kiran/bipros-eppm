@@ -15,11 +15,11 @@ export function CinematicBackdrop() {
   return (
     <section className="relative isolate min-h-[60vh] overflow-hidden lg:min-h-full">
       {/* Sky gradient base */}
-      <div aria-hidden className="absolute inset-0" style={{ background: "linear-gradient(180deg,#0B1224 0%,#16243F 42%,#3A2A1F 78%,#C97A3A 100%)" }} />
+      <div aria-hidden className="absolute inset-0" style={{ background: "linear-gradient(180deg,#0B1224 0%,#16243F 42%,#1C2740 78%,#5E8BE0 100%)" }} />
       {/* Soft sun glow on the horizon */}
-      <div aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(ellipse 50% 28% at 70% 78%, rgba(244,179,106,0.55), transparent 65%)" }} />
+      <div aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(ellipse 50% 28% at 70% 78%, rgba(176, 198, 255,0.55), transparent 65%)" }} />
       {/* Dust haze across the lower half */}
-      <div aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(ellipse 90% 40% at 50% 95%, rgba(201,122,58,0.30), transparent 70%)" }} />
+      <div aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(ellipse 90% 40% at 50% 95%, rgba(94, 139, 224,0.30), transparent 70%)" }} />
 
       {/* The construction scene */}
       <CinematicSkyline />

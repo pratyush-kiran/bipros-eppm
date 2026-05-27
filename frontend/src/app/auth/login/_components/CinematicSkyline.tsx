@@ -20,9 +20,9 @@ export function CinematicSkyline() {
           <stop offset="1" stopColor="#070B17" stopOpacity="1" />
         </linearGradient>
         <radialGradient id="cn-lamp" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#FFE3B0" stopOpacity="1" />
-          <stop offset="0.4" stopColor="#FFB35E" stopOpacity="0.55" />
-          <stop offset="1" stopColor="#FFB35E" stopOpacity="0" />
+          <stop offset="0" stopColor="#D9E2FF" stopOpacity="1" />
+          <stop offset="0.4" stopColor="#8AB4FF" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#8AB4FF" stopOpacity="0" />
         </radialGradient>
       </defs>
 
@@ -53,7 +53,7 @@ export function CinematicSkyline() {
         ))}
       </g>
       {/* warm interior lights */}
-      <g fill="#FFB35E" opacity="0.75">
+      <g fill="#8AB4FF" opacity="0.75">
         <rect x="494" y="424" width="6" height="6" />
         <rect x="574" y="464" width="6" height="6" />
         <rect x="454" y="544" width="6" height="6" />
@@ -77,7 +77,7 @@ export function CinematicSkyline() {
       </g>
       {/* Working crane lamp — single point of light */}
       <circle cx="640" cy="244" r="42" fill="url(#cn-lamp)" />
-      <circle cx="640" cy="244" r="3" fill="#FFE3B0" />
+      <circle cx="640" cy="244" r="3" fill="#D9E2FF" />
 
       {/* Crane #3 — mid-right, medium height */}
       <g stroke="#050810" strokeWidth="2" fill="#050810" opacity="0.92">
@@ -117,8 +117,8 @@ export function CinematicSkyline() {
       <rect x="0" y="740" width="1600" height="2" fill="#040711" />
 
       {/* Distant specs */}
-      <circle cx="1080" cy="120" r="1.4" fill="#FFE3B0" opacity="0.7" />
-      <circle cx="280" cy="180" r="1" fill="#FFE3B0" opacity="0.5" />
+      <circle cx="1080" cy="120" r="1.4" fill="#D9E2FF" opacity="0.7" />
+      <circle cx="280" cy="180" r="1" fill="#D9E2FF" opacity="0.5" />
     </svg>
   );
 }

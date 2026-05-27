@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { manpowerKpiApi } from "@/lib/api/manpowerKpiApi";
 import { budgetApi } from "@/lib/api/budgetApi";
 import { formatMoney } from "@/lib/hooks/useCurrency";
+import { withBasePath } from "@/lib/basePath";
 
 interface Props {
   projectId: string;
@@ -122,7 +123,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           <ul className="list-disc list-inside space-y-0.5">
             {dq.missingRateResourceCount > 0 && (
               <li>
-                {dq.missingRateResourceCount} manpower resource(s) have no rate set — affects Total Manpower Cost and Cost / Unit. <a className="underline" href="/admin/labour-master">Fix in Admin → Manpower Master</a>
+                {dq.missingRateResourceCount} manpower resource(s) have no rate set — affects Total Manpower Cost and Cost / Unit. <a className="underline" href={withBasePath("/admin/labour-master")}>Fix in Admin → Manpower Master</a>
               </li>
             )}
             {dq.missingAttendanceResourceCount > 0 && (
@@ -137,7 +138,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
             )}
             {dq.noNormActivityCount > 0 && (
               <li>
-                {dq.noNormActivityCount} activity row(s) have no productivity norm linked — Productivity Factor and Crew Output show "—". <a className="underline" href="/admin/productivity-norms">Set norms in Admin</a>
+                {dq.noNormActivityCount} activity row(s) have no productivity norm linked — Productivity Factor and Crew Output show "—". <a className="underline" href={withBasePath("/admin/productivity-norms")}>Set norms in Admin</a>
               </li>
             )}
             {dq.noBoqBaselineActivityCount > 0 && (

@@ -23,7 +23,7 @@ const baseChip =
 const idleChip =
   "border-hairline bg-paper text-slate hover:text-charcoal hover:border-gold/30";
 const activeChip =
-  "border-gold/40 bg-gold-tint/45 text-gold-deep shadow-[0_0_0_1px_rgba(212,175,55,0.25)]";
+  "border-gold/40 bg-gold-tint/45 text-gold-deep shadow-[0_0_0_1px_rgba(0,88,202,0.25)]";
 
 export function CategoryFilterBar({
   categories,

@@ -132,7 +132,7 @@ export default function NewHdsPublicationPage() {
                       className={cn(
                         "rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all",
                         active
-                          ? "border-gold bg-gold-tint text-gold-ink shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+                          ? "border-gold bg-gold-tint text-gold-ink shadow-[0_0_0_3px_rgba(0,88,202,0.18)]"
                           : "border-divider bg-paper text-slate hover:border-gold-deep/40 hover:text-charcoal",
                       )}
                     >
@@ -160,7 +160,7 @@ export default function NewHdsPublicationPage() {
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 rows={3}
-                className="flex w-full rounded-[10px] border border-divider bg-paper px-3.5 py-2 text-sm text-charcoal placeholder:text-ash transition-all duration-[120ms] hover:border-gold-deep/50 focus-visible:border-gold focus-visible:shadow-[0_0_0_3px_rgba(212,175,55,0.18)] focus-visible:outline-none"
+                className="flex w-full rounded-[10px] border border-divider bg-paper px-3.5 py-2 text-sm text-charcoal placeholder:text-ash transition-all duration-[120ms] hover:border-gold-deep/50 focus-visible:border-gold focus-visible:shadow-[0_0_0_3px_rgba(0,88,202,0.18)] focus-visible:outline-none"
                 placeholder="Optional notes for librarians."
               />
             </Field>
