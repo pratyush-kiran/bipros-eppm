@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { riskApi, type RiskRag } from "@/lib/api/riskApi";
+import { riskApi, isOpenRisk, type RiskRag } from "@/lib/api/riskApi";
 import { useAuthStore } from "@/lib/state/store";
 import { CardShell } from "./CardShell";
 import { RagDonut } from "@/components/hub/mission-control/primitives/RagDonut";
@@ -16,15 +16,17 @@ export function RiskIssuesCard({ projectId }: { projectId: string }) {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canReadRisk = hasPermission("RISK.READ");
 
-  // Same key as useHubBadges → shared cache
+  // Same key as useHubBadges → shared cache. We fetch ALL risks (no status
+  // filter — the backend RiskStatus enum has no "OPEN" value) and narrow to the
+  // open/active register client-side via isOpenRisk.
   const risksQuery = useQuery({
     queryKey: ["project", projectId, "hub-badge", "risks-open"],
-    queryFn: () => riskApi.listRisks(projectId, "OPEN"),
+    queryFn: () => riskApi.listRisks(projectId),
     enabled: canReadRisk,
     ...cardQueryOpts,
   });
 
-  const risks = risksQuery.data?.data ?? [];
+  const risks = (risksQuery.data?.data ?? []).filter((r) => isOpenRisk(r.status));
   const ragOrder: Record<RiskRag, number> = {
     CRIMSON: 0,
     RED: 1,
@@ -51,7 +53,7 @@ export function RiskIssuesCard({ projectId }: { projectId: string }) {
       <StatusPill tone="success">No critical</StatusPill>
     ) : undefined;
 
-  const ragChip = (rag: RiskRag): { className: string; label: string } => {
+  const ragChip = (rag: RiskRag | null | undefined): { className: string; label: string } => {
     switch (rag) {
       case "CRIMSON":
         return { className: "bg-red-200 text-red-900", label: "Crimson" };
@@ -63,6 +65,9 @@ export function RiskIssuesCard({ projectId }: { projectId: string }) {
         return { className: "bg-emerald-100 text-emerald-800", label: "Green" };
       case "OPPORTUNITY":
         return { className: "bg-blue-100 text-blue-800", label: "Opp." };
+      default:
+        // Risk not yet scored (rag is null) — neutral chip rather than crashing.
+        return { className: "bg-slate-200 text-slate-700", label: "Unrated" };
     }
   };
 

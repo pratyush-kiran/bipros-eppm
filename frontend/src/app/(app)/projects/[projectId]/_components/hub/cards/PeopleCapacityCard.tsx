@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { dashboardApi } from "@/lib/api/dashboardApi";
+import { dashboardApi, isUtilisationKpiCode } from "@/lib/api/dashboardApi";
 import { projectResourceApi } from "@/lib/api/projectResourceApi";
 import { CardShell } from "./CardShell";
 import { MetricNumber } from "@/components/hub/mission-control/primitives/MetricNumber";
@@ -18,8 +18,8 @@ interface KpiSnap {
 
 /**
  * People & Capacity card — capacity utilisation donut + team headcount /
- * distinct roles. Capacity comes from the KPI snapshot whose definition code
- * contains "CAPACITY"; team comes from the resource pool.
+ * distinct roles. Capacity comes from the Resource Utilisation KPI snapshot
+ * (definition code RESOURCE_UTIL); team comes from the resource pool.
  */
 export function PeopleCapacityCard({ projectId }: { projectId: string }) {
   // Same keys as useHubBadges — shared cache
@@ -46,12 +46,12 @@ export function PeopleCapacityCard({ projectId }: { projectId: string }) {
     members.map((m) => m.roleName?.trim()).filter((n): n is string => Boolean(n)),
   ).size;
 
-  // Capacity utilisation %: locate KPI definition by code containing "CAPACITY"
+  // Capacity utilisation %: locate the Resource Utilisation KPI (code RESOURCE_UTIL)
   const defs = unwrapArray<KpiDef>(kpiDefinitionsQuery.data);
   const snaps = unwrapArray<KpiSnap>(kpiSnapshotsQuery.data);
   let utilisationPct: number | null = null;
   if (defs && snaps) {
-    const capacityDef = defs.find((d) => d.code?.toUpperCase().includes("CAPACITY"));
+    const capacityDef = defs.find((d) => isUtilisationKpiCode(d.code));
     if (capacityDef) {
       const snap = snaps.find((s) => s.kpiDefinitionId === capacityDef.id);
       if (snap) {

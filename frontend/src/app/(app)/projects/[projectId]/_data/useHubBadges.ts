@@ -18,7 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { boqApi } from "@/lib/api/boqApi";
 import { budgetApi } from "@/lib/api/budgetApi";
 import { costApi } from "@/lib/api/costApi";
-import { dashboardApi } from "@/lib/api/dashboardApi";
+import { dashboardApi, isUtilisationKpiCode } from "@/lib/api/dashboardApi";
 import { dprApi } from "@/lib/api/dprApi";
 import { generalExpensesApi } from "@/lib/api/generalExpensesApi";
 import { materialConsumptionApi } from "@/lib/api/materialConsumptionApi";
@@ -26,7 +26,7 @@ import { projectApi } from "@/lib/api/projectApi";
 import { projectInsightsApi } from "@/lib/api/projectInsightsApi";
 import { projectResourceApi } from "@/lib/api/projectResourceApi";
 import { projectTeamApi } from "@/lib/api/projectTeamApi";
-import { riskApi } from "@/lib/api/riskApi";
+import { riskApi, isOpenRisk } from "@/lib/api/riskApi";
 import { stretchApi } from "@/lib/api/stretchApi";
 import { useAuthStore } from "@/lib/state/store";
 import {
@@ -151,7 +151,7 @@ export function useHubBadges(projectId: string): {
   // ── Risks ──────────────────────────────────────────────────────────────────
   const risksQuery = useQuery({
     queryKey: ["project", projectId, "hub-badge", "risks-open"],
-    queryFn: () => riskApi.listRisks(projectId, "OPEN"),
+    queryFn: () => riskApi.listRisks(projectId),
     enabled: canReadRisk,
     ...baseQueryOpts,
   });
@@ -245,7 +245,7 @@ export function useHubBadges(projectId: string): {
       : { text: "Pending today", tone: "warn" };
   }
 
-  // Capacity utilisation — find snapshot whose KPI code contains "CAPACITY".
+  // Capacity utilisation — find the Resource Utilisation KPI (code RESOURCE_UTIL).
   // dashboardApi's getProjectKpiSnapshots / getKpiDefinitions don't unwrap the
   // ApiResponse envelope, so use unwrapArray to be defensive over both shapes.
   const kpiDefs = unwrapArray<{ id: string; code: string }>(kpiDefinitionsQuery.data);
@@ -254,9 +254,7 @@ export function useHubBadges(projectId: string): {
   );
 
   if (kpiDefs && kpiSnaps) {
-    const capacityDef = kpiDefs.find((d) =>
-      d.code?.toUpperCase().includes("CAPACITY"),
-    );
+    const capacityDef = kpiDefs.find((d) => isUtilisationKpiCode(d.code));
     if (capacityDef) {
       const snap = kpiSnaps.find((s) => s.kpiDefinitionId === capacityDef.id);
       if (snap) {
@@ -289,7 +287,7 @@ export function useHubBadges(projectId: string): {
   // Risks — always render when data has loaded: prefer critical (CRIMSON/RED RAG)
   // → fall back to total open → fall back to a clean "No open risks" success pill.
   if (canReadRisk && risksQuery.data?.data) {
-    const all = risksQuery.data.data;
+    const all = risksQuery.data.data.filter((r) => isOpenRisk(r.status));
     const critical = all.filter((r) => r.rag === "CRIMSON" || r.rag === "RED").length;
     if (critical > 0) {
       badges["risks"] = { text: `${critical} critical`, tone: "danger" };

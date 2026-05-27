@@ -29,6 +29,12 @@ export interface KpiSnapshot {
   calculatedAt: string
 }
 
+/** Matches the Resource Utilisation KPI definition by code
+ *  (RESOURCE_UTIL / RESOURCE_UTILIZATION). The hub People & Capacity card and
+ *  the Quick Access "capacity" badge read its snapshot for the utilisation %. */
+export const isUtilisationKpiCode = (code?: string): boolean =>
+  !!code && code.toUpperCase().includes('RESOURCE_UTIL')
+
 export interface CreateKpiDefinitionRequest {
   name: string
   code: string

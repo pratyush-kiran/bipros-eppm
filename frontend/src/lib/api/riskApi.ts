@@ -27,6 +27,18 @@ export type RiskStatus =
   | "OPEN_ASI_REVIEW"
   | "REALISED_PARTIALLY";
 
+/** Statuses at which a risk leaves the active register (backend-terminal
+ *  CLOSED/RESOLVED plus REJECTED). */
+export const CLOSED_RISK_STATUSES: ReadonlySet<RiskStatus> = new Set([
+  "CLOSED",
+  "RESOLVED",
+  "REJECTED",
+]);
+
+/** True while a risk is still open/active — i.e. not closed, resolved or rejected. */
+export const isOpenRisk = (status: RiskStatus): boolean =>
+  !CLOSED_RISK_STATUSES.has(status);
+
 /**
  * Legacy single-axis category enum (retained for old reports). New code should use
  * the {@link RiskCategorySummary} object returned by the backend on RiskSummary.category.
