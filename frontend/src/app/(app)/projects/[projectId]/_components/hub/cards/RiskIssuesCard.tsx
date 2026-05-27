@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { riskApi, type RiskRag } from "@/lib/api/riskApi";
 import { useAuthStore } from "@/lib/state/store";
 import { CardShell } from "./CardShell";
+import { RagDonut } from "@/components/hub/mission-control/primitives/RagDonut";
 import { Skeleton, StatusPill, cardQueryOpts } from "./_shared";
 
 /**
@@ -36,6 +37,12 @@ export function RiskIssuesCard({ projectId }: { projectId: string }) {
     .slice(0, 3);
 
   const criticalCount = risks.filter((r) => r.rag === "CRIMSON" || r.rag === "RED").length;
+
+  // RAG roll-up for the donut.
+  const ragRed = risks.filter((r) => r.rag === "CRIMSON" || r.rag === "RED").length;
+  const ragAmber = risks.filter((r) => r.rag === "AMBER").length;
+  const ragGreen = risks.filter((r) => r.rag === "GREEN" || r.rag === "OPPORTUNITY").length;
+  const ragTotal = ragRed + ragAmber + ragGreen;
 
   const statusPill =
     criticalCount > 0 ? (
@@ -77,21 +84,35 @@ export function RiskIssuesCard({ projectId }: { projectId: string }) {
       ) : top.length === 0 ? (
         <p className="text-xs text-text-secondary">No active risks</p>
       ) : (
-        <ul className="space-y-1.5">
-          {top.map((r) => {
-            const chip = ragChip(r.rag);
-            return (
-              <li key={r.id} className="flex items-center gap-2 text-xs">
-                <span
-                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${chip.className}`}
-                >
-                  {chip.label}
-                </span>
-                <span className="truncate text-text-primary">{r.title}</span>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex items-center gap-4">
+          {ragTotal > 0 ? (
+            <RagDonut
+              green={ragGreen}
+              amber={ragAmber}
+              red={ragRed}
+              size={84}
+              thickness={10}
+              centerLabel={String(ragTotal)}
+              centerSubLabel="open"
+              className="shrink-0"
+            />
+          ) : null}
+          <ul className="min-w-0 flex-1 space-y-1.5">
+            {top.map((r) => {
+              const chip = ragChip(r.rag);
+              return (
+                <li key={r.id} className="flex items-center gap-2 text-xs">
+                  <span
+                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] ${chip.className}`}
+                  >
+                    {chip.label}
+                  </span>
+                  <span className="truncate text-text-primary">{r.title}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </CardShell>
   );

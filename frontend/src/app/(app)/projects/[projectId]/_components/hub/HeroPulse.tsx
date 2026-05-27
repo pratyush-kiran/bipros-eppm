@@ -1,16 +1,14 @@
 "use client";
 /**
- * HeroPulse — Phase D brand-asserting hero banner for the project workspace.
+ * HeroPulse — Material-3 dark command-hub header for the project workspace.
  *
- * Renders a theme-adaptive gradient cover above the QuickAccess + Bento grid.
- * Surfaces project identity (status pill + name + code + date range) and four
- * KPI stats sourced exclusively from existing APIs. Each tile renders only
- * when its underlying data is loaded — never a fabricated zero.
+ * Renders a plain title header (status dot + name + code + date range + ⌘K
+ * button) on the page background, followed by a 4-card KPI grid of glass
+ * tiles. No gradient banner, no gold radial overlay. Every KPI tile renders
+ * only when its underlying data is loaded or present — never a fabricated zero.
  *
- * Light theme: soft cream / parchment gradient with a gentle gold radial
- * accent. Dark theme: dramatic charcoal gradient anchored to literal hex
- * stops (#1C1C1C / #1F1F1F / #2A2A2A) — chosen because `--charcoal` flips
- * to a light cream under `.dark` and would invert the gradient if used here.
+ * All data is sourced exclusively from existing APIs; queries and derivations
+ * below are unchanged from the prior revision.
  */
 import { useQuery } from "@tanstack/react-query";
 import { projectApi } from "@/lib/api/projectApi";
@@ -20,21 +18,14 @@ import { projectInsightsApi } from "@/lib/api/projectInsightsApi";
 import { dprIssueApi } from "@/lib/api/dprIssueApi";
 import { formatDate, formatBudget } from "@/lib/utils/format";
 import type { ProjectStatus } from "@/lib/types";
-import type { ReactNode } from "react";
-import { DashboardsMenu } from "../nav/DashboardsMenu";
+import { MetricNumber } from "@/components/hub/mission-control/primitives/MetricNumber";
 import { useCommandPalette } from "../palette/CommandPaletteProvider";
 import { cardQueryOpts, rawToMajorScale } from "./cards/_shared";
+import { MIcon } from "./MIcon";
 
 interface Props {
   projectId: string;
 }
-
-/**
- * Feature flag: hide the in-hero Dashboards menu. The Section Context Bar
- * still has its own Dashboards menu so users can reach dashboards from any
- * section page. Flip to `true` to restore the in-hero button.
- */
-const SHOW_DASHBOARDS_IN_HERO = false;
 
 /** Map ProjectStatus → status-pill text colour, theme-aware. */
 const STATUS_PILL_TONE: Record<ProjectStatus, string> = {
@@ -44,44 +35,47 @@ const STATUS_PILL_TONE: Record<ProjectStatus, string> = {
   COMPLETED: "text-emerald-700 dark:text-emerald-300",
 };
 
-function StatTile({
-  label,
-  value,
-  trend,
-  loading,
-}: {
-  label: string;
-  value: ReactNode;
-  trend?: { delta: number; suffix?: string } | null;
-  loading: boolean;
-}) {
+/**
+ * Compact circular progress arc for the Schedule Health tile. Decorative —
+ * the numeric % beside it carries the accessible value, so the SVG is
+ * `aria-hidden`. Driven by the existing `scheduleHealth` scalar (0-100).
+ */
+function ScheduleRing({ pct }: { pct: number }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const size = 44;
+  const stroke = 4;
+  const r = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - clamped / 100);
   return (
-    <div className="flex flex-col gap-1 px-4 first:pl-0" aria-busy={loading}>
-      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-secondary dark:text-white/50">
-        {label}
-      </div>
-      {loading ? (
-        <div className="h-8 w-16 rounded bg-parchment dark:bg-white/10 motion-safe:animate-pulse" />
-      ) : (
-        <div className="flex items-baseline gap-2">
-          <span className="font-serif text-3xl text-text-primary dark:text-white tabular-nums">
-            {value}
-          </span>
-          {trend && trend.delta !== 0 ? (
-            <span
-              className={`text-xs tabular-nums ${
-                trend.delta > 0
-                  ? "text-emerald-700 dark:text-emerald-300"
-                  : "text-red-700 dark:text-red-300"
-              }`}
-            >
-              {trend.delta > 0 ? "▲" : "▼"} {Math.abs(trend.delta).toFixed(1)}
-              {trend.suffix ?? ""}
-            </span>
-          ) : null}
-        </div>
-      )}
-    </div>
+    <svg
+      aria-hidden
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      className="shrink-0 -rotate-90"
+    >
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        className="stroke-outline-variant"
+        strokeWidth={stroke}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={r}
+        fill="none"
+        stroke="var(--secondary)"
+        strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        className="motion-safe:transition-[stroke-dashoffset] motion-safe:duration-700"
+      />
+    </svg>
   );
 }
 
@@ -157,144 +151,213 @@ export function HeroPulse({ projectId }: Props) {
     : null;
 
   const status = project?.status;
+  // Status dot + label colour reflects real status; default secondary/green
+  // (ACTIVE) when status is unknown/loading.
   const statusToneClass = status
     ? STATUS_PILL_TONE[status]
-    : "text-text-muted dark:text-white/60";
+    : "text-secondary";
 
   const dateRange =
     project?.plannedStartDate && project?.plannedFinishDate
       ? `${formatDate(project.plannedStartDate)} → ${formatDate(project.plannedFinishDate)}`
       : null;
 
-  return (
-    <section
-      aria-label="Project hero"
-      // Light: soft cream/parchment gradient via theme tokens.
-      // Dark: hard-coded hex stops (#1C1C1C → #1F1F1F → #2A2A2A) — `--charcoal`
-      // inverts under `.dark`, so we anchor the dark gradient with literals.
-      className="relative mb-6 overflow-hidden rounded-2xl border border-border
-                 bg-gradient-to-br from-parchment via-ivory to-gold-tint/40
-                 dark:border-transparent
-                 dark:from-[#1C1C1C] dark:via-[#1F1F1F] dark:to-[#2A2A2A]"
-    >
-      {/* Gold radial overlay — present in both themes at different opacity */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0
-                   bg-[radial-gradient(800px_320px_at_100%_0%,rgba(212,175,55,0.15),transparent_60%)]
-                   dark:bg-[radial-gradient(800px_320px_at_100%_0%,rgba(212,175,55,0.22),transparent_60%)]"
-      />
-      <div className="relative p-6 sm:p-8">
-        {/* Top row: status pill + (optional) dashboards menu + ⌘K hint */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em]">
-            <span className={statusToneClass} aria-hidden>
-              ●
-            </span>
-            <span className={statusToneClass}>{status ?? "—"}</span>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {SHOW_DASHBOARDS_IN_HERO ? (
-              <DashboardsMenu projectId={projectId} variant="hero" />
-            ) : null}
-            <button
-              type="button"
-              onClick={openPalette}
-              aria-label="Open command palette"
-              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors
-                         bg-gold-tint/40 text-gold-deep border-gold/40 hover:bg-gold-tint
-                         dark:bg-white/10 dark:text-white/90 dark:border-white/10 dark:hover:bg-white/15"
-            >
-              ⌘K Jump to anything
-              <kbd className="rounded border px-1 py-0.5 text-[0.62rem] font-mono
-                              border-gold/40 bg-gold-tint/60 text-gold-deep
-                              dark:border-white/15 dark:bg-white/10 dark:text-white/70">
-                ⌘K
-              </kbd>
-            </button>
-          </div>
-        </div>
+  // Budget burn ratio (0-100), clamped — drives the bar width + over-budget tone.
+  const budgetReady =
+    totalBudgetMajor != null && actualSpendMajor != null && totalBudgetMajor > 0;
+  const burnPct = budgetReady
+    ? Math.max(0, Math.min(100, (actualSpendMajor! / totalBudgetMajor!) * 100))
+    : 0;
+  const overBudget = budgetReady
+    ? actualSpendMajor! / totalBudgetMajor! > 1
+    : false;
 
-        {/* Identity */}
-        <div className="mt-5">
-          <h1 className="font-serif text-4xl text-text-primary dark:text-white sm:text-5xl">
+  return (
+    <section aria-label="Project hero">
+      {/* (1) Plain title header on the page background */}
+      <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              aria-hidden
+              className={`w-2 h-2 rounded-full bg-current shadow-[0_0_8px_rgba(78,222,163,0.6)] ${statusToneClass}`}
+            />
+            <span
+              className={`text-[10px] font-bold tracking-widest uppercase ${statusToneClass}`}
+            >
+              {status ?? "ACTIVE"}
+            </span>
+          </div>
+          <h1 className="font-sans font-bold text-[clamp(2rem,4vw,3rem)] leading-tight tracking-tight text-on-surface">
             {project?.name ?? "Loading project…"}
           </h1>
-          <p className="mt-2 font-mono text-xs tracking-[0.12em] text-gold-deep dark:text-gold">
-            {project?.code ?? ""}
-            {dateRange ? (
-              <span className="text-gold-deep/80 dark:text-gold/80"> · {dateRange}</span>
+          <div className="flex items-center gap-4 text-text-secondary text-xs mt-1 font-mono">
+            {project?.code ? <span>{project.code}</span> : null}
+            {project?.code && dateRange ? (
+              <span aria-hidden className="w-1 h-1 bg-white/20 rounded-full" />
             ) : null}
-          </p>
+            {dateRange ? <span>{dateRange}</span> : null}
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={openPalette}
+          aria-label="Open command palette"
+          className="bg-surface-container-high border border-white/10 px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-surface-container-highest transition-colors shadow-lg text-sm font-medium text-on-surface"
+        >
+          ⌘K Jump to anything
+          <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded ml-2">⌘K</span>
+        </button>
+      </header>
 
-        {/* KPI strip — only tiles with real data render */}
-        <div className="mt-6 flex flex-wrap items-stretch gap-y-3 divide-x divide-border dark:divide-white/10">
-          {progressPct != null || snapshotQuery.isLoading ? (
-            <StatTile
-              label="Overall Progress"
-              loading={snapshotQuery.isLoading}
-              value={progressPct != null ? `${progressPct.toFixed(0)}%` : "—"}
-              trend={
-                progressDelta != null && progressDelta !== 0
-                  ? { delta: progressDelta, suffix: "%" }
-                  : null
-              }
-            />
-          ) : null}
-
-          {(totalBudgetMajor != null && actualSpendMajor != null) ||
-          budgetQuery.isLoading ||
-          costSummaryQuery.isLoading ? (
-            <StatTile
-              label="Budget Utilised"
-              loading={budgetQuery.isLoading || costSummaryQuery.isLoading}
-              value={
-                totalBudgetMajor != null && actualSpendMajor != null ? (
-                  <span className="text-2xl sm:text-3xl">
-                    {formatBudget(actualSpendMajor, currency)}
-                    <span className="text-text-muted dark:text-white/60"> / </span>
-                    {formatBudget(totalBudgetMajor, currency)}
+      {/* (2) 4-card KPI grid. Only tiles with real (or loading) data render. */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Overall Progress */}
+        {progressPct != null || snapshotQuery.isLoading ? (
+          <div aria-busy={snapshotQuery.isLoading} className="glass-card p-4 rounded-2xl">
+            <div className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-1">
+              Overall Progress
+            </div>
+            {snapshotQuery.isLoading ? (
+              <div className="h-10 w-20 rounded bg-white/10 motion-safe:animate-pulse" />
+            ) : (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[40px] font-bold text-on-surface leading-none tabular-nums">
+                    {progressPct != null ? (
+                      <MetricNumber
+                        value={progressPct}
+                        format={(n) => `${Math.round(n)}%`}
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </span>
-                ) : (
-                  "—"
-                )
-              }
-            />
-          ) : null}
+                  {progressDelta != null && progressDelta !== 0 ? (
+                    <span
+                      className={`text-xs tabular-nums ${
+                        progressDelta > 0 ? "text-secondary" : "text-error"
+                      }`}
+                    >
+                      {progressDelta > 0 ? "▲" : "▼"} {Math.abs(progressDelta).toFixed(1)}%
+                    </span>
+                  ) : null}
+                </div>
+                {progressPct != null ? (
+                  <div
+                    aria-hidden
+                    className="mt-3 w-full h-1 bg-white/5 rounded-full overflow-hidden"
+                  >
+                    <div
+                      className="h-full bg-primary motion-safe:transition-[width] motion-safe:duration-700"
+                      style={{ width: `${Math.max(0, Math.min(100, progressPct))}%` }}
+                    />
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
 
-          {scheduleHealth != null || scheduleQualityQuery.isLoading ? (
-            <StatTile
-              label="Schedule Health"
-              loading={scheduleQualityQuery.isLoading}
-              value={
-                scheduleHealth != null ? (
-                  <span className="text-emerald-700 dark:text-emerald-300">
-                    {scheduleHealth.toFixed(0)}%
-                  </span>
-                ) : (
-                  "—"
-                )
-              }
-            />
-          ) : null}
+        {/* Budget Utilised */}
+        {(totalBudgetMajor != null && actualSpendMajor != null) ||
+        budgetQuery.isLoading ||
+        costSummaryQuery.isLoading ? (
+          <div
+            aria-busy={budgetQuery.isLoading || costSummaryQuery.isLoading}
+            className="glass-card p-4 rounded-2xl"
+          >
+            <div className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-1">
+              Budget Utilised
+            </div>
+            {budgetQuery.isLoading || costSummaryQuery.isLoading ? (
+              <div className="h-10 w-28 rounded bg-white/10 motion-safe:animate-pulse" />
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-on-surface leading-tight tabular-nums">
+                  {totalBudgetMajor != null && actualSpendMajor != null ? (
+                    <>
+                      {formatBudget(actualSpendMajor, currency)}
+                      <span className="text-text-secondary"> / </span>
+                      {formatBudget(totalBudgetMajor, currency)}
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </div>
+                {budgetReady ? (
+                  <div
+                    aria-hidden
+                    className="mt-3 w-full h-1 bg-white/5 rounded-full overflow-hidden"
+                  >
+                    <div
+                      className={`h-full motion-safe:transition-[width] motion-safe:duration-700 ${
+                        overBudget ? "bg-error" : "bg-primary"
+                      }`}
+                      style={{ width: `${burnPct}%` }}
+                    />
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
 
-          {criticalIssuesCount != null || criticalIssuesQuery.isLoading ? (
-            <StatTile
-              label="Critical Issues"
-              loading={criticalIssuesQuery.isLoading}
-              value={
-                criticalIssuesCount != null ? (
-                  <span className="text-red-700 dark:text-red-300">
-                    {criticalIssuesCount}
-                  </span>
-                ) : (
-                  "—"
-                )
-              }
-            />
-          ) : null}
-        </div>
+        {/* Schedule Health */}
+        {scheduleHealth != null || scheduleQualityQuery.isLoading ? (
+          <div
+            aria-busy={scheduleQualityQuery.isLoading}
+            className="glass-card p-4 rounded-2xl"
+          >
+            <div className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-1">
+              Schedule Health
+            </div>
+            {scheduleQualityQuery.isLoading ? (
+              <div className="h-11 w-28 rounded bg-white/10 motion-safe:animate-pulse" />
+            ) : scheduleHealth != null ? (
+              <div className="flex items-center gap-3">
+                <ScheduleRing pct={scheduleHealth} />
+                <span className="text-[40px] font-bold text-secondary leading-none tabular-nums">
+                  <MetricNumber
+                    value={scheduleHealth}
+                    format={(n) => `${Math.round(n)}%`}
+                  />
+                </span>
+              </div>
+            ) : (
+              <span className="text-[40px] font-bold text-secondary leading-none">—</span>
+            )}
+          </div>
+        ) : null}
+
+        {/* Critical Issues */}
+        {criticalIssuesCount != null || criticalIssuesQuery.isLoading ? (
+          <div
+            aria-busy={criticalIssuesQuery.isLoading}
+            className="glass-card p-4 rounded-2xl"
+          >
+            <div className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-1">
+              Critical Issues
+            </div>
+            {criticalIssuesQuery.isLoading ? (
+              <div className="h-10 w-16 rounded bg-white/10 motion-safe:animate-pulse" />
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-[40px] font-bold text-error leading-none tabular-nums">
+                  {criticalIssuesCount != null ? (
+                    <MetricNumber
+                      value={criticalIssuesCount}
+                      format={(n) => `${Math.round(n)}`}
+                    />
+                  ) : (
+                    "—"
+                  )}
+                </span>
+                <MIcon name="warning" className="text-error animate-pulse" />
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </section>
   );

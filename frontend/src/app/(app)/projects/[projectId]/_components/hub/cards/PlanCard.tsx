@@ -44,6 +44,32 @@ export function PlanCard({ projectId }: { projectId: string }) {
   })();
 
   const completedCount = rows?.filter((r) => r.status === "COMPLETED").length ?? 0;
+  const criticalCount = rows?.filter((r) => r.isCritical).length ?? 0;
+
+  // Emphasized KPI row — Total / Done / Critical.
+  const kpiRow =
+    rows && totalCount > 0 ? (
+      <dl className="grid grid-cols-3 gap-2 rounded-lg border border-border bg-ivory p-2.5">
+        <div>
+          <dt className="text-[10px] uppercase tracking-[0.1em] text-text-muted">Total</dt>
+          <dd className="mt-0.5 font-mono text-2xl text-text-primary tabular-nums leading-none">
+            {totalCount}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-[0.1em] text-text-muted">Done</dt>
+          <dd className="mt-0.5 font-mono text-2xl text-emerald tabular-nums leading-none">
+            {completedCount}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-[0.1em] text-text-muted">Critical</dt>
+          <dd className="mt-0.5 font-mono text-2xl text-burgundy tabular-nums leading-none">
+            {criticalCount}
+          </dd>
+        </div>
+      </dl>
+    ) : null;
 
   const statusPill =
     rows && totalCount > 0 ? (
@@ -69,42 +95,30 @@ export function PlanCard({ projectId }: { projectId: string }) {
           <Skeleton className="h-3 w-3/6" />
         </div>
       ) : phases.length > 0 ? (
-        <ul className="space-y-2.5">
-          {phases.map((p) => (
-            <li key={p.name} className="text-xs">
-              <div className="flex items-center justify-between gap-3">
-                <span className="truncate text-text-secondary">{p.name}</span>
-                <span className="font-mono text-text-muted text-[10px] tabular-nums">
-                  {p.pct}%
-                </span>
-              </div>
-              <div className="mt-1 h-1.5 rounded-full bg-parchment overflow-hidden">
-                <div
-                  className="h-full bg-blue-500"
-                  style={{ width: `${Math.max(0, Math.min(100, p.pct))}%` }}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : rows && totalCount > 0 ? (
-        <dl className="grid grid-cols-3 gap-2">
-          <div>
-            <dt className="text-[10px] uppercase tracking-[0.1em] text-text-muted">Total</dt>
-            <dd className="font-mono text-lg text-text-primary tabular-nums">{totalCount}</dd>
-          </div>
-          <div>
-            <dt className="text-[10px] uppercase tracking-[0.1em] text-text-muted">Done</dt>
-            <dd className="font-mono text-lg text-emerald-700 tabular-nums">{completedCount}</dd>
-          </div>
-          <div>
-            <dt className="text-[10px] uppercase tracking-[0.1em] text-text-muted">Critical</dt>
-            <dd className="font-mono text-lg text-red-700 tabular-nums">
-              {rows.filter((r) => r.isCritical).length}
-            </dd>
-          </div>
-        </dl>
-      ) : null}
+        <div className="space-y-3">
+          {kpiRow}
+          <ul className="space-y-2.5">
+            {phases.map((p) => (
+              <li key={p.name} className="text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-text-secondary">{p.name}</span>
+                  <span className="font-mono text-text-muted text-[10px] tabular-nums">
+                    {p.pct}%
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-parchment dark:bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-blue-500"
+                    style={{ width: `${Math.max(0, Math.min(100, p.pct))}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        kpiRow
+      )}
     </CardShell>
   );
 }

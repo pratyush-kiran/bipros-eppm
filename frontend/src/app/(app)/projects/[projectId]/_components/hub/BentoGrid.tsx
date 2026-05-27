@@ -22,18 +22,41 @@ export function BentoGrid({ projectId }: { projectId: string }) {
   const canReadCost = hasPermission("COST.READ");
   const canReadRisk = hasPermission("RISK.READ");
 
+  // Asymmetric bento: 1 col (mobile) → 2 (tablet) → 3 (desktop). Cost & Finance
+  // and Schedule Analysis are wide "feature" cards (col-span-2 on xl); the rest
+  // are standard. `grid-auto-flow:dense` backfills gaps when a permission-gated
+  // card is hidden. Each wrapper forces its card's <article> to fill the cell
+  // so rows stay flush even with varied content heights.
   return (
     <section
       aria-label="Project sections"
-      className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1"
+      className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:[grid-auto-flow:dense]"
     >
-      <PlanCard projectId={projectId} />
-      <ExecuteCard projectId={projectId} />
-      {canReadCost ? <CostFinanceCard projectId={projectId} /> : null}
-      {canReadRisk ? <RiskIssuesCard projectId={projectId} /> : null}
-      <PeopleCapacityCard projectId={projectId} />
-      <ScheduleAnalysisCard projectId={projectId} />
-      <InsightsMapCard projectId={projectId} />
+      {canReadCost ? (
+        <div className="xl:col-span-2 [&>article]:h-full">
+          <CostFinanceCard projectId={projectId} />
+        </div>
+      ) : null}
+      <div className="[&>article]:h-full">
+        <PlanCard projectId={projectId} />
+      </div>
+      <div className="[&>article]:h-full">
+        <ExecuteCard projectId={projectId} />
+      </div>
+      {canReadRisk ? (
+        <div className="[&>article]:h-full">
+          <RiskIssuesCard projectId={projectId} />
+        </div>
+      ) : null}
+      <div className="[&>article]:h-full">
+        <PeopleCapacityCard projectId={projectId} />
+      </div>
+      <div className="xl:col-span-2 [&>article]:h-full">
+        <ScheduleAnalysisCard projectId={projectId} />
+      </div>
+      <div className="[&>article]:h-full">
+        <InsightsMapCard projectId={projectId} />
+      </div>
     </section>
   );
 }

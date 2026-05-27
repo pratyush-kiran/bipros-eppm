@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { findGroupById, type SectionDef } from "../../_data/projectNav";
+import { type SectionDef } from "../../_data/projectNav";
 import type { HubBadge } from "../../_data/useHubBadges";
+import { MIcon } from "./MIcon";
+import { roleClassesFor, sectionMsIcon } from "./hubM3";
 
 interface Props {
   section: SectionDef;
@@ -12,12 +14,12 @@ interface Props {
   loading?: boolean;
 }
 
-/** Dot styling for tone — small inline span before the badge text. */
-const TONE_DOT_CLASSES: Record<string, string> = {
-  success: "bg-emerald-500",
-  warn: "bg-amber-500",
-  danger: "bg-red-500 motion-safe:animate-pulse",
-  info: "bg-blue-500",
+/** Badge tone → coloured dot token (success/warn/danger/info). */
+const TONE_DOT: Record<NonNullable<HubBadge["tone"]>, string> = {
+  success: "bg-secondary",
+  warn: "bg-tertiary",
+  danger: "bg-error",
+  info: "bg-primary",
 };
 
 export function QuickAccessTile({
@@ -27,65 +29,51 @@ export function QuickAccessTile({
   badge,
   loading = false,
 }: Props) {
-  const Icon = section.icon;
-  const chipClass =
-    findGroupById(section.group)?.iconChipClass ?? "bg-parchment text-text-secondary";
-
-  // Fixed height (h-[116px]) — all tiles uniform regardless of label length.
-  // Sized so the 3-row layout (icon · label up to 2 lines · badge) never
-  // overflows or clips. Labels longer than 2 lines truncate via line-clamp-2.
-  const baseClass =
-    "group relative flex h-[116px] w-full flex-col gap-1.5 rounded-xl border bg-surface p-3 text-left transition-shadow transition-colors overflow-hidden";
-  const activeClass = isActive
-    ? "border-gold border-2 bg-gradient-to-br from-gold-tint via-gold-tint/60 to-surface shadow-[0_4px_16px_rgba(212,175,55,0.25)] ring-1 ring-gold/30"
-    : "border-border hover:border-gold hover:shadow-md motion-safe:hover:-translate-y-0.5 motion-safe:transition-transform";
+  // Roomy tile (matches the mockup): a dark surface-container base with a clean
+  // role-colour glow in the top-left corner (fades to transparent — never
+  // muddy), a large icon chip, and label + sub at the bottom. `.vibrant-glass`
+  // supplies the hover lift + border; tokens flip with light/dark.
+  const role = roleClassesFor(section.group);
 
   return (
     <Link
       href={section.href(projectId)}
       aria-current={isActive ? "page" : undefined}
       title={section.description}
-      className={`${baseClass} ${activeClass}`}
+      className={`vibrant-glass group relative flex min-h-[150px] flex-col justify-between overflow-hidden rounded-2xl bg-surface-container p-4 ring-1 ring-white/5 hover:ring-white/10 ${
+        isActive ? "ring-2 ring-primary" : ""
+      }`}
     >
-      {/* Icon chip */}
+      {/* Clean role glow — bright accent at low opacity over the dark base */}
       <span
-        className={`inline-flex h-[30px] w-[30px] items-center justify-center rounded-lg shrink-0 ${chipClass}`}
         aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${role.tileTint} to-transparent`}
+      />
+
+      <span
+        className={`relative flex h-14 w-14 items-center justify-center rounded-2xl ${role.iconBg}`}
       >
-        <Icon className="h-4 w-4" strokeWidth={2.25} />
+        <MIcon name={sectionMsIcon(section.id)} className="text-[28px]" />
       </span>
 
-      {/* Label — clamps to 2 lines so long labels never push tile taller */}
-      <div className={`font-semibold text-[0.83rem] leading-tight line-clamp-2 ${isActive ? "text-gold-deep" : "text-text-primary"}`}>
-        {section.label}
-      </div>
-
-      {/* Badge — reserved row at the bottom; absent badge becomes empty space */}
-      <div className="mt-auto min-h-[1rem]">
-        {loading && !badge ? (
-          <div className="h-2.5 w-20 rounded bg-parchment motion-safe:animate-pulse" />
-        ) : badge ? (
-          <div className="flex items-center gap-1 text-[0.68rem] text-text-muted truncate">
+      <div className="relative">
+        <p className="text-[0.95rem] font-semibold leading-tight text-on-surface line-clamp-2">
+          {section.label}
+        </p>
+        {badge ? (
+          <p className="mt-1 flex items-center gap-1 truncate text-xs text-text-secondary">
             {badge.tone ? (
               <span
-                className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${
-                  TONE_DOT_CLASSES[badge.tone] ?? "bg-text-muted"
-                }`}
                 aria-hidden="true"
+                className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[badge.tone]}`}
               />
             ) : null}
-            <span className="truncate">{badge.text}</span>
-          </div>
+            {badge.text}
+          </p>
+        ) : loading ? (
+          <div className="mt-1.5 h-2.5 w-16 animate-pulse rounded bg-white/10" />
         ) : null}
       </div>
-
-      {/* Active accent bar at bottom-inner */}
-      {isActive ? (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-3 bottom-1 h-0.5 rounded-full bg-gradient-to-r from-gold to-gold-deep"
-        />
-      ) : null}
     </Link>
   );
 }

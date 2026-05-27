@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/lib/api/dashboardApi";
 import { projectResourceApi } from "@/lib/api/projectResourceApi";
 import { CardShell } from "./CardShell";
+import { MetricNumber } from "@/components/hub/mission-control/primitives/MetricNumber";
 import { Skeleton, StatusPill, cardQueryOpts, unwrapArray } from "./_shared";
 
 interface KpiDef {
@@ -99,49 +100,64 @@ export function PeopleCapacityCard({ projectId }: { projectId: string }) {
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-3">
-          <svg viewBox="0 0 32 32" className="h-14 w-14 -rotate-90" aria-hidden="true">
-            <circle
-              cx="16"
-              cy="16"
-              r={radius}
-              fill="none"
-              className="stroke-parchment"
-              strokeWidth="3"
-            />
-            {utilisationPct != null ? (
+        <div className="flex items-center gap-3.5">
+          <div className="relative h-[72px] w-[72px] shrink-0">
+            <svg viewBox="0 0 32 32" className="h-[72px] w-[72px] -rotate-90" aria-hidden="true">
               <circle
                 cx="16"
                 cy="16"
                 r={radius}
                 fill="none"
-                className="stroke-cyan-600"
+                className="stroke-parchment"
                 strokeWidth="3"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
               />
-            ) : null}
-          </svg>
-          <div className="flex-1 min-w-0">
+              {utilisationPct != null ? (
+                <circle
+                  cx="16"
+                  cy="16"
+                  r={radius}
+                  fill="none"
+                  className="stroke-cyan-600"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={dashOffset}
+                />
+              ) : null}
+            </svg>
             {utilisationPct != null ? (
-              <div className="text-xs text-text-secondary">
-                <span className="font-mono text-base text-text-primary tabular-nums">
-                  {utilisationPct}%
-                </span>
-                <span className="ml-1">utilised</span>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <MetricNumber
+                  value={utilisationPct}
+                  format={(n) => `${Math.round(n)}%`}
+                  className="font-mono text-sm font-semibold text-text-primary tabular-nums"
+                />
               </div>
-            ) : (
-              <div className="text-xs text-text-muted">Utilisation unavailable</div>
-            )}
+            ) : null}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.1em] text-text-muted">
+              {utilisationPct != null ? "Utilisation" : "Utilisation unavailable"}
+            </div>
             {memberCount > 0 ? (
-              <div className="text-xs text-text-secondary mt-0.5">
-                <span className="font-mono tabular-nums">{memberCount}</span> members
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-border bg-ivory p-2.5">
+                  <div className="text-[10px] uppercase tracking-[0.1em] text-text-muted">
+                    Members
+                  </div>
+                  <div className="mt-0.5 font-mono text-base text-text-primary tabular-nums">
+                    {memberCount}
+                  </div>
+                </div>
                 {roleCount > 0 ? (
-                  <>
-                    {" · "}
-                    <span className="font-mono tabular-nums">{roleCount}</span> roles
-                  </>
+                  <div className="rounded-lg border border-border bg-ivory p-2.5">
+                    <div className="text-[10px] uppercase tracking-[0.1em] text-text-muted">
+                      Roles
+                    </div>
+                    <div className="mt-0.5 font-mono text-base text-text-primary tabular-nums">
+                      {roleCount}
+                    </div>
+                  </div>
                 ) : null}
               </div>
             ) : null}

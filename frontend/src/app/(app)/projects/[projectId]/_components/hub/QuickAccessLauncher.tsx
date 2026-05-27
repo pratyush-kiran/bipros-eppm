@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { LayoutGrid } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/lib/state/store";
 import {
@@ -13,6 +12,7 @@ import {
 import { useHubBadges } from "../../_data/useHubBadges";
 import { QuickAccessTile } from "./QuickAccessTile";
 import { AllSectionsSheet } from "./AllSectionsSheet";
+import { MIcon } from "./MIcon";
 
 export function QuickAccessLauncher({ projectId }: { projectId: string }) {
   const pathname = usePathname();
@@ -40,7 +40,10 @@ export function QuickAccessLauncher({ projectId }: { projectId: string }) {
     <section className="mb-6" aria-label="Quick access">
       <div className="mb-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-text-muted">
-          <span>⚡ Quick Access</span>
+          <span className="flex items-center gap-1.5">
+            <MIcon name="bolt" className="text-tertiary text-sm" />
+            Quick Access
+          </span>
           <span className="text-[10px] font-normal normal-case tracking-normal text-text-muted/70">
             — the sections you use every day, one click away
           </span>
@@ -50,7 +53,7 @@ export function QuickAccessLauncher({ projectId }: { projectId: string }) {
       <ul
         role="list"
         aria-busy={loading}
-        className="grid grid-cols-7 gap-2.5 max-[1100px]:grid-cols-4 max-[700px]:grid-cols-2"
+        className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 md:gap-5"
       >
         {tiles.map((s) => {
           // The hub is its own landing surface — it is NOT the Overview page.
@@ -73,20 +76,24 @@ export function QuickAccessLauncher({ projectId }: { projectId: string }) {
             </li>
           );
         })}
+
+        {/* Dashed "Show all" tile — last grid item, opens the sections sheet. */}
+        <li>
+          <button
+            type="button"
+            onClick={() => setAllSectionsOpen(true)}
+            className="vibrant-glass flex min-h-[150px] w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/10 bg-surface-container/40 p-4 transition-colors hover:border-primary/50 hover:bg-surface-container"
+          >
+            <MIcon name="grid_view" className="text-[28px] text-text-secondary" />
+            <p className="text-center text-[10px] uppercase tracking-widest text-text-secondary">
+              Show all{" "}
+              <span className="font-semibold text-primary">{secondaryCount} more</span>
+            </p>
+          </button>
+        </li>
       </ul>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setAllSectionsOpen(true)}
-          className="group inline-flex items-center gap-2.5 rounded-xl border border-gold/40 bg-gradient-to-br from-gold-tint to-surface px-4 py-2.5 text-sm font-semibold text-gold-deep transition-all hover:from-gold-tint hover:border-gold hover:shadow-sm motion-safe:hover:-translate-y-0.5"
-        >
-          <LayoutGrid className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
-          <span>Show all sections</span>
-          <span className="rounded-md border border-gold/30 bg-surface px-1.5 py-0.5 text-[0.62rem] font-mono text-gold-deep">
-            {secondaryCount} more
-          </span>
-        </button>
         <span className="text-[11px] text-text-muted">
           Or press{" "}
           <kbd className="rounded border border-border bg-ivory px-1 py-0.5 text-[0.62rem] font-mono">

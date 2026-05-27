@@ -20,14 +20,14 @@ export {
 export type PillTone = "neutral" | "success" | "warn" | "danger" | "info";
 
 const TONE_CLASS: Record<PillTone, string> = {
-  neutral: "bg-parchment text-text-secondary",
-  success: "bg-emerald-100 text-emerald-800",
-  warn: "bg-amber-100 text-amber-800",
-  danger: "bg-red-100 text-red-800",
-  info: "bg-blue-100 text-blue-800",
+  neutral: "bg-white/5 text-text-secondary",
+  success: "bg-secondary-container/20 text-secondary",
+  warn: "bg-tertiary-container/20 text-tertiary",
+  danger: "bg-error-container/20 text-error",
+  info: "bg-primary-container/20 text-primary",
 };
 
-/** Small inline pill — used in card headers as a status indicator. */
+/** Small inline M3 chip — used in card headers as a status indicator. */
 export function StatusPill({
   children,
   tone = "neutral",
@@ -37,7 +37,7 @@ export function StatusPill({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] ${TONE_CLASS[tone]}`}
+      className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em] ${TONE_CLASS[tone]}`}
     >
       {children}
     </span>

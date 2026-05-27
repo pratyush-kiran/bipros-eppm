@@ -31,7 +31,12 @@ export function ProjectHub({ projectId }: { projectId: string }) {
     // own px-4/6/8. This matches the inset that the SectionContextBar's
     // inner row and the section page wrapper (in layout.tsx) both apply, so
     // the hub and any section page share the same comfortable margins.
-    <div className="px-4 sm:px-6 pt-6 pb-12">
+    <div className="relative isolate px-4 sm:px-6 pt-6 pb-12">
+      {/* Ambient atmosphere — decorative, hub-scoped, non-interactive */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="hub-ambient hub-drift absolute inset-[-15%]" />
+        <div className="bg-grid absolute inset-0 opacity-40 dark:opacity-60 [mask-image:radial-gradient(90%_55%_at_50%_0%,black,transparent)]" />
+      </div>
       <HeroPulse projectId={projectId} />
       <QuickAccessLauncher projectId={projectId} />
       <BentoGrid projectId={projectId} />

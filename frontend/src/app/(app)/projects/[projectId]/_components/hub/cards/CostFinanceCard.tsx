@@ -5,6 +5,7 @@ import { costApi } from "@/lib/api/costApi";
 import { projectApi } from "@/lib/api/projectApi";
 import { useAuthStore } from "@/lib/state/store";
 import { formatBudget } from "@/lib/utils/format";
+import { MetricNumber } from "@/components/hub/mission-control/primitives/MetricNumber";
 import { CardShell } from "./CardShell";
 import { Skeleton, StatusPill, cardQueryOpts, rawToMajorScale } from "./_shared";
 
@@ -67,6 +68,28 @@ export function CostFinanceCard({ projectId }: { projectId: string }) {
   const cpiTone: "success" | "warn" | "danger" | undefined =
     cpi == null ? undefined : cpi >= 1 ? "success" : cpi >= 0.9 ? "warn" : "danger";
 
+  // Body CPI colour: emerald ≥1, bronze-warn 0.95–1, burgundy <0.95.
+  const cpiColorClass =
+    cpi == null
+      ? "text-text-primary"
+      : cpi >= 1
+        ? "text-emerald"
+        : cpi >= 0.95
+          ? "text-bronze-warn"
+          : "text-burgundy";
+
+  const variance =
+    summary?.costVariance != null
+      ? rawToMajorScale(summary.costVariance, currency)
+      : null;
+  // Positive variance is favourable (under budget) → emerald; negative → burgundy.
+  const varianceFavourable = variance != null ? variance >= 0 : null;
+
+  const burnPct =
+    totalBudgetMajor != null && totalBudgetMajor > 0 && actualSpendMajor != null
+      ? Math.max(0, Math.min(100, (actualSpendMajor / totalBudgetMajor) * 100))
+      : null;
+
   const statusPill =
     cpi != null ? (
       <StatusPill tone={cpiTone ?? "neutral"}>CPI {cpi.toFixed(2)}</StatusPill>
@@ -90,41 +113,62 @@ export function CostFinanceCard({ projectId }: { projectId: string }) {
           <Skeleton className="h-3 w-1/3" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Left — budget burn bar */}
           {totalBudgetMajor != null && actualSpendMajor != null ? (
             <div className="rounded-lg border border-border bg-ivory p-2.5">
               <div className="text-[10px] uppercase tracking-[0.1em] text-text-muted">
-                Budget utilised
+                Budget burn
               </div>
-              <div className="mt-1 font-mono text-sm text-text-primary tabular-nums">
-                {formatBudget(actualSpendMajor, currency)}
-                <span className="text-text-muted"> / </span>
-                {formatBudget(totalBudgetMajor, currency)}
+              <div className="mt-1.5 flex items-baseline gap-1.5">
+                <span className="font-mono text-2xl text-text-primary tabular-nums">
+                  {formatBudget(actualSpendMajor, currency)}
+                </span>
+                <span className="font-mono text-sm text-text-muted tabular-nums">
+                  / {formatBudget(totalBudgetMajor, currency)}
+                </span>
               </div>
-              {utilisationPct != null ? (
-                <div className="mt-1.5 h-1.5 rounded-full bg-parchment overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-600"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, utilisationPct))}%`,
-                    }}
-                  />
-                </div>
+              {burnPct != null ? (
+                <>
+                  <div className="mt-2.5 h-2 rounded-full bg-parchment dark:bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald to-emerald/70 motion-safe:transition-[width] motion-safe:duration-700"
+                      style={{ width: `${burnPct}%` }}
+                    />
+                  </div>
+                  {utilisationPct != null ? (
+                    <div className="mt-1.5 text-[10px] text-text-muted">
+                      <span className="font-mono tabular-nums text-text-secondary">
+                        {utilisationPct}%
+                      </span>{" "}
+                      utilised
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </div>
           ) : null}
 
+          {/* Right — CPI hero + cost variance */}
           {cpi != null ? (
             <div className="rounded-lg border border-border bg-ivory p-2.5">
               <div className="text-[10px] uppercase tracking-[0.1em] text-text-muted">
                 Cost Performance Index
               </div>
-              <div className="mt-1 font-mono text-lg text-text-primary tabular-nums">
-                {cpi.toFixed(2)}
-              </div>
-              {summary?.costVariance != null ? (
-                <div className="text-[10px] text-text-muted mt-0.5">
-                  Variance {formatBudget(rawToMajorScale(summary.costVariance, currency), currency)}
+              <MetricNumber
+                value={cpi}
+                format={(n) => n.toFixed(2)}
+                className={`mt-1 block font-mono text-3xl tabular-nums leading-none ${cpiColorClass}`}
+              />
+              {variance != null ? (
+                <div
+                  className={`mt-2 flex items-center gap-1 text-xs font-mono tabular-nums ${
+                    varianceFavourable ? "text-emerald" : "text-burgundy"
+                  }`}
+                >
+                  <span aria-hidden>{varianceFavourable ? "▲" : "▼"}</span>
+                  <span>{formatBudget(Math.abs(variance), currency)}</span>
+                  <span className="text-text-muted font-sans">variance</span>
                 </div>
               ) : null}
             </div>

@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Self-hosted Material Symbols (no external CDN — works offline / under CSP). */
+@font-face {
+  font-family: "Material Symbols Outlined";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("/fonts/material-symbols-outlined.woff2") format("woff2");
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
@@ -47,116 +56,197 @@
   --color-logo-primary: var(--logo-primary);
   --color-logo-secondary: var(--logo-secondary);
 
+  /* Material-3 role tokens (used by the rebranded hub + chrome) */
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+
   --font-sans: var(--font-inter);
   --font-display: var(--font-fraunces);
   --font-mono: var(--font-jetbrains);
 }
 
 :root {
-  /* ---- legacy token aliases, now pointing at the new palette ---- */
-  --background: #FFFFFF;          /* paper */
-  --foreground: #1C1C1C;          /* charcoal */
-  --surface: #FFFFFF;             /* paper */
-  --surface-hover: #FAF9F6;       /* ivory */
-  --surface-active: #F5F2E8;      /* parchment */
-  --border: #EDE7D3;              /* warm hairline */
-  --border-subtle: #E5E7EB;       /* cool divider */
-  --accent: #D4AF37;              /* gold */
-  --accent-foreground: #171717;
-  --accent-hover: #B8962E;        /* gold-deep */
-  --accent-glow: rgba(212, 175, 55, 0.12);
-  --text-primary: #1C1C1C;        /* charcoal */
-  --text-secondary: #6B7280;      /* slate */
-  --text-muted: #9CA3AF;          /* ash */
-  --success: #2E7D5B;             /* emerald */
-  --warning: #C7882E;             /* bronze-warn */
-  --danger: #9B2C2C;              /* burgundy */
-  --info: #475569;                /* steel */
-  --input: #E5E7EB;
-  --ring: #D4AF37;
-  --muted-foreground: #6B7280;
+  /* ===== Material-3 LIGHT scheme (blue primary / green secondary / orange tertiary) ===== */
+  /* legacy aliases — repointed at the M3 light palette */
+  --background: #FDFBFF;          /* surface */
+  --foreground: #1A1C20;          /* on-surface */
+  --surface: #FDFBFF;
+  --surface-hover: #F5F3FB;       /* surface-container-low */
+  --surface-active: #EFF0F7;      /* surface-container */
+  --border: #C4C6CF;             /* outline-variant */
+  --border-subtle: #E3E4EB;
+  --accent: #0058CA;             /* primary */
+  --accent-foreground: #FFFFFF;  /* on-primary */
+  --accent-hover: #00429B;
+  --accent-glow: rgba(0, 88, 202, 0.14);
+  --text-primary: #1A1C20;       /* on-surface */
+  --text-secondary: #44474F;     /* on-surface-variant */
+  --text-muted: #74777F;         /* outline */
+  --success: #006C4E;            /* secondary */
+  --warning: #8A4B2F;            /* tertiary */
+  --danger: #BA1A1A;             /* error */
+  --info: #475569;
+  --input: #E3E4EB;
+  --ring: #0058CA;
+  --muted-foreground: #44474F;
 
-  /* ---- new canonical tokens (prefer these going forward) ---- */
-  --paper: #FFFFFF;
-  --ivory: #FAF9F6;
-  --parchment: #F5F2E8;
-  --charcoal: #1C1C1C;
-  --slate: #6B7280;
-  --ash: #9CA3AF;
-  --hairline: #EDE7D3;
-  --divider: #E5E7EB;
-  --gold: #D4AF37;
-  --gold-deep: #B8962E;
-  --gold-ink: #8C6F1E;
-  --gold-tint: #F5E7B5;
-  --emerald: #2E7D5B;
-  --bronze-warn: #C7882E;
-  --amber-flame: #E07A1F;
-  --burgundy: #9B2C2C;
+  /* canonical token names kept; values remapped to M3 light */
+  --paper: #FDFBFF;
+  --ivory: #F5F3FB;
+  --parchment: #EFF0F7;
+  --charcoal: #1A1C20;
+  --slate: #44474F;
+  --ash: #74777F;
+  --hairline: #C4C6CF;
+  --divider: #E3E4EB;
+  --gold: #0058CA;               /* primary (brand) */
+  --gold-deep: #00429B;
+  --gold-ink: #001A43;
+  --gold-tint: #D9E2FF;          /* primary-container */
+  --emerald: #006C4E;            /* secondary */
+  --bronze-warn: #8A4B2F;        /* tertiary */
+  --amber-flame: #B1480E;
+  --burgundy: #BA1A1A;           /* error */
   --steel: #475569;
 
-  /* glass / scrollbar / selection / grid — retune for ivory canvas */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(28, 28, 28, 0.06);
-  --scrollbar-thumb: #D1C7A0;
-  --scrollbar-track: #FAF9F6;
-  --selection-bg: rgba(212, 175, 55, 0.22);
-  --selection-color: #1C1C1C;
-  --grid-color: rgba(28, 28, 28, 0.035);
-  --logo-primary: #1C1C1C;
-  --logo-secondary: #B8962E;
+  /* Material-3 role tokens */
+  --primary: #0058CA;
+  --on-primary: #FFFFFF;
+  --primary-container: #D9E2FF;
+  --on-primary-container: #001A43;
+  --secondary: #006C4E;
+  --on-secondary: #FFFFFF;
+  --secondary-container: #8FF8C4;
+  --on-secondary-container: #002114;
+  --tertiary: #8F4C34;
+  --on-tertiary: #FFFFFF;
+  --tertiary-container: #FFDBCA;
+  --on-tertiary-container: #341100;
+  --error: #BA1A1A;
+  --on-error: #FFFFFF;
+  --error-container: #FFDAD6;
+  --on-error-container: #410002;
+  --on-surface: #1A1C20;
+  --on-surface-variant: #44474F;
+  --outline: #74777F;
+  --outline-variant: #C4C6CF;
+  --surface-container-lowest: #FFFFFF;
+  --surface-container-low: #F5F3FB;
+  --surface-container: #EFF0F7;
+  --surface-container-high: #E9EAF1;
+  --surface-container-highest: #E3E4EB;
+
+  /* glass / scrollbar / selection / grid */
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --scrollbar-thumb: #C4C6CF;
+  --scrollbar-track: #F5F3FB;
+  --selection-bg: rgba(0, 88, 202, 0.18);
+  --selection-color: #1A1C20;
+  --grid-color: rgba(26, 28, 32, 0.04);
+  --logo-primary: #1A1C20;
+  --logo-secondary: #0058CA;
 }
 
 /* Force a section or page to render in the light palette regardless of the
    app-wide theme toggle. Used on the marketing landing (login) where the
    intentional light/dark section rhythm would otherwise collapse. */
 .force-light {
-  --background: #FFFFFF;
-  --foreground: #1C1C1C;
-  --surface: #FFFFFF;
-  --surface-hover: #FAF9F6;
-  --surface-active: #F5F2E8;
-  --border: #EDE7D3;
-  --border-subtle: #E5E7EB;
-  --accent: #D4AF37;
-  --accent-foreground: #171717;
-  --accent-hover: #B8962E;
-  --accent-glow: rgba(212, 175, 55, 0.12);
-  --text-primary: #1C1C1C;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
-  --success: #2E7D5B;
-  --warning: #C7882E;
-  --danger: #9B2C2C;
+  --background: #FDFBFF;
+  --foreground: #1A1C20;
+  --surface: #FDFBFF;
+  --surface-hover: #F5F3FB;
+  --surface-active: #EFF0F7;
+  --border: #C4C6CF;
+  --border-subtle: #E3E4EB;
+  --accent: #0058CA;
+  --accent-foreground: #FFFFFF;
+  --accent-hover: #00429B;
+  --accent-glow: rgba(0, 88, 202, 0.14);
+  --text-primary: #1A1C20;
+  --text-secondary: #44474F;
+  --text-muted: #74777F;
+  --success: #006C4E;
+  --warning: #8A4B2F;
+  --danger: #BA1A1A;
   --info: #475569;
-  --input: #E5E7EB;
-  --ring: #D4AF37;
-  --muted-foreground: #6B7280;
+  --input: #E3E4EB;
+  --ring: #0058CA;
+  --muted-foreground: #44474F;
 
-  --paper: #FFFFFF;
-  --ivory: #FAF9F6;
-  --parchment: #F5F2E8;
-  --charcoal: #1C1C1C;
-  --slate: #6B7280;
-  --ash: #9CA3AF;
-  --hairline: #EDE7D3;
-  --divider: #E5E7EB;
-  --gold: #D4AF37;
-  --gold-deep: #B8962E;
-  --gold-ink: #8C6F1E;
-  --gold-tint: #F5E7B5;
-  --emerald: #2E7D5B;
-  --bronze-warn: #C7882E;
-  --amber-flame: #E07A1F;
-  --burgundy: #9B2C2C;
+  --paper: #FDFBFF;
+  --ivory: #F5F3FB;
+  --parchment: #EFF0F7;
+  --charcoal: #1A1C20;
+  --slate: #44474F;
+  --ash: #74777F;
+  --hairline: #C4C6CF;
+  --divider: #E3E4EB;
+  --gold: #0058CA;
+  --gold-deep: #00429B;
+  --gold-ink: #001A43;
+  --gold-tint: #D9E2FF;
+  --emerald: #006C4E;
+  --bronze-warn: #8A4B2F;
+  --amber-flame: #B1480E;
+  --burgundy: #BA1A1A;
   --steel: #475569;
 
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(28, 28, 28, 0.06);
-  --selection-bg: rgba(212, 175, 55, 0.22);
-  --selection-color: #1C1C1C;
-  --logo-primary: #1C1C1C;
-  --logo-secondary: #B8962E;
+  --primary: #0058CA;
+  --on-primary: #FFFFFF;
+  --primary-container: #D9E2FF;
+  --on-primary-container: #001A43;
+  --secondary: #006C4E;
+  --on-secondary: #FFFFFF;
+  --secondary-container: #8FF8C4;
+  --on-secondary-container: #002114;
+  --tertiary: #8F4C34;
+  --on-tertiary: #FFFFFF;
+  --tertiary-container: #FFDBCA;
+  --on-tertiary-container: #341100;
+  --error: #BA1A1A;
+  --on-error: #FFFFFF;
+  --error-container: #FFDAD6;
+  --on-error-container: #410002;
+  --on-surface: #1A1C20;
+  --on-surface-variant: #44474F;
+  --outline: #74777F;
+  --outline-variant: #C4C6CF;
+  --surface-container-lowest: #FFFFFF;
+  --surface-container-low: #F5F3FB;
+  --surface-container: #EFF0F7;
+  --surface-container-high: #E9EAF1;
+  --surface-container-highest: #E3E4EB;
+
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --selection-bg: rgba(0, 88, 202, 0.18);
+  --selection-color: #1A1C20;
+  --logo-primary: #1A1C20;
+  --logo-secondary: #0058CA;
 }
 
 .dark {
@@ -164,58 +254,85 @@
      Both the legacy aliases AND the new canonical tokens flip together so
      inherited pages and rebuilt pages read as one product in dark mode. */
 
-  /* legacy aliases — repointed at the new dark palette (was slate/blue) */
-  --background: #0F0F0F;          /* paper */
-  --foreground: #F5F2E8;          /* warm off-white */
-  --surface: #0F0F0F;
-  --surface-hover: #161616;       /* ivory-dark */
-  --surface-active: #1E1E1E;      /* parchment-dark */
-  --border: #2A2520;              /* warm hairline */
-  --border-subtle: #2F2F32;       /* cool divider */
-  --accent: #D4AF37;              /* gold — same */
-  --accent-foreground: #0a0a0a;
-  --accent-hover: #E5C458;        /* brighter gold for hover on dark */
-  --accent-glow: rgba(212, 175, 55, 0.20);
-  --text-primary: #F5F2E8;
-  --text-secondary: #A1A1A6;      /* slate-dark */
-  --text-muted: #6B6B6F;          /* ash-dark */
-  --success: #5BB088;             /* emerald-dark */
-  --warning: #E5A553;             /* bronze-warn-dark */
-  --danger: #D66060;              /* burgundy-dark */
-  --info: #94A3B8;                /* steel-dark */
+  /* ===== Material-3 DARK scheme (from the supplied mockup) ===== */
+  --background: #10131B;          /* surface */
+  --foreground: #E1E2ED;          /* on-surface */
+  --surface: #10131B;
+  --surface-hover: #191B23;       /* surface-container-low */
+  --surface-active: #1D1F27;      /* surface-container */
+  --border: #424654;             /* outline-variant */
+  --border-subtle: #2F2F32;
+  --accent: #B0C6FF;             /* primary */
+  --accent-foreground: #002D6E;  /* on-primary */
+  --accent-hover: #CDD9FF;
+  --accent-glow: rgba(176, 198, 255, 0.22);
+  --text-primary: #E1E2ED;
+  --text-secondary: #C2C6D7;      /* on-surface-variant */
+  --text-muted: #8C90A0;          /* outline */
+  --success: #4EDEA3;            /* secondary */
+  --warning: #FFB690;            /* tertiary */
+  --danger: #FFB4AB;             /* error */
+  --info: #94A3B8;
   --input: #2F2F32;
-  --ring: #D4AF37;
-  --muted-foreground: #A1A1A6;
+  --ring: #B0C6FF;
+  --muted-foreground: #C2C6D7;
 
-  /* canonical tokens — flipped for dark */
-  --paper: #0F0F0F;
-  --ivory: #161616;
-  --parchment: #1E1E1E;
-  --charcoal: #F5F2E8;
-  --slate: #A1A1A6;
-  --ash: #6B6B6F;
-  --hairline: #2A2520;
-  --divider: #2F2F32;
-  --gold: #D4AF37;
-  --gold-deep: #E5C458;            /* hover brighter in dark */
-  --gold-ink: #F5E7B5;             /* on-dark-gold text (inverted) */
-  --gold-tint: #3A2F10;            /* dark warm-gold subtle bg (inverted) */
-  --emerald: #5BB088;
-  --bronze-warn: #E5A553;
-  --amber-flame: #F08A3A;
-  --burgundy: #D66060;
+  /* canonical token names kept; values remapped to M3 dark */
+  --paper: #10131B;
+  --ivory: #191B23;
+  --parchment: #1D1F27;
+  --charcoal: #E1E2ED;
+  --slate: #C2C6D7;
+  --ash: #8C90A0;
+  --hairline: #424654;
+  --divider: #32353D;
+  --gold: #B0C6FF;               /* primary (brand) */
+  --gold-deep: #CDD9FF;
+  --gold-ink: #8AB4FF;
+  --gold-tint: #1B2740;          /* deep primary-tinted surface */
+  --emerald: #4EDEA3;            /* secondary */
+  --bronze-warn: #FFB690;        /* tertiary */
+  --amber-flame: #FF8A50;
+  --burgundy: #FFB4AB;           /* error */
   --steel: #94A3B8;
 
+  /* Material-3 role tokens */
+  --primary: #B0C6FF;
+  --on-primary: #002D6E;
+  --primary-container: #558DFF;
+  --on-primary-container: #002761;
+  --secondary: #4EDEA3;
+  --on-secondary: #003824;
+  --secondary-container: #00A572;
+  --on-secondary-container: #00311F;
+  --tertiary: #FFB690;
+  --on-tertiary: #542100;
+  --tertiary-container: #E86D17;
+  --on-tertiary-container: #4A1C00;
+  --error: #FFB4AB;
+  --on-error: #690005;
+  --error-container: #93000A;
+  --on-error-container: #FFDAD6;
+  --on-surface: #E1E2ED;
+  --on-surface-variant: #C2C6D7;
+  --outline: #8C90A0;
+  --outline-variant: #424654;
+  --surface-container-lowest: #0B0E15;
+  --surface-container-low: #191B23;
+  --surface-container: #1D1F27;
+  --surface-container-high: #272A32;
+  --surface-container-highest: #32353D;
+
   /* glass / scrollbar / selection / grid — dark tuning */
-  --glass-bg: rgba(15, 15, 15, 0.7);
-  --glass-border: rgba(245, 242, 232, 0.06);
-  --scrollbar-thumb: #2A2520;
-  --scrollbar-track: #0F0F0F;
-  --selection-bg: rgba(212, 175, 55, 0.30);
-  --selection-color: #F5F2E8;
-  --grid-color: rgba(245, 242, 232, 0.03);
-  --logo-primary: #F5F2E8;
-  --logo-secondary: #E5C458;
+  --glass-bg: rgba(28, 31, 38, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb: #32353D;
+  --scrollbar-track: #10131B;
+  --selection-bg: rgba(176, 198, 255, 0.30);
+  --selection-color: #E1E2ED;
+  --grid-color: rgba(225, 226, 237, 0.03);
+  --logo-primary: #E1E2ED;
+  --logo-secondary: #B0C6FF;
 }
 
 * {
@@ -253,11 +370,73 @@ body {
   background-clip: text;
 }
 
+/* ── Material-3 surfaces (rebranded hub) ──────────────────────────────────── */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+.vibrant-glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.vibrant-glass:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
 .bg-grid {
   background-image:
     linear-gradient(var(--grid-color) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
   background-size: 40px 40px;
+}
+
+/* ── Ambient dashboard atmosphere ──────────────────────────────────────────
+   Layered radial "spotlights" used as a decorative backdrop behind the project
+   hub. Theme-aware: brighter / cooler in dark to read as premium dark-luxury,
+   whisper-soft over the cream canvas in light. Paired with .hub-drift for a
+   very slow parallax (disabled under prefers-reduced-motion via the global
+   rule below). */
+.hub-ambient {
+  background:
+    radial-gradient(55% 45% at 12% 0%, rgba(212, 175, 55, 0.10), transparent 60%),
+    radial-gradient(45% 40% at 100% 6%, rgba(71, 85, 105, 0.08), transparent 60%),
+    radial-gradient(45% 45% at 85% 100%, rgba(184, 150, 46, 0.06), transparent 62%);
+}
+.dark .hub-ambient {
+  background:
+    radial-gradient(58% 48% at 12% 0%, rgba(212, 175, 55, 0.16), transparent 60%),
+    radial-gradient(52% 46% at 100% 4%, rgba(120, 140, 185, 0.13), transparent 60%),
+    radial-gradient(50% 46% at 85% 100%, rgba(229, 196, 88, 0.10), transparent 62%);
+}
+@keyframes hub-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-2%, 1.6%, 0) scale(1.06); }
+}
+.hub-drift {
+  animation: hub-drift 26s ease-in-out infinite;
+  will-change: transform;
 }
 
 * {
