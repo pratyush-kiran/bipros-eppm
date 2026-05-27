@@ -35,6 +35,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but commit .env.production: it holds only the non-secret NEXT_PUBLIC_BASE_PATH
+# so production builds bake in the right base path without a manual build-time env.
+!.env.production
 
 # vercel
 .vercel
