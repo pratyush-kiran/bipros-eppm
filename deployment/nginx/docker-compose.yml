@@ -1,0 +1,25 @@
+# Standalone nginx reverse proxy that serves the Bipros frontend under /v2.
+#
+# The frontend itself is NOT in this stack — run it separately (next build &&
+# next start, or its own container) and point conf.d/bipros.conf's upstream at
+# it. This compose only stands up the proxy.
+#
+#   docker compose -f deployment/nginx/docker-compose.yml up -d
+#   docker compose -f deployment/nginx/docker-compose.yml down
+#
+# After editing conf.d/bipros.conf:
+#   docker exec bipros-nginx nginx -t && docker exec bipros-nginx nginx -s reload
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: bipros-nginx
+    restart: unless-stopped
+    ports:
+      - "4001:80"                       # public entrypoint → https://<host>:4001/v2/
+    volumes:
+      - ./conf.d:/etc/nginx/conf.d:ro
+    extra_hosts:
+      # lets the container reach `next start` running on the Docker host
+      # (used by the host.docker.internal upstream in conf.d/bipros.conf)
+      - "host.docker.internal:host-gateway"
