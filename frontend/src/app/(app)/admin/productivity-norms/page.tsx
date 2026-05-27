@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Trash2 } from "lucide-react";
+import { Info, Pencil, Trash2, X } from "lucide-react";
 import {
   productivityNormApi,
   type ProductivityNormResponse,
@@ -123,6 +123,15 @@ function groupNormsByScope(
     .map(([key, value]) => ({ key, ...value }));
 }
 
+function FieldHint({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-1.5 flex gap-2 rounded-md border-l-2 border-info/40 bg-info/5 px-2.5 py-1.5">
+      <Info size={13} className="mt-0.5 flex-shrink-0 text-info/70" strokeWidth={1.75} />
+      <p className="text-xs leading-relaxed text-text-secondary">{children}</p>
+    </div>
+  );
+}
+
 function ScopeBadge({ norm }: { norm: ProductivityNormResponse }) {
   if (norm.roleId) {
     const isVariant = !!(norm.categoryId || norm.gradeId || norm.make || norm.model);
@@ -168,6 +177,23 @@ export default function ProductivityNormsPage() {
     },
     [fieldErrors],
   );
+
+  const cancelForm = useCallback(() => {
+    setShowForm(false);
+    setEditingId(null);
+    setFormData(initialFormState);
+    setError(null);
+    setFieldErrors({});
+  }, []);
+
+  useEffect(() => {
+    if (!showForm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelForm();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showForm, cancelForm]);
 
   const queryClient = useQueryClient();
 
@@ -276,18 +302,7 @@ export default function ProductivityNormsPage() {
       fuelLitresPerHour: norm.fuelLitresPerHour?.toString() ?? "",
       remarks: norm.remarks ?? "",
     });
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
   }, []);
-
-  const cancelForm = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setFormData(initialFormState);
-    setError(null);
-    setFieldErrors({});
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -637,18 +652,46 @@ export default function ProductivityNormsPage() {
           </button>
         </div>
 
-        {error && (
+        {error && !showForm && (
           <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
             {error}
           </div>
         )}
 
         {showForm && (
-          <form
-            onSubmit={handleSubmit}
-            className="bg-surface/50 p-4 rounded-lg border border-border mb-6 shadow-xl"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <>
+            <div
+              className="fixed inset-0 z-30 bg-black/50"
+              onClick={cancelForm}
+              aria-hidden="true"
+            />
+            <aside
+              className="fixed right-0 top-0 z-40 flex h-screen w-full flex-col border-l border-border bg-surface shadow-xl md:w-[720px] lg:w-[880px]"
+              role="dialog"
+              aria-modal="true"
+              aria-label={editingId ? "Edit Productivity Norm" : "New Productivity Norm"}
+            >
+              <header className="flex items-center justify-between border-b border-border px-5 py-3">
+                <h2 className="text-base font-semibold text-text-primary">
+                  {editingId ? "Edit Productivity Norm" : "New Productivity Norm"}
+                </h2>
+                <button
+                  type="button"
+                  onClick={cancelForm}
+                  aria-label="Close"
+                  className="rounded-md p-1 text-text-secondary hover:bg-surface-active hover:text-text-primary"
+                >
+                  <X size={16} />
+                </button>
+              </header>
+              <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-5 py-4">
+                  {error && (
+                    <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+                      {error}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1 text-text-secondary">
                   Work Activity <span className="text-danger">*</span>
@@ -675,14 +718,14 @@ export default function ProductivityNormsPage() {
                 {fieldErrors.workActivityId && (
                   <p className="mt-1 text-xs text-danger">{fieldErrors.workActivityId}</p>
                 )}
-                <p className="text-xs text-text-muted mt-1">
+                <FieldHint>
                   Pick from the master library at <em>Admin → Work Activities</em>. The same activity
                   can carry different norms per resource type or specific resource.
-                </p>
+                </FieldHint>
                 {activities.length === 0 && (
-                  <p className="text-xs text-text-muted mt-1">
+                  <FieldHint>
                     No activities yet — create one in <em>Admin → Work Activities</em> first.
-                  </p>
+                  </FieldHint>
                 )}
               </div>
 
@@ -738,13 +781,13 @@ export default function ProductivityNormsPage() {
                     Unscoped (any role on this activity)
                   </label>
                 </div>
-                <p className="text-xs text-text-muted mb-2">
+                <FieldHint>
                   <strong>Variant</strong> targets a specific role + (skill/grade for manpower
                   · make/model for equipment). <strong>Role</strong> applies to any variant of
                   that role. <strong>Unscoped</strong> falls through to any resource on the
                   activity. At runtime the lookup chain is{" "}
                   <code className="px-1 bg-surface/50 rounded">variant → role → unscoped</code>.
-                </p>
+                </FieldHint>
                 {(formData.scope === "VARIANT" || formData.scope === "ROLE") && (
                   <>
                     <select
@@ -837,10 +880,12 @@ export default function ProductivityNormsPage() {
                   </div>
                 )}
                 {formData.scope === "UNSCOPED" && (
-                  <p className="text-xs text-text-muted italic">
-                    No role binding — falls through as the final tier of the resolver chain. The
-                    102 legacy norms imported from the seed workbook live in this bucket.
-                  </p>
+                  <FieldHint>
+                    <em>
+                      No role binding — falls through as the final tier of the resolver chain. The
+                      102 legacy norms imported from the seed workbook live in this bucket.
+                    </em>
+                  </FieldHint>
                 )}
               </div>
 
@@ -856,10 +901,10 @@ export default function ProductivityNormsPage() {
                     className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
                     placeholder='e.g. "JCB 210 (1.0 Cum Bucket)"'
                   />
-                  <p className="text-xs text-text-muted mt-1">
+                  <FieldHint>
                     Free-text description of the make / model / capacity. Useful when multiple
                     equipment types share the same Resource Type.
-                  </p>
+                  </FieldHint>
                 </div>
               )}
               <div>
@@ -888,21 +933,24 @@ export default function ProductivityNormsPage() {
                 {fieldErrors.unit && (
                   <p className="mt-1 text-xs text-danger">{fieldErrors.unit}</p>
                 )}
-                <p className="text-xs text-text-muted mt-1">
+                <FieldHint>
                   Auto-fills from the selected Work Activity. Same dropdown the DPR form uses, so
                   the values stay consistent. Override only if this norm uses a different unit
                   from the activity master.
-                </p>
+                </FieldHint>
               </div>
 
               {tab === "MANPOWER" ? (
                 <>
-                  <div className="md:col-span-2 p-3 rounded-lg bg-info/5 border border-info/20 text-xs text-text-muted">
-                    Fill <strong>Output per Man per Day</strong> + <strong>Crew Size</strong> to
-                    describe the standard gang. <strong>Output per Day</strong> is the gang&apos;s
-                    combined output (= Output/Man × Crew Size). Leave it blank in the typical case;
-                    fill it only when you want to pin a specific gang output that doesn&apos;t match
-                    the multiplication.
+                  <div className="md:col-span-2 flex gap-2.5 p-3 rounded-lg bg-info/5 border border-info/20 text-xs text-text-secondary">
+                    <Info size={15} className="mt-0.5 flex-shrink-0 text-info/70" strokeWidth={1.75} />
+                    <p className="leading-relaxed">
+                      Fill <strong>Output per Man per Day</strong> + <strong>Crew Size</strong> to
+                      describe the standard gang. <strong>Output per Day</strong> is the gang&apos;s
+                      combined output (= Output/Man × Crew Size). Leave it blank in the typical case;
+                      fill it only when you want to pin a specific gang output that doesn&apos;t match
+                      the multiplication.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1 text-text-secondary">
@@ -917,13 +965,13 @@ export default function ProductivityNormsPage() {
                       }
                       className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
                     />
-                    <p className="text-xs text-text-muted mt-1">
+                    <FieldHint>
                       What ONE worker produces in a normal 8-hour day. e.g. 2.5 Cum/day for hand
                       excavation, 12 Sqm/day for 12 mm plastering. CPWD / IS-7272 lists baseline
                       values; calibrate against your own daily-output history once you have data —
                       Indian site studies show real productivity typically runs 55–77% of CPWD
                       figures.
-                    </p>
+                    </FieldHint>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1 text-text-secondary">
@@ -936,10 +984,10 @@ export default function ProductivityNormsPage() {
                       onChange={(e) => setFormData({ ...formData, crewSize: e.target.value })}
                       className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
                     />
-                    <p className="text-xs text-text-muted mt-1">
+                    <FieldHint>
                       Standard gang size for this activity. e.g. 4 (1 mason + 3 helpers) for brick
                       masonry, 2 (1 fitter + 1 helper) for bar bending.
-                    </p>
+                    </FieldHint>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1 text-text-secondary">
@@ -952,19 +1000,22 @@ export default function ProductivityNormsPage() {
                       onChange={(e) => setFormData({ ...formData, outputPerDay: e.target.value })}
                       className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
                     />
-                    <p className="text-xs text-text-muted mt-1">
+                    <FieldHint>
                       Leave blank to imply (Output per Man per Day) × (Crew Size). Fill only when
                       the actual gang output differs from that multiplication.
-                    </p>
+                    </FieldHint>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="md:col-span-2 p-3 rounded-lg bg-info/5 border border-info/20 text-xs text-text-muted">
-                    Enter the daily norm directly (e.g. 4 000 Sqm/Day for a Bull Dozer). The
-                    per-hour breakdown below is optional — the server uses{" "}
-                    <code className="px-1 bg-surface/50 rounded">outputPerDay</code> when
-                    supplied; otherwise it derives it from <em>per-hour × working hours</em>.
+                  <div className="md:col-span-2 flex gap-2.5 p-3 rounded-lg bg-info/5 border border-info/20 text-xs text-text-secondary">
+                    <Info size={15} className="mt-0.5 flex-shrink-0 text-info/70" strokeWidth={1.75} />
+                    <p className="leading-relaxed">
+                      Enter the daily norm directly (e.g. 4 000 Sqm/Day for a Bull Dozer). The
+                      per-hour breakdown below is optional — the server uses{" "}
+                      <code className="px-1 bg-surface/50 rounded">outputPerDay</code> when
+                      supplied; otherwise it derives it from <em>per-hour × working hours</em>.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1 text-text-secondary">
@@ -1035,22 +1086,25 @@ export default function ProductivityNormsPage() {
                 />
               </div>
             </div>
-            <div className="flex gap-2 mt-4">
-              <button
-                type="submit"
-                className="px-4 py-2 bg-green-600 text-text-primary rounded-lg hover:bg-green-600"
-              >
-                {editingId ? "Update Norm" : "Save Norm"}
-              </button>
-              <button
-                type="button"
-                onClick={cancelForm}
-                className="px-4 py-2 bg-surface-active/50 text-text-secondary rounded-lg hover:bg-border"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+                </div>
+                <div className="flex justify-end gap-2 border-t border-border bg-surface px-5 py-3">
+                  <button
+                    type="button"
+                    onClick={cancelForm}
+                    className="px-4 py-2 bg-surface-active/50 text-text-secondary rounded-lg hover:bg-border"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-green-600 text-text-primary rounded-lg hover:bg-green-600"
+                  >
+                    {editingId ? "Update Norm" : "Save Norm"}
+                  </button>
+                </div>
+              </form>
+            </aside>
+          </>
         )}
 
         {/* Norms — grouped by scope (Resource Type / Specific Resource) so the layout mirrors
