@@ -45,7 +45,7 @@ export function RecentProjectsStrip() {
             href={`/projects/${p.id}`}
             data-testid="mc-recent-project"
             data-project-id={p.id}
-            className="group flex items-center gap-3 rounded-2xl border border-hairline bg-paper px-4 py-3.5 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[0_10px_28px_-16px_rgba(212,175,55,0.3)]"
+            className="group flex items-center gap-3 rounded-2xl border border-hairline bg-paper px-4 py-3.5 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/40 hover:shadow-[0_10px_28px_-16px_rgba(0,88,202,0.3)]"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-hairline bg-ivory/50 text-gold-deep">
               <FolderTree size={16} strokeWidth={1.75} />

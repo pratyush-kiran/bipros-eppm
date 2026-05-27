@@ -23,7 +23,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-ivory">
-      <div className="sticky top-0 z-30">
+      {/* z-40 (not z-30) so the global header's stacking context sits above the project
+          SectionContextBar (sticky z-30). They previously tied at z-30, and DOM order let the
+          later section bar win — which trapped the header's UserMenu dropdown (z-40, but confined
+          inside this wrapper's context) behind it. Stays below modals/drawers/palette at z-50+. */}
+      <div className="sticky top-0 z-40">
         <Header />
       </div>
       <main className="bg-ivory">

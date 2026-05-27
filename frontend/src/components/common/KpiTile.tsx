@@ -50,11 +50,11 @@ const stripeTone: Record<Tone, string> = {
 };
 
 const hoverTone: Record<Tone, string> = {
-  default: "hover:border-gold/30 hover:shadow-[0_8px_20px_-10px_rgba(212,175,55,0.25)]",
+  default: "hover:border-gold/30 hover:shadow-[0_8px_20px_-10px_rgba(0,88,202,0.25)]",
   success: "hover:shadow-[0_8px_20px_-10px_rgba(46,125,91,0.30)]",
   warning: "hover:shadow-[0_8px_20px_-10px_rgba(224,122,31,0.30)]",
   danger: "hover:shadow-[0_8px_20px_-10px_rgba(155,44,44,0.28)]",
-  accent: "hover:shadow-[0_8px_20px_-10px_rgba(212,175,55,0.30)]",
+  accent: "hover:shadow-[0_8px_20px_-10px_rgba(0,88,202,0.30)]",
 };
 
 export function KpiTile({ label, value, hint, tone = "default", icon, delta }: KpiTileProps) {

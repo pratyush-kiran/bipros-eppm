@@ -149,7 +149,7 @@ export default function QcProjectPicker() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-[10px] border border-hairline bg-paper pl-3.5 pr-8 text-sm font-medium text-charcoal focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+          className="h-10 rounded-[10px] border border-hairline bg-paper pl-3.5 pr-8 text-sm font-medium text-charcoal focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,88,202,0.18)]"
         >
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>{s === "All" ? "All statuses" : s}</option>
@@ -158,7 +158,7 @@ export default function QcProjectPicker() {
         <select
           value={priorityFilter}
           onChange={(e) => setPriorityFilter(e.target.value)}
-          className="h-10 rounded-[10px] border border-hairline bg-paper pl-3.5 pr-8 text-sm font-medium text-charcoal focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+          className="h-10 rounded-[10px] border border-hairline bg-paper pl-3.5 pr-8 text-sm font-medium text-charcoal focus:border-gold focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,88,202,0.18)]"
         >
           {PRIORITY_OPTIONS.map((p) => (
             <option key={p} value={p}>

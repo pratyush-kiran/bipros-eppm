@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/lib/providers";
 import { AppToaster } from "@/components/common/Toaster";
@@ -34,6 +35,16 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+// Self-hosted Material Symbols icon font. Loading it via next/font/local means
+// Next serves it from /_next/static/media (basePath-prefixed automatically), so
+// there's no hardcoded path to keep in sync with the base path.
+const materialSymbols = localFont({
+  src: "../../public/fonts/material-symbols-outlined.woff2",
+  variable: "--font-material-symbols",
+  display: "block",
+  weight: "100 700",
+});
+
 export const metadata: Metadata = {
   title: "Bipros EPPM",
   description: "Enterprise Project Portfolio Management System",
@@ -45,7 +56,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} ${materialSymbols.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="h-full bg-background text-foreground">

@@ -187,7 +187,7 @@ export default function ProfilesPage() {
         actions={
           <Link
             href="/admin/profiles/new"
-            className="inline-flex items-center gap-2 rounded-md bg-gold px-3 py-2 text-sm font-semibold text-paper transition-all hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.3)]"
+            className="inline-flex items-center gap-2 rounded-md bg-gold px-3 py-2 text-sm font-semibold text-paper transition-all hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(0,88,202,0.3)]"
           >
             <Plus size={16} /> Create profile
           </Link>
@@ -207,7 +207,7 @@ export default function ProfilesPage() {
             onClick={() => setFilter(t.key)}
             className={`rounded-[10px] px-3.5 py-1.5 text-sm font-medium transition-colors ${
               filter === t.key
-                ? "bg-gold text-paper shadow-[0_4px_14px_rgba(212,175,55,0.3)]"
+                ? "bg-gold text-paper shadow-[0_4px_14px_rgba(0,88,202,0.3)]"
                 : "border border-hairline bg-paper text-charcoal hover:bg-ivory"
             }`}
           >

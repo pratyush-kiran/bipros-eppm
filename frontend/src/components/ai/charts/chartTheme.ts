@@ -19,23 +19,25 @@ export type ResolvedTokens = {
   textSecondary: string;
 };
 
+// Material-3 fallback (SSR / no-document only — readTokens() overrides with the
+// live CSS variables on the client, which carry the active theme).
 const FALLBACK: ResolvedTokens = {
-  gold: "#D4AF37",
-  goldDeep: "#B8962E",
-  goldInk: "#8C6F1E",
-  goldTint: "#F5E7B5",
-  emerald: "#2E7D5B",
-  bronzeWarn: "#C7882E",
-  amberFlame: "#E07A1F",
-  burgundy: "#9B2C2C",
-  steel: "#475569",
-  charcoal: "#1C1C1C",
-  slate: "#6B7280",
-  hairline: "#EDE7D3",
-  surface: "#FFFFFF",
-  gridColor: "rgba(28, 28, 28, 0.05)",
-  textPrimary: "#1C1C1C",
-  textSecondary: "#6B7280",
+  gold: "#B0C6FF",
+  goldDeep: "#CDD9FF",
+  goldInk: "#8AB4FF",
+  goldTint: "#1B2740",
+  emerald: "#4EDEA3",
+  bronzeWarn: "#FFB690",
+  amberFlame: "#FF8A50",
+  burgundy: "#FFB4AB",
+  steel: "#94A3B8",
+  charcoal: "#E1E2ED",
+  slate: "#C2C6D7",
+  hairline: "#424654",
+  surface: "#1D1F27",
+  gridColor: "rgba(225, 226, 237, 0.05)",
+  textPrimary: "#E1E2ED",
+  textSecondary: "#C2C6D7",
 };
 
 function readVar(root: HTMLElement, name: string, fallback: string): string {

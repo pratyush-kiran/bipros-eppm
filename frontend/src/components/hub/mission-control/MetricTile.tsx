@@ -41,7 +41,7 @@ export function MetricTile({
         toneRing[tone],
         tone !== "default" && "before:opacity-100",
         href &&
-          "transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_18px_42px_-18px_rgba(212,175,55,0.28)] cursor-pointer",
+          "transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_18px_42px_-18px_rgba(0,88,202,0.28)] cursor-pointer",
         className,
       )}
       data-testid={testid}

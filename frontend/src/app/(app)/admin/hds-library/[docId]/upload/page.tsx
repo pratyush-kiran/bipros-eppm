@@ -109,7 +109,7 @@ export default function HdsUploadPage() {
             className={cn(
               "relative cursor-pointer rounded-xl border-2 border-dashed p-10 text-center transition-all",
               dragOver
-                ? "border-gold bg-gold-tint/50 shadow-[0_0_0_3px_rgba(212,175,55,0.18)]"
+                ? "border-gold bg-gold-tint/50 shadow-[0_0_0_3px_rgba(0,88,202,0.18)]"
                 : file
                   ? "border-gold/60 bg-gold-tint/20"
                   : "border-divider bg-ivory/40 hover:border-gold-deep/50 hover:bg-ivory",

@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+/** Redirect to an in-app path, preserving the configured basePath by cloning
+ *  the basePath-aware nextUrl rather than building a bare `new URL`. */
+function redirectTo(request: NextRequest, pathname: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = '';
+  return NextResponse.redirect(url);
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -25,9 +34,15 @@ export function proxy(request: NextRequest) {
   const isPublicPage = pathname === '/welcome' || pathname.startsWith('/welcome/');
 
   if (!token && !isAuthPage && !isPublicPage) {
-    // Preserve where the user was trying to go so the login form can return them after auth.
+    // Preserve where the user was trying to go so the login form can return them
+    // after auth. `pathname` excludes the configured basePath, so `next` is the
+    // in-app path the login redirect re-prefixes via withBasePath().
     const next = pathname + (request.nextUrl.search || '');
-    const loginUrl = new URL('/auth/login', request.url);
+    // Clone nextUrl (not `new URL(..., request.url)`) so the basePath is kept on
+    // the redirect Location; a bare path would drop the /v2 prefix.
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/auth/login';
+    loginUrl.search = '';
     if (pathname !== '/' && !pathname.startsWith('/auth')) {
       loginUrl.searchParams.set('next', next);
     }
@@ -35,7 +50,10 @@ export function proxy(request: NextRequest) {
   }
 
   if (token && isAuthPage) {
-    return NextResponse.redirect(new URL('/', request.url));
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = '/';
+    homeUrl.search = '';
+    return NextResponse.redirect(homeUrl);
   }
 
   // Admin-area UX guard: decode the JWT payload (best-effort, no signature check — that's
@@ -55,10 +73,10 @@ export function proxy(request: NextRequest) {
         pathname,
         '- treating /admin as denied. Investigate token shape if this recurs.',
       );
-      return NextResponse.redirect(new URL('/forbidden', request.url));
+      return redirectTo(request, '/forbidden');
     }
     if (!roles.includes('ROLE_ADMIN')) {
-      return NextResponse.redirect(new URL('/forbidden', request.url));
+      return redirectTo(request, '/forbidden');
     }
   }
 
@@ -71,7 +89,7 @@ export function proxy(request: NextRequest) {
     if (required) {
       const perms = decodePermsFromJwt(token);
       if (perms === null || (!perms.has('*') && !perms.has(required))) {
-        return NextResponse.redirect(new URL('/forbidden', request.url));
+        return redirectTo(request, '/forbidden');
       }
     }
   }

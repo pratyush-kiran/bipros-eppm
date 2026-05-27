@@ -545,7 +545,7 @@ export default function ReportsPage() {
               onClick={
                 activeTab === "classic" ? exportCurrentReportCsv : () => toast("Use a Classic report to export CSV")
               }
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3.5 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(212,175,55,0.55)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3.5 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(0,88,202,0.55)]"
             >
               <Download size={14} strokeWidth={1.75} />
               Export
@@ -566,14 +566,14 @@ export default function ReportsPage() {
                 onClick={() => setActiveTab(t.id)}
                 className={`group relative flex items-start gap-3 overflow-hidden rounded-xl px-4 py-3 text-left transition-all duration-200 ${
                   isActive
-                    ? "bg-gradient-to-br from-gold-tint/60 via-paper to-paper ring-1 ring-gold/30 shadow-[0_4px_14px_-6px_rgba(212,175,55,0.35)]"
+                    ? "bg-gradient-to-br from-gold-tint/60 via-paper to-paper ring-1 ring-gold/30 shadow-[0_4px_14px_-6px_rgba(0,88,202,0.35)]"
                     : "hover:bg-ivory"
                 }`}
               >
                 <span
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors ${
                     isActive
-                      ? "border-gold/40 bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_10px_-4px_rgba(212,175,55,0.5)]"
+                      ? "border-gold/40 bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_10px_-4px_rgba(0,88,202,0.5)]"
                       : "border-hairline bg-ivory text-slate group-hover:text-gold-deep"
                   }`}
                 >
@@ -786,7 +786,7 @@ export default function ReportsPage() {
           {reportCards.map((card) => (
             <div
               key={card.id}
-              className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_12px_32px_-14px_rgba(212,175,55,0.25)]"
+              className="group relative overflow-hidden rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:border-gold/30 hover:shadow-[0_12px_32px_-14px_rgba(0,88,202,0.25)]"
             >
               <div className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full bg-gold/8 opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100" />
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-gold/25 bg-gradient-to-br from-gold-tint/60 to-paper text-gold-deep shadow-sm">
@@ -802,7 +802,7 @@ export default function ReportsPage() {
               <button
                 onClick={() => handleGenerateReport(card.id)}
                 disabled={generatingReport === card.id || !selectedProjectId}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-4 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(212,175,55,0.55)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-none disabled:bg-ivory disabled:text-slate disabled:shadow-none"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-4 py-2 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(0,88,202,0.55)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-none disabled:bg-ivory disabled:text-slate disabled:shadow-none"
               >
                 {generatingReport === card.id ? (
                   <>
@@ -849,7 +849,7 @@ export default function ReportsPage() {
               </button>
               <button
                 onClick={exportCurrentReportCsv}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3 py-1.5 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(212,175,55,0.55)]"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-3 py-1.5 text-xs font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(0,88,202,0.55)]"
               >
                 <Download size={12} />
                 Download CSV

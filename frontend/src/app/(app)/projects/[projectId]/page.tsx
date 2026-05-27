@@ -49,6 +49,7 @@ import type { ProjectResponse, ActivityResponse, WbsNodeResponse, BaselineRespon
 import type { WbsTemplateResponse } from "@/lib/types";
 import type { AxiosResponse } from "axios";
 import { useScheduleStaleStore } from "@/lib/state/scheduleStaleStore";
+import { ProjectHub } from "./_components/hub/ProjectHub";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -59,7 +60,7 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const projectId = params.projectId as string;
   const isUuid = UUID_REGEX.test(projectId);
-  const tab = searchParams.get("tab") || "overview";
+  const tab = searchParams.get("tab");
 
   // Redirect legacy activities tab to the dedicated activities page
   useEffect(() => {
@@ -86,7 +87,7 @@ export default function ProjectDetailPage() {
 
   // Redirect to UUID-based URL when code resolves
   if (!isUuid && codeResolveData) {
-    router.replace(`/projects/${codeResolveData.id}${tab !== "overview" ? `?tab=${tab}` : ""}`);
+    router.replace(`/projects/${codeResolveData.id}${tab ? `?tab=${tab}` : ""}`);
     return null;
   }
 
@@ -105,7 +106,7 @@ export default function ProjectDetailPage() {
   const { data: wbsData, isLoading: isLoadingWbs } = useQuery({
     queryKey: ["wbs", projectId],
     queryFn: () => projectApi.getWbsTree(projectId),
-    enabled: ["wbs", "activities"].includes(tab),
+    enabled: tab === "wbs" || tab === "activities",
   });
 
   const { data: criticalPathData } = useQuery({
@@ -351,6 +352,11 @@ export default function ProjectDetailPage() {
         )}
       </div>
     );
+  }
+
+  // Hub mode: no ?tab= param → render the new Project Hub
+  if (tab === null) {
+    return <ProjectHub projectId={projectId} />;
   }
 
   const tabTips: Record<string, { title: string; description: string; steps?: string[] }> = {

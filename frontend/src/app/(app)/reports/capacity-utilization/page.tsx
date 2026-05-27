@@ -130,7 +130,7 @@ export default function CapacityUtilizationReportPage() {
 
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_10px_-4px_rgba(212,175,55,0.5)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_10px_-4px_rgba(0,88,202,0.5)]">
             <FileSpreadsheet size={20} strokeWidth={1.75} />
           </div>
           <div>
@@ -201,7 +201,7 @@ export default function CapacityUtilizationReportPage() {
             type="button"
             onClick={handleDownload}
             disabled={!projectId || downloading}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-5 py-2.5 text-sm font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(212,175,55,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(212,175,55,0.55)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-5 py-2.5 text-sm font-semibold text-paper shadow-[0_4px_12px_-2px_rgba(0,88,202,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_18px_-4px_rgba(0,88,202,0.55)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             <Download size={16} strokeWidth={1.75} />
             {downloading ? "Generating…" : "Download Excel"}

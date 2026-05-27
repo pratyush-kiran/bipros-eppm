@@ -495,7 +495,7 @@ export function ScheduleVarianceSection({ projectId, baselineId }: Props) {
                 borderRadius: 8,
                 fontSize: 12,
               }}
-              cursor={{ fill: "rgba(212,175,55,0.06)" }}
+              cursor={{ fill: "rgba(0,88,202,0.06)" }}
             />
             <Bar dataKey="count" radius={[4, 4, 0, 0]}>
               {distribution.map((d) => (

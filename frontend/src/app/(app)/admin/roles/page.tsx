@@ -144,7 +144,7 @@ function RoleCard({ card }: { card: RoleCardData }) {
   return (
     <Link
       href={`/admin/roles/${encodeURIComponent(card.name)}`}
-      className="group relative flex flex-col gap-3 rounded-xl border border-hairline bg-paper p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gold hover:shadow-[0_4px_14px_rgba(212,175,55,0.18)]"
+      className="group relative flex flex-col gap-3 rounded-xl border border-hairline bg-paper p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gold hover:shadow-[0_4px_14px_rgba(0,88,202,0.18)]"
     >
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-display text-lg font-semibold leading-tight tracking-tight text-charcoal">

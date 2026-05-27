@@ -7,7 +7,7 @@ function Art({ children }: { children: React.ReactNode }) {
       <div
         aria-hidden
         className="absolute inset-0"
-        style={{ background: "radial-gradient(circle at 70% 30%, rgba(212,175,55,0.15), transparent 60%)" }}
+        style={{ background: "radial-gradient(circle at 70% 30%, rgba(0,88,202,0.15), transparent 60%)" }}
       />
       <svg width="90" height="60" viewBox="0 0 90 60" fill="none" stroke="currentColor" strokeWidth="1" className="relative z-10">
         {children}

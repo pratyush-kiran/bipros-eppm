@@ -58,7 +58,7 @@ export function SectionNav({ sections }: SectionNavProps) {
               onClick={() => jumpTo(s.id)}
               className={`group relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.1em] transition-all duration-200 ${
                 isActive
-                  ? "bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_12px_-4px_rgba(212,175,55,0.45)]"
+                  ? "bg-gradient-to-br from-gold to-gold-deep text-paper shadow-[0_4px_12px_-4px_rgba(0,88,202,0.45)]"
                   : "border border-transparent text-slate hover:border-hairline hover:bg-ivory hover:text-charcoal"
               }`}
             >

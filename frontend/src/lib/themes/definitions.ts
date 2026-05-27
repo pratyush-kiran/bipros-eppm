@@ -84,28 +84,30 @@ function makePalette(
 
 export const PREDEFINED_THEMES: ThemeDefinition[] = [
   {
+    // NOTE: id kept as "classic-gold" so existing stored/backend selections and
+    // the DEFAULT_THEME_ID still resolve — its palette is now Material-3.
     id: "classic-gold",
-    name: "Classic Gold",
-    description: "The original White & Gold identity.",
+    name: "Material 3",
+    description: "Material-3 dark-luxury identity (blue / green / orange).",
     borderRadius: 6,
     fontFamily: undefined,
     light: makePalette(
-      "#FFFFFF", "#FAF9F6", "#F5F2E8",
-      "#1C1C1C", "#6B7280", "#9CA3AF",
-      "#D4AF37", "#B8962E", "#8C6F1E", "#F5E7B5",
-      "#EDE7D3", "#E5E7EB",
-      "#2E7D5B", "#C7882E", "#9B2C2C", "#475569",
-      "#E07A1F",
-      "#1C1C1C", "#B8962E"
+      "#FDFBFF", "#F5F3FB", "#EFF0F7",
+      "#1A1C20", "#44474F", "#74777F",
+      "#0058CA", "#00429B", "#001A43", "#D9E2FF",
+      "#C4C6CF", "#E3E4EB",
+      "#006C4E", "#8A4B2F", "#BA1A1A", "#475569",
+      "#B1480E",
+      "#1A1C20", "#0058CA"
     ),
     dark: makePalette(
-      "#0F0F0F", "#161616", "#1E1E1E",
-      "#F5F2E8", "#A1A1A6", "#6B6B6F",
-      "#D4AF37", "#E5C458", "#F5E7B5", "#3A2F10",
-      "#2A2520", "#2F2F32",
-      "#5BB088", "#E5A553", "#D66060", "#94A3B8",
-      "#F08A3A",
-      "#F5F2E8", "#E5C458"
+      "#10131B", "#191B23", "#1D1F27",
+      "#E1E2ED", "#C2C6D7", "#8C90A0",
+      "#B0C6FF", "#CDD9FF", "#8AB4FF", "#1B2740",
+      "#424654", "#32353D",
+      "#4EDEA3", "#FFB690", "#FFB4AB", "#94A3B8",
+      "#FF8A50",
+      "#E1E2ED", "#B0C6FF"
     ),
   },
   {

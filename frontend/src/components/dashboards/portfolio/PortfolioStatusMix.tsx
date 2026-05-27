@@ -226,7 +226,7 @@ export function PortfolioStatusMix() {
               return (
                 <div
                   key={seg.key}
-                  className="rounded-lg border border-hairline bg-paper p-3 text-center transition-all hover:-translate-y-0.5 hover:border-gold/25 hover:shadow-[0_6px_16px_-10px_rgba(212,175,55,0.25)]"
+                  className="rounded-lg border border-hairline bg-paper p-3 text-center transition-all hover:-translate-y-0.5 hover:border-gold/25 hover:shadow-[0_6px_16px_-10px_rgba(0,88,202,0.25)]"
                 >
                   <div className="flex items-center justify-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate">
                     <span

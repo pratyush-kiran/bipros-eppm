@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TabTip } from "@/components/common/TabTip";
 import { hdsApi, type HdsDocument, type HdsVersion } from "@/lib/api/hdsApi";
+import { withBasePath } from "@/lib/basePath";
 
 interface PublicationRow extends HdsDocument {
   versionCount: number;
@@ -111,7 +112,7 @@ export default function HdsLibraryPage() {
           description="Add your first Highway Design Standard publication to get started."
           action={{
             label: "+ New publication",
-            onClick: () => (window.location.href = "/admin/hds-library/new"),
+            onClick: () => (window.location.href = withBasePath("/admin/hds-library/new")),
           }}
         />
       )}

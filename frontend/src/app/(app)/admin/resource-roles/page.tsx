@@ -301,7 +301,7 @@ export default function ResourceRolesPage() {
         </div>
         <button
           onClick={() => (showForm ? closeForm() : openCreate())}
-          className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-gold px-4 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.3)] hover:-translate-y-px"
+          className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-gold px-4 text-sm font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(0,88,202,0.3)] hover:-translate-y-px"
         >
           <Plus size={14} strokeWidth={2.5} />
           {showForm ? "Cancel" : "Add Role"}
@@ -316,7 +316,7 @@ export default function ResourceRolesPage() {
             onClick={() => setTypeFilter(t.key)}
             className={`rounded-[10px] px-3.5 py-1.5 text-sm font-medium transition-colors ${
               typeFilter === t.key
-                ? "bg-gold text-paper shadow-[0_4px_14px_rgba(212,175,55,0.3)]"
+                ? "bg-gold text-paper shadow-[0_4px_14px_rgba(0,88,202,0.3)]"
                 : "border border-hairline bg-paper text-charcoal hover:bg-ivory"
             }`}
           >

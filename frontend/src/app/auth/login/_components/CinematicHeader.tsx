@@ -15,7 +15,7 @@ export function CinematicHeader() {
           aria-hidden
           className="grid h-8 w-8 place-items-center rounded-md text-[13px] font-bold"
           style={{
-            background: "linear-gradient(180deg,#F4B36A,#C97A3A)",
+            background: "linear-gradient(180deg,#B0C6FF,#5E8BE0)",
             color: "#0B1224",
           }}
         >

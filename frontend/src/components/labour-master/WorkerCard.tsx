@@ -18,7 +18,7 @@ export function WorkerCard({ designation, onClick }: Props) {
     <button
       type="button"
       onClick={onClick ? () => onClick(designation) : undefined}
-      className={`group relative w-full overflow-hidden rounded-xl border bg-paper p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-12px_rgba(212,175,55,0.20)] ${accent.cardBorder}`}
+      className={`group relative w-full overflow-hidden rounded-xl border bg-paper p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_22px_-12px_rgba(0,88,202,0.20)] ${accent.cardBorder}`}
     >
       <div className={`pointer-events-none absolute inset-x-0 top-0 h-[3px] ${accent.stripe} opacity-70`} />
 

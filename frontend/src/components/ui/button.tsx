@@ -15,7 +15,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
       primary:
-        "bg-gold text-paper hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.30)] hover:-translate-y-px",
+        "bg-gold text-paper hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(0,88,202,0.30)] hover:-translate-y-px",
       secondary:
         "bg-paper text-gold-deep border-gold hover:bg-ivory hover:text-gold-ink hover:border-gold-deep",
       ghost:

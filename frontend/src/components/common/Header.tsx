@@ -77,13 +77,13 @@ export function Header() {
 
   return (
     <header className="relative flex h-16 items-center gap-5 border-b border-hairline bg-paper px-7">
-      {/* gold gradient hairline under header */}
+      {/* accent gradient hairline under header */}
       <div
         aria-hidden
         className="absolute inset-x-0 -bottom-px h-px"
         style={{
           background:
-            "linear-gradient(90deg, transparent, #D4AF37 20%, #D4AF37 80%, transparent)",
+            "linear-gradient(90deg, transparent, var(--accent) 20%, var(--accent) 80%, transparent)",
           opacity: 0.4,
         }}
       />
@@ -168,7 +168,7 @@ export function Header() {
         {canCreateProject && (
           <Link
             href="/projects/new"
-            className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-gold px-3.5 text-[13px] font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(212,175,55,0.3)] hover:-translate-y-px"
+            className="inline-flex h-10 items-center gap-1.5 rounded-[10px] bg-gold px-3.5 text-[13px] font-semibold text-paper transition-all duration-200 hover:bg-gold-deep hover:shadow-[0_4px_14px_rgba(0,88,202,0.3)] hover:-translate-y-px"
           >
             <Plus size={14} strokeWidth={2.5} />
             New project

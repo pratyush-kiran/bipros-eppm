@@ -18,6 +18,7 @@ import {
 import { resourceTypeApi } from "@/lib/api/resourceTypeApi";
 import { resourceRoleApi } from "@/lib/api/resourceRoleApi";
 import { calendarApi } from "@/lib/api/calendarApi";
+import { withBasePath } from "@/lib/basePath";
 import { manpowerCategoryMasterApi } from "@/lib/api/manpowerCategoryMasterApi";
 import { employmentTypeMasterApi } from "@/lib/api/employmentTypeMasterApi";
 import { skillMasterApi } from "@/lib/api/skillMasterApi";
@@ -461,7 +462,7 @@ export default function NewResourcePage() {
                 )}
                 <p className="mt-1 text-xs text-text-muted">
                   Required. Define roles in{" "}
-                  <a href="/admin/resource-roles" className="text-accent hover:underline">
+                  <a href={withBasePath("/admin/resource-roles")} className="text-accent hover:underline">
                     Resource Roles
                   </a>
                   .

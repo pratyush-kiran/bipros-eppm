@@ -9,6 +9,7 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/common/EmptyState";
+import { withBasePath } from "@/lib/basePath";
 import {
   hdsApi,
   type HdsDocument,
@@ -157,7 +158,7 @@ export default function HdsVersionsListPage() {
           action={{
             label: "+ Upload version",
             onClick: () =>
-              (window.location.href = `/admin/hds-library/${params.docId}/upload`),
+              (window.location.href = withBasePath(`/admin/hds-library/${params.docId}/upload`)),
           }}
         />
       )}
