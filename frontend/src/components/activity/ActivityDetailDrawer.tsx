@@ -136,6 +136,16 @@ function DrawerInner({
   });
 
   const isLocked = activity?.editStatus === "LOCKED";
+  const hasSupervisor =
+    (activity?.supervisors && activity.supervisors.length > 0) || !!activity?.supervisorUserId;
+
+  const handleLockClick = () => {
+    if (!hasSupervisor) {
+      toast.error("A supervisor must be assigned before locking this activity.");
+      return;
+    }
+    lockMutation.mutate();
+  };
 
   return (
     <>
@@ -152,9 +162,9 @@ function DrawerInner({
                 {!isLocked && (
                   <button
                     type="button"
-                    onClick={() => lockMutation.mutate()}
+                    onClick={handleLockClick}
                     disabled={lockMutation.isPending}
-                    title="Lock the resource plan. This is one-way — the plan can no longer be edited from this drawer."
+                    title={hasSupervisor ? "Lock the resource plan. This is one-way — the plan can no longer be edited from this drawer." : "Assign a supervisor before locking"}
                     className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs font-medium text-text-secondary hover:bg-surface-active disabled:opacity-60"
                   >
                     <Lock size={12} />

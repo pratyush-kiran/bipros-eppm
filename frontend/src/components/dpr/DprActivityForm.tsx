@@ -94,7 +94,6 @@ interface Props {
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
-const SUPERVISOR_OTHER = "__other__";
 
 const SIDE_OPTS: Array<{ value: Side; label: string }> = [
   { value: "LHS", label: "LHS" },
@@ -351,8 +350,7 @@ export function DprActivityForm({
     const s = stateRef.current;
     return {
       reportDate: s.reportDate,
-      supervisorUserId:
-        s.supervisorUserId === SUPERVISOR_OTHER ? null : s.supervisorUserId,
+      supervisorUserId: s.supervisorUserId,
       supervisorName: s.supervisorName,
       activityId: s.activityId,
       activityName: s.activityName,
@@ -443,29 +441,28 @@ export function DprActivityForm({
   const patch = (delta: Partial<FormState>) => setState((s) => ({ ...s, ...delta }));
 
   const supervisorPickerValue = state.supervisorUserId || "";
-  const supervisorIsOther = supervisorPickerValue === SUPERVISOR_OTHER;
 
   /**
    * Activities the currently selected supervisor co-supervises. If the user hasn't picked
-   * a supervisor — or picked the free-text "Other" — show the full list. If the picked
-   * supervisor has zero assigned activities, fall back to showing all (so the form stays
-   * usable when an admin/PM is filing on someone else's behalf).
+   * a supervisor, show the full list. If the picked supervisor has zero assigned activities,
+   * fall back to showing all (so the form stays usable when an admin/PM is filing on someone
+   * else's behalf).
    */
   const filteredActivityOptions = useMemo(() => {
-    if (!state.supervisorUserId || supervisorIsOther) return activityOptions;
+    if (!state.supervisorUserId) return activityOptions;
     const filtered = activityOptions.filter((a) => {
       const sups = supervisorsByActivityId.get(a.value) ?? [];
       return sups.some((s) => s.id === state.supervisorUserId);
     });
     return filtered.length === 0 ? activityOptions : filtered;
-  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
+  }, [activityOptions, state.supervisorUserId, supervisorsByActivityId]);
 
   const supervisorHasNoActivities = useMemo(() => {
-    if (!state.supervisorUserId || supervisorIsOther) return false;
+    if (!state.supervisorUserId) return false;
     return !activityOptions.some((a) =>
       (supervisorsByActivityId.get(a.value) ?? []).some((s) => s.id === state.supervisorUserId)
     );
-  }, [activityOptions, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
+  }, [activityOptions, state.supervisorUserId, supervisorsByActivityId]);
 
   /**
    * Inline mismatch when the picked supervisor isn't in the activity's supervisor set.
@@ -473,12 +470,12 @@ export function DprActivityForm({
    * can name them; null when the picked user IS one of them (or no check is needed).
    */
   const activitySupervisorMismatch = useMemo<string | null>(() => {
-    if (!state.activityId || !state.supervisorUserId || supervisorIsOther) return null;
+    if (!state.activityId || !state.supervisorUserId) return null;
     const sups = supervisorsByActivityId.get(state.activityId) ?? [];
     if (sups.length === 0) return null;
     if (sups.some((s) => s.id === state.supervisorUserId)) return null;
     return sups.map((s) => s.name).filter(Boolean).join(", ") || "another supervisor";
-  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
+  }, [state.activityId, state.supervisorUserId, supervisorsByActivityId]);
 
   /** Tab counters reflect rows that will actually be saved (FK picker filled).
    *  Role-only rows have variantId set instead of resourceAssignmentId. */
@@ -516,10 +513,10 @@ export function DprActivityForm({
   );
 
   const supervisorAutoFilled = useMemo(() => {
-    if (!state.activityId || !state.supervisorUserId || supervisorIsOther) return false;
+    if (!state.activityId || !state.supervisorUserId) return false;
     const sups = supervisorsByActivityId.get(state.activityId) ?? [];
     return sups.some((s) => s.id === state.supervisorUserId);
-  }, [state.activityId, state.supervisorUserId, supervisorIsOther, supervisorsByActivityId]);
+  }, [state.activityId, state.supervisorUserId, supervisorsByActivityId]);
 
   /**
    * Activity dropdown change: when rows already exist for the previous activity, prompt to clear
@@ -582,10 +579,6 @@ export function DprActivityForm({
   };
 
   const handleSupervisorChange = (value: string) => {
-    if (value === SUPERVISOR_OTHER) {
-      patch({ supervisorUserId: SUPERVISOR_OTHER, supervisorName: "" });
-      return;
-    }
     const match = supervisorOptions.find((s) => s.value === value);
     patch({ supervisorUserId: value || null, supervisorName: match?.label.split(" (")[0] ?? "" });
   };
@@ -613,10 +606,7 @@ export function DprActivityForm({
     if (!state.unit) return setError("Unit is required.");
     if (!state.qtyExecuted || state.qtyExecuted <= 0) return setError("Executed quantity must be > 0.");
 
-    const supervisorUserId =
-      state.supervisorUserId && state.supervisorUserId !== SUPERVISOR_OTHER
-        ? state.supervisorUserId
-        : null;
+    const supervisorUserId = state.supervisorUserId ?? null;
 
     // Drop skeleton rows where the user opened the tab but never picked a role.
     // Role-only model: a row is "real" if it has the variant FK set (manpowerRoleRateId for
@@ -767,21 +757,11 @@ export function DprActivityForm({
       <div className="grid gap-4 px-5 py-4 md:grid-cols-2">
         <Field label="Supervisor">
           <SearchableSelect
-            options={[...supervisorOptions, { value: SUPERVISOR_OTHER, label: "Other (free-text)" }]}
+            options={supervisorOptions}
             value={supervisorPickerValue}
             onChange={handleSupervisorChange}
             placeholder="Search supervisor…"
           />
-          {supervisorIsOther && (
-            <input
-              type="text"
-              value={state.supervisorName}
-              onChange={(e) => patch({ supervisorName: e.target.value })}
-              placeholder="Supervisor name"
-              className={`mt-2 ${inputCls}`}
-              required
-            />
-          )}
           {supervisorHasNoActivities && (
             <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate">
               <Info className="h-3 w-3" />

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from "@/lib/utils/error";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
@@ -10,6 +11,7 @@ import type { CreateCalendarRequest } from "@/lib/api/calendarApi";
 
 export default function NewCalendarPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState<CreateCalendarRequest & { code: string }>({
     code: "",
@@ -53,6 +55,7 @@ export default function NewCalendarPage() {
       const { code, ...submitData } = formData;
       const result = await calendarApi.createCalendar(submitData);
       if (result.data) {
+        await queryClient.invalidateQueries({ queryKey: ["calendars"] });
         router.push("/admin/calendars");
       }
     } catch (err: unknown) {

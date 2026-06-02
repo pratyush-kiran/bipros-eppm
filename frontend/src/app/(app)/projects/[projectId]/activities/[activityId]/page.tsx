@@ -356,6 +356,18 @@ export default function ActivityDetailPage() {
   // gate still applies — a viewer never gets to edit regardless of lock state.
   const isLocked = activity.editStatus === "LOCKED";
 
+  const hasSupervisor =
+    (activity.supervisors && activity.supervisors.length > 0) || !!activity.supervisorUserId;
+
+  const handleLockClick = () => {
+    if (!hasSupervisor) {
+      setError("A supervisor must be assigned to this activity before it can be locked.");
+      return;
+    }
+    setError("");
+    setLockConfirm("lock");
+  };
+
   return (
     <div>
       <PageHeader
@@ -391,10 +403,10 @@ export default function ActivityDetailPage() {
             {!isLocked && canLockActivity && (
               <button
                 type="button"
-                onClick={() => setLockConfirm("lock")}
+                onClick={handleLockClick}
                 disabled={lockMutation.isPending}
                 className="inline-flex items-center gap-1.5 rounded-md bg-warning px-3 py-2 text-sm font-medium text-text-primary hover:bg-warning/80 disabled:opacity-60"
-                title="Lock this activity so DPRs can be submitted against it"
+                title={hasSupervisor ? "Lock this activity so DPRs can be submitted against it" : "Assign a supervisor before locking"}
               >
                 <Lock size={14} />
                 {lockMutation.isPending ? "Locking…" : "Lock"}

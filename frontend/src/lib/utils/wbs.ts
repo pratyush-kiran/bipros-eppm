@@ -5,6 +5,8 @@ export interface FlatWbsNode {
   code: string;
   name: string;
   indent: string;
+  parentId: string | null;
+  wbsType: string | null;
 }
 
 export function flattenWbsNodes(
@@ -18,6 +20,8 @@ export function flattenWbsNodes(
       code: node.code,
       name: node.name,
       indent: "  ".repeat(level),
+      parentId: node.parentId,
+      wbsType: node.wbsType ?? null,
     });
     if (node.children && node.children.length > 0) {
       result.push(...flattenWbsNodes(node.children, level + 1));

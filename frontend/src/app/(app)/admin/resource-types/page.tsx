@@ -187,7 +187,7 @@ export default function ResourceTypesAdminPage() {
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <h1 className="text-3xl font-bold text-text-primary">Resource Types</h1>
-        <div className="ml-auto">
+        {/* <div className="ml-auto">
           <button
             type="button"
             onClick={openCreate}
@@ -195,7 +195,7 @@ export default function ResourceTypesAdminPage() {
           >
             + New Resource Type
           </button>
-        </div>
+        </div> */}
       </div>
 
       {error && <div className="text-danger mb-4">{error}</div>}

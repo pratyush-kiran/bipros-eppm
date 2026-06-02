@@ -100,8 +100,9 @@ export default function NewActivityPage() {
     label: u.employeeCode ? `${u.employeeCode} — ${u.name}` : u.name,
   }));
 
-  // Flatten WBS tree for dropdown
-  const flattenedWbs = flattenWbsNodes(wbsNodes);
+  // Flatten WBS tree for dropdown — exclude PROGRAMME nodes (project-level root) which
+  // represent the project itself and are not valid activity assignment targets.
+  const flattenedWbs = flattenWbsNodes(wbsNodes).filter((n) => n.wbsType !== "PROGRAMME");
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
