@@ -8,11 +8,27 @@ export function Brand() {
   const logoSrc = useActiveLogo();
   const appName = useAppName();
 
-  // A custom uploaded logo is a base64 data URL (often a wide wordmark), so it is
-  // rendered with its natural aspect ratio (w-auto) instead of being squashed into
-  // a square — and data: URLs must skip withBasePath. The built-in fallback logo
-  // keeps its compact square mark. The app-name text shows in both cases.
+  // A custom uploaded logo is a base64 data URL — a full wordmark that already
+  // contains the brand name. So when one is set we show the logo ALONE, a bit
+  // larger, and drop the "Bipros EPPM" text. With no custom logo we keep the
+  // default compact square mark + app-name text. (data: URLs skip withBasePath.)
   const isUploaded = logoSrc.startsWith("data:");
+
+  if (isUploaded) {
+    return (
+      <Link
+        href="/"
+        aria-label={`${appName.primary} home`}
+        className="group flex shrink-0 items-center rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
+      >
+        <img
+          src={logoSrc}
+          alt={appName.primary}
+          className="h-9 w-auto max-w-[200px] object-contain"
+        />
+      </Link>
+    );
+  }
 
   return (
     <Link
@@ -20,21 +36,13 @@ export function Brand() {
       aria-label={`${appName.primary} home`}
       className="group flex shrink-0 items-center gap-2.5 rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
     >
-      {isUploaded ? (
-        <img
-          src={logoSrc}
-          alt={appName.primary}
-          className="h-7 w-auto max-w-[120px] object-contain"
-        />
-      ) : (
-        <img
-          src={withBasePath(logoSrc)}
-          alt={appName.primary}
-          width={28}
-          height={28}
-          className="h-7 w-7 rounded-md object-contain"
-        />
-      )}
+      <img
+        src={withBasePath(logoSrc)}
+        alt={appName.primary}
+        width={28}
+        height={28}
+        className="h-7 w-7 rounded-md object-contain"
+      />
       <div className="hidden flex-col leading-none sm:flex">
         <span className="font-display text-[15px] font-semibold tracking-tight text-logo-primary transition-colors group-hover:text-gold-deep">
           {appName.primary}
