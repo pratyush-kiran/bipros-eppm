@@ -14,25 +14,26 @@ import {
   type CostVarianceActivityRow,
   type CostVarianceWbsRow,
 } from "@/lib/api/varianceReportApi";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 interface Props {
   projectId: string;
   baselineId?: string;
 }
 
-const ONE_CRORE = 10_000_000;
-
-function formatRupees(n: number | null | undefined, opts: { sign?: boolean } = {}): string {
+/**
+ * Per-currency compact money — INR uses ₹ k / Lakh / Crore (en-IN), every other
+ * currency uses K / M / B (en-US). Input is a RAW amount (already in the project
+ * currency). `sign` prepends "+" for positive values (e.g. variance display).
+ */
+function formatMoneyCompact(
+  n: number | null | undefined,
+  code: string,
+  opts: { sign?: boolean } = {},
+): string {
   if (n == null || !Number.isFinite(n)) return "—";
-  const abs = Math.abs(n);
-  let body: string;
-  if (abs >= ONE_CRORE) {
-    body = `₹${(n / ONE_CRORE).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} cr`;
-  } else if (abs >= 100_000) {
-    body = `₹${(n / 100_000).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
-  } else {
-    body = `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-  }
+  const body = formatMoney(n, { code }, { compact: true });
   if (opts.sign && n > 0) return `+${body}`;
   return body;
 }
@@ -80,6 +81,12 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
   const [showOnlyNonZero, setShowOnlyNonZero] = useState(false);
   const [overrunOnly, setOverrunOnly] = useState(false);
 
+  // Cost-variance amounts are RAW values; render them per-currency (₹ k/L/Cr for
+  // INR, K/M/B otherwise) instead of the old hardcoded rupee formatter. Optional
+  // hook + INR fallback so it is safe outside a project route. Display-only.
+  const cur = useProjectCurrencyOptional();
+  const moneyCode = cur?.code ?? "INR";
+
   const activityRows = useMemo(() => data?.data?.activityRows ?? [], [data]);
 
   const filtered = useMemo(() => {
@@ -122,7 +129,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         header: "Budget",
         cell: (info) => (
           <span className="block text-right text-charcoal tabular-nums">
-            {formatRupees(info.getValue() as number | null)}
+            {formatMoneyCompact(info.getValue() as number | null, moneyCode)}
           </span>
         ),
       },
@@ -131,7 +138,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         header: "Earned",
         cell: (info) => (
           <span className="block text-right text-charcoal tabular-nums">
-            {formatRupees(info.getValue() as number | null)}
+            {formatMoneyCompact(info.getValue() as number | null, moneyCode)}
           </span>
         ),
       },
@@ -140,7 +147,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         header: "Actual",
         cell: (info) => (
           <span className="block text-right text-charcoal tabular-nums">
-            {formatRupees(info.getValue() as number | null)}
+            {formatMoneyCompact(info.getValue() as number | null, moneyCode)}
           </span>
         ),
       },
@@ -155,7 +162,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
                 val != null ? -val : null
               )}`}
             >
-              {formatRupees(val, { sign: true })}
+              {formatMoneyCompact(val, moneyCode, { sign: true })}
             </span>
           );
         },
@@ -170,7 +177,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         ),
       },
     ],
-    []
+    [moneyCode]
   );
 
   const activityColumns = useMemo<ColumnDef<CostVarianceActivityRow>[]>(
@@ -221,7 +228,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         header: "BL planned",
         cell: (info) => (
           <span className="block text-right text-charcoal tabular-nums">
-            {formatRupees(info.getValue() as number | null)}
+            {formatMoneyCompact(info.getValue() as number | null, moneyCode)}
           </span>
         ),
       },
@@ -230,7 +237,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         header: "Cur planned",
         cell: (info) => (
           <span className="block text-right text-charcoal tabular-nums">
-            {formatRupees(info.getValue() as number | null)}
+            {formatMoneyCompact(info.getValue() as number | null, moneyCode)}
           </span>
         ),
       },
@@ -245,7 +252,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
                 val
               )}`}
             >
-              {formatRupees(val, { sign: true })}
+              {formatMoneyCompact(val, moneyCode, { sign: true })}
             </span>
           );
         },
@@ -255,7 +262,7 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         header: "Actual",
         cell: (info) => (
           <span className="block text-right text-charcoal tabular-nums">
-            {formatRupees(info.getValue() as number | null)}
+            {formatMoneyCompact(info.getValue() as number | null, moneyCode)}
           </span>
         ),
       },
@@ -270,13 +277,13 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
                 val
               )}`}
             >
-              {formatRupees(val, { sign: true })}
+              {formatMoneyCompact(val, moneyCode, { sign: true })}
             </span>
           );
         },
       },
     ],
-    []
+    [moneyCode]
   );
 
   if (error) {
@@ -296,11 +303,11 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
       { key: "activityType", header: "Type" },
       { key: "status", header: "Status" },
       { key: "percentComplete", header: "% complete" },
-      { key: "baselinePlannedCost", header: "BL planned (₹)" },
-      { key: "currentPlannedCost", header: "Cur planned (₹)" },
-      { key: "estimateVariance", header: "Estimate var (₹)" },
-      { key: "actualCost", header: "Actual (₹)" },
-      { key: "burnVariance", header: "Burn var (₹)" },
+      { key: "baselinePlannedCost", header: `BL planned (${moneyCode})` },
+      { key: "currentPlannedCost", header: `Cur planned (${moneyCode})` },
+      { key: "estimateVariance", header: `Estimate var (${moneyCode})` },
+      { key: "actualCost", header: `Actual (${moneyCode})` },
+      { key: "burnVariance", header: `Burn var (${moneyCode})` },
     ]);
     const projectCode = data.data.project.code.replace(/[^a-zA-Z0-9-]/g, "_");
     downloadCsv(`cost-variance-${projectCode}`, csv);
@@ -310,12 +317,12 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
     <div className="space-y-6">
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        <Kpi label="Budget at completion" value={formatRupees(summary.budgetAtCompletion)} accent="gold" />
-        <Kpi label="Earned value" value={formatRupees(summary.earnedValue)} accent="default" />
-        <Kpi label="Actual cost" value={formatRupees(summary.actualCost)} accent="default" />
+        <Kpi label="Budget at completion" value={formatMoneyCompact(summary.budgetAtCompletion, moneyCode)} accent="gold" />
+        <Kpi label="Earned value" value={formatMoneyCompact(summary.earnedValue, moneyCode)} accent="default" />
+        <Kpi label="Actual cost" value={formatMoneyCompact(summary.actualCost, moneyCode)} accent="default" />
         <Kpi
           label="Cost variance"
-          value={formatRupees(summary.costVariance, { sign: true })}
+          value={formatMoneyCompact(summary.costVariance, moneyCode, { sign: true })}
           accent={(summary.costVariance ?? 0) < 0 ? "burgundy" : "emerald"}
           hint={
             summary.costVariance != null
@@ -330,12 +337,12 @@ export function CostVarianceSection({ projectId, baselineId }: Props) {
         <CpiKpi label="SPI" value={summary.schedulePerformanceIndex} />
         <Kpi
           label="Estimate at completion"
-          value={formatRupees(summary.estimateAtCompletion)}
+          value={formatMoneyCompact(summary.estimateAtCompletion, moneyCode)}
           accent="default"
         />
         <Kpi
           label="Variance at completion"
-          value={formatRupees(summary.varianceAtCompletion, { sign: true })}
+          value={formatMoneyCompact(summary.varianceAtCompletion, moneyCode, { sign: true })}
           accent={(summary.varianceAtCompletion ?? 0) < 0 ? "burgundy" : "emerald"}
         />
       </div>

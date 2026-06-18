@@ -22,6 +22,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useCurrency } from "@/lib/hooks/useCurrency";
+import { formatMoney } from "@/lib/currency/format";
 import { SecretField } from "@/components/auth/SecretField";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
 
@@ -33,38 +34,15 @@ const NO_FINANCE_PLACEHOLDER = (
 );
 
 /**
- * Smart currency formatter — adapts to the project's budget currency and
- * picks the most readable scale:
- *   < 100 000          → "6,500 OMR"     (raw, e.g. small OMR projects)
- *   100 000 – 9 999 999 → "65k OMR"      (thousands)
- *   ≥ 10 000 000       → "₹4.85cr"       (INR crores) or "4.85M OMR"
+ * Money formatter for the Costs tab. Delegates to the canonical per-currency
+ * compact formatter so INR uses k / Lakh / Crore (en-IN) and every other
+ * currency uses K / M / B (en-US), consistently with the rest of the app.
+ * Input is a RAW amount (already in the project's currency).
  */
 function makeFormatter(currency: string) {
   const code = (currency ?? "INR").toUpperCase();
-  const isInr = code === "INR";
-  const locale = isInr ? "en-IN" : "en-US";
-
-  return function formatValue(value: number | null | undefined): string {
-    const v = value ?? 0;
-    const abs = Math.abs(v);
-
-    if (abs < 100_000) {
-      // Raw value with currency code
-      return `${v.toLocaleString(locale, { maximumFractionDigits: 0 })} ${code}`;
-    }
-    if (abs < 10_000_000) {
-      // Thousands
-      const k = v / 1_000;
-      return `${k.toLocaleString(locale, { maximumFractionDigits: 1 })}k ${code}`;
-    }
-    // Crore (INR) or Millions (others)
-    if (isInr) {
-      const cr = v / 10_000_000;
-      return `₹${cr.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}cr`;
-    }
-    const m = v / 1_000_000;
-    return `${m.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M ${code}`;
-  };
+  return (value: number | null | undefined): string =>
+    formatMoney(value ?? 0, { code }, { compact: true });
 }
 
 interface SummaryCard {
@@ -179,6 +157,12 @@ export function CostsTab({ projectId }: { projectId: string }) {
   const projectCurrency = projectCurrencyEarly;
   const fmt = makeFormatter(projectCurrency);
 
+  // BAC (currentBudget) is stored in the currency's MAJOR unit (crore for INR,
+  // million otherwise); expand it to a raw amount before formatting so it shows
+  // e.g. "50 M OMR", not "50 OMR". Display-only — no calculation uses this.
+  const bacMajorUnitFactor =
+    projectCurrency.toUpperCase() === "INR" ? 10_000_000 : 1_000_000;
+
   // cost-summary is the source of truth for budget and actual (absolute amounts in project currency).
   const totalBudget = summary?.totalBudget ?? 0;
   const totalActual = summary?.totalActual ?? 0;
@@ -199,7 +183,7 @@ export function CostsTab({ projectId }: { projectId: string }) {
     {
       label: "Budget at Completion (BAC)",
       value: projectBudgetData?.data?.currentBudget != null
-        ? fmt(projectBudgetData.data.currentBudget)
+        ? fmt(projectBudgetData.data.currentBudget * bacMajorUnitFactor)
         : "Not set",
       color: "indigo",
     },

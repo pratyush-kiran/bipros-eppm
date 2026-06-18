@@ -10,7 +10,8 @@ import {
   workPackageApi,
   type WorkPackageRowResponse,
 } from "@/lib/api/workPackageApi";
-import { formatBudget } from "@/lib/utils/format";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 type GroupKey = "none" | "phase" | "parent" | "contractor";
 
@@ -242,6 +243,12 @@ function WorkPackageRow({
   row: WorkPackageRowResponse;
   onOpenActivities: () => void;
 }) {
+  // budgetCrores is in CRORE units (raw ÷ 1e7); recover raw and render per-currency
+  // (k/L/Cr for INR, K/M/B otherwise) instead of always assuming INR. Display-only.
+  const cur = useProjectCurrencyOptional();
+  const moneyCompact = cur
+    ? cur.moneyCompact
+    : (v: number | null | undefined) => formatMoney(v, { code: "INR" }, { compact: true });
   const pct = row.weightedPercentComplete;
   const tone: "danger" | "warning" | "default" | "success" =
     row.derivedStatus === "DELAYED"
@@ -272,7 +279,7 @@ function WorkPackageRow({
         <ProgressBar pct={pct} tone={tone} />
       </td>
       <td className="px-3 py-2 whitespace-nowrap text-charcoal dark:text-[#F5F2E8] tabular-nums">
-        {row.budgetCrores != null ? formatBudget(row.budgetCrores, "INR") : "—"}
+        {row.budgetCrores != null ? moneyCompact(row.budgetCrores * 1e7) : "—"}
       </td>
       <td className="px-3 py-2 whitespace-nowrap">
         <ActivityCounts row={row} />

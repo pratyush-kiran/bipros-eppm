@@ -24,40 +24,18 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { KpiTile } from "@/components/common/KpiTile";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
 import { budgetApi } from "@/lib/api/budgetApi";
+import { formatMoney } from "@/lib/currency/format";
 
 /**
- * Smart currency formatter — adapts to the project's budget currency and
- * picks the most readable scale:
- *   < 100 000          → "6,500 OMR"     (raw, e.g. small OMR projects)
- *   100 000 – 9 999 999 → "65k OMR"      (thousands)
- *   ≥ 10 000 000       → "₹4.85cr"       (INR crores) or "4.85M OMR"
+ * Money formatter for the EVM tab. Delegates to the canonical per-currency
+ * compact formatter so INR uses k / Lakh / Crore (en-IN) and every other
+ * currency uses K / M / B (en-US). Input is a RAW amount (EVM metrics are
+ * already in the project's currency).
  */
 function makeFormatter(currency: string) {
   const code = (currency ?? "INR").toUpperCase();
-  const isInr = code === "INR";
-  const locale = isInr ? "en-IN" : "en-US";
-
-  return function formatValue(value: number | null | undefined): string {
-    const v = value ?? 0;
-    const abs = Math.abs(v);
-
-    if (abs < 100_000) {
-      // Raw value with currency code
-      return `${v.toLocaleString(locale, { maximumFractionDigits: 0 })} ${code}`;
-    }
-    if (abs < 10_000_000) {
-      // Thousands
-      const k = v / 1_000;
-      return `${k.toLocaleString(locale, { maximumFractionDigits: 1 })}k ${code}`;
-    }
-    // Crore (INR) or Millions (others)
-    if (isInr) {
-      const cr = v / 10_000_000;
-      return `₹${cr.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}cr`;
-    }
-    const m = v / 1_000_000;
-    return `${m.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M ${code}`;
-  };
+  return (value: number | null | undefined): string =>
+    formatMoney(value ?? 0, { code }, { compact: true });
 }
 
 const TECHNIQUES: { value: EvmTechnique; label: string }[] = [

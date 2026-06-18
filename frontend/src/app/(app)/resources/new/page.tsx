@@ -578,7 +578,7 @@ export default function NewResourcePage() {
                     <p className="mt-1 text-xs text-text-muted">
                       {common.rateMasterId
                         ? "Synced from the selected rate master. Edit the rate master row to change this value."
-                        : "Rate used for project cost calculations. Enter the cost for ONE unit of this resource (e.g. ₹2,400 per Day for a mason, ₹4,500 per Hour for a JCB, ₹65,000 per MT for steel)."}
+                        : "Rate used for project cost calculations. Enter the cost for ONE unit of this resource (e.g. 2,400 per Day for a mason, 4,500 per Hour for a JCB, 65,000 per MT for steel). The rate is interpreted in each project's own currency."}
                     </p>
                   )}
                 </div>

@@ -54,11 +54,19 @@ export function KpiRow({
         value={moneyCompact(bacCrores * 1e7)}
         tone="accent"
         icon={<Wallet size={14} />}
-        delta={formatDelta(bacCrores, deltas?.bacCroresDelta, {
-          unit: isIndian ? " Cr" : "",
-          digits: 1,
-          invertColor: true,
-        })}
+        delta={formatDelta(
+          bacCrores * (isIndian ? 1 : 10),
+          deltas?.bacCroresDelta != null
+            ? deltas.bacCroresDelta * (isIndian ? 1 : 10)
+            : deltas?.bacCroresDelta,
+          {
+            // INR shows the delta in crores; other currencies in millions
+            // (1 crore = 10 million), so the suffix matches the value's scale.
+            unit: isIndian ? " Cr" : " M",
+            digits: 1,
+            invertColor: true,
+          }
+        )}
       />
       <KpiTile
         label="Tasks Completed"
