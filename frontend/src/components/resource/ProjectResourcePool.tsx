@@ -9,12 +9,13 @@ import {
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Plus, Trash2, Users } from "lucide-react";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { displayResourceTypeName } from "@/lib/utils/resourceTypeLabel";
 import { AddResourcesDrawer } from "./AddResourcesDrawer";
 
 export function ProjectResourcePool({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
+  const { money } = useProjectCurrency();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -134,7 +135,7 @@ export function ProjectResourcePool({ projectId }: { projectId: string }) {
       enableSorting: true,
       cell: (info) =>
         info.getValue() != null
-          ? formatDefaultCurrency(Number(info.getValue()))
+          ? money(Number(info.getValue()))
           : "—",
     },
     {
@@ -157,7 +158,7 @@ export function ProjectResourcePool({ projectId }: { projectId: string }) {
           );
         }
         return info.getValue() != null
-          ? formatDefaultCurrency(Number(info.getValue()))
+          ? money(Number(info.getValue()))
           : "—";
       },
     },

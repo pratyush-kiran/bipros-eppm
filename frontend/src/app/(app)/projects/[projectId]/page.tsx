@@ -7,6 +7,9 @@ import { useParams, useSearchParams, useRouter, usePathname } from "next/navigat
 import { getErrorMessage } from "@/lib/utils/error";
 import { formatDate, getPriorityInfo, formatBudget, budgetUnit } from "@/lib/utils/format";
 import { projectApi } from "@/lib/api/projectApi";
+import { settingsApi } from "@/lib/api/settingsApi";
+import { resolveCurrencyMeta } from "@/lib/currency/format";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { projectCategoryApi } from "@/lib/api/projectCategoryApi";
 import { calendarApi } from "@/lib/api/calendarApi";
 import { activityApi } from "@/lib/api/activityApi";
@@ -40,7 +43,6 @@ import { ProjectSetupProgress } from "@/components/project/ProjectSetupProgress"
 import { ProjectTeamCard } from "@/components/project/ProjectTeamCard";
 import { ProjectDashboardTab } from "@/components/dashboards/project/ProjectDashboardTab";
 import { VarianceDashboard } from "@/components/baseline/VarianceDashboard";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
 import type { ContractType } from "@/lib/types";
 import { ScheduleComparisonTable } from "@/components/baseline/ScheduleComparisonTable";
 import { ScheduleVarianceSection } from "@/components/reports/ScheduleVarianceSection";
@@ -650,6 +652,8 @@ function OverviewTab({ project, projectId }: { project: ProjectResponse; project
 
       <BudgetCard projectId={projectId} />
 
+      <CurrencyCard project={project} projectId={projectId} />
+
       <ProjectDetailsSection project={project} projectId={projectId} />
 
       {/* KPI Mini-Dashboard */}
@@ -775,6 +779,115 @@ function DataDateCard({ project }: { project: ProjectResponse }) {
         </div>
       )}
     </div>
+  );
+}
+
+function CurrencyCard({ project, projectId }: { project: ProjectResponse; projectId: string }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const currentCode = (project.budgetCurrency ?? "INR").toUpperCase();
+  const [selected, setSelected] = useState<string>(currentCode);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["currencies"],
+    queryFn: () => settingsApi.listCurrencies(),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+  const currencies = data?.data ?? [];
+  const currentName = currencies.find((c) => c.code.toUpperCase() === currentCode)?.name;
+  const options = currencies.length
+    ? currencies.map((c) => ({ code: c.code.toUpperCase(), label: `${c.code} — ${c.name}` }))
+    : [{ code: currentCode, label: currentCode }];
+
+  const mutation = useMutation({
+    mutationFn: (code: string) => projectApi.updateProject(projectId, { budgetCurrency: code }),
+    onSuccess: () => {
+      toast.success("Currency updated — amounts relabeled (values not converted)");
+      // Relabels everywhere: the currency provider derives from ["project"], and
+      // cost cards read ["project-budget"]. Invalidating both re-renders the lot.
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["project-budget", projectId] });
+      setConfirming(false);
+      setEditing(false);
+    },
+    onError: (e: unknown) => toast.error(getErrorMessage(e, "Failed to update currency")),
+  });
+
+  const apply = () => {
+    if (selected === currentCode) { setEditing(false); return; }
+    setConfirming(true);
+  };
+
+  return (
+    <>
+      <div className="rounded-xl border border-border bg-surface/50 p-6 shadow-lg">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-medium text-text-secondary">Currency</h3>
+            {editing ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <select
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                  disabled={isLoading}
+                  className="rounded-md border border-border bg-surface-hover px-3 py-1.5 text-sm text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+                >
+                  {options.map((o) => (
+                    <option key={o.code} value={o.code}>{o.label}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={apply} className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground hover:bg-accent-hover">Apply</button>
+                <button type="button" onClick={() => setEditing(false)} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover/50">Cancel</button>
+              </div>
+            ) : (
+              <p className="mt-2 text-lg font-medium text-text-primary">
+                {currentCode}{currentName ? ` — ${currentName}` : ""}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-text-muted">
+              Used for every money value in this project. Changing it relabels amounts — stored values are not converted.
+            </p>
+          </div>
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => { setSelected(currentCode); setEditing(true); }}
+              className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-hover/50"
+            >
+              Change
+            </button>
+          )}
+        </div>
+      </div>
+
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-surface p-6 shadow-2xl">
+            <div>
+              <h3 className="text-lg font-semibold text-text-primary">Change currency to {selected}?</h3>
+              <p className="mt-2 text-sm text-text-secondary">
+                Every amount in this project will display in <b>{selected}</b> instead of <b>{currentCode}</b>.
+                This <b>relabels only</b> — no exchange-rate conversion is applied, so the underlying numbers do not
+                change (a budget of 250 stays 250, shown in {selected}).
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirming(false)} className="rounded-md border border-border px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover/50">Cancel</button>
+              <button
+                type="button"
+                onClick={() => mutation.mutate(selected)}
+                disabled={mutation.isPending}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+              >
+                {mutation.isPending ? "Applying…" : "Change currency"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -920,6 +1033,7 @@ function BudgetCard({ projectId }: { projectId: string }) {
 
 function ProjectDetailsSection({ project }: { project: ProjectResponse; projectId: string }) {
   const queryClient = useQueryClient();
+  const { symbol: currencySymbol, money } = useProjectCurrency();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -1096,11 +1210,11 @@ function ProjectDetailsSection({ project }: { project: ProjectResponse; projectI
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-secondary">Contract Value (₹)</label>
+              <label className="block text-xs font-medium text-text-secondary">Contract Value ({currencySymbol})</label>
               <input name="contractValue" type="number" step="0.01" value={form.contractValue} onChange={handleChange} className={inputClass} />
             </div>
             <div>
-              <label className="block text-xs font-medium text-text-secondary">Revised Value (₹)</label>
+              <label className="block text-xs font-medium text-text-secondary">Revised Value ({currencySymbol})</label>
               <input name="revisedValue" type="number" step="0.01" value={form.revisedValue} onChange={handleChange} className={inputClass} />
             </div>
             <div>
@@ -1186,15 +1300,15 @@ function ProjectDetailsSection({ project }: { project: ProjectResponse; projectI
             <p className="text-sm font-medium text-text-primary">{project.contract?.contractType ?? "—"}</p>
           </div>
           <div>
-            <p className="text-xs text-text-secondary">Contract Value (₹)</p>
+            <p className="text-xs text-text-secondary">Contract Value ({currencySymbol})</p>
             <p className="text-sm font-medium text-text-primary">
-              {project.contract?.contractValue != null ? `₹ ${project.contract.contractValue.toLocaleString("en-IN")}` : "—"}
+              {project.contract?.contractValue != null ? money(project.contract.contractValue, { decimals: 0 }) : "—"}
             </p>
           </div>
           <div>
-            <p className="text-xs text-text-secondary">Revised Value (₹)</p>
+            <p className="text-xs text-text-secondary">Revised Value ({currencySymbol})</p>
             <p className="text-sm font-medium text-text-primary">
-              {project.contract?.revisedValue != null ? `₹ ${project.contract.revisedValue.toLocaleString("en-IN")}` : "—"}
+              {project.contract?.revisedValue != null ? money(project.contract.revisedValue, { decimals: 0 }) : "—"}
             </p>
           </div>
           <div>
@@ -1787,6 +1901,7 @@ function BaselinesTab({
   isActivating: boolean;
   activatingBaselineId: string | null;
 }) {
+  const { money } = useProjectCurrency();
   const [varianceTab, setVarianceTab] = useState<"schedule" | "cost">("schedule");
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({ name: "", description: "", baselineType: "PROJECT" });
@@ -1976,7 +2091,7 @@ function BaselinesTab({
                     <p>Type: {baseline.baselineType}</p>
                     <p>Date: {new Date(baseline.baselineDate).toLocaleDateString()}</p>
                     <p>Activities: {baseline.totalActivities}</p>
-                    {baseline.totalCost > 0 && <p>Total Cost: {formatDefaultCurrency(baseline.totalCost)}</p>}
+                    {baseline.totalCost > 0 && <p>Total Cost: {money(baseline.totalCost)}</p>}
                   </div>
                 </div>
                 <div className="flex flex-wrap justify-end gap-2">

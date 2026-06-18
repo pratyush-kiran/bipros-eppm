@@ -16,6 +16,7 @@ import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import { getErrorMessage } from "@/lib/utils/error";
 import { cn } from "@/lib/utils/cn";
 import { unitOptionsWithFallback, STANDARD_UNITS } from "@/lib/constants/units";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 type EditableField = "qtyExecutedToDate" | "actualRate";
 
@@ -85,6 +86,11 @@ export default function BoqPage() {
   const router = useRouter();
   const projectId = params.projectId as string;
   const queryClient = useQueryClient();
+  const { money } = useProjectCurrency();
+  // Money columns (rates, amounts, variance) render with the project's currency symbol;
+  // quantity columns keep the bare-number formatAmount (no symbol).
+  const formatMoney = (value: number | null | undefined): string =>
+    value === null || value === undefined ? "—" : money(value, { decimals: 0 });
 
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<BoqForm>(initialFormState);
@@ -218,7 +224,7 @@ export default function BoqPage() {
         className="block w-full text-right hover:text-gold focus:text-gold focus:outline-none"
         title="Click to edit"
       >
-        {formatAmount(item[field])}
+        {field === "actualRate" ? formatMoney(item[field]) : formatAmount(item[field])}
       </button>
     );
   };
@@ -282,28 +288,28 @@ export default function BoqPage() {
         header: () => <span className="flex flex-col leading-tight">BOQ Rate<span className="text-[10px] font-normal text-text-muted">(from client)</span></span>,
         size: 100,
         meta: { className: "text-right tabular-nums" },
-        cell: (info) => formatAmount(info.getValue() as number | null | undefined),
+        cell: (info) => formatMoney(info.getValue() as number | null | undefined),
       },
       {
         accessorKey: "boqAmount",
         header: "BOQ Amount",
         size: 120,
         meta: { className: "text-right tabular-nums" },
-        cell: (info) => formatAmount(info.getValue() as number | null | undefined),
+        cell: (info) => formatMoney(info.getValue() as number | null | undefined),
       },
       {
         accessorKey: "budgetedRate",
         header: "Budgeted Rate",
         size: 120,
         meta: { className: "text-right tabular-nums" },
-        cell: (info) => formatAmount(info.getValue() as number | null | undefined),
+        cell: (info) => formatMoney(info.getValue() as number | null | undefined),
       },
       {
         accessorKey: "budgetedAmount",
         header: "Budgeted Amt",
         size: 130,
         meta: { className: "text-right tabular-nums" },
-        cell: (info) => formatAmount(info.getValue() as number | null | undefined),
+        cell: (info) => formatMoney(info.getValue() as number | null | undefined),
       },
       {
         accessorKey: "qtyExecutedToDate",
@@ -324,7 +330,7 @@ export default function BoqPage() {
         header: "Actual Amount",
         size: 130,
         meta: { className: "text-right tabular-nums" },
-        cell: (info) => formatAmount(info.getValue() as number | null | undefined),
+        cell: (info) => formatMoney(info.getValue() as number | null | undefined),
       },
       {
         accessorKey: "percentComplete",
@@ -340,7 +346,7 @@ export default function BoqPage() {
         meta: { className: "text-right tabular-nums" },
         cell: (info) => {
           const v = info.getValue() as number | null | undefined;
-          return <span className={varianceClass(v)}>{formatAmount(v)}</span>;
+          return <span className={varianceClass(v)}>{formatMoney(v)}</span>;
         },
       },
       {
@@ -354,9 +360,10 @@ export default function BoqPage() {
         },
       },
     ],
-    // editingCell/editingValue captured via closures inside renderEditableNumberCell — must re-build columns when they change so the input re-renders
+    // editingCell/editingValue captured via closures inside renderEditableNumberCell — must re-build columns when they change so the input re-renders.
+    // money is included so cells re-format once the currency master resolves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [editingCell, editingValue]
+    [editingCell, editingValue, money]
   );
 
   const grandTotalFooter = summary ? (
@@ -364,15 +371,15 @@ export default function BoqPage() {
       <td className="px-4 py-3" colSpan={7}>
         Grand Total
       </td>
-      <td className="px-4 py-3 text-right tabular-nums">{formatAmount(summary.boqGrandTotal)}</td>
+      <td className="px-4 py-3 text-right tabular-nums">{formatMoney(summary.boqGrandTotal)}</td>
       <td className="px-4 py-3" />
-      <td className="px-4 py-3 text-right tabular-nums">{formatAmount(summary.budgetedGrandTotal)}</td>
+      <td className="px-4 py-3 text-right tabular-nums">{formatMoney(summary.budgetedGrandTotal)}</td>
       <td className="px-4 py-3" />
       <td className="px-4 py-3" />
-      <td className="px-4 py-3 text-right tabular-nums">{formatAmount(summary.actualGrandTotal)}</td>
+      <td className="px-4 py-3 text-right tabular-nums">{formatMoney(summary.actualGrandTotal)}</td>
       <td className="px-4 py-3 text-right tabular-nums">{formatPercent(summary.overallPercentComplete)}</td>
       <td className={cn("px-4 py-3 text-right tabular-nums", varianceClass(summary.grandCostVariance))}>
-        {formatAmount(summary.grandCostVariance)}
+        {formatMoney(summary.grandCostVariance)}
       </td>
       <td className={cn("px-4 py-3 text-right tabular-nums", varianceClass(summary.grandCostVariancePercent))}>
         {formatPercent(summary.grandCostVariancePercent)}
@@ -402,7 +409,7 @@ export default function BoqPage() {
                 <strong>{overrunCount}</strong>{" "}
                 {overrunCount === 1 ? "item has" : "items have"} overrun their contracted
                 quantities.{" "}
-                <strong>₹{overrunUnbilled.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</strong>{" "}
+                <strong>{money(overrunUnbilled)}</strong>{" "}
                 of work executed cannot be billed until a Variation Order is approved.
               </div>
               <div className="flex gap-2">

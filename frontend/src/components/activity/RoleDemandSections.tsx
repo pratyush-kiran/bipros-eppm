@@ -26,6 +26,7 @@ import {
 import { activityApi } from "@/lib/api/activityApi";
 import { extractApiError } from "@/lib/api/extractApiError";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   projectId: string;
@@ -194,6 +195,7 @@ function ManpowerSection({
   onChanged,
   locked,
 }: ManpowerSectionProps) {
+  const { money } = useProjectCurrency();
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [headcount, setHeadcount] = useState<number>(1);
@@ -290,7 +292,7 @@ function ManpowerSection({
             <option value="">— pick variant —</option>
             {variants.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.categoryName} / {v.gradeName} — ₹{v.rate}
+                {v.categoryName} / {v.gradeName} — {money(v.rate)}
               </option>
             ))}
           </select>
@@ -317,7 +319,7 @@ function ManpowerSection({
 
       {selected && (
         <div className="mt-2 text-xs text-text-muted">
-          Planned: <b>{plannedUnits}</b> · Cost: <b>₹{plannedCost.toFixed(2)}</b>
+          Planned: <b>{plannedUnits}</b> · Cost: <b>{money(plannedCost)}</b>
         </div>
       )}
 
@@ -328,7 +330,7 @@ function ManpowerSection({
           a.roleName ?? "—",
           a.variantLabel ?? "—",
           a.headcount ?? a.plannedUnits ?? "—",
-          a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
+          a.plannedCost != null ? money(a.plannedCost) : "—",
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
@@ -361,6 +363,7 @@ function EquipmentSection({
   onChanged,
   locked,
 }: EquipmentSectionProps) {
+  const { money } = useProjectCurrency();
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [headcount, setHeadcount] = useState<number>(1);
@@ -457,7 +460,7 @@ function EquipmentSection({
             <option value="">— pick variant —</option>
             {variants.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.make} / {v.model} — ₹{v.rate}
+                {v.make} / {v.model} — {money(v.rate)}
               </option>
             ))}
           </select>
@@ -484,7 +487,7 @@ function EquipmentSection({
 
       {selected && (
         <div className="mt-2 text-xs text-text-muted">
-          Planned: <b>{plannedUnits}</b> · Cost: <b>₹{plannedCost.toFixed(2)}</b>
+          Planned: <b>{plannedUnits}</b> · Cost: <b>{money(plannedCost)}</b>
         </div>
       )}
 
@@ -495,7 +498,7 @@ function EquipmentSection({
           a.roleName ?? "—",
           a.variantLabel ?? "—",
           a.headcount ?? a.plannedUnits ?? "—",
-          a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
+          a.plannedCost != null ? money(a.plannedCost) : "—",
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
@@ -528,6 +531,7 @@ function MaterialSection({
   onChanged,
   locked,
 }: MaterialSectionProps) {
+  const { money } = useProjectCurrency();
   const [roleId, setRoleId] = useState("");
   const [variantId, setVariantId] = useState("");
   const [quantity, setQuantity] = useState<number>(0);
@@ -616,7 +620,7 @@ function MaterialSection({
             <option value="">— pick variant —</option>
             {variants.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.specGrade} — {v.unit} @ ₹{v.rate}
+                {v.specGrade} — {v.unit} @ {money(v.rate)}
               </option>
             ))}
           </select>
@@ -646,7 +650,7 @@ function MaterialSection({
 
       {selected && (
         <div className="mt-2 text-xs text-text-muted">
-          Planned: <b>{quantity}</b> {selected.unit} · Cost: <b>₹{plannedCost.toFixed(2)}</b>
+          Planned: <b>{quantity}</b> {selected.unit} · Cost: <b>{money(plannedCost)}</b>
         </div>
       )}
 
@@ -657,7 +661,7 @@ function MaterialSection({
           a.roleName ?? "—",
           a.variantLabel ?? "—",
           a.quantity ?? "—",
-          a.plannedCost != null ? `₹${a.plannedCost.toFixed(2)}` : "—",
+          a.plannedCost != null ? money(a.plannedCost) : "—",
         ]}
         editCellIndex={2}
         editValueOf={(a) => Number(a.quantity ?? 0)}
@@ -696,6 +700,7 @@ function SubContractorSection({
   onChanged,
   locked,
 }: SubContractorSectionProps) {
+  const { money } = useProjectCurrency();
   const [masterId, setMasterId] = useState("");
   const [scWorkTypeId, setScWorkTypeId] = useState("");
   const [plannedUnits, setPlannedUnits] = useState<number>(0);
@@ -731,13 +736,13 @@ function SubContractorSection({
         const name = m.workTypeName ?? m.scWorkTypeId;
         const tail: string[] = [];
         if (m.unit) tail.push(m.unit);
-        if (m.ratePerUnit != null) tail.push(`@ ₹${m.ratePerUnit.toFixed(2)}`);
+        if (m.ratePerUnit != null) tail.push(`@ ${money(m.ratePerUnit)}`);
         return {
           value: m.scWorkTypeId,
           label: tail.length ? `${name} — ${tail.join(" ")}` : name,
         };
       }),
-    [mappings],
+    [mappings, money],
   );
 
   const selectedMapping = useMemo(
@@ -837,11 +842,11 @@ function SubContractorSection({
 
       {selectedMapping && (
         <div className="mt-2 text-xs text-text-muted">
-          Rate: <b>₹{rate.toFixed(2)}</b> per {selectedMapping.unit ?? "unit"}
+          Rate: <b>{money(rate)}</b> per {selectedMapping.unit ?? "unit"}
           {plannedUnits > 0 && (
             <>
               {" "}· Planned: <b>{plannedUnits}</b> · Cost:{" "}
-              <b>₹{plannedCost.toFixed(2)}</b>
+              <b>{money(plannedCost)}</b>
             </>
           )}
         </div>
@@ -873,10 +878,10 @@ function SubContractorSection({
                     {r.plannedUnits != null ? r.plannedUnits.toFixed(2) : "—"}
                   </td>
                   <td className="py-1.5 pr-2 text-right">
-                    {r.ratePerUnit != null ? `₹${r.ratePerUnit.toFixed(2)}` : "—"}
+                    {r.ratePerUnit != null ? money(r.ratePerUnit) : "—"}
                   </td>
                   <td className="py-1.5 pr-2 text-right">
-                    {r.plannedCost != null ? `₹${r.plannedCost.toFixed(2)}` : "—"}
+                    {r.plannedCost != null ? money(r.plannedCost) : "—"}
                   </td>
                   <td className="py-1.5 text-right">
                     <button

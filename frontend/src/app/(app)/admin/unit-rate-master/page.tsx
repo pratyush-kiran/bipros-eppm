@@ -99,17 +99,17 @@ export default function UnitRateMasterPage() {
     },
     {
       accessorKey: "budgetedRate",
-      header: "Budgeted Rate (₹)",
+      header: "Budgeted Rate",
       cell: ({ row }) => <span className="text-right block">{formatCurrency(row.original.budgetedRate)}</span>,
     },
     {
       accessorKey: "actualRate",
-      header: "Actual Rate (₹)",
+      header: "Actual Rate",
       cell: ({ row }) => <span className="text-right block">{formatCurrency(row.original.actualRate)}</span>,
     },
     {
       accessorKey: "variance",
-      header: "Variance (₹)",
+      header: "Variance",
       cell: ({ row }) => (
         <span className={`text-right block ${varianceClass(row.original.variance)}`}>
           {formatCurrency(row.original.variance)}

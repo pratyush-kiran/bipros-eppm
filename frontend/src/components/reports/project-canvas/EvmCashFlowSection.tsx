@@ -13,7 +13,8 @@ import {
 } from "recharts";
 import { reportDataApi } from "@/lib/api/reportDataApi";
 import { KpiTile } from "@/components/common/KpiTile";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 import {
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
@@ -23,6 +24,12 @@ import {
 } from "@/components/common/dashboard/primitives";
 
 export function EvmCashFlowSection({ projectId }: { projectId: string }) {
+  // The project-canvas can render on the portfolio reports page (outside a
+  // project route), so fall back to INR when no project currency is in context.
+  const currency = useProjectCurrencyOptional();
+  const money = (value: number | null | undefined) =>
+    currency ? currency.money(value) : formatMoney(value, { code: "INR" });
+
   const evmQuery = useQuery({
     queryKey: ["project-evm", projectId],
     queryFn: () => reportDataApi.getEvmReport(projectId),
@@ -100,7 +107,7 @@ export function EvmCashFlowSection({ projectId }: { projectId: string }) {
               <YAxis stroke="#64748b" style={{ fontSize: "12px" }} />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
-                formatter={(value) => formatDefaultCurrency(Number(value ?? 0))}
+                formatter={(value) => money(Number(value ?? 0))}
               />
               <Legend wrapperStyle={{ fontSize: "12px" }} />
               <Line

@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { manpowerKpiApi } from "@/lib/api/manpowerKpiApi";
-import { budgetApi } from "@/lib/api/budgetApi";
-import { formatMoney } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { withBasePath } from "@/lib/basePath";
 
 interface Props {
@@ -40,13 +39,8 @@ function formatNumber(value: number | null | undefined, fractionDigits = 2): str
   });
 }
 
-/** Currency-aware money formatter. Currency is injected from the component's projectCurrency state. */
-function makeFormatMoney(currency: string) {
-  return (value: number | null | undefined, fractionDigits = 0): string =>
-    formatMoney(value, currency, fractionDigits);
-}
-
 export function ManpowerKpiSection({ projectId, from, to, density = "compact" }: Props) {
+  const { money, moneyCompact, code } = useProjectCurrency();
   const range = useMemo(() => {
     if (from && to) return { from, to };
     return defaultRange();
@@ -57,15 +51,6 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
     queryFn: () => manpowerKpiApi.getKpis(projectId, range.from, range.to),
     enabled: !!projectId,
   });
-
-  const { data: budgetData } = useQuery({
-    queryKey: ["project-budget", projectId],
-    queryFn: () => budgetApi.getBudgetSummary(projectId),
-    enabled: !!projectId,
-    staleTime: 5 * 60 * 1000,
-  });
-  const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
-  const formatRupees = makeFormatMoney(projectCurrency);
 
   if (!projectId) return null;
   if (isLoading) {
@@ -167,7 +152,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
         </div>
         <div className="rounded-lg border border-border bg-surface/50 p-4">
           <div className="text-xs uppercase tracking-wide text-text-muted">Total Manpower Cost</div>
-          <div className="mt-1 text-2xl font-semibold text-text-primary">{formatRupees(totalLabourCost)}</div>
+          <div className="mt-1 text-2xl font-semibold text-text-primary">{moneyCompact(totalLabourCost)}</div>
           <div
             className="mt-1 text-xs text-text-secondary"
             title="Σ DPR line_cost across all manpower rows in the window (each row = nos × rate). Hours are logging-only."
@@ -218,7 +203,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
         <div className="rounded-lg border border-border bg-surface/50 p-4">
           <div className="text-xs uppercase tracking-wide text-text-muted">Cost per Unit Output</div>
           <div className="mt-1 text-2xl font-semibold text-text-primary">
-            {kpis.weightedAvgCostPerUnit > 0 ? formatRupees(kpis.weightedAvgCostPerUnit, 2) : "—"}
+            {kpis.weightedAvgCostPerUnit > 0 ? money(kpis.weightedAvgCostPerUnit) : "—"}
           </div>
           <div className="mt-1 text-xs text-text-secondary" title="KPI 3.5 — Σ manpower cost ÷ Σ qty executed (weighted)">
             weighted across BOQ items
@@ -247,7 +232,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
           <div className="text-xs uppercase tracking-wide text-text-muted">Planned Manpower Cost</div>
           <div className="mt-1 text-2xl font-semibold text-text-primary">
             {kpis.labourCostSummary.plannedLabourCost > 0
-              ? formatRupees(kpis.labourCostSummary.plannedLabourCost)
+              ? moneyCompact(kpis.labourCostSummary.plannedLabourCost)
               : "—"}
           </div>
           <div
@@ -270,7 +255,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
             }`}
           >
             {kpis.labourCostSummary.plannedLabourCost > 0
-              ? formatRupees(kpis.labourCostSummary.labourCostVariance)
+              ? moneyCompact(kpis.labourCostSummary.labourCostVariance)
               : "—"}
           </div>
           <div className="mt-1 text-xs text-text-secondary" title="KPI 3.3 — PLC − ALC. Negative = over budget.">
@@ -377,7 +362,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
                 <tr>
                   <th className="text-left pb-1">BOQ Item</th>
                   <th className="text-right pb-1">Qty</th>
-                  <th className="text-right pb-1">{projectCurrency} / unit</th>
+                  <th className="text-right pb-1">{code} / unit</th>
                 </tr>
               </thead>
               <tbody>
@@ -390,7 +375,7 @@ export function ManpowerKpiSection({ projectId, from, to, density = "compact" }:
                   <tr key={row.boqItemId} className="text-text-primary">
                     <td className="py-1 truncate max-w-[200px]">{row.itemNo}</td>
                     <td className="py-1 text-right">{formatNumber(row.qtyExecuted, 3)}</td>
-                    <td className="py-1 text-right">{formatRupees(row.costPerUnit, 2)}</td>
+                    <td className="py-1 text-right">{money(row.costPerUnit)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
 import { roleRateApi } from "@/lib/api/roleRateApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
 import type { DprMaterialRow } from "@/lib/types/dpr";
 
@@ -32,6 +33,7 @@ const optKey = (roleId: string | null | undefined, variantId: string | null | un
  * material consumed. Backend creates a phantom assignment for unplanned picks.
  */
 export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
+  const { money } = useProjectCurrency();
   const { data: plannedResp, isLoading: plannedLoading } = useQuery({
     queryKey: ["role-assignments", projectId, activityId],
     queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId!),
@@ -69,7 +71,7 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
       const k = optKey(v.roleId, v.id);
       if (seen.has(k)) continue;
       seen.add(k);
-      const variantLabel = `${v.specGrade} — ${v.unit} @ ₹${v.rate}`;
+      const variantLabel = `${v.specGrade} — ${v.unit} @ ${money(v.rate)}`;
       out.push({
         value: k,
         label: `${v.roleName ?? "—"} — ${variantLabel}`,

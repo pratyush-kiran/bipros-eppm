@@ -285,6 +285,12 @@ export interface UpdateProjectRequest {
   totalLengthKm?: number | null;
   calendarId?: string | null;
   contract?: ContractSummaryInput | null;
+  /**
+   * ISO-4217 currency code (e.g. "INR", "OMR"). Changing it RELABELS money
+   * across the project; stored values are not converted. Leave undefined to
+   * keep the existing currency.
+   */
+  budgetCurrency?: string | null;
 }
 
 export interface CreateEpsNodeRequest {

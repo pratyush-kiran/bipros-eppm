@@ -6,6 +6,7 @@ import type {
   DprMaterialRow,
   DprSubContractorRow,
 } from "@/lib/types/dpr";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import {
   equipmentLineCost,
   manpowerLineCost,
@@ -19,7 +20,10 @@ interface Props {
   subContractors: DprSubContractorRow[];
   qtyExecuted: number;
   unit: string;
-  /** ISO 4217 currency code for cost display. Defaults to "INR". */
+  /**
+   * ISO 4217 currency code, kept for call-site compatibility. Cost display now
+   * comes from the project currency via useProjectCurrency(); this prop is ignored.
+   */
   currency?: string;
 }
 
@@ -38,8 +42,8 @@ export function DprTotalsBar({
   subContractors,
   qtyExecuted,
   unit,
-  currency = "INR",
 }: Props) {
+  const { money } = useProjectCurrency();
   const manpowerCount = sum(manpower.map((m) => m.nos));
   const manpowerHours = sum(manpower.map((m) => m.workingHours)) + sum(manpower.map((m) => m.otHours));
   const equipmentCount = sum(equipment.map((e) => e.nos));
@@ -56,8 +60,8 @@ export function DprTotalsBar({
   const totalCost = manpowerCost + equipmentCost + materialCost + subContractorCost;
   const hasAnyCost = totalCost > 0;
 
-  /** Format a monetary value as "amount CURRENCY" using the project's currency code. */
-  const fmtCost = (amount: number) => `${fmt(amount, 0)} ${currency}`;
+  /** Format a monetary value in the project currency, whole numbers (no decimals). */
+  const fmtCost = (amount: number) => money(amount, { decimals: 0 });
 
   return (
     <div className="flex flex-wrap items-stretch gap-3 rounded-lg border border-hairline bg-ivory/60 px-4 py-3 text-sm">

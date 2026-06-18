@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { RiskResponse, UpdateRiskRequest } from "@/lib/api/riskApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   risk: RiskResponse;
@@ -16,6 +17,7 @@ const STATUS_OPTIONS = [
 ];
 
 export function RiskGeneralTab({ risk, onUpdate }: Props) {
+  const { money } = useProjectCurrency();
   const [editing, setEditing] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
 
@@ -35,11 +37,6 @@ export function RiskGeneralTab({ risk, onUpdate }: Props) {
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString();
-  };
-
-  const formatCurrency = (amount?: number) => {
-    if (amount == null) return "—";
-    return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(amount);
   };
 
   return (
@@ -122,12 +119,12 @@ export function RiskGeneralTab({ risk, onUpdate }: Props) {
           />
           <FieldDisplay
             label="Pre-Response Exposure Cost"
-            value={formatCurrency(risk.preResponseExposureCost)}
+            value={money(risk.preResponseExposureCost)}
             hint="Auto-calculated from activity costs"
           />
           <FieldDisplay
             label="Post-Response Exposure Cost"
-            value={formatCurrency(risk.postResponseExposureCost)}
+            value={money(risk.postResponseExposureCost)}
             hint="Auto-calculated from activity costs"
           />
         </div>

@@ -3,8 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { evmKpiApi, type WbsEvmNode } from "@/lib/api/evmKpiApi";
-import { budgetApi } from "@/lib/api/budgetApi";
-import { formatMoney } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   projectId: string;
@@ -26,12 +25,6 @@ function flattenLeaves(nodes: WbsEvmNode[]): WbsEvmNode[] {
   return out;
 }
 
-/** Build a currency-aware money formatter bound to a specific ISO 4217 code. */
-function makeFormatMoney(currency: string) {
-  return (value: number | null | undefined, fractionDigits = 0): string =>
-    formatMoney(value, currency, fractionDigits);
-}
-
 function formatIndex(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value) || value === 0) return "—";
   return value.toFixed(2);
@@ -45,21 +38,14 @@ function indexClass(value: number | null | undefined): string {
 }
 
 export function EvmKpiSection({ projectId, density = "compact" }: Props) {
+  const { moneyCompact, code: projectCurrency } = useProjectCurrency();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["evm-kpis", projectId],
     queryFn: () => evmKpiApi.getKpis(projectId),
     enabled: !!projectId,
     retry: 1,
   });
-
-  const { data: budgetData } = useQuery({
-    queryKey: ["project-budget", projectId],
-    queryFn: () => budgetApi.getBudgetSummary(projectId),
-    enabled: !!projectId,
-    staleTime: 5 * 60 * 1000,
-  });
-  const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
-  const formatRupees = makeFormatMoney(projectCurrency);
 
   if (!projectId) return null;
   if (isLoading) {
@@ -103,7 +89,7 @@ export function EvmKpiSection({ projectId, density = "compact" }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi
           label="BAC"
-          value={formatRupees(evm.budgetAtCompletion)}
+          value={moneyCompact(evm.budgetAtCompletion)}
           caption="Budget at Completion"
           tooltip={`Total approved project budget — the contractual cost ceiling.
 Source: Σ activity at-completion cost rolled to project.
@@ -111,7 +97,7 @@ Read it as: "We have permission to spend up to this amount."`}
         />
         <Kpi
           label="PV"
-          value={formatRupees(evm.plannedValue)}
+          value={moneyCompact(evm.plannedValue)}
           caption="KPI 10.1 — BAC × Planned %"
           tooltip={`Planned Value (BCWS) — value of work the schedule says SHOULD be done by today.
 Formula: BAC × planned-percent-complete-as-of-today.
@@ -119,7 +105,7 @@ Read it as: "By this date, we should have produced X ${projectCurrency} worth of
         />
         <Kpi
           label="EV"
-          value={formatRupees(evm.earnedValue)}
+          value={moneyCompact(evm.earnedValue)}
           caption="KPI 10.2 — BAC × Actual %"
           tooltip={`Earned Value (BCWP) — value of work actually completed.
 Formula: BAC × actual-percent-complete.
@@ -127,7 +113,7 @@ Read it as: "What we've delivered so far is worth X ${projectCurrency} of contra
         />
         <Kpi
           label="AC"
-          value={formatRupees(evm.actualCost)}
+          value={moneyCompact(evm.actualCost)}
           caption="KPI 10.3 — Actual costs to date"
           tooltip={`Actual Cost (ACWP) — money actually spent so far.
 Source: Σ DPR-derived costs + RA bill payments + invoices to date.
@@ -138,7 +124,7 @@ Compared to EV: tells you whether the spend bought you matching value.`}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi
           label="SV"
-          value={formatRupees(evm.scheduleVariance)}
+          value={moneyCompact(evm.scheduleVariance)}
           caption="KPI 10.4 — EV − PV"
           tooltip={`Schedule Variance — schedule slip expressed in ${projectCurrency}.
 Formula: EV − PV.
@@ -148,7 +134,7 @@ Pair with SPI for the "ratio" view of the same gap.`}
         />
         <Kpi
           label="CV"
-          value={formatRupees(evm.costVariance)}
+          value={moneyCompact(evm.costVariance)}
           caption="KPI 10.5 — EV − AC"
           tooltip={`Cost Variance — budget gap expressed in ${projectCurrency}.
 Formula: EV − AC.
@@ -182,7 +168,7 @@ Formula: EV ÷ AC.
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Kpi
             label="EAC"
-            value={formatRupees(evm.estimateAtCompletion)}
+            value={moneyCompact(evm.estimateAtCompletion)}
             caption="KPI 10.8 — BAC ÷ CPI"
             tooltip={`Estimate at Completion — forecast of total final project cost given current performance.
 Formula: BAC ÷ CPI (assumes current cost efficiency continues).
@@ -191,7 +177,7 @@ Compared to BAC: tells you the projected final overrun (or saving).`}
           />
           <Kpi
             label="ETC"
-            value={formatRupees(evm.estimateToComplete)}
+            value={moneyCompact(evm.estimateToComplete)}
             caption="EAC − AC"
             tooltip={`Estimate to Complete — additional money needed from today to finish.
 Formula: EAC − AC.
@@ -199,7 +185,7 @@ Read it as: "From this point onward, we still need to spend approximately X ${pr
           />
           <Kpi
             label="VAC"
-            value={formatRupees(evm.varianceAtCompletion)}
+            value={moneyCompact(evm.varianceAtCompletion)}
             caption="KPI 10.9 — BAC − EAC"
             tooltip={`Variance at Completion — final budget surplus or overrun forecast.
 Formula: BAC − EAC.
@@ -221,7 +207,7 @@ A common guardrail: if TCPI is much greater than CPI, the original budget can no
         </div>
       )}
 
-      {density === "full" && <EvmActivityTable projectId={projectId} currency={projectCurrency} />}
+      {density === "full" && <EvmActivityTable projectId={projectId} />}
     </section>
   );
 }
@@ -231,8 +217,8 @@ A common guardrail: if TCPI is much greater than CPI, the original budget can no
  * PV/EV/AC/SPI/CPI". Sortable client-side; reads /v1/projects/{id}/evm/wbs-tree and
  * flattens the tree to leaves so each row is one trackable activity / WBS bottom node.
  */
-function EvmActivityTable({ projectId, currency = "INR" }: { projectId: string; currency?: string }) {
-  const formatRupees = makeFormatMoney(currency);
+function EvmActivityTable({ projectId }: { projectId: string }) {
+  const { money: formatRupees } = useProjectCurrency();
   const [sortKey, setSortKey] = useState<SortKey>("spi");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
@@ -309,10 +295,10 @@ function EvmActivityTable({ projectId, currency = "INR" }: { projectId: string; 
               <td className="py-1 truncate max-w-[260px]" title={n.name}>
                 <span className="text-text-muted mr-2">{n.code}</span>{n.name}
               </td>
-              <td className="py-1 text-right">{formatRupees(n.budgetAtCompletion)}</td>
-              <td className="py-1 text-right">{formatRupees(n.plannedValue)}</td>
-              <td className="py-1 text-right">{formatRupees(n.earnedValue)}</td>
-              <td className="py-1 text-right">{formatRupees(n.actualCost)}</td>
+              <td className="py-1 text-right">{formatRupees(n.budgetAtCompletion, { decimals: 0 })}</td>
+              <td className="py-1 text-right">{formatRupees(n.plannedValue, { decimals: 0 })}</td>
+              <td className="py-1 text-right">{formatRupees(n.earnedValue, { decimals: 0 })}</td>
+              <td className="py-1 text-right">{formatRupees(n.actualCost, { decimals: 0 })}</td>
               <td className={`py-1 text-right ${indexClass(n.schedulePerformanceIndex)}`}>
                 {formatIndex(n.schedulePerformanceIndex)}
               </td>
@@ -320,7 +306,7 @@ function EvmActivityTable({ projectId, currency = "INR" }: { projectId: string; 
                 {formatIndex(n.costPerformanceIndex)}
               </td>
               <td className={`py-1 text-right ${n.varianceAtCompletion != null && n.varianceAtCompletion < 0 ? "text-danger" : ""}`}>
-                {formatRupees(n.varianceAtCompletion)}
+                {formatRupees(n.varianceAtCompletion, { decimals: 0 })}
               </td>
             </tr>
           ))}

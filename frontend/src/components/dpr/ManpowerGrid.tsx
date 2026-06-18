@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { roleAssignmentApi } from "@/lib/api/roleAssignmentApi";
 import { roleRateApi } from "@/lib/api/roleRateApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { CellInput, CellSelect, RowGrid, type RowGridColumn } from "./RowGrid";
 import type { DprManpowerRow } from "@/lib/types/dpr";
 
@@ -37,6 +38,7 @@ const optKey = (roleId: string | null | undefined, variantId: string | null | un
  * ResourceAssignment for unplanned picks so they roll up into the activity Resource Plan.
  */
 export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
+  const { money } = useProjectCurrency();
   const { data: plannedResp, isLoading: plannedLoading } = useQuery({
     queryKey: ["role-assignments", projectId, activityId],
     queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId!),
@@ -77,7 +79,7 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
       const k = optKey(v.roleId, v.id);
       if (seen.has(k)) continue;
       seen.add(k);
-      const variantLabel = `${v.categoryName ?? "?"} / ${v.gradeName ?? "?"} — ${v.unit} @ ₹${v.rate}`;
+      const variantLabel = `${v.categoryName ?? "?"} / ${v.gradeName ?? "?"} — ${v.unit} @ ${money(v.rate)}`;
       out.push({
         value: k,
         label: `${v.roleName ?? "—"} — ${variantLabel}`,

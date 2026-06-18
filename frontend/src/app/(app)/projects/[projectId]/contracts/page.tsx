@@ -5,28 +5,16 @@ import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { contractApi } from "@/lib/api/contractApi";
 import { budgetApi } from "@/lib/api/budgetApi";
-import { formatMoney } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { TabTip } from "@/components/common/TabTip";
 import { ContractForm } from "@/components/contracts/ContractForm";
 // import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
 import type { ContractResponse, CreateContractRequest } from "@/lib/types";
 
-/**
- * Format a contract monetary value with scale-aware display:
- * ≥10M shown as "X.XX M {currency}", ≥100K as "X.XX K {currency}",
- * otherwise full amount with thousands separator.
- * Backend stores amounts in the contract's own currency (not necessarily the project currency).
- */
-function formatContractValue(v: number | null | undefined, currency = "INR"): string {
-  const n = v ?? 0;
-  if (Math.abs(n) >= 10_000_000) return `${(n / 10_000_000).toFixed(2)} M ${currency}`;
-  if (Math.abs(n) >= 100_000) return `${(n / 100_000).toFixed(2)} K ${currency}`;
-  return formatMoney(n, currency, 0);
-}
-
 export default function ContractsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
+  const { moneyCompact } = useProjectCurrency();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [page, setPage] = useState(0);
   const [size] = useState(20);
@@ -48,10 +36,6 @@ export default function ContractsPage() {
     staleTime: 5 * 60 * 1000,
   });
   const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
-
-  /** Format a contract value using the contract's own currency (falls back to project currency). */
-  const formatRupees = (v: number | null | undefined, contractCurrency?: string | null) =>
-    formatContractValue(v, contractCurrency ?? projectCurrency);
 
   const createMutation = useMutation({
     mutationFn: (data: CreateContractRequest) => contractApi.createContract(projectId, data),
@@ -178,12 +162,12 @@ export default function ContractsPage() {
                       )}
                     </p>
                     <p className="text-sm text-text-secondary">
-                      <span className="font-medium">Value:</span> {formatRupees(contract.contractValue, contract.currency)}
+                      <span className="font-medium">Value:</span> {moneyCompact(contract.contractValue)}
                       {contract.revisedValue != null && contract.revisedValue !== contract.contractValue && (
                         <>
                           {" "}
                           · <span className="font-medium">Revised:</span>{" "}
-                          {formatRupees(contract.revisedValue, contract.currency)}
+                          {moneyCompact(contract.revisedValue)}
                         </>
                       )}{" "}
                       | <span className="font-medium">Type:</span>{" "}

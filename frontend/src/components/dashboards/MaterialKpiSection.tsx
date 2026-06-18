@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { materialKpiApi } from "@/lib/api/materialKpiApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   projectId: string;
@@ -32,6 +33,7 @@ function formatNumber(value: number | null | undefined, fractionDigits = 2): str
 }
 
 export function MaterialKpiSection({ projectId, from, to, density = "compact" }: Props) {
+  const { money, symbol } = useProjectCurrency();
   const range = useMemo(() => {
     if (from && to) return { from, to };
     return defaultRange();
@@ -132,7 +134,7 @@ export function MaterialKpiSection({ projectId, from, to, density = "compact" }:
           <div className="text-xs uppercase tracking-wide text-text-muted">Cost / Unit Finished</div>
           <div className="mt-1 text-2xl font-semibold text-text-primary">
             {(kpis.weightedAvgCostPerUnitFinished ?? 0) > 0
-              ? `₹${formatNumber(kpis.weightedAvgCostPerUnitFinished, 2)}`
+              ? money(kpis.weightedAvgCostPerUnitFinished)
               : "—"}
           </div>
           <div
@@ -156,7 +158,7 @@ export function MaterialKpiSection({ projectId, from, to, density = "compact" }:
                 <th className="text-right pb-1">Consumed</th>
                 <th className="text-right pb-1">Wastage</th>
                 <th className="text-right pb-1">Util %</th>
-                <th className="text-right pb-1">Avg ₹/unit</th>
+                <th className="text-right pb-1">Avg {symbol}/unit</th>
               </tr>
             </thead>
             <tbody>
@@ -167,7 +169,7 @@ export function MaterialKpiSection({ projectId, from, to, density = "compact" }:
                   <td className="py-1 text-right">{formatNumber(row.wastageQty, 2)}</td>
                   <td className="py-1 text-right">{formatPct(row.utilizationPct)}</td>
                   <td className="py-1 text-right">
-                    {row.avgUnitRate > 0 ? `₹${formatNumber(row.avgUnitRate, 2)}` : "—"}
+                    {row.avgUnitRate > 0 ? money(row.avgUnitRate) : "—"}
                   </td>
                 </tr>
               ))}
@@ -185,9 +187,9 @@ export function MaterialKpiSection({ projectId, from, to, density = "compact" }:
             <thead className="text-text-muted">
               <tr>
                 <th className="text-left pb-1">Activity</th>
-                <th className="text-right pb-1">Material ₹</th>
+                <th className="text-right pb-1">Material {symbol}</th>
                 <th className="text-right pb-1">Qty</th>
-                <th className="text-right pb-1">₹ / unit</th>
+                <th className="text-right pb-1">{symbol} / unit</th>
                 <th className="text-right pb-1">BOQ rate</th>
                 <th className="text-right pb-1">Δ vs BOQ</th>
               </tr>
@@ -196,11 +198,11 @@ export function MaterialKpiSection({ projectId, from, to, density = "compact" }:
               {kpis.costPerUnitByActivity.slice(0, 10).map((row, i) => (
                 <tr key={row.activityId ?? `mat-unmapped-${i}`} className="text-text-primary">
                   <td className="py-1 truncate max-w-[200px]">{row.activityName}</td>
-                  <td className="py-1 text-right">₹{formatNumber(row.materialCost, 0)}</td>
+                  <td className="py-1 text-right">{money(row.materialCost, { decimals: 0 })}</td>
                   <td className="py-1 text-right">{formatNumber(row.qtyFinished, 2)}</td>
-                  <td className="py-1 text-right">₹{formatNumber(row.costPerUnit, 2)}</td>
+                  <td className="py-1 text-right">{money(row.costPerUnit)}</td>
                   <td className="py-1 text-right">
-                    {row.boqBudgetedRate != null ? `₹${formatNumber(row.boqBudgetedRate, 2)}` : "—"}
+                    {row.boqBudgetedRate != null ? money(row.boqBudgetedRate) : "—"}
                   </td>
                   <td
                     className={`py-1 text-right ${

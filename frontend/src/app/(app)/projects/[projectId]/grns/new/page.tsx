@@ -7,12 +7,14 @@ import { grnApi, materialCatalogueApi } from "@/lib/api/materialCatalogueApi";
 import { organisationApi } from "@/lib/api/organisationApi";
 import { PageHeader } from "@/components/common/PageHeader";
 import type { CreateGoodsReceiptRequest } from "@/lib/types";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 export default function NewGrnPage() {
   const params = useParams<{ projectId: string }>();
   const projectId = params.projectId;
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { symbol } = useProjectCurrency();
 
   const [state, setState] = useState<CreateGoodsReceiptRequest>({
     materialId: "",
@@ -115,7 +117,7 @@ export default function NewGrnPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-text-secondary">Unit Rate (₹)</label>
+            <label className="block text-sm font-medium text-text-secondary">Unit Rate ({symbol})</label>
             <input
               type="number"
               step="0.01"

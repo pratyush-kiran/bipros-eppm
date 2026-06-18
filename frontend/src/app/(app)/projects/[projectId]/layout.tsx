@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useSearchParams, usePathname } from "next/navigation";
 import { projectApi } from "@/lib/api/projectApi";
+import { ProjectCurrencyProvider } from "@/lib/currency/ProjectCurrencyProvider";
 import { SectionContextBar } from "./_components/nav/SectionContextBar";
 import { CommandPaletteProvider } from "./_components/palette/CommandPaletteProvider";
 
@@ -59,16 +60,18 @@ function ProjectDetailLayoutInner({
     !searchParams.get("tab");
 
   return (
-    <CommandPaletteProvider>
-      <div className="min-w-0">
-        {!onHub && <SectionContextBar />}
-        {/* Section pages get an extra px-4 sm:px-6 wrapper so their content
-            (breadcrumb, tip card, tree, toolbar) picks up the same breathing
-            room as the SectionContextBar's inner row above. The hub page
-            does its own padding inside ProjectHub. */}
-        <div className={onHub ? "" : "px-4 sm:px-6 mt-0"}>{children}</div>
-      </div>
-    </CommandPaletteProvider>
+    <ProjectCurrencyProvider currency={project.budgetCurrency}>
+      <CommandPaletteProvider>
+        <div className="min-w-0">
+          {!onHub && <SectionContextBar />}
+          {/* Section pages get an extra px-4 sm:px-6 wrapper so their content
+              (breadcrumb, tip card, tree, toolbar) picks up the same breathing
+              room as the SectionContextBar's inner row above. The hub page
+              does its own padding inside ProjectHub. */}
+          <div className={onHub ? "" : "px-4 sm:px-6 mt-0"}>{children}</div>
+        </div>
+      </CommandPaletteProvider>
+    </ProjectCurrencyProvider>
   );
 }
 

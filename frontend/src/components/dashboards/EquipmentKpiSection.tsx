@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { equipmentKpiApi } from "@/lib/api/equipmentKpiApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   projectId: string;
@@ -32,6 +33,7 @@ function formatNumber(value: number | null | undefined, fractionDigits = 2): str
 }
 
 export function EquipmentKpiSection({ projectId, from, to, density = "compact" }: Props) {
+  const { money, moneyCompact, symbol } = useProjectCurrency();
   const range = useMemo(() => {
     if (from && to) return { from, to };
     return defaultRange();
@@ -95,7 +97,7 @@ export function EquipmentKpiSection({ projectId, from, to, density = "compact" }
         </div>
         <div className="rounded-lg border border-border bg-surface/50 p-4">
           <div className="text-xs uppercase tracking-wide text-text-muted">Owned/Rented Cost</div>
-          <div className="mt-1 text-2xl font-semibold text-text-primary">₹{formatNumber(totalCost, 0)}</div>
+          <div className="mt-1 text-2xl font-semibold text-text-primary">{moneyCompact(totalCost)}</div>
           <div
             className="mt-1 text-xs text-text-secondary"
             title="Σ (nos × rate) on DPR equipment rows, grouped by ownership."
@@ -193,7 +195,7 @@ export function EquipmentKpiSection({ projectId, from, to, density = "compact" }
               <tr>
                 <th className="text-left pb-1">Ownership</th>
                 <th className="text-right pb-1">Op Hours</th>
-                <th className="text-right pb-1">Cost (₹)</th>
+                <th className="text-right pb-1">Cost ({symbol})</th>
               </tr>
             </thead>
             <tbody>
@@ -204,7 +206,7 @@ export function EquipmentKpiSection({ projectId, from, to, density = "compact" }
                 <tr key={s.ownershipType} className="text-text-primary">
                   <td className="py-1">{s.ownershipType}</td>
                   <td className="py-1 text-right">{formatNumber(s.operatingHours, 1)}</td>
-                  <td className="py-1 text-right">{formatNumber(s.cost, 0)}</td>
+                  <td className="py-1 text-right">{money(s.cost, { symbol: false, decimals: 0 })}</td>
                 </tr>
               ))}
             </tbody>

@@ -11,24 +11,22 @@ import type {
   SupervisorPerformanceReport,
   TradeRollup,
 } from "@/lib/api/capacityUtilizationApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 function fmt(n: number | null | undefined, digits = 2): string {
   if (n === null || n === undefined) return "—";
   return n.toLocaleString("en-IN", { maximumFractionDigits: digits });
 }
 
-function fmtMoney(n: number): string {
-  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
-}
-
 function CostLabel({ value }: { value: number | null | undefined }) {
+  const { money } = useProjectCurrency();
   if (value === null || value === undefined || value === 0) {
     return <span className="text-text-muted">—</span>;
   }
   if (value < 0) {
-    return <span className="text-success">Cost saved: ₹{fmtMoney(Math.abs(value))}</span>;
+    return <span className="text-success">Cost saved: {money(Math.abs(value), { decimals: 0 })}</span>;
   }
-  return <span className="text-danger">Cost overrun: ₹{fmtMoney(value)}</span>;
+  return <span className="text-danger">Cost overrun: {money(value, { decimals: 0 })}</span>;
 }
 
 function utilBand(util: number | null | undefined): string {

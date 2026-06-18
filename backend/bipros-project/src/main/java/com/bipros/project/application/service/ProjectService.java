@@ -200,7 +200,29 @@ public class ProjectService {
             project.setCalendarId(request.calendarId());
         }
         if (request.budgetCurrency() != null && !request.budgetCurrency().isBlank()) {
-            project.setBudgetCurrency(request.budgetCurrency().strip().toUpperCase());
+            String oldCur = project.getBudgetCurrency() == null ? "INR" : project.getBudgetCurrency().toUpperCase();
+            String newCur = request.budgetCurrency().strip().toUpperCase();
+            if (!newCur.equals(oldCur)) {
+                // Relabel-only currency change. The BAC is stored in the currency's
+                // "major-unit" (crores=1e7 for INR, millions=1e6 for others) and EVM/Cost
+                // multiply it back to raw by that factor. To keep the REAL money unchanged
+                // across a currency switch (no FX conversion), rescale the stored figure so
+                // raw stays constant: e.g. 2 (₹ crore) -> 20 (OMR million), both 20,000,000.
+                java.math.BigDecimal oldF = "INR".equals(oldCur)
+                    ? new java.math.BigDecimal("10000000") : new java.math.BigDecimal("1000000");
+                java.math.BigDecimal newF = "INR".equals(newCur)
+                    ? new java.math.BigDecimal("10000000") : new java.math.BigDecimal("1000000");
+                if (oldF.compareTo(newF) != 0) {
+                    java.math.BigDecimal ratio = oldF.divide(newF, 10, java.math.RoundingMode.HALF_UP);
+                    if (project.getOriginalBudget() != null) {
+                        project.setOriginalBudget(project.getOriginalBudget().multiply(ratio));
+                    }
+                    if (project.getCurrentBudget() != null) {
+                        project.setCurrentBudget(project.getCurrentBudget().multiply(ratio));
+                    }
+                }
+            }
+            project.setBudgetCurrency(newCur);
         }
         validateChainage(project.getFromChainageM(), project.getToChainageM());
         // Recompute derived length whenever chainages change (respecting an explicit override).

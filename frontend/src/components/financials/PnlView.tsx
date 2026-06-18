@@ -8,11 +8,7 @@ import { CadenceToggle, type Cadence } from "@/components/financials/CadenceTogg
 import { MarginTrendChart } from "@/components/financials/MarginTrendChart";
 import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
-
-function fmtCurrency(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
-  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
-}
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 function fmtPct(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
@@ -39,6 +35,7 @@ export function PnlView({
   description: string;
   revenueLabel: string;
 }) {
+  const { money } = useProjectCurrency();
   const [cadence, setCadence] = useState<Cadence>("M");
 
   const summary = useQuery({
@@ -84,11 +81,11 @@ export function PnlView({
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiTile label={revenueLabel} value={fmtCurrency(summaryRow?.revenue)} hint="Σ rate × qty" />
-        <KpiTile label="Actual Cost" value={fmtCurrency(summaryRow?.actualCost)} hint="Σ cost from DPR / DBS" />
+        <KpiTile label={revenueLabel} value={money(summaryRow?.revenue, { decimals: 0 })} hint="Σ rate × qty" />
+        <KpiTile label="Actual Cost" value={money(summaryRow?.actualCost, { decimals: 0 })} hint="Σ cost from DPR / DBS" />
         <KpiTile
           label="Margin"
-          value={fmtCurrency(summaryRow?.margin)}
+          value={money(summaryRow?.margin, { decimals: 0 })}
           hint="Revenue − Cost"
           tone={marginTone(summaryRow?.marginPct)}
         />
@@ -144,10 +141,10 @@ export function PnlView({
                   <td className="py-2 pr-3 font-medium">{p.periodName}</td>
                   <td className="py-2 pr-3">{p.startDate}</td>
                   <td className="py-2 pr-3">{p.endDate}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(p.revenue)}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(p.actualCost)}</td>
+                  <td className="py-2 pr-3 text-right">{money(p.revenue, { decimals: 0 })}</td>
+                  <td className="py-2 pr-3 text-right">{money(p.actualCost, { decimals: 0 })}</td>
                   <td className={`py-2 pr-3 text-right ${p.margin < 0 ? "text-burgundy" : "text-emerald"}`}>
-                    {fmtCurrency(p.margin)}
+                    {money(p.margin, { decimals: 0 })}
                   </td>
                   <td className={`py-2 pr-3 text-right ${(p.marginPct ?? 0) < 0 ? "text-burgundy" : "text-emerald"}`}>
                     {fmtPct(p.marginPct)}
@@ -176,10 +173,10 @@ export function PnlView({
               {activityRows.map((a, idx) => (
                 <tr key={`${a.activity}-${idx}`} className="border-t border-hairline">
                   <td className="py-2 pr-3 font-medium">{a.activity}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(a.revenue)}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(a.actualCost)}</td>
+                  <td className="py-2 pr-3 text-right">{money(a.revenue, { decimals: 0 })}</td>
+                  <td className="py-2 pr-3 text-right">{money(a.actualCost, { decimals: 0 })}</td>
                   <td className={`py-2 pr-3 text-right ${a.margin < 0 ? "text-burgundy" : "text-emerald"}`}>
-                    {fmtCurrency(a.margin)}
+                    {money(a.margin, { decimals: 0 })}
                   </td>
                   <td className={`py-2 pr-3 text-right ${(a.marginPct ?? 0) < 0 ? "text-burgundy" : "text-emerald"}`}>
                     {fmtPct(a.marginPct)}
@@ -217,11 +214,11 @@ export function PnlView({
                     {i.qtyExecuted?.toLocaleString("en-IN") ?? "—"}
                   </td>
                   <td className="py-2 pr-3">{i.unit ?? "—"}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(i.rate)}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(i.revenue)}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(i.actualCost)}</td>
+                  <td className="py-2 pr-3 text-right">{money(i.rate, { decimals: 0 })}</td>
+                  <td className="py-2 pr-3 text-right">{money(i.revenue, { decimals: 0 })}</td>
+                  <td className="py-2 pr-3 text-right">{money(i.actualCost, { decimals: 0 })}</td>
                   <td className={`py-2 pr-3 text-right ${i.margin < 0 ? "text-burgundy" : "text-emerald"}`}>
-                    {fmtCurrency(i.margin)}
+                    {money(i.margin, { decimals: 0 })}
                   </td>
                   <td className={`py-2 pr-3 text-right ${(i.marginPct ?? 0) < 0 ? "text-burgundy" : "text-emerald"}`}>
                     {fmtPct(i.marginPct)}

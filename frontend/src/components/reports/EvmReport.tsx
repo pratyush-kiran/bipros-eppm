@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import type { EvmReportData } from "@/lib/api/reportDataApi";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 interface EvmReportProps {
   data: EvmReportData;
@@ -44,6 +45,13 @@ function MetricCard({
 }
 
 export function EvmReport({ data }: EvmReportProps) {
+  // May render on the portfolio reports page (outside a project route), so fall
+  // back to INR when no project currency is in context.
+  const currency = useProjectCurrencyOptional();
+  const money = (value: number | null | undefined) =>
+    currency ? currency.money(value) : formatMoney(value, { code: "INR" });
+  const symbol = currency?.symbol ?? "₹";
+
   const metrics = useMemo(
     () => ({
       spiGood: data.spi >= 1,
@@ -86,9 +94,9 @@ export function EvmReport({ data }: EvmReportProps) {
 
       {/* Core EVM Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard label="Planned Value (PV)" value={data.pv} isGood={true} suffix="₹" />
-        <MetricCard label="Earned Value (EV)" value={data.ev} isGood={true} suffix="₹" />
-        <MetricCard label="Actual Cost (AC)" value={data.ac} isGood={data.ac <= data.ev} suffix="₹" />
+        <MetricCard label="Planned Value (PV)" value={data.pv} isGood={true} suffix={` ${symbol}`} />
+        <MetricCard label="Earned Value (EV)" value={data.ev} isGood={true} suffix={` ${symbol}`} />
+        <MetricCard label="Actual Cost (AC)" value={data.ac} isGood={data.ac <= data.ev} suffix={` ${symbol}`} />
       </div>
 
       {/* Performance Indices */}
@@ -107,9 +115,9 @@ export function EvmReport({ data }: EvmReportProps) {
 
       {/* Forecast Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard label="Estimate at Completion (EAC)" value={data.eac} isGood={metrics.eacGood} suffix="₹" />
-        <MetricCard label="Estimate to Complete (ETC)" value={data.etc} isGood={data.etc >= 0} suffix="₹" />
-        <MetricCard label="Variance at Completion (VAC)" value={data.vac} isGood={metrics.vacGood} suffix="₹" />
+        <MetricCard label="Estimate at Completion (EAC)" value={data.eac} isGood={metrics.eacGood} suffix={` ${symbol}`} />
+        <MetricCard label="Estimate to Complete (ETC)" value={data.etc} isGood={data.etc >= 0} suffix={` ${symbol}`} />
+        <MetricCard label="Variance at Completion (VAC)" value={data.vac} isGood={metrics.vacGood} suffix={` ${symbol}`} />
       </div>
 
       {/* Completion Metric */}
@@ -154,8 +162,8 @@ export function EvmReport({ data }: EvmReportProps) {
               </p>
               <p className="text-text-primary">
                 {data.vac >= 0
-                  ? `✓ Project will save ${formatDefaultCurrency(data.vac)}`
-                  : `✗ Project will overrun by ${formatDefaultCurrency(Math.abs(data.vac))}`}
+                  ? `✓ Project will save ${money(data.vac)}`
+                  : `✗ Project will overrun by ${money(Math.abs(data.vac))}`}
               </p>
             </div>
             <div>
@@ -163,7 +171,7 @@ export function EvmReport({ data }: EvmReportProps) {
                 <span className="font-semibold">Final Estimate (EAC):</span>
               </p>
               <p className="text-text-primary">
-                Project is estimated to cost {formatDefaultCurrency(data.eac)} (originally planned: {formatDefaultCurrency(data.pv)})
+                Project is estimated to cost {money(data.eac)} (originally planned: {money(data.pv)})
               </p>
             </div>
           </div>

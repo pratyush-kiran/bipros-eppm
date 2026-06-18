@@ -10,6 +10,7 @@ import {
   activitySubContractorApi,
   type ActivitySubContractorAssignment,
 } from "@/lib/api/activitySubContractorApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   projectId: string;
@@ -31,6 +32,8 @@ type ResourcePlanRow =
  * Totals row at the bottom across all rows.
  */
 export function RoleDemandOverview({ projectId, activityId, title = "Resource Plan", compact = false }: Props) {
+  const { money } = useProjectCurrency();
+  const fmtCost = (n: number | null | undefined): string => (n == null ? "—" : money(n));
   const { data: roleResp } = useQuery({
     queryKey: ["role-assignments", projectId, activityId],
     queryFn: () => roleAssignmentApi.listForActivity(projectId, activityId),
@@ -248,11 +251,6 @@ export function RoleDemandOverview({ projectId, activityId, title = "Resource Pl
 function fmtNum(n: number | null | undefined): string {
   if (n == null) return "—";
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
-}
-
-function fmtCost(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return `₹${n.toFixed(2)}`;
 }
 
 /**

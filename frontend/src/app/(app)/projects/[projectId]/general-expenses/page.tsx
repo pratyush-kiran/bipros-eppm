@@ -14,11 +14,7 @@ import {
 } from "@/lib/api/generalExpensesApi";
 import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
-
-function fmt(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
-}
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 function numOrNull(value: string): number | null {
   if (value === "" || value === undefined) return null;
@@ -30,6 +26,7 @@ export default function GeneralExpensesPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const queryClient = useQueryClient();
+  const { money } = useProjectCurrency();
 
   const today = new Date();
   const [yearMonth, setYearMonth] = useState<number>(
@@ -169,7 +166,7 @@ export default function GeneralExpensesPage() {
       <section className="mb-8 rounded-xl border border-hairline bg-paper p-4 shadow-sm">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-widest text-slate">Plan items (20 seeded defaults)</h2>
-          <span className="text-sm text-slate">Plan total: <strong className="text-charcoal">{fmt(planTotal)}</strong></span>
+          <span className="text-sm text-slate">Plan total: <strong className="text-charcoal">{money(planTotal)}</strong></span>
         </div>
         {planLoading ? (
           <div className="py-8 text-center text-slate">Loading plan…</div>
@@ -258,7 +255,7 @@ export default function GeneralExpensesPage() {
               onChange={(e) => setYearMonth(parseInputMonth(e.target.value))}
             />
             <span className="text-sm text-slate">
-              Total: <strong className="text-charcoal">{fmt(actuals?.monthlyTotal)}</strong>
+              Total: <strong className="text-charcoal">{money(actuals?.monthlyTotal)}</strong>
             </span>
           </div>
         </div>
@@ -287,7 +284,7 @@ export default function GeneralExpensesPage() {
                     <tr key={row.planItem.id} className="border-b border-hairline/40 hover:bg-surface-hover/30">
                       <td className="px-2 py-1.5 text-slate">{row.planItem.sortOrder}</td>
                       <td className="px-2 py-1.5 text-charcoal">{row.planItem.description}</td>
-                      <td className="px-2 py-1.5 text-right text-slate">{fmt(row.planItem.planAmount)}</td>
+                      <td className="px-2 py-1.5 text-right text-slate">{money(row.planItem.planAmount)}</td>
                       <td className="px-2 py-1.5 text-right">
                         <input
                           type="number"

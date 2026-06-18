@@ -39,6 +39,7 @@ import { ActivityAssignmentsByRole } from "@/components/activity/ActivityAssignm
 import { ActivityEditStatusBadge } from "@/components/activity/ActivityEditStatusBadge";
 import { ResourceAssignmentForm } from "@/components/resource/ResourceAssignmentForm";
 import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import type { ExpenseResponse } from "@/lib/types";
 import { AlertTriangle, Lock, RefreshCw, Unlock } from "lucide-react";
 
@@ -568,6 +569,7 @@ function ViewMode({
   }
 
   const queryClient = useQueryClient();
+  const { money } = useProjectCurrency();
   const isLocked = activity.editStatus === "LOCKED";
 
   const recomputeMutation = useMutation({
@@ -625,8 +627,7 @@ function ViewMode({
   const totalActualCost = assignments.reduce((sum, a) => sum + (a.actualCost ?? 0), 0);
   const totalExpenses = activityExpenses.reduce((sum, e) => sum + (e.actualCost ?? 0), 0);
 
-  const fmt = (n: number) =>
-    n.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+  const fmt = (n: number) => money(n, { decimals: 0 });
 
   type ExpenseRow =
     | ExpenseResponse
@@ -679,7 +680,8 @@ function ViewMode({
         );
       },
     },
-  ], []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [money]);
 
   const expenseTableData = useMemo<ExpenseRow[]>(
     () =>

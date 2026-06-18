@@ -18,6 +18,7 @@ import { TabTip } from "@/components/common/TabTip";
 import { SupervisorPerformanceSections } from "@/components/capacity-utilization/SupervisorPerformanceSections";
 import { SupervisorComparisonSections } from "@/components/capacity-utilization/SupervisorComparisonSections";
 import { PeriodCell as RolePeriodCellShared } from "@/components/capacity/PeriodCell";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 const today = () => new Date().toISOString().split("T")[0];
 const startOfMonth = () => {
@@ -163,6 +164,7 @@ const Sc180SectionTable = memo(function Sc180SectionTable({
   title: string;
   section: CapacitySection | null;
 }) {
+  const { money } = useProjectCurrency();
   if (!section || section.rows.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-paper px-6 py-6 text-center text-sm text-text-muted">
@@ -213,7 +215,9 @@ const Sc180SectionTable = memo(function Sc180SectionTable({
                   </div>
                 </td>
                 <td className="px-4 py-3 align-top text-right text-xs">
-                  {r.ratePerDay == null ? "—" : `₹${fmt(r.ratePerDay, 0)}`}
+                  {/* Show real rate precision — sub-1 rates (e.g. 0.58 OMR/day) must not
+                      round to "1", or the cost-implication arithmetic looks wrong on screen. */}
+                  {r.ratePerDay == null ? "—" : money(r.ratePerDay, { decimals: 2 })}
                 </td>
                 <td className="px-4 py-3 align-top border-l border-border">
                   <RolePeriodCell period={r.forTheDay} />

@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { SimpleTable } from "@/components/common/SimpleTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CashFlowEntry } from "@/lib/api/reportDataApi";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 interface CashFlowReportProps {
   data: CashFlowEntry[];
@@ -23,6 +24,12 @@ interface CashFlowReportProps {
 
 export function CashFlowReport({ data }: CashFlowReportProps) {
   const [showCumulative, setShowCumulative] = useState(false);
+  // May render on the portfolio reports page (outside a project route), so fall
+  // back to INR when no project currency is in context.
+  const currency = useProjectCurrencyOptional();
+  const money = (value: number | null | undefined) =>
+    currency ? currency.money(value) : formatMoney(value, { code: "INR" });
+  const symbol = currency?.symbol ?? "₹";
 
   const chartData = useMemo(() => {
     return data.map((entry) => ({
@@ -65,7 +72,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
         header: showCumulative ? "Cum. Planned" : "Planned",
         cell: (info) => (
           <span className="block text-right">
-            ${Number(info.getValue()).toFixed(2)}
+            {money(Number(info.getValue()))}
           </span>
         ),
       },
@@ -74,7 +81,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
         header: showCumulative ? "Cum. Actual" : "Actual",
         cell: (info) => (
           <span className="block text-right">
-            ${Number(info.getValue()).toFixed(2)}
+            {money(Number(info.getValue()))}
           </span>
         ),
       },
@@ -83,12 +90,13 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
         header: showCumulative ? "Cum. Forecast" : "Forecast",
         cell: (info) => (
           <span className="block text-right">
-            ${Number(info.getValue()).toFixed(2)}
+            {money(Number(info.getValue()))}
           </span>
         ),
       },
     ],
-    [showCumulative]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [showCumulative, currency]
   );
 
   return (
@@ -125,10 +133,10 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             <YAxis
               stroke="#64748b"
               style={{ fontSize: "12px" }}
-              label={{ value: "Amount (₹)", angle: -90, position: "insideLeft" }}
+              label={{ value: `Amount (${symbol})`, angle: -90, position: "insideLeft" }}
             />
             <Tooltip
-              formatter={(value) => formatDefaultCurrency(Number(value))}
+              formatter={(value) => money(Number(value))}
               contentStyle={{
                 backgroundColor: "#1e293b",
                 border: "1px solid #334155",
@@ -166,15 +174,15 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Total Planned</p>
-          <p className="text-3xl font-bold text-accent">${totals.totalPlanned.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-accent">{money(totals.totalPlanned)}</p>
         </div>
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Total Actual</p>
-          <p className="text-3xl font-bold text-success">${totals.totalActual.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-success">{money(totals.totalActual)}</p>
         </div>
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Total Forecast</p>
-          <p className="text-3xl font-bold text-amber-600">${totals.totalForecast.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-amber-600">{money(totals.totalForecast)}</p>
         </div>
       </div>
 
@@ -186,7 +194,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Variance</span>
               <span className={`font-semibold ${variance.planned >= 0 ? "text-success" : "text-danger"}`}>
-                ${variance.planned.toFixed(2)}
+                {money(variance.planned)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -206,7 +214,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Remaining</span>
               <span className={`font-semibold ${variance.forecast >= 0 ? "text-success" : "text-danger"}`}>
-                ${variance.forecast.toFixed(2)}
+                {money(variance.forecast)}
               </span>
             </div>
             <div className="flex justify-between text-sm">

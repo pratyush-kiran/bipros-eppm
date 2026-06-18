@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { contractApi } from "@/lib/api/contractApi";
 import { budgetApi } from "@/lib/api/budgetApi";
-import { formatMoney } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { ContractForm } from "@/components/contracts/ContractForm";
 import { AttachmentList } from "@/components/contracts/AttachmentList";
 import { AttachmentUploadForm } from "@/components/contracts/AttachmentUploadForm";
@@ -23,14 +23,6 @@ import type {
   UploadContractAttachmentMetadata,
   VariationOrderResponse,
 } from "@/lib/types";
-
-/** Scale-aware monetary formatter for contract values (currency-agnostic). */
-function formatContractValue(v: number | null | undefined, currency = "INR"): string {
-  const n = v ?? 0;
-  if (Math.abs(n) >= 10_000_000) return `${(n / 10_000_000).toFixed(2)} M ${currency}`;
-  if (Math.abs(n) >= 100_000) return `${(n / 100_000).toFixed(2)} K ${currency}`;
-  return formatMoney(n, currency, 0);
-}
 
 /** Triggers a save-as for a Blob using a temporary anchor. Mirrors the documents page pattern. */
 function saveBlob(blob: Blob, fileName: string) {
@@ -59,6 +51,7 @@ function ContractDetailPageInner() {
   const contractId = params.contractId as string;
   const activeTab = searchParams.get("tab") || "milestones";
   const queryClient = useQueryClient();
+  const { moneyCompact } = useProjectCurrency();
 
   const [isEditing, setIsEditing] = useState(false);
 
@@ -74,10 +67,6 @@ function ContractDetailPageInner() {
     staleTime: 5 * 60 * 1000,
   });
   const projectCurrency = budgetData?.data?.budgetCurrency ?? "INR";
-
-  /** Format a contract monetary value using the contract's own currency when available. */
-  const formatRupees = (v: number | null | undefined, contractCurrency?: string | null) =>
-    formatContractValue(v, contractCurrency ?? projectCurrency);
 
   const { data: milestones = [] } = useQuery({
     queryKey: ["contract-milestones", contractId],
@@ -221,12 +210,12 @@ function ContractDetailPageInner() {
           <div className="bg-surface/80 rounded-xl p-3 border border-border">
             <p className="text-xs text-text-secondary">Contract Value</p>
             <p className="text-lg font-semibold text-text-primary">
-              {formatRupees(contractData.contractValue, contractData.currency)}
+              {moneyCompact(contractData.contractValue)}
             </p>
             {contractData.revisedValue != null &&
             contractData.revisedValue !== contractData.contractValue ? (
               <p className="text-xs text-text-secondary mt-0.5">
-                Revised: {formatRupees(contractData.revisedValue, contractData.currency)}
+                Revised: {moneyCompact(contractData.revisedValue)}
               </p>
             ) : null}
           </div>

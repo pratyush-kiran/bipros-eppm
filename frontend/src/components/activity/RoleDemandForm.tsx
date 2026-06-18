@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { resourceRoleApi } from "@/lib/api/resourceRoleApi";
 import { roleRateApi } from "@/lib/api/roleRateApi";
 import { roleAssignmentApi, type RoleAssignmentRequest } from "@/lib/api/roleAssignmentApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 type RoleType = "MANPOWER" | "EQUIPMENT" | "MATERIAL";
 
@@ -17,6 +18,7 @@ interface Props {
 
 export function RoleDemandForm({ projectId, activityId, onSaved, onCancel }: Props) {
   const qc = useQueryClient();
+  const { money } = useProjectCurrency();
   const [type, setType] = useState<RoleType>("MANPOWER");
   const [roleId, setRoleId] = useState<string>("");
   const [variantId, setVariantId] = useState<string>("");
@@ -151,10 +153,10 @@ export function RoleDemandForm({ projectId, activityId, onSaved, onCancel }: Pro
               };
               const label =
                 type === "MANPOWER"
-                  ? `${variant.categoryName} / ${variant.gradeName} — ${variant.unit} @ ₹${variant.rate}`
+                  ? `${variant.categoryName} / ${variant.gradeName} — ${variant.unit} @ ${money(variant.rate)}`
                   : type === "EQUIPMENT"
-                  ? `${variant.make} / ${variant.model} — ${variant.unit} @ ₹${variant.rate}`
-                  : `${variant.specGrade} — ${variant.unit} @ ₹${variant.rate}`;
+                  ? `${variant.make} / ${variant.model} — ${variant.unit} @ ${money(variant.rate)}`
+                  : `${variant.specGrade} — ${variant.unit} @ ${money(variant.rate)}`;
               return (
                 <option key={variant.id} value={variant.id}>
                   {label}
@@ -213,7 +215,7 @@ export function RoleDemandForm({ projectId, activityId, onSaved, onCancel }: Pro
             Planned Units = <b>{plannedUnits}</b> {selectedVariant.unit}
           </div>
           <div>
-            Planned Cost = <b>₹{plannedCost.toFixed(2)}</b> (units × ₹{selectedVariant.rate})
+            Planned Cost = <b>{money(plannedCost)}</b> (units × {money(selectedVariant.rate)})
           </div>
         </div>
       )}

@@ -1,8 +1,10 @@
 "use client";
 
-import { TrendingUp, IndianRupee, CheckCircle2, AlertOctagon } from "lucide-react";
+import { TrendingUp, Wallet, CheckCircle2, AlertOctagon } from "lucide-react";
 import { KpiTile } from "@/components/common/KpiTile";
 import { formatDelta } from "./dashboardDerivations";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 import type {
   ProjectStatusSnapshot,
   SnapshotDeltas,
@@ -23,6 +25,14 @@ export function KpiRow({
   tasksDelta,
   criticalIssueCount,
 }: KpiRowProps) {
+  // bacCrores is the BAC in crore units (raw ÷ 1e7); recover raw and render in the
+  // project currency. Optional hook + INR fallback so this is safe if the row is
+  // ever rendered outside a project route.
+  const cur = useProjectCurrencyOptional();
+  const moneyCompact = cur
+    ? cur.moneyCompact
+    : (v: number | null | undefined) => formatMoney(v, { code: "INR" }, { compact: true });
+  const isIndian = cur?.isIndian ?? true;
   const physicalPct = snapshot?.physicalPct ?? 0;
   const bacCrores = snapshot?.bacCrores ?? 0;
   const activeRisks = snapshot?.activeRisksCount ?? 0;
@@ -41,11 +51,11 @@ export function KpiRow({
       />
       <KpiTile
         label="Budget Utilised"
-        value={`₹${bacCrores.toFixed(1)} Cr`}
+        value={moneyCompact(bacCrores * 1e7)}
         tone="accent"
-        icon={<IndianRupee size={14} />}
+        icon={<Wallet size={14} />}
         delta={formatDelta(bacCrores, deltas?.bacCroresDelta, {
-          unit: " Cr",
+          unit: isIndian ? " Cr" : "",
           digits: 1,
           invertColor: true,
         })}

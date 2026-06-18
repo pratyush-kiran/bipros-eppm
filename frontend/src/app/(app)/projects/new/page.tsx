@@ -6,6 +6,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { projectApi } from "@/lib/api/projectApi";
+import { settingsApi } from "@/lib/api/settingsApi";
+import { resolveCurrencyMeta } from "@/lib/currency/format";
 import { obsApi } from "@/lib/api/obsApi";
 import { projectCategoryApi } from "@/lib/api/projectCategoryApi";
 import { calendarApi } from "@/lib/api/calendarApi";
@@ -32,19 +34,6 @@ export default function NewProjectPage() {
     calendarId: "",
   });
 
-  // ISO-4217 currency choices we support in the create form. Keep this in
-  // sync with the backend Project entity's accepted currencies (currently
-  // free-form String defaulting to INR — see Project.java:177).
-  const CURRENCY_OPTIONS: ReadonlyArray<{ code: string; label: string }> = [
-    { code: "INR", label: "INR - Indian Rupee" },
-    { code: "USD", label: "USD - US Dollar" },
-    { code: "OMR", label: "OMR - Omani Rial" },
-    { code: "AED", label: "AED - UAE Dirham" },
-    { code: "SAR", label: "SAR - Saudi Riyal" },
-    { code: "EUR", label: "EUR - Euro" },
-    { code: "GBP", label: "GBP - British Pound" },
-  ];
-
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,10 +58,29 @@ export default function NewProjectPage() {
     queryFn: () => calendarApi.listCalendars(),
   });
 
+  // Currency choices come from Admin → Settings → Currencies (the single source
+  // of truth), not a hardcoded list. retry:false so a 403 degrades fast to the
+  // INR fallback below rather than blocking the form.
+  const { data: currenciesData, isLoading: isLoadingCurrencies } = useQuery({
+    queryKey: ["currencies"],
+    queryFn: () => settingsApi.listCurrencies(),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
   const epsNodes = epsData?.data ?? [];
   const obsNodes = obsData?.data ?? [];
   const categories = categoriesData?.data ?? [];
   const allCalendars = calendarsData?.data ?? [];
+  const configuredCurrencies = currenciesData?.data ?? [];
+  // Defensive fallback keeps the form usable if currencies can't be read.
+  const currencyOptions = configuredCurrencies.length
+    ? configuredCurrencies.map((c) => ({ code: c.code, label: `${c.code} - ${c.name}` }))
+    : [{ code: "INR", label: "INR - Indian Rupee" }];
+  const selectedCurrencySymbol = resolveCurrencyMeta(
+    formData.budgetCurrency,
+    configuredCurrencies,
+  ).symbol;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -234,16 +242,18 @@ export default function NewProjectPage() {
                 name="budgetCurrency"
                 value={formData.budgetCurrency ?? "INR"}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                disabled={isLoadingCurrencies}
+                className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
               >
-                {CURRENCY_OPTIONS.map((c) => (
+                {isLoadingCurrencies && <option value="">Loading…</option>}
+                {currencyOptions.map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.label}
                   </option>
                 ))}
               </select>
               <p className="mt-1 text-xs text-text-muted">
-                Budget currency for EVM, cost cards, and AI reports. Cannot be changed after creation.
+                Budget currency for EVM, cost cards, and AI reports. Manage the list under Admin → Settings → Currencies.
               </p>
             </div>
             <div>
@@ -437,7 +447,7 @@ export default function NewProjectPage() {
             </div>
             <div className="mt-6 grid grid-cols-3 gap-6">
               <div>
-                <label className="block text-sm font-medium text-text-secondary">Contract Value (₹)</label>
+                <label className="block text-sm font-medium text-text-secondary">Contract Value ({selectedCurrencySymbol})</label>
                 <input
                   type="number"
                   step="0.01"
@@ -455,7 +465,7 @@ export default function NewProjectPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-text-secondary">Revised Value (₹)</label>
+                <label className="block text-sm font-medium text-text-secondary">Revised Value ({selectedCurrencySymbol})</label>
                 <input
                   type="number"
                   step="0.01"

@@ -7,6 +7,7 @@ import {
   type ActivitySubContractorAssignment,
 } from "@/lib/api/activitySubContractorApi";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { CellInput, RowGrid, type RowGridColumn } from "./RowGrid";
 import type { DprSubContractorRow } from "@/lib/types/dpr";
 
@@ -37,6 +38,7 @@ interface Props {
  * and rate; the row's lineCost = quantity × ratePerUnit is computed live.
  */
 export function SubContractorGrid({ projectId, activityId, rows, onChange, workdoneQty }: Props) {
+  const { money } = useProjectCurrency();
   const { data: assignmentsResp, isLoading } = useQuery({
     queryKey: ["sub-contractor-assignments", projectId, activityId],
     queryFn: () => activitySubContractorApi.listForActivity(projectId, activityId!),
@@ -146,7 +148,7 @@ export function SubContractorGrid({ projectId, activityId, rows, onChange, workd
       minWidth: 90,
       render: (r) => (
         <span className="text-xs tabular-nums text-text-secondary">
-          {r.ratePerUnit != null ? `₹${r.ratePerUnit.toFixed(2)}` : "—"}
+          {money(r.ratePerUnit)}
         </span>
       ),
     },
@@ -156,7 +158,7 @@ export function SubContractorGrid({ projectId, activityId, rows, onChange, workd
       minWidth: 110,
       render: (r) => (
         <span className="text-xs tabular-nums">
-          {r.lineCost != null ? `₹${r.lineCost.toFixed(2)}` : "—"}
+          {money(r.lineCost)}
         </span>
       ),
     },

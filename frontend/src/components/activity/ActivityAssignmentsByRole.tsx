@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import type { ResourceAssignmentResponse } from "@/lib/api/resourceApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   assignments: ResourceAssignmentResponse[];
@@ -31,14 +32,6 @@ interface RoleGroup {
 }
 
 const UNASSIGNED_KEY = "__unassigned__";
-
-function fmt(n: number | null | undefined): string {
-  return (n ?? 0).toLocaleString("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  });
-}
 
 function num(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -153,6 +146,8 @@ function ResourceStatusPill({ staffed }: { staffed: boolean }) {
 }
 
 export function ActivityAssignmentsByRole({ assignments, onStaff, onSwap }: Props) {
+  const { money } = useProjectCurrency();
+  const fmt = (n: number | null | undefined): string => money(n ?? 0, { decimals: 0 });
   const groups = useMemo(() => buildGroups(assignments), [assignments]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 

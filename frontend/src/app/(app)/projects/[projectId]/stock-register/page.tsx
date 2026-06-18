@@ -10,6 +10,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import type { MaterialStockRow, StockStatusTag } from "@/lib/types";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 const TAG_COLORS: Record<StockStatusTag, string> = {
   OK: "bg-success/20 text-success",
@@ -20,6 +21,7 @@ const TAG_COLORS: Record<StockStatusTag, string> = {
 export default function StockRegisterPage() {
   const params = useParams<{ projectId: string }>();
   const projectId = params.projectId;
+  const { money, symbol } = useProjectCurrency();
 
   const { data, isLoading } = useQuery({
     queryKey: ["stock-register", projectId],
@@ -54,10 +56,10 @@ export default function StockRegisterPage() {
     { accessorKey: "reorderQuantity", header: "Reorder Qty" },
     {
       accessorKey: "stockValue",
-      header: "Stock Value (₹)",
+      header: `Stock Value (${symbol})`,
       cell: (info) => {
         const v = info.getValue();
-        return v == null ? "—" : `₹${Number(v).toLocaleString("en-IN")}`;
+        return v == null ? "—" : money(Number(v), { decimals: 0 });
       },
     },
     {
@@ -81,7 +83,7 @@ export default function StockRegisterPage() {
         return v == null ? "—" : `${v}%`;
       },
     },
-  ], []);
+  ], [money, symbol]);
 
   return (
     <div className="space-y-6">

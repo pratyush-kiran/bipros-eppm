@@ -2,14 +2,11 @@
 
 import { memo } from "react";
 import type { RolePeriod } from "@/lib/api/capacityUtilizationApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 function fmt(n: number | null | undefined, digits = 2): string {
   if (n === null || n === undefined) return "—";
   return n.toLocaleString("en-IN", { maximumFractionDigits: digits });
-}
-
-function fmtMoney(n: number): string {
-  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 }
 
 export function utilBand(util: number | null | undefined): string {
@@ -54,6 +51,7 @@ export const PeriodCell = memo(function PeriodCell({
 }: {
   period: RolePeriod | null;
 }) {
+  const { money } = useProjectCurrency();
   if (!period) {
     return <span className="text-xs text-text-muted">—</span>;
   }
@@ -95,8 +93,8 @@ export const PeriodCell = memo(function PeriodCell({
             className={`text-xs ${period.costImplication < 0 ? "text-success" : "text-danger"}`}
           >
             {period.costImplication < 0
-              ? `Cost saved: ₹${fmtMoney(Math.abs(period.costImplication))}`
-              : `Cost overrun: ₹${fmtMoney(period.costImplication)}`}
+              ? `Cost saved: ${money(Math.abs(period.costImplication), { decimals: 0 })}`
+              : `Cost overrun: ${money(period.costImplication, { decimals: 0 })}`}
           </span>
         )}
       </div>

@@ -10,10 +10,12 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import type { GoodsReceiptResponse } from "@/lib/types";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 export default function GrnsPage() {
   const params = useParams<{ projectId: string }>();
   const projectId = params.projectId;
+  const { money } = useProjectCurrency();
 
   const { data, isLoading } = useQuery({
     queryKey: ["grns", projectId],
@@ -45,7 +47,7 @@ export default function GrnsPage() {
       header: "Unit Rate",
       cell: (info) => {
         const v = info.getValue();
-        return v == null ? "—" : `₹${Number(v).toLocaleString("en-IN")}`;
+        return v == null ? "—" : money(Number(v), { decimals: 0 });
       },
     },
     {
@@ -53,12 +55,12 @@ export default function GrnsPage() {
       header: "Amount",
       cell: (info) => {
         const v = info.getValue();
-        return v == null ? "—" : `₹${Number(v).toLocaleString("en-IN")}`;
+        return v == null ? "—" : money(Number(v), { decimals: 0 });
       },
     },
     { accessorKey: "poNumber", header: "PO #" },
     { accessorKey: "vehicleNumber", header: "Vehicle" },
-  ], [materials]);
+  ], [materials, money]);
 
   return (
     <div className="space-y-6">

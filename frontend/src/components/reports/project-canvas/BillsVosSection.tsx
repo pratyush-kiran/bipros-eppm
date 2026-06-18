@@ -13,8 +13,16 @@ import {
   formatCrore,
   truncate,
 } from "@/components/common/dashboard/primitives";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 export function BillsVosSection({ projectId }: { projectId: string }) {
+  // The project-canvas can render on the portfolio reports page (outside a
+  // project route), so fall back to INR when no project currency is in context.
+  const currency = useProjectCurrencyOptional();
+  const money = (value: number | null | undefined) =>
+    currency ? currency.money(value, { decimals: 0 }) : formatMoney(value, { code: "INR" }, { decimals: 0 });
+
   const billsQuery = useQuery({
     queryKey: ["project-ra-bill-summary", projectId],
     queryFn: () => projectInsightsApi.getRaBillSummary(projectId),
@@ -65,7 +73,7 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
         header: "Gross",
         cell: (info) => (
           <span className="block text-right font-mono">
-            {(info.getValue() as number).toLocaleString("en-IN")}
+            {money(info.getValue() as number)}
           </span>
         ),
       },
@@ -74,7 +82,7 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
         header: "Net",
         cell: (info) => (
           <span className="block text-right font-mono">
-            {(info.getValue() as number).toLocaleString("en-IN")}
+            {money(info.getValue() as number)}
           </span>
         ),
       },
@@ -89,7 +97,8 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
         cell: (info) => <span>{(info.getValue() as string) ?? "—"}</span>,
       },
     ],
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currency]
   );
 
   const voColumns = useMemo<ColumnDef<NonNullable<typeof vosQuery.data>[number]>[]>(

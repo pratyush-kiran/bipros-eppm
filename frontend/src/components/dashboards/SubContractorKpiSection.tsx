@@ -3,8 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { subContractorKpiApi } from "@/lib/api/subContractorKpiApi";
-import { budgetApi } from "@/lib/api/budgetApi";
-import { formatMoney } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface Props {
   projectId: string;
@@ -41,6 +40,9 @@ function pfClass(pf: number | null): string {
 }
 
 export function SubContractorKpiSection({ projectId, from, to, density = "compact" }: Props) {
+  const { money: moneyFull, moneyCompact } = useProjectCurrency();
+  // Line-level costs keep the prior whole-number (no-decimals) display.
+  const money = (v: number | null | undefined) => moneyFull(v, { decimals: 0 });
   const range = useMemo(() => {
     if (from && to) return { from, to };
     return defaultRange();
@@ -51,15 +53,6 @@ export function SubContractorKpiSection({ projectId, from, to, density = "compac
     queryFn: () => subContractorKpiApi.getKpis(projectId, range.from, range.to),
     enabled: !!projectId,
   });
-
-  const { data: budgetData } = useQuery({
-    queryKey: ["project-budget", projectId],
-    queryFn: () => budgetApi.getBudgetSummary(projectId),
-    enabled: !!projectId,
-    staleTime: 5 * 60 * 1000,
-  });
-  const projectCurrency = budgetData?.data?.budgetCurrency ?? "OMR";
-  const money = (v: number | null | undefined) => formatMoney(v, projectCurrency, 0);
 
   if (!projectId) return null;
   if (isLoading) {
@@ -112,13 +105,13 @@ export function SubContractorKpiSection({ projectId, from, to, density = "compac
               caption="actual ÷ norm output/day"
               valueClass={pfClass(kpis.avgProductivityFactor)} />
         <Tile label="Actual Cost"
-              value={money(kpis.totalActualCost)}
+              value={moneyCompact(kpis.totalActualCost)}
               caption="Σ qty × rate" />
         <Tile label="Planned Cost"
-              value={money(kpis.totalPlannedCost)}
+              value={moneyCompact(kpis.totalPlannedCost)}
               caption="Σ planned commitment" />
         <Tile label="Cost Variance"
-              value={money(kpis.costVariance)}
+              value={moneyCompact(kpis.costVariance)}
               caption="planned − actual"
               valueClass={kpis.costVariance >= 0 ? "text-success" : "text-danger"} />
       </div>

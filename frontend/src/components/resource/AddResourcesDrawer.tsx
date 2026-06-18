@@ -16,7 +16,7 @@ import {
   type PoolEntryInput,
 } from "@/lib/api/projectResourceApi";
 import { type ResourceResponse } from "@/lib/api/resourceApi";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { displayResourceTypeName } from "@/lib/utils/resourceTypeLabel";
 import toast from "react-hot-toast";
 import { getErrorMessage } from "@/lib/utils/error";
@@ -37,6 +37,7 @@ interface SelectedEntry {
 
 export function AddResourcesDrawer({ open, onClose, projectId }: Props) {
   const queryClient = useQueryClient();
+  const { money } = useProjectCurrency();
   const [search, setSearch] = useState("");
   const [activeType, setActiveType] = useState<string | null>(null); // resourceTypeName
   const [activeRole, setActiveRole] = useState<string | null>(null); // roleName under activeType
@@ -374,7 +375,7 @@ export function AddResourcesDrawer({ open, onClose, projectId }: Props) {
                               </div>
                               {r.costPerUnit != null && (
                                 <span className="flex-shrink-0 text-sm text-text-secondary">
-                                  {formatDefaultCurrency(r.costPerUnit)}
+                                  {money(r.costPerUnit)}
                                   {r.unit ? `/${r.unit}` : ""}
                                 </span>
                               )}
@@ -428,11 +429,11 @@ export function AddResourcesDrawer({ open, onClose, projectId }: Props) {
                             <p className="mt-0.5 text-xs text-text-muted">
                               Master:{" "}
                               {r.costPerUnit != null
-                                ? formatDefaultCurrency(r.costPerUnit)
+                                ? money(r.costPerUnit)
                                 : "—"}
                               {entry.rateOverride && (
                                 <span className="ml-2 text-accent">
-                                  → {formatDefaultCurrency(parseFloat(entry.rateOverride))}
+                                  → {money(parseFloat(entry.rateOverride))}
                                 </span>
                               )}
                             </p>

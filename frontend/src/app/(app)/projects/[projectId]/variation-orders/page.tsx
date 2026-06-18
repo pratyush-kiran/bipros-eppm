@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { contractApi } from "@/lib/api/contractApi";
 import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import type {
   ContractResponse,
   CreateVariationOrderRequest,
@@ -51,6 +52,7 @@ export default function VariationOrdersListPage() {
   const router = useRouter();
   const projectId = params.projectId as string;
   const queryClient = useQueryClient();
+  const { money, symbol } = useProjectCurrency();
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<CreateForm>(initialForm);
@@ -218,7 +220,7 @@ export default function VariationOrdersListPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-text-secondary">
-                VO Value (₹)
+                VO Value ({symbol})
               </label>
               <input
                 type="number"
@@ -252,7 +254,7 @@ export default function VariationOrdersListPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-text-secondary">
-                Impact on Budget (₹)
+                Impact on Budget ({symbol})
               </label>
               <input
                 type="number"
@@ -308,7 +310,7 @@ export default function VariationOrdersListPage() {
               <th className="border border-border px-4 py-2 text-left">VO Number</th>
               <th className="border border-border px-4 py-2 text-left">Contract</th>
               <th className="border border-border px-4 py-2 text-left">Status</th>
-              <th className="border border-border px-4 py-2 text-right">VO Value (₹)</th>
+              <th className="border border-border px-4 py-2 text-right">VO Value ({symbol})</th>
               <th className="border border-border px-4 py-2 text-right">Lines</th>
               <th className="border border-border px-4 py-2 text-left">Description</th>
               <th className="border border-border px-4 py-2 text-left">Approved At</th>
@@ -344,7 +346,7 @@ export default function VariationOrdersListPage() {
                   </span>
                 </td>
                 <td className="border border-border px-4 py-2 text-right">
-                  {vo.voValue?.toLocaleString("en-IN") ?? "—"}
+                  {money(vo.voValue, { decimals: 0, symbol: false })}
                 </td>
                 <td className="border border-border px-4 py-2 text-right">
                   {vo.lineItems?.length ?? 0}

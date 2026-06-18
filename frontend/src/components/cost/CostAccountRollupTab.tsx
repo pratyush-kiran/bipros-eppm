@@ -8,14 +8,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { evmApi, type CostAccountRollupRow } from "@/lib/api/evmApi";
 import { KpiTile } from "@/components/common/KpiTile";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
-
-const INR_PER_CRORE = 10_000_000;
-
-function formatCrores(val: number | null | undefined): string {
-  if (val === null || val === undefined) return "—";
-  const v = val / INR_PER_CRORE;
-  return `₹${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}cr`;
-}
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 function formatRatio(val: number | null | undefined): string {
   if (val === null || val === undefined) return "—";
@@ -41,6 +34,7 @@ function cvTextClass(cv: number): string {
 }
 
 export function CostAccountRollupTab({ projectId }: { projectId: string }) {
+  const { moneyCompact } = useProjectCurrency();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["cost-account-rollup", projectId],
     queryFn: () => evmApi.getCostAccountRollup(projectId),
@@ -96,7 +90,7 @@ export function CostAccountRollupTab({ projectId }: { projectId: string }) {
         header: "BAC",
         cell: (info) => (
           <span className="block text-right tabular-nums">
-            {formatCrores(Number(info.getValue()))}
+            {moneyCompact(Number(info.getValue()))}
           </span>
         ),
       },
@@ -105,7 +99,7 @@ export function CostAccountRollupTab({ projectId }: { projectId: string }) {
         header: "EV",
         cell: (info) => (
           <span className="block text-right tabular-nums">
-            {formatCrores(Number(info.getValue()))}
+            {moneyCompact(Number(info.getValue()))}
           </span>
         ),
       },
@@ -114,7 +108,7 @@ export function CostAccountRollupTab({ projectId }: { projectId: string }) {
         header: "AC",
         cell: (info) => (
           <span className="block text-right tabular-nums">
-            {formatCrores(Number(info.getValue()))}
+            {moneyCompact(Number(info.getValue()))}
           </span>
         ),
       },
@@ -129,7 +123,7 @@ export function CostAccountRollupTab({ projectId }: { projectId: string }) {
                 val
               )}`}
             >
-              {formatCrores(val)}
+              {moneyCompact(val)}
             </span>
           );
         },
@@ -151,7 +145,7 @@ export function CostAccountRollupTab({ projectId }: { projectId: string }) {
         },
       },
     ],
-    []
+    [moneyCompact]
   );
 
   if (isLoading) {
@@ -187,21 +181,21 @@ export function CostAccountRollupTab({ projectId }: { projectId: string }) {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiTile
           label="Total BAC"
-          value={formatCrores(totals.bac)}
+          value={moneyCompact(totals.bac)}
           hint="Sum of budget at completion"
           tone="accent"
           icon={<Wallet size={14} />}
         />
         <KpiTile
           label="Earned Value"
-          value={formatCrores(totals.ev)}
+          value={moneyCompact(totals.ev)}
           hint="Sum across all cost accounts"
           tone="success"
           icon={<TrendingUp size={14} />}
         />
         <KpiTile
           label="Actual Cost"
-          value={formatCrores(totals.ac)}
+          value={moneyCompact(totals.ac)}
           hint="Sum across all cost accounts"
           tone="danger"
           icon={<DollarSign size={14} />}
@@ -248,20 +242,20 @@ export function CostAccountRollupTab({ projectId }: { projectId: string }) {
               {rows.reduce((acc, r) => acc + r.activityCount, 0)}
             </span>
             <span className="text-right tabular-nums text-text-primary">
-              {formatCrores(totals.bac)}
+              {moneyCompact(totals.bac)}
             </span>
             <span className="text-right tabular-nums text-text-primary">
-              {formatCrores(totals.ev)}
+              {moneyCompact(totals.ev)}
             </span>
             <span className="text-right tabular-nums text-text-primary">
-              {formatCrores(totals.ac)}
+              {moneyCompact(totals.ac)}
             </span>
             <span
               className={`text-right tabular-nums ${cvTextClass(
                 totals.ev - totals.ac
               )}`}
             >
-              {formatCrores(totals.ev - totals.ac)}
+              {moneyCompact(totals.ev - totals.ac)}
             </span>
             <span
               className={`text-right tabular-nums ${cpiTextClass(

@@ -9,11 +9,7 @@ import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
-
-function formatCurrency(value: number | null): string {
-  if (value === null || value === undefined) return "—";
-  return value.toLocaleString("en-IN");
-}
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 function formatPercent(value: number | null): string {
   if (value === null || value === undefined) return "—";
@@ -28,6 +24,7 @@ function varianceClass(value: number | null): string {
 export default function DailyCostReportPage() {
   const params = useParams();
   const projectId = params.projectId as string;
+  const { money, symbol } = useProjectCurrency();
 
   // Date range is data-driven — we wait for the project to load, then seed From/To with the
   // project's planned start/finish so the user sees data on first render regardless of when
@@ -101,30 +98,30 @@ export default function DailyCostReportPage() {
     { accessorKey: "unit", header: "Unit" },
     {
       accessorKey: "budgetedUnitRate",
-      header: "Budgeted Unit Rate (₹)",
-      cell: ({ row }) => formatCurrency(row.original.budgetedUnitRate),
+      header: `Budgeted Unit Rate (${symbol})`,
+      cell: ({ row }) => money(row.original.budgetedUnitRate),
     },
     {
       accessorKey: "actualUnitRate",
-      header: "Actual Unit Rate (₹)",
-      cell: ({ row }) => formatCurrency(row.original.actualUnitRate),
+      header: `Actual Unit Rate (${symbol})`,
+      cell: ({ row }) => money(row.original.actualUnitRate),
     },
     {
       accessorKey: "budgetedCost",
-      header: "Budgeted Cost (₹)",
-      cell: ({ row }) => formatCurrency(row.original.budgetedCost),
+      header: `Budgeted Cost (${symbol})`,
+      cell: ({ row }) => money(row.original.budgetedCost),
     },
     {
       accessorKey: "actualCost",
-      header: "Actual Cost (₹)",
-      cell: ({ row }) => formatCurrency(row.original.actualCost),
+      header: `Actual Cost (${symbol})`,
+      cell: ({ row }) => money(row.original.actualCost),
     },
     {
       accessorKey: "variance",
-      header: "Variance (₹)",
+      header: `Variance (${symbol})`,
       cell: ({ row }) => (
         <span className={varianceClass(row.original.variance)}>
-          {formatCurrency(row.original.variance)}
+          {money(row.original.variance)}
         </span>
       ),
     },
@@ -139,16 +136,16 @@ export default function DailyCostReportPage() {
     },
     {
       accessorKey: "etc",
-      header: "ETC (₹)",
-      cell: ({ row }) => formatCurrency(row.original.etc),
+      header: `ETC (${symbol})`,
+      cell: ({ row }) => money(row.original.etc),
     },
     {
       accessorKey: "eac",
-      header: "EAC (₹)",
-      cell: ({ row }) => formatCurrency(row.original.eac),
+      header: `EAC (${symbol})`,
+      cell: ({ row }) => money(row.original.eac),
     },
     { accessorKey: "supervisor", header: "Supervisor" },
-  ], []);
+  ], [money, symbol]);
 
   if (isLoading && !report) {
     return <div className="p-6 text-text-muted">Loading cost report...</div>;
@@ -221,10 +218,10 @@ export default function DailyCostReportPage() {
         {report && rows.length > 0 && (
           <div className="mt-2 rounded-lg border border-border bg-surface/95 backdrop-blur font-semibold text-text-primary px-4 py-3 flex flex-wrap gap-4 text-sm">
             <span className="font-medium">PERIOD TOTAL</span>
-            <span className="ml-auto">Budgeted: {formatCurrency(report.periodBudgetedCost)}</span>
-            <span>Actual: {formatCurrency(report.periodActualCost)}</span>
+            <span className="ml-auto">Budgeted: {money(report.periodBudgetedCost)}</span>
+            <span>Actual: {money(report.periodActualCost)}</span>
             <span className={varianceClass(report.periodVariance)}>
-              Variance: {formatCurrency(report.periodVariance)}
+              Variance: {money(report.periodVariance)}
             </span>
             <span className={varianceClass(report.periodVariance)}>
               {formatPercent(report.periodVariancePercent)}
@@ -275,8 +272,8 @@ export default function DailyCostReportPage() {
                         <th className="py-2 pr-3">Date</th>
                         <th className="py-2 pr-3">Supervisor</th>
                         <th className="py-2 pr-3 text-right">Qty</th>
-                        <th className="py-2 pr-3 text-right">Unit cost (₹)</th>
-                        <th className="py-2 pr-3 text-right">Line cost (₹)</th>
+                        <th className="py-2 pr-3 text-right">Unit cost ({symbol})</th>
+                        <th className="py-2 pr-3 text-right">Line cost ({symbol})</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -288,10 +285,10 @@ export default function DailyCostReportPage() {
                             {r.qtyExecuted.toLocaleString("en-IN")} {r.unit}
                           </td>
                           <td className="py-2 pr-3 text-right">
-                            {formatCurrency(r.actualUnitRate)}
+                            {money(r.actualUnitRate)}
                           </td>
                           <td className="py-2 pr-3 text-right">
-                            {formatCurrency(r.actualCost)}
+                            {money(r.actualCost)}
                           </td>
                         </tr>
                       ))}
@@ -300,10 +297,10 @@ export default function DailyCostReportPage() {
                   <div className="mt-3 flex flex-wrap gap-4 border-t border-border pt-3 text-sm font-semibold">
                     <span>SUBTOTAL</span>
                     <span className="ml-auto">
-                      Actual: {formatCurrency(drilldownReport.periodActualCost)}
+                      Actual: {money(drilldownReport.periodActualCost)}
                     </span>
                     <span className={varianceClass(drilldownReport.periodVariance)}>
-                      Variance: {formatCurrency(drilldownReport.periodVariance)}
+                      Variance: {money(drilldownReport.periodVariance)}
                     </span>
                   </div>
                 </>

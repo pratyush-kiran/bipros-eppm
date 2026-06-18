@@ -161,9 +161,11 @@ export default function ResourcesPage() {
       enableSorting: true,
       cell: (info) => {
         const v = info.row.original.costPerUnit;
+        // Global resource master — rates are currency-neutral (interpreted in each
+        // project's own currency), so no currency symbol here.
         return v == null
           ? "—"
-          : `₹${Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+          : Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
       },
     };
 

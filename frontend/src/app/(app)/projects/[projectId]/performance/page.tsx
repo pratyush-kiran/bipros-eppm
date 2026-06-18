@@ -8,6 +8,7 @@ import { KpiTile } from "@/components/common/KpiTile";
 import { CadenceToggle, type Cadence } from "@/components/financials/CadenceToggle";
 import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import {
   Bar,
   CartesianGrid,
@@ -19,11 +20,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-function fmtCurrency(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "—";
-  return n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
-}
 
 function fmtRatio(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
@@ -40,6 +36,7 @@ function tone(value: number | null | undefined): "default" | "success" | "warnin
 export default function PerformanceDashboardPage() {
   const params = useParams();
   const projectId = params.projectId as string;
+  const { money } = useProjectCurrency();
   const [cadence, setCadence] = useState<Cadence>("M");
 
   const { data, isLoading, error } = useQuery({
@@ -89,9 +86,9 @@ export default function PerformanceDashboardPage() {
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <KpiTile label="Actual Cost" value={fmtCurrency(totals.ac)} hint="AC across selected cadence" />
-        <KpiTile label="Earned Value" value={fmtCurrency(totals.ev)} hint="EV across selected cadence" />
-        <KpiTile label="Planned Value" value={fmtCurrency(totals.pv)} hint="PV across selected cadence" />
+        <KpiTile label="Actual Cost" value={money(totals.ac, { decimals: 0 })} hint="AC across selected cadence" />
+        <KpiTile label="Earned Value" value={money(totals.ev, { decimals: 0 })} hint="EV across selected cadence" />
+        <KpiTile label="Planned Value" value={money(totals.pv, { decimals: 0 })} hint="PV across selected cadence" />
         <KpiTile
           label="CPI"
           value={fmtRatio(totals.cpi)}
@@ -156,14 +153,14 @@ export default function PerformanceDashboardPage() {
                   <td className="py-2 pr-3 font-medium">{r.periodName}</td>
                   <td className="py-2 pr-3">{r.startDate}</td>
                   <td className="py-2 pr-3">{r.endDate}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(r.plannedValue)}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(r.earnedValue)}</td>
-                  <td className="py-2 pr-3 text-right">{fmtCurrency(r.actualCost)}</td>
+                  <td className="py-2 pr-3 text-right">{money(r.plannedValue, { decimals: 0 })}</td>
+                  <td className="py-2 pr-3 text-right">{money(r.earnedValue, { decimals: 0 })}</td>
+                  <td className="py-2 pr-3 text-right">{money(r.actualCost, { decimals: 0 })}</td>
                   <td className={`py-2 pr-3 text-right ${r.cv < 0 ? "text-burgundy" : "text-emerald"}`}>
-                    {fmtCurrency(r.cv)}
+                    {money(r.cv, { decimals: 0 })}
                   </td>
                   <td className={`py-2 pr-3 text-right ${r.sv < 0 ? "text-burgundy" : "text-emerald"}`}>
-                    {fmtCurrency(r.sv)}
+                    {money(r.sv, { decimals: 0 })}
                   </td>
                   <td className="py-2 pr-3 text-right">{fmtRatio(r.cpi)}</td>
                   <td className="py-2 pr-3 text-right">{fmtRatio(r.spi)}</td>

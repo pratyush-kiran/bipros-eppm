@@ -8,6 +8,7 @@ import { boqApi } from "@/lib/api/boqApi";
 import { TabTip } from "@/components/common/TabTip";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { getErrorMessage } from "@/lib/utils/error";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import type {
   VariationOrderResponse,
   VoLineItemAction,
@@ -68,6 +69,7 @@ export default function VariationOrderDetailPage() {
   const projectId = params.projectId as string;
   const voId = params.voId as string;
   const contractIdQs = searchParams.get("contractId") ?? "";
+  const { money, symbol } = useProjectCurrency();
 
   const [contractId, setContractId] = useState<string>(contractIdQs);
   const [vo, setVo] = useState<VariationOrderResponse | null>(null);
@@ -360,7 +362,7 @@ export default function VariationOrderDetailPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-text-secondary">VO Value (₹)</label>
+            <label className="block text-sm font-medium mb-1 text-text-secondary">VO Value ({symbol})</label>
             <input
               type="number"
               step="any"
@@ -391,7 +393,7 @@ export default function VariationOrderDetailPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-text-secondary">Impact on Budget (₹)</label>
+            <label className="block text-sm font-medium mb-1 text-text-secondary">Impact on Budget ({symbol})</label>
             <input
               type="number"
               step="any"
@@ -505,7 +507,7 @@ export default function VariationOrderDetailPage() {
                   />
                   {refItem && (
                     <p className="mt-1 text-xs text-text-muted">
-                      Current: qty {refItem.boqQty ?? 0}, rate ₹{refItem.boqRate ?? 0}
+                      Current: qty {refItem.boqQty ?? 0}, rate {money(refItem.boqRate ?? 0)}
                     </p>
                   )}
                 </div>
@@ -547,7 +549,7 @@ export default function VariationOrderDetailPage() {
                     impact > 0 ? "text-success" : impact < 0 ? "text-red-300" : "text-text-secondary"
                   }
                 >
-                  ₹{impact.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  {money(impact)}
                 </span>
               </div>
               <button
@@ -566,11 +568,11 @@ export default function VariationOrderDetailPage() {
           <div className="mt-3 text-right text-sm">
             <span className="text-text-muted">Sum of line impacts: </span>
             <strong>
-              ₹{totalLineImpact.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              {money(totalLineImpact)}
             </strong>
             {voValue && Math.abs(totalLineImpact - Number(voValue)) > 0.01 && (
               <span className="ml-2 text-amber-300">
-                ≠ header VO Value (₹{Number(voValue).toLocaleString("en-IN")})
+                ≠ header VO Value ({money(Number(voValue), { decimals: 0 })})
               </span>
             )}
           </div>

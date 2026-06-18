@@ -16,13 +16,7 @@ import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { KpiTile } from "@/components/common/KpiTile";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
-
-const INR_PER_CRORE = 10_000_000;
-
-function formatCrores(val: number | null | undefined): string {
-  const v = (val ?? 0) / INR_PER_CRORE;
-  return `₹${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}cr`;
-}
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 function sumField(records: StorePeriodPerformance[], field: keyof StorePeriodPerformance): number {
   return records.reduce((acc, r) => acc + ((r[field] as number | null) ?? 0), 0);
@@ -42,6 +36,7 @@ const EMPTY_FORM: Omit<CreateStorePeriodPerformanceRequest, "projectId" | "finan
 };
 
 export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
+  const { moneyCompact, symbol } = useProjectCurrency();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
@@ -182,7 +177,7 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           const val = info.getValue() as number | null;
           return (
             <span className="block text-right">
-              {val != null ? formatCrores(val) : "—"}
+              {val != null ? moneyCompact(val) : "—"}
             </span>
           );
         },
@@ -194,7 +189,7 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           const val = info.getValue() as number | null;
           return (
             <span className="block text-right text-text-secondary">
-              {val != null ? formatCrores(val) : "—"}
+              {val != null ? moneyCompact(val) : "—"}
             </span>
           );
         },
@@ -206,7 +201,7 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           const val = info.getValue() as number | null;
           return (
             <span className="block text-right text-text-secondary">
-              {val != null ? formatCrores(val) : "—"}
+              {val != null ? moneyCompact(val) : "—"}
             </span>
           );
         },
@@ -218,7 +213,7 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           const val = info.getValue() as number | null;
           return (
             <span className="block text-right text-text-secondary">
-              {val != null ? formatCrores(val) : "—"}
+              {val != null ? moneyCompact(val) : "—"}
             </span>
           );
         },
@@ -230,7 +225,7 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           const val = info.getValue() as number | null;
           return (
             <span className="block text-right text-success">
-              {val != null ? formatCrores(val) : "—"}
+              {val != null ? moneyCompact(val) : "—"}
             </span>
           );
         },
@@ -242,7 +237,7 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           const val = info.getValue() as number | null;
           return (
             <span className="block text-right text-accent">
-              {val != null ? formatCrores(val) : "—"}
+              {val != null ? moneyCompact(val) : "—"}
             </span>
           );
         },
@@ -283,7 +278,7 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
         },
       },
     ],
-    [periodMap, activityMap, deleteMutation]
+    [periodMap, activityMap, deleteMutation, moneyCompact]
   );
 
   return (
@@ -293,21 +288,21 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiTile
           label="Total Actual Cost"
-          value={formatCrores(totalActualCost)}
+          value={moneyCompact(totalActualCost)}
           hint="Sum across all periods"
           tone="danger"
           icon={<DollarSign size={14} />}
         />
         <KpiTile
           label="Earned Value"
-          value={formatCrores(totalEv)}
+          value={moneyCompact(totalEv)}
           hint="Cumulative EV (SPP)"
           tone="success"
           icon={<TrendingUp size={14} />}
         />
         <KpiTile
           label="Planned Value"
-          value={formatCrores(totalPv)}
+          value={moneyCompact(totalPv)}
           hint="Cumulative PV (SPP)"
           tone="accent"
           icon={<BarChart3 size={14} />}
@@ -391,10 +386,10 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {(
               [
-                { field: "actualLaborCost", label: "Actual Labor Cost (₹)" },
-                { field: "actualNonlaborCost", label: "Actual Non-Labor Cost (₹)" },
-                { field: "actualMaterialCost", label: "Actual Material Cost (₹)" },
-                { field: "actualExpenseCost", label: "Actual Expense Cost (₹)" },
+                { field: "actualLaborCost", label: `Actual Labor Cost (${symbol})` },
+                { field: "actualNonlaborCost", label: `Actual Non-Labor Cost (${symbol})` },
+                { field: "actualMaterialCost", label: `Actual Material Cost (${symbol})` },
+                { field: "actualExpenseCost", label: `Actual Expense Cost (${symbol})` },
               ] as const
             ).map(({ field, label }) => (
               <div key={field}>
@@ -442,8 +437,8 @@ export function PeriodPerformanceTab({ projectId }: { projectId: string }) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {(
               [
-                { field: "earnedValueCost", label: "Earned Value Cost (₹)" },
-                { field: "plannedValueCost", label: "Planned Value Cost (₹)" },
+                { field: "earnedValueCost", label: `Earned Value Cost (${symbol})` },
+                { field: "plannedValueCost", label: `Planned Value Cost (${symbol})` },
               ] as const
             ).map(({ field, label }) => (
               <div key={field}>

@@ -17,6 +17,7 @@ import { Plus, FileText } from "lucide-react";
 import { TabTip } from "@/components/common/TabTip";
 import { contractApi } from "@/lib/api/contractApi";
 import { getErrorMessage } from "@/lib/utils/error";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 const gateBadge = (gate?: SatelliteGate | null) => {
   if (!gate) return "bg-surface-active/40 text-text-secondary";
@@ -66,6 +67,7 @@ export default function RaBillsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const queryClient = useQueryClient();
+  const { money, symbol } = useProjectCurrency();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
 
@@ -118,13 +120,13 @@ export default function RaBillsPage() {
       accessorKey: "grossAmount",
       header: "Gross",
       enableSorting: true,
-      cell: (info) => `₹${Number(info.getValue()).toLocaleString("en-IN")}`,
+      cell: (info) => money(Number(info.getValue()), { decimals: 0 }),
     },
     {
       accessorKey: "netAmount",
       header: "Net",
       enableSorting: true,
-      cell: (info) => `₹${Number(info.getValue()).toLocaleString("en-IN")}`,
+      cell: (info) => money(Number(info.getValue()), { decimals: 0 }),
     },
     {
       accessorKey: "contractorClaimedPercent",
@@ -357,9 +359,9 @@ export default function RaBillsPage() {
               <div className="space-y-4">
                 <div className="rounded border border-border bg-surface-hover/30 p-3 text-sm">
                   <div>Period: {draftPreview.bill.billPeriodFrom} → {draftPreview.bill.billPeriodTo}</div>
-                  <div>Gross: ₹{Number(draftPreview.bill.grossAmount).toLocaleString("en-IN")}</div>
-                  <div>Net: ₹{Number(draftPreview.bill.netAmount).toLocaleString("en-IN")} (after Mob/Retention/TDS/GST)</div>
-                  <div>Cumulative: ₹{Number(draftPreview.bill.cumulativeAmount).toLocaleString("en-IN")}</div>
+                  <div>Gross: {money(Number(draftPreview.bill.grossAmount), { decimals: 0 })}</div>
+                  <div>Net: {money(Number(draftPreview.bill.netAmount), { decimals: 0 })} (after Mob/Retention/TDS/GST)</div>
+                  <div>Cumulative: {money(Number(draftPreview.bill.cumulativeAmount), { decimals: 0 })}</div>
                   <div>Lines: {draftPreview.items.length}</div>
                 </div>
                 <div className="overflow-x-auto">
@@ -387,7 +389,7 @@ export default function RaBillsPage() {
                             <td className="border border-border px-3 py-1.5 text-right">{delta.toFixed(3)}</td>
                             <td className="border border-border px-3 py-1.5 text-right">{it.rate ?? "—"}</td>
                             <td className="border border-border px-3 py-1.5 text-right">
-                              ₹{Number(it.amount).toLocaleString("en-IN")}
+                              {money(Number(it.amount), { decimals: 0 })}
                             </td>
                           </tr>
                         );
@@ -509,7 +511,7 @@ export default function RaBillsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-text-secondary">
-                  Gross Amount (₹)
+                  Gross Amount ({symbol})
                 </label>
                 <input
                   type="number"
@@ -668,7 +670,7 @@ export default function RaBillsPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-text-primary">
-                      ₹{Number(item.amount).toLocaleString("en-IN")}
+                      {money(Number(item.amount), { decimals: 0 })}
                     </p>
                     {item.unit && (
                       <p className="text-sm text-text-muted">Unit: {item.unit}</p>

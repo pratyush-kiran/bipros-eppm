@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { ChevronRight, ChevronDown, List, FolderTree, Layers, UserCheck } from "lucide-react";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 export interface AssignmentRow {
   id: string;
@@ -345,6 +345,7 @@ function TreeRow({
   selectedId?: string | null;
   viewMode: "activity" | "resourceType" | "supervisor";
 }) {
+  const { money } = useProjectCurrency();
   const isGroup = !!node.children && node.children.length > 0;
   const isSelected = !isGroup && node.assignment && node.assignment.id === selectedId;
   // Indent the name column's content only — applying it to the grid container would shift every
@@ -441,22 +442,22 @@ function TreeRow({
 
         {/* Budgeted Cost (Phase 2) */}
         <div className={`text-right ${isGroup ? "font-medium text-text-primary" : "text-text-secondary"}`}>
-          {budgetedCost != null ? formatDefaultCurrency(budgetedCost) : ""}
+          {budgetedCost != null ? money(budgetedCost) : ""}
         </div>
 
         {/* Planned Cost */}
         <div className={`text-right ${isGroup ? "font-medium text-text-primary" : "text-text-secondary"}`}>
-          {plannedCost != null ? formatDefaultCurrency(plannedCost) : ""}
+          {plannedCost != null ? money(plannedCost) : ""}
         </div>
 
         {/* Actual Cost */}
         <div className={`text-right ${isGroup ? "font-medium text-text-primary" : "text-text-secondary"}`}>
-          {actualCost != null ? formatDefaultCurrency(actualCost) : ""}
+          {actualCost != null ? money(actualCost) : ""}
         </div>
 
         {/* Remaining Cost */}
         <div className={`text-right ${isGroup ? "font-medium text-text-primary" : "text-text-secondary"}`}>
-          {remainingCost != null ? formatDefaultCurrency(remainingCost) : ""}
+          {remainingCost != null ? money(remainingCost) : ""}
         </div>
       </div>
 

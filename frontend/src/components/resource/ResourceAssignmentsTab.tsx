@@ -12,7 +12,7 @@ import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { Plus, SlidersHorizontal } from "lucide-react";
 import { ResourceLevelingDialog } from "./ResourceLevelingDialog";
 import { ResourceAssignmentForm } from "./ResourceAssignmentForm";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { UdfSection } from "@/components/udf/UdfSection";
 import { ResourceAssignmentTree, ViewModeToggle, type AssignmentRow } from "./ResourceAssignmentTree";
 
@@ -47,6 +47,7 @@ interface ResourceAssignmentRow {
 
 export function ResourceAssignmentsTab({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
+  const { money } = useProjectCurrency();
   const [showForm, setShowForm] = useState(false);
   const [selectedResourceId, setSelectedResourceId] = useState<string>("");
   const [showLeveling, setShowLeveling] = useState(false);
@@ -242,19 +243,19 @@ export function ResourceAssignmentsTab({ projectId }: { projectId: string }) {
       key: "budgetedCost",
       label: "Budgeted Cost",
       sortable: true,
-      render: (value) => (value == null ? "—" : formatDefaultCurrency(Number(value))),
+      render: (value) => (value == null ? "—" : money(Number(value))),
     },
     {
       key: "plannedCost",
       label: "Planned Cost",
       sortable: true,
-      render: (value) => formatDefaultCurrency(Number(value)),
+      render: (value) => money(Number(value)),
     },
     {
       key: "actualCost",
       label: "Actual Cost",
       sortable: true,
-      render: (value) => formatDefaultCurrency(Number(value)),
+      render: (value) => money(Number(value)),
     },
   ];
 

@@ -12,6 +12,7 @@ import { projectApi } from "@/lib/api/projectApi";
 import { baselineApi } from "@/lib/api/baselineApi";
 import type { BaselineActivityResponse } from "@/lib/api/baselineApi";
 import { costApi } from "@/lib/api/costApi";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { GanttChart } from "@/components/schedule/GanttChart";
@@ -914,16 +915,9 @@ function ActivitiesListTable({
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-  // Currency formatting follows the variance dashboard convention — Indian Rupee, no decimals
-  // for the grid cells. Caller may want a more elaborate format for hover tooltips later.
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value == null) return "—";
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+  // Money in the grid renders in the project's currency (no decimals).
+  const { money } = useProjectCurrency();
+  const formatCurrency = (value: number | null | undefined) => money(value, { decimals: 0 });
 
   return (
     <div className="rounded-lg border border-border bg-surface/50 shadow-sm">

@@ -1,7 +1,7 @@
 "use client";
 
 import type { BaselineVarianceRow } from "@/lib/api/baselineApi";
-import { formatDefaultCurrency } from "@/lib/hooks/useCurrency";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 interface VarianceDashboardProps {
   data: BaselineVarianceRow[];
@@ -20,6 +20,8 @@ function getVarianceBg(value: number): string {
 }
 
 export function VarianceDashboard({ data }: VarianceDashboardProps) {
+  const { money } = useProjectCurrency();
+
   if (data.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-surface/50 p-8 text-center text-text-secondary">
@@ -96,7 +98,7 @@ export function VarianceDashboard({ data }: VarianceDashboardProps) {
             Total Cost Variance
           </p>
           <p className={`mt-1 text-2xl font-bold ${getVarianceColor(totalCostVariance)}`}>
-            {totalCostVariance > 0 ? "+" : ""}{formatDefaultCurrency(Math.abs(totalCostVariance))}
+            {totalCostVariance > 0 ? "+" : ""}{money(Math.abs(totalCostVariance))}
           </p>
         </div>
         <div className="rounded-lg border border-border/50 bg-surface-hover/50 p-4">
