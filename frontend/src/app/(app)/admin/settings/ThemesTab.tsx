@@ -48,6 +48,25 @@ export function ThemesTab() {
     [activeTheme]
   );
 
+  // Predefined themes are read-only code constants, so "editing" one really means
+  // cloning it into a new custom theme. Everything is pre-filled from the source
+  // theme (colors, fonts, app names); the name is seeded as "<Name> Copy" so it is
+  // populated and editable, and the blank id makes it save as a new custom theme.
+  const duplicateAndEditTheme = useCallback(
+    (theme: ThemeDefinition) => {
+      snapshotRef.current = activeTheme;
+      setEditingTheme({
+        ...theme,
+        id: "",
+        name: `${theme.name} Copy`,
+        isCustom: true,
+        createdAt: undefined,
+      });
+      setView("builder");
+    },
+    [activeTheme]
+  );
+
   const handleCancelBuilder = useCallback(() => {
     setView("gallery");
     setEditingTheme(undefined);
@@ -162,6 +181,7 @@ export function ThemesTab() {
               activeThemeId={activeThemeId}
               onSelect={switchTheme}
               isAdmin={isAdmin}
+              onEdit={duplicateAndEditTheme}
             />
           </section>
         </>

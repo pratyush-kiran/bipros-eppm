@@ -24,7 +24,10 @@ export function ThemeGallery({
   onDelete,
 }: ThemeGalleryProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const isCustomMode = Boolean(onEdit || onDelete);
+  // A theme is "custom" (deletable, tagged, shows radius/font subtitle) only when
+  // a delete handler is supplied. Predefined cards receive onEdit (Duplicate & edit)
+  // but no onDelete, so they stay untagged and read-only as source themes.
+  const isCustomTheme = Boolean(onDelete);
 
   return (
     <>
@@ -160,7 +163,7 @@ export function ThemeGallery({
                 </div>
 
                 {/* "Custom" tag — top-left, only in custom mode */}
-                {isCustomMode && (
+                {isCustomTheme && (
                   <span
                     className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[8px] font-semibold leading-none uppercase tracking-wider"
                     style={{
@@ -193,7 +196,7 @@ export function ThemeGallery({
                 </div>
 
                 <p className="text-[10px] text-text-muted truncate mb-2">
-                  {isCustomMode
+                  {isCustomTheme
                     ? `${theme.borderRadius}px radius${theme.fontFamily ? ` · ${theme.fontFamily}` : ""}`
                     : theme.description ?? " "}
                 </p>
@@ -214,16 +217,16 @@ export function ThemeGallery({
                       {isActive ? "Applied" : "Apply"}
                     </button>
 
-                    {isCustomMode && onEdit && (
+                    {onEdit && (
                       <button
                         onClick={() => onEdit(theme)}
-                        title="Edit"
+                        title={isCustomTheme ? "Edit" : "Duplicate & edit"}
                         className="shrink-0 p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors"
                       >
                         <Pencil size={13} />
                       </button>
                     )}
-                    {isCustomMode && onDelete && (
+                    {onDelete && (
                       <button
                         onClick={() => setDeleteId(theme.id)}
                         title="Delete"
@@ -240,7 +243,7 @@ export function ThemeGallery({
         })}
       </div>
 
-      {isCustomMode && onDelete && (
+      {onDelete && (
         <ConfirmDialog
           open={deleteId !== null}
           title="Delete Custom Theme"

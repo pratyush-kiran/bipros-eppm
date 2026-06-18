@@ -342,8 +342,8 @@ export function ThemeBuilder({ initialTheme, onSave, onCancel, onPreview }: Them
 
   function handleLogoUpload(slot: "logoLight" | "logoDark", file: File) {
     setLogoError(null);
-    if (file.size > 512 * 1024) {
-      setLogoError(`Logo too large (${(file.size / 1024).toFixed(0)} KB). Max 512 KB.`);
+    if (file.size > 1024 * 1024) {
+      setLogoError(`Logo too large (${(file.size / 1024).toFixed(0)} KB). Max 1 MB.`);
       return;
     }
     const reader = new FileReader();
@@ -537,7 +537,7 @@ export function ThemeBuilder({ initialTheme, onSave, onCancel, onPreview }: Them
             })}
           </div>
           {logoError && <p className="mt-1.5 text-xs text-danger">{logoError}</p>}
-          <p className="mt-1 text-[10px] text-text-muted">PNG · SVG · JPG · WebP · max 512 KB each</p>
+          <p className="mt-1 text-[10px] text-text-muted">PNG · SVG · JPG · WebP · max 1 MB each</p>
         </div>
 
         {/* Mode tabs */}
