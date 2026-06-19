@@ -1,9 +1,10 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  AudioLines,
   Briefcase,
   ChevronDown,
   ChevronRight,
@@ -18,7 +19,7 @@ import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { ResourceAvatar } from "@/components/resource/supervisor-assign/ResourceAvatar";
 import { chainageLabel } from "@/lib/format/chainage";
 import { dprApi } from "@/lib/api/dprApi";
-import type { DprApprovalStatus, DprSummaryRow } from "@/lib/types/dpr";
+import type { DprApprovalStatus, DprSummaryRow, DprVoiceNote } from "@/lib/types/dpr";
 import {
   SEVERITY_VARIANT,
   STATUS_VARIANT as ISSUE_STATUS_VARIANT,
@@ -314,6 +315,25 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
                 numericFromIndex={1}
               />
 
+              {(detail.voiceNotes ?? []).length > 0 && (
+                <div>
+                  <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate">
+                    <AudioLines className="h-3.5 w-3.5 text-gold" />
+                    Voice notes
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {(detail.voiceNotes ?? []).map((note) => (
+                      <VoiceNotePlayer
+                        key={note.id}
+                        projectId={projectId}
+                        dprId={detail.id}
+                        note={note}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {liveIssues.length > 0 && (
                 <div>
                   <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate">
@@ -367,6 +387,89 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
               )}
             </>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Read-only voice-note player for the admin expand panel. Loads the JWT-protected audio stream
+ * through an authenticated fetch + blob URL (mirrors {@code ExistingVoiceNoteTile} in
+ * {@code DprVoiceNotesSection}); no delete affordance here.
+ */
+function VoiceNotePlayer({
+  projectId,
+  dprId,
+  note,
+}: {
+  projectId: string;
+  dprId: string;
+  note: DprVoiceNote;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [playError, setPlayError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let createdUrl: string | null = null;
+    dprApi
+      .fetchVoiceNoteBlobUrl(projectId, dprId, note.id)
+      .then((url) => {
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+        } else {
+          createdUrl = url;
+          setSrc(url);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [projectId, dprId, note.id]);
+
+  return (
+    <div className="overflow-hidden rounded-md border border-hairline bg-paper">
+      <div className="flex items-center gap-1.5 border-b border-hairline px-2 py-1.5 text-xs text-charcoal">
+        <AudioLines className="h-3.5 w-3.5 shrink-0 text-gold" />
+        <span className="truncate" title={note.fileName}>
+          {note.fileName}
+        </span>
+        {note.durationSeconds != null && (
+          <span className="shrink-0 text-slate">· {note.durationSeconds}s</span>
+        )}
+      </div>
+      {src && !failed ? (
+        <>
+          <audio
+            controls
+            src={src}
+            onError={() => setPlayError(true)}
+            className="w-full px-2 py-2"
+          />
+          {playError && (
+            <div className="px-2 pb-2 text-center text-xs text-slate">
+              Your browser can&apos;t play this audio format.{" "}
+              <a href={src} download={note.fileName} className="font-semibold text-gold underline">
+                Download the file
+              </a>{" "}
+              to play it in another app.
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="px-2 py-3 text-center text-xs text-slate">
+          {failed ? "Failed to load" : "Loading…"}
+        </div>
+      )}
+      {note.caption && (
+        <div className="border-t border-hairline px-2 py-1.5 text-xs text-charcoal">
+          <span className="line-clamp-2">{note.caption}</span>
         </div>
       )}
     </div>

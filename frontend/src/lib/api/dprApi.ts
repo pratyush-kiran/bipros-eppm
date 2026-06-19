@@ -5,6 +5,7 @@ import type {
   DailyProgressReportResponse,
   DprAttachment,
   DprPage,
+  DprVoiceNote,
   UpdateDailyProgressReportRequest,
 } from "../types/dpr";
 
@@ -13,6 +14,7 @@ export type {
   CreateDailyProgressReportRequest,
   DailyProgressReportResponse,
   DprAttachment,
+  DprVoiceNote,
   UpdateDailyProgressReportRequest,
 } from "../types/dpr";
 
@@ -146,6 +148,70 @@ export const dprApi = {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (!res.ok) throw new Error(`photo fetch ${res.status}`);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
+
+  // ─── Voice notes (audio attachments) ─────────────────────────────────────────
+  // Distinct from "Voice fill": these are persisted audio attachments, never transcribed.
+  // Multi-file upload mirrors photos — parallel `files` + `captions` + `durations` parts; we
+  // serialize captions/durations as same-index entries so a missing index = none for that file.
+
+  uploadVoiceNotes: (
+    projectId: string,
+    dprId: string,
+    files: File[],
+    captions?: Array<string | null | undefined>,
+    durations?: Array<number | null | undefined>
+  ) => {
+    const form = new FormData();
+    files.forEach((f) => form.append("files", f));
+    if (captions) {
+      // Append as plain strings so each caption becomes a regular form field that the backend's
+      // @RequestParam String[] resolver can read. Appending Blobs here would make the browser
+      // emit file-typed parts, which Spring's MultipartResolver routes to MultipartFile and then
+      // fails to coerce into String[].
+      captions.forEach((c) => form.append("captions", c ?? ""));
+    }
+    if (durations) {
+      // Same reasoning — plain-string parts. An empty string signals "no duration for this file".
+      durations.forEach((d) => form.append("durations", String(d ?? "")));
+    }
+    return apiClient
+      .post<ApiResponse<DprVoiceNote[]>>(
+        `/v1/projects/${projectId}/dpr/${dprId}/voice-notes`,
+        form,
+        // Override the JSON default so axios picks the multipart boundary from the FormData.
+        { headers: { "Content-Type": "multipart/form-data" } }
+      )
+      .then((r) => r.data);
+  },
+
+  listVoiceNotes: (projectId: string, dprId: string) =>
+    apiClient
+      .get<ApiResponse<DprVoiceNote[]>>(`/v1/projects/${projectId}/dpr/${dprId}/voice-notes`)
+      .then((r) => r.data),
+
+  deleteVoiceNote: (projectId: string, dprId: string, voiceNoteId: string) =>
+    apiClient.delete(`/v1/projects/${projectId}/dpr/${dprId}/voice-notes/${voiceNoteId}`),
+
+  /**
+   * Fetches a voice-note's audio bytes as an object URL suitable for {@code <audio src>}.
+   * The stream endpoint is JWT-protected, so we cannot point an `<audio>` at it directly — we
+   * authenticate the fetch ourselves, then turn the response into a blob URL. Caller is
+   * responsible for revoking the URL when the player unmounts.
+   */
+  fetchVoiceNoteBlobUrl: async (
+    projectId: string,
+    dprId: string,
+    voiceNoteId: string
+  ): Promise<string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : "";
+    const res = await fetch(
+      `${API_BASE_URL}/v1/projects/${projectId}/dpr/${dprId}/voice-notes/${voiceNoteId}/stream`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) throw new Error(`voice-note fetch ${res.status}`);
     const blob = await res.blob();
     return URL.createObjectURL(blob);
   },

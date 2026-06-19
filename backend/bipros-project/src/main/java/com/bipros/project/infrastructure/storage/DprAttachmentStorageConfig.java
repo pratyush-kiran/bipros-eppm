@@ -4,10 +4,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Registers {@link DprAttachmentStorageProperties} as a bean so Spring binds
- * {@code bipros.dpr.storage.*} into it on startup.
+ * Registers DPR storage configuration-properties beans so Spring binds {@code bipros.dpr.storage.*}
+ * (photos, local disk) and {@code bipros.dpr.voice-notes.*} (audio, MinIO) on startup.
  */
 @Configuration
-@EnableConfigurationProperties(DprAttachmentStorageProperties.class)
+@EnableConfigurationProperties({DprAttachmentStorageProperties.class, VoiceNoteStorageProperties.class})
 public class DprAttachmentStorageConfig {
 }

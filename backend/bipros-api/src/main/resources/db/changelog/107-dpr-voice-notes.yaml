@@ -1,0 +1,38 @@
+databaseChangeLog:
+  # Audio voice notes associated with a DPR row. Soft FK (dpr_id) to
+  # project.daily_progress_reports.id; binaries live in MinIO under bipros.dpr.voice-notes.bucket.
+  - changeSet:
+      id: 107-create-dpr-voice-notes
+      author: bipros
+      comment: |
+        Multiple voice notes per DPR activity. Notes are uploaded after the DPR is saved
+        (two-step flow); deletion of the row triggers MinIO object cleanup in the service layer.
+      changes:
+        - createTable:
+            schemaName: project
+            tableName: dpr_voice_notes
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints: { primaryKey: true, nullable: false }
+              # Soft FK to project.daily_progress_reports.id; lifecycle owned by the service.
+              - column: { name: dpr_id, type: UUID, constraints: { nullable: false } }
+              - column: { name: project_id, type: UUID, constraints: { nullable: false } }
+              - column: { name: file_name, type: VARCHAR(255), constraints: { nullable: false } }
+              - column: { name: mime_type, type: VARCHAR(100), constraints: { nullable: false } }
+              - column: { name: file_size, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: storage_key, type: VARCHAR(500), constraints: { nullable: false } }
+              - column: { name: duration_seconds, type: INT }
+              - column: { name: caption, type: VARCHAR(500) }
+              - column: { name: created_at, type: TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: updated_at, type: TIMESTAMP, constraints: { nullable: false } }
+              - column: { name: created_by, type: VARCHAR(255) }
+              - column: { name: updated_by, type: VARCHAR(255) }
+              - column: { name: version, type: BIGINT }
+        - createIndex:
+            schemaName: project
+            tableName: dpr_voice_notes
+            indexName: idx_dpr_voice_notes_dpr
+            columns:
+              - column: { name: dpr_id }

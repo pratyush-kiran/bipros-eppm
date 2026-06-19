@@ -16,6 +16,7 @@ import com.bipros.project.application.dto.DprMaterialRow;
 import com.bipros.project.application.dto.DprPage;
 import com.bipros.project.application.dto.DprSubContractorRow;
 import com.bipros.project.application.dto.DprSummaryResponse;
+import com.bipros.project.application.dto.DprVoiceNoteResponse;
 import com.bipros.project.application.dto.UpdateDailyProgressReportRequest;
 import com.bipros.project.application.util.DprCostFormulas;
 import com.bipros.project.domain.model.DailyProgressReport;
@@ -25,6 +26,7 @@ import com.bipros.project.domain.model.DprIssue;
 import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.model.DprMaterial;
 import com.bipros.project.domain.model.DprSubContractor;
+import com.bipros.project.domain.model.DprVoiceNote;
 import com.bipros.project.domain.model.IssueSeverity;
 import com.bipros.project.domain.model.IssueStatus;
 import com.bipros.project.domain.repository.BoqItemRepository;
@@ -35,6 +37,7 @@ import com.bipros.project.domain.repository.DprIssueRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
 import com.bipros.project.domain.repository.DprMaterialRepository;
 import com.bipros.project.domain.repository.DprSubContractorRepository;
+import com.bipros.project.domain.repository.DprVoiceNoteRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
 import com.bipros.project.domain.model.BoqItem;
 import jakarta.persistence.EntityManager;
@@ -90,8 +93,10 @@ public class DailyProgressReportService {
   private final DprMaterialRepository materialRepository;
   private final DprSubContractorRepository subContractorRepository;
   private final DprAttachmentRepository attachmentRepository;
+  private final DprVoiceNoteRepository voiceNoteRepository;
   private final DprIssueRepository issueRepository;
   private final com.bipros.project.infrastructure.storage.DprAttachmentStorageService attachmentStorage;
+  private final com.bipros.project.infrastructure.storage.VoiceNoteStorage voiceNoteStorage;
   private final ProjectRepository projectRepository;
   private final DailyActivityResourceOutputService ledgerService;
   private final AuditService auditService;
@@ -204,6 +209,7 @@ public class DailyProgressReportService {
         savedEquipment.stream().map(DprEquipmentRow::from).toList(),
         savedMaterial.stream().map(DprMaterialRow::from).toList(),
         toScResponseRows(savedSubContractors),
+        List.of(),
         List.of(),
         savedIssues.stream().map(DprIssueRow::from).toList(),
         warnings);
@@ -338,6 +344,8 @@ public class DailyProgressReportService {
     BigDecimal cumulative = computeCumulative(saved.getProjectId(), saved.getActivityName(), saved.getReportDate());
     List<DprAttachmentResponse> attachments = attachmentRepository.findByDprIdOrderByCreatedAtAsc(saved.getId())
         .stream().map(DprAttachmentResponse::from).toList();
+    List<DprVoiceNoteResponse> voiceNotes = voiceNoteRepository.findByDprIdOrderByCreatedAtAsc(saved.getId())
+        .stream().map(DprVoiceNoteResponse::from).toList();
     DailyProgressReportResponse after = DailyProgressReportResponse.from(
         saved, cumulative,
         savedManpower.stream().map(DprManpowerRow::from).toList(),
@@ -345,6 +353,7 @@ public class DailyProgressReportService {
         savedMaterial.stream().map(DprMaterialRow::from).toList(),
         toScResponseRows(savedSubContractors),
         attachments,
+        voiceNotes,
         savedIssues.stream().map(DprIssueRow::from).toList(),
         warnings);
 
@@ -462,6 +471,7 @@ public class DailyProgressReportService {
         materialRepository.findByDprIdOrderByMaterialNameAsc(id).stream().map(DprMaterialRow::from).toList(),
         toScResponseRows(subContractorRepository.findByDprIdOrderBySubContractorNameAsc(id)),
         attachmentRepository.findByDprIdOrderByCreatedAtAsc(id).stream().map(DprAttachmentResponse::from).toList(),
+        voiceNoteRepository.findByDprIdOrderByCreatedAtAsc(id).stream().map(DprVoiceNoteResponse::from).toList(),
         issueRepository.findByDprIdOrderByOpenedAtAsc(id).stream().map(DprIssueRow::from).toList()
     );
   }
@@ -500,6 +510,12 @@ public class DailyProgressReportService {
     attachmentRepository.deleteByDprId(dprId);
     for (DprAttachment a : attachments) {
       attachmentStorage.deleteQuietly(a.getStoragePath());
+    }
+    // Voice notes: same shape — collect keys before the rows go, then drop MinIO objects best-effort.
+    List<DprVoiceNote> voiceNotes = voiceNoteRepository.findByDprIdOrderByCreatedAtAsc(dprId);
+    voiceNoteRepository.deleteByDprId(dprId);
+    for (DprVoiceNote v : voiceNotes) {
+      voiceNoteStorage.delete(v.getStorageKey());
     }
     dprRepository.delete(dpr);
     auditService.logDelete("DailyProgressReport", id);
@@ -566,6 +582,9 @@ public class DailyProgressReportService {
     Map<UUID, List<DprAttachmentResponse>> attachmentsByDpr = attachmentRepository.findByDprIdIn(ids).stream()
         .collect(Collectors.groupingBy(DprAttachment::getDprId,
             Collectors.mapping(DprAttachmentResponse::from, Collectors.toList())));
+    Map<UUID, List<DprVoiceNoteResponse>> voiceNotesByDpr = voiceNoteRepository.findByDprIdIn(ids).stream()
+        .collect(Collectors.groupingBy(DprVoiceNote::getDprId,
+            Collectors.mapping(DprVoiceNoteResponse::from, Collectors.toList())));
     Map<UUID, List<DprIssueRow>> issuesByDpr = issueRepository.findByDprIdIn(ids).stream()
         .collect(Collectors.groupingBy(DprIssue::getDprId,
             Collectors.mapping(DprIssueRow::from, Collectors.toList())));
@@ -589,6 +608,7 @@ public class DailyProgressReportService {
               materialByDpr.getOrDefault(r.getId(), List.of()),
               subContractorsByDpr.getOrDefault(r.getId(), List.of()),
               attachmentsByDpr.getOrDefault(r.getId(), List.of()),
+              voiceNotesByDpr.getOrDefault(r.getId(), List.of()),
               issuesByDpr.getOrDefault(r.getId(), List.of())));
         });
     return out;

@@ -47,6 +47,7 @@ public record DailyProgressReportResponse(
     List<DprMaterialRow> materials,
     List<DprSubContractorRow> subContractors,
     List<DprAttachmentResponse> attachments,
+    List<DprVoiceNoteResponse> voiceNotes,
     List<DprIssueRow> issues,
     List<String> warnings
 ) {
@@ -56,14 +57,14 @@ public record DailyProgressReportResponse(
    * as a placeholder; the list endpoint always computes the real cumulative via the service.
    */
   public static DailyProgressReportResponse from(DailyProgressReport r) {
-    return from(r, r.getQtyExecuted(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+    return from(r, r.getQtyExecuted(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
   }
 
   public static DailyProgressReportResponse from(DailyProgressReport r, BigDecimal cumulativeQty) {
-    return from(r, cumulativeQty, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+    return from(r, cumulativeQty, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
   }
 
-  /** Read-path overload — children + attachments + issues, no warnings. */
+  /** Read-path overload — children + attachments + voice notes + issues, no warnings. */
   public static DailyProgressReportResponse from(
       DailyProgressReport r,
       BigDecimal cumulativeQty,
@@ -72,8 +73,9 @@ public record DailyProgressReportResponse(
       List<DprMaterialRow> materials,
       List<DprSubContractorRow> subContractors,
       List<DprAttachmentResponse> attachments,
+      List<DprVoiceNoteResponse> voiceNotes,
       List<DprIssueRow> issues) {
-    return from(r, cumulativeQty, manpower, equipment, materials, subContractors, attachments, issues, List.of());
+    return from(r, cumulativeQty, manpower, equipment, materials, subContractors, attachments, voiceNotes, issues, List.of());
   }
 
   public static DailyProgressReportResponse from(
@@ -84,6 +86,7 @@ public record DailyProgressReportResponse(
       List<DprMaterialRow> materials,
       List<DprSubContractorRow> subContractors,
       List<DprAttachmentResponse> attachments,
+      List<DprVoiceNoteResponse> voiceNotes,
       List<DprIssueRow> issues,
       List<String> warnings) {
     return new DailyProgressReportResponse(
@@ -119,6 +122,7 @@ public record DailyProgressReportResponse(
         materials,
         subContractors,
         attachments,
+        voiceNotes,
         issues,
         warnings
     );

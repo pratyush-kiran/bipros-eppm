@@ -39,5 +39,11 @@
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
         </dependency>
+        <!-- AWS S3 SDK v2 (BOM-managed at backend/pom.xml) — MinIO-backed DPR voice-note storage.
+             S3Presigner is bundled in the s3 artifact; we don't presign here. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
     </dependencies>
 </project>

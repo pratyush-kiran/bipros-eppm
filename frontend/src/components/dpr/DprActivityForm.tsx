@@ -19,6 +19,7 @@ import type {
   DprManpowerRow,
   DprMaterialRow,
   DprSubContractorRow,
+  DprVoiceNote,
   Shift,
   Side,
 } from "@/lib/types/dpr";
@@ -30,6 +31,7 @@ import { IssuesGrid } from "./IssuesGrid";
 import { SafetyDelaySection } from "./SafetyDelaySection";
 import { DprTotalsBar } from "./DprTotalsBar";
 import { DprPhotosSection, type PendingPhoto } from "./DprPhotosSection";
+import { DprVoiceNotesSection, type PendingVoiceNote } from "./DprVoiceNotesSection";
 import { DprVoiceAssistant } from "./DprVoiceAssistant";
 import {
   ProductivityPreviewBanner,
@@ -245,6 +247,11 @@ export function DprActivityForm({
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [existingPhotos, setExistingPhotos] = useState<DprAttachment[]>(
     () => editing?.attachments ?? []
+  );
+  const [voiceNoteUploadStatus, setVoiceNoteUploadStatus] = useState<string | null>(null);
+  const [pendingVoiceNotes, setPendingVoiceNotes] = useState<PendingVoiceNote[]>([]);
+  const [existingVoiceNotes, setExistingVoiceNotes] = useState<DprVoiceNote[]>(
+    () => editing?.voiceNotes ?? []
   );
 
   // Voice fill needs to read fresh form state from inside async callbacks. Closures captured at
@@ -665,6 +672,7 @@ export function DprActivityForm({
 
     setSubmitting(true);
     setPhotoUploadStatus(null);
+    setVoiceNoteUploadStatus(null);
     try {
       const saved = await onSave(payload);
       // Surface soft warnings (overrun on planned rows, missing rate on unplanned rows). The
@@ -712,8 +720,38 @@ export function DprActivityForm({
           }
         }
       }
-      // Keep the drawer open if the photo upload failed so the user can retry without re-typing
-      // the row. Otherwise close — the parent already invalidated the list query inside onSave.
+      // Voice notes ride the same two-step flow as photos: upload against the saved DPR id and
+      // share the drawer-stays-open-on-failure gate. Recorded blobs lack a filename the backend
+      // MultipartFile needs, so wrap each in a File carrying its derived name + MIME.
+      if (pendingVoiceNotes.length > 0) {
+        const dprId = saved?.id ?? editing?.id ?? null;
+        if (!dprId) {
+          setVoiceNoteUploadStatus(
+            "DPR saved, but the server did not return an id — voice notes were not uploaded."
+          );
+          uploadFailed = true;
+        } else {
+          setVoiceNoteUploadStatus(`Uploading ${pendingVoiceNotes.length} voice note(s)…`);
+          try {
+            await dprApi.uploadVoiceNotes(
+              projectId,
+              dprId,
+              pendingVoiceNotes.map((p) => new File([p.blob], p.fileName, { type: p.blob.type })),
+              pendingVoiceNotes.map((p) => p.caption || null),
+              pendingVoiceNotes.map((p) => p.durationSeconds)
+            );
+            pendingVoiceNotes.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+            setPendingVoiceNotes([]);
+            setVoiceNoteUploadStatus(null);
+          } catch (uploadErr: unknown) {
+            const msg = uploadErr instanceof Error ? uploadErr.message : "voice note upload failed";
+            setVoiceNoteUploadStatus(`DPR saved, but voice note upload failed: ${msg}. You can retry.`);
+            uploadFailed = true;
+          }
+        }
+      }
+      // Keep the drawer open if any upload failed so the user can retry without re-typing the row.
+      // Otherwise close — the parent already invalidated the list query inside onSave.
       if (!uploadFailed) {
         onCancel();
       }
@@ -1170,6 +1208,21 @@ export function DprActivityForm({
         />
         {photoUploadStatus && (
           <div className="mt-2 text-xs text-slate">{photoUploadStatus}</div>
+        )}
+      </div>
+
+      {/* Voice notes */}
+      <div className="border-t border-hairline px-5 py-4">
+        <DprVoiceNotesSection
+          projectId={projectId}
+          dprId={editing?.id ?? null}
+          pending={pendingVoiceNotes}
+          existing={existingVoiceNotes}
+          onPendingChange={setPendingVoiceNotes}
+          onExistingChange={setExistingVoiceNotes}
+        />
+        {voiceNoteUploadStatus && (
+          <div className="mt-2 text-xs text-slate">{voiceNoteUploadStatus}</div>
         )}
       </div>
 

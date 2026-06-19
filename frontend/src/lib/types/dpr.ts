@@ -238,6 +238,25 @@ export interface DprAttachment {
   createdAt: string;
 }
 
+/**
+ * Voice note attached to a DPR row. Mirrors the backend {@code DprVoiceNoteResponse} record.
+ * Distinct from the "Voice fill" feature: voice notes are persisted audio attachments (like
+ * photos), never transcribed. The audio itself is streamed from
+ * {@code GET /v1/projects/{projectId}/dpr/{dprId}/voice-notes/{id}/stream}, which is
+ * JWT-protected — see {@code dprApi.fetchVoiceNoteBlobUrl} for the auth-aware blob loader used
+ * to feed {@code <audio src>}.
+ */
+export interface DprVoiceNote {
+  id: string;
+  dprId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  durationSeconds: number | null;
+  caption: string | null;
+  createdAt: string;
+}
+
 export interface DailyProgressReportResponse extends DprBaseFields {
   id: string;
   projectId: string;
@@ -247,6 +266,7 @@ export interface DailyProgressReportResponse extends DprBaseFields {
   materials: DprMaterialRow[];
   subContractors: DprSubContractorRow[];
   attachments?: DprAttachment[];
+  voiceNotes?: DprVoiceNote[];
   issues?: DprIssueRow[];
   /** Server-side warnings (e.g. rate-missing:trade-name, assignment-not-found:uuid). */
   warnings?: string[];

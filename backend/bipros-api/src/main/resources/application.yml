@@ -106,6 +106,16 @@ bipros:
     storage:
       path: ${BIPROS_DPR_STORAGE_PATH:./storage/dpr-photos}
       max-file-size: 15728640   # 15 MB
+    # DPR voice notes — MinIO-backed (durable, multi-instance-safe). Audio only; 25 MB cap per
+    # file enforced in DprVoiceNoteService. Bucket auto-created on boot.
+    voice-notes:
+      endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+      access-key: ${MINIO_ACCESS_KEY:minio}
+      secret-key: ${MINIO_SECRET_KEY:minio123}
+      region: ${MINIO_REGION:us-east-1}
+      bucket: ${DPR_VOICE_NOTES_BUCKET:dpr-voice-notes}
+      multipart-part-size-mb: 5
+      max-file-size: 26214400   # 25 MB
 
   # Error responses — include exception class + message + top stack frame in 500 bodies.
   # Default is OFF so production never leaks internals; default profile (dev) turns it ON below.
