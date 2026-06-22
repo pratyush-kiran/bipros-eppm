@@ -213,15 +213,15 @@ export default function CapacityUtilizationReportPage() {
         <div className="mt-6 rounded-2xl border border-hairline bg-paper p-5 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="font-display text-lg font-semibold text-charcoal">
-              Untracked Actual Days · {month}
+              Days With No Productivity Norm · {month}
             </h2>
             <span className="text-xs text-slate">
-              Days deployed on activities with no productivity norm — excluded from % Util.
+              Days deployed on activities with no productivity norm — not counted in Efficiency %.
             </span>
           </div>
           {untrackedRows.length === 0 ? (
             <p className="text-sm text-slate">
-              No untracked days in this period. Every role&apos;s deployment is on an activity with a
+              Every role&apos;s deployment in this period is on an activity with a
               productivity norm.
             </p>
           ) : (
@@ -231,9 +231,9 @@ export default function CapacityUtilizationReportPage() {
                   <tr className="border-b border-hairline text-left text-[11px] font-semibold uppercase tracking-wide text-slate">
                     <th className="py-2">Section</th>
                     <th className="py-2">Role</th>
-                    <th className="py-2 text-right">Actual Days</th>
-                    <th className="py-2 text-right">Of which Untracked</th>
-                    <th className="py-2 text-right">% Untracked</th>
+                    <th className="py-2 text-right">Deployed Days</th>
+                    <th className="py-2 text-right">Of which No-norm</th>
+                    <th className="py-2 text-right">% No-norm</th>
                   </tr>
                 </thead>
                 <tbody>

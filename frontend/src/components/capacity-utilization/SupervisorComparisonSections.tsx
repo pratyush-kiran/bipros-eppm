@@ -7,6 +7,13 @@ import type {
   TradeRollup,
 } from "@/lib/api/capacityUtilizationApi";
 import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
+import {
+  COUNTED_TOOLTIP,
+  countedDays,
+  efficiencyFormula,
+  hiddenSideSentence,
+  reconciliationText,
+} from "@/lib/capacity/reconciliation";
 
 function fmt(n: number | null | undefined, digits = 2): string {
   if (n === null || n === undefined) return "—";
@@ -35,28 +42,6 @@ function utilBand(util: number | null | undefined): string {
 const EFFICIENCY_TOOLTIP =
   "Output vs the productivity norm per resource-day. Not deployment utilization.";
 
-const BREAKDOWN_TOOLTIP =
-  "Tracked = counted toward Efficiency on this side. Suppressed = on activities where the other side governs (SERIES / SUBSTITUTE) — see banner. Untracked = on activities with no productivity norm for this role.";
-
-/** "(115 tracked · 154 suppressed · 8 untracked)" — only when at least one of suppressed/untracked
- *  is non-zero. Returns null otherwise. */
-function actualBreakdown(
-  total: number | null | undefined,
-  suppressed: number | null | undefined,
-  untracked: number | null | undefined,
-): string | null {
-  if (total == null || total <= 0) return null;
-  const s = suppressed ?? 0;
-  const u = untracked ?? 0;
-  if (s <= 0 && u <= 0) return null;
-  const tracked = total - s - u;
-  const parts: string[] = [];
-  if (tracked > 0) parts.push(`${fmt(tracked, 1)} tracked`);
-  if (s > 0) parts.push(`${fmt(s, 1)} suppressed`);
-  if (u > 0) parts.push(`${fmt(u, 1)} untracked`);
-  return parts.join(" · ");
-}
-
 /** Aggregate hidden-side notes across supervisors, deduped by activityId. Used to render a
  *  single combined banner under each side's table — covers any supervisor who saw the
  *  activity governed by the other side. */
@@ -81,27 +66,18 @@ function aggregateHiddenNotes(
   return out;
 }
 
-function HiddenSideBanner({
-  notes,
-  sideLabel,
-}: {
-  notes: HiddenSideNote[];
-  sideLabel: "Manpower" | "Equipment";
-}) {
+function HiddenSideBanner({ notes }: { notes: HiddenSideNote[] }) {
   if (notes.length === 0) return null;
   return (
     <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning space-y-1">
-      {notes.map((n) => {
-        const governing = n.governingSide === "MANPOWER" ? "Manpower" : "Equipment";
-        return (
-          <div key={n.activityId}>
-            <span className="font-medium">
-              {n.workActivityName ?? "Activity"}
-            </span>
-            {` (${n.mode}): ${governing} side governs this activity. ${sideLabel} deployments here count toward Actual but are excluded from this section’s Efficiency — see ${governing} Utilization for the activity’s productivity.`}
-          </div>
-        );
-      })}
+      {notes.map((n) => (
+        <div key={n.activityId}>
+          <span className="font-medium">
+            {n.workActivityName ?? "Activity"}
+          </span>
+          {hiddenSideSentence(n.mode, n.governingSide)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -147,10 +123,22 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
           }))}
           render={(rollup) => {
             if (!rollup) return <span className="text-text-muted">—</span>;
-            const breakdown = actualBreakdown(
+            const counted = countedDays(
               rollup.actualManDays,
               rollup.actualDaysOnHiddenSides,
               rollup.actualDaysUntracked,
+            );
+            const identity = reconciliationText(
+              rollup.actualManDays,
+              rollup.actualDaysOnHiddenSides,
+              rollup.actualDaysUntracked,
+              "MANPOWER",
+            );
+            const formula = efficiencyFormula(
+              rollup.budgetedManDays,
+              counted,
+              2,
+              2,
             );
             return (
               <div className="space-y-0.5 text-xs">
@@ -165,18 +153,19 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
                   </span>
                 </div>
                 <div>
-                  Act:{" "}
-                  <span className="tabular-nums">
-                    {fmt(rollup.actualManDays)}
-                  </span>
+                  Counted:{" "}
+                  <span className="tabular-nums">{fmt(counted)}</span>
                 </div>
-                {breakdown && (
+                {identity && (
                   <div
                     className="text-[11px] text-text-muted italic"
-                    title={BREAKDOWN_TOOLTIP}
+                    title={COUNTED_TOOLTIP}
                   >
-                    ({breakdown})
+                    {identity}
                   </div>
+                )}
+                {formula && (
+                  <div className="text-[11px] text-text-muted">Eff = {formula}</div>
                 )}
                 <div>
                   <CostLine value={rollup.costImplication} />
@@ -188,7 +177,7 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
             );
           }}
         />
-        <HiddenSideBanner notes={manpowerHidden} sideLabel="Manpower" />
+        <HiddenSideBanner notes={manpowerHidden} />
       </section>
 
       <section>
@@ -205,10 +194,22 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
           }))}
           render={(rollup) => {
             if (!rollup) return <span className="text-text-muted">—</span>;
-            const breakdown = actualBreakdown(
+            const counted = countedDays(
               rollup.actualDays,
               rollup.actualDaysOnHiddenSides,
               rollup.actualDaysUntracked,
+            );
+            const identity = reconciliationText(
+              rollup.actualDays,
+              rollup.actualDaysOnHiddenSides,
+              rollup.actualDaysUntracked,
+              "EQUIPMENT",
+            );
+            const formula = efficiencyFormula(
+              rollup.budgetedDays,
+              counted,
+              2,
+              2,
             );
             return (
               <div className="space-y-0.5 text-xs">
@@ -223,18 +224,19 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
                   </span>
                 </div>
                 <div>
-                  Act:{" "}
-                  <span className="tabular-nums">
-                    {fmt(rollup.actualDays)}
-                  </span>
+                  Counted:{" "}
+                  <span className="tabular-nums">{fmt(counted)}</span>
                 </div>
-                {breakdown && (
+                {identity && (
                   <div
                     className="text-[11px] text-text-muted italic"
-                    title={BREAKDOWN_TOOLTIP}
+                    title={COUNTED_TOOLTIP}
                   >
-                    ({breakdown})
+                    {identity}
                   </div>
+                )}
+                {formula && (
+                  <div className="text-[11px] text-text-muted">Eff = {formula}</div>
                 )}
                 <div>
                   <CostLine value={rollup.costImplication} />
@@ -246,7 +248,7 @@ export function SupervisorComparisonSections({ comparison }: ComparisonProps) {
             );
           }}
         />
-        <HiddenSideBanner notes={equipmentHidden} sideLabel="Equipment" />
+        <HiddenSideBanner notes={equipmentHidden} />
       </section>
     </div>
   );

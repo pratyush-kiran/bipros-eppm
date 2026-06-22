@@ -12,6 +12,13 @@ import type {
   TradeRollup,
 } from "@/lib/api/capacityUtilizationApi";
 import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
+import {
+  COUNTED_TOOLTIP,
+  countedDays,
+  efficiencyFormula,
+  hiddenSideSentence,
+  reconciliationText,
+} from "@/lib/capacity/reconciliation";
 
 function fmt(n: number | null | undefined, digits = 2): string {
   if (n === null || n === undefined) return "—";
@@ -47,52 +54,22 @@ function UtilCell({ util }: { util: number | null | undefined }) {
   );
 }
 
-/**
- * "(115 tracked · 154 suppressed · 8 untracked)" — only when at least one of suppressed/untracked
- * is non-zero. Returns null otherwise so the table stays tight on the common case where every
- * day was tracked.
- */
-function actualBreakdown(
-  total: number | null | undefined,
-  suppressed: number | null | undefined,
-  untracked: number | null | undefined,
-): string | null {
-  if (total == null || total <= 0) return null;
-  const s = suppressed ?? 0;
-  const u = untracked ?? 0;
-  if (s <= 0 && u <= 0) return null;
-  const tracked = total - s - u;
-  const parts: string[] = [];
-  if (tracked > 0) parts.push(`${fmt(tracked, 1)} tracked`);
-  if (s > 0) parts.push(`${fmt(s, 1)} suppressed`);
-  if (u > 0) parts.push(`${fmt(u, 1)} untracked`);
-  return parts.join(" · ");
-}
-
-const BREAKDOWN_TOOLTIP =
-  "Tracked = counted toward Efficiency on this side. Suppressed = on activities where the other side governs (SERIES / SUBSTITUTE) — see banner. Untracked = on activities with no productivity norm for this role.";
-
 function HiddenSideBanner({
   notes,
-  sideLabel,
 }: {
   notes: HiddenSideNote[] | undefined;
-  sideLabel: "Manpower" | "Equipment";
 }) {
   if (!notes || notes.length === 0) return null;
   return (
     <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning space-y-1">
-      {notes.map((n) => {
-        const governing = n.governingSide === "MANPOWER" ? "Manpower" : "Equipment";
-        return (
-          <div key={n.activityId}>
-            <span className="font-medium">
-              {n.workActivityName ?? "Activity"}
-            </span>
-            {` (${n.mode}): ${governing} side governs this activity. ${sideLabel} deployments here count toward Actual but are excluded from this section’s Efficiency — see ${governing} Utilization for the activity’s productivity.`}
-          </div>
-        );
-      })}
+      {notes.map((n) => (
+        <div key={n.activityId}>
+          <span className="font-medium">
+            {n.workActivityName ?? "Activity"}
+          </span>
+          {hiddenSideSentence(n.mode, n.governingSide)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -147,17 +124,29 @@ function ManpowerUtilizationTableInner({
               <th className="px-3 py-2 text-right">MM Rate</th>
               <th className="px-3 py-2 text-right">Qty Done</th>
               <th className="px-3 py-2 text-right">Bud. Man-days</th>
-              <th className="px-3 py-2 text-right">Act. Man-days</th>
+              <th className="px-3 py-2 text-right">Man-days (counted)</th>
               <th className="px-3 py-2 text-center">Efficiency %</th>
               <th className="px-3 py-2 text-right">Cost Implication</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((r, i) => {
-              const breakdown = actualBreakdown(
+              const counted = countedDays(
                 r.actualManDays,
                 r.actualDaysOnHiddenSides,
                 r.actualDaysUntracked,
+              );
+              const identity = reconciliationText(
+                r.actualManDays,
+                r.actualDaysOnHiddenSides,
+                r.actualDaysUntracked,
+                "MANPOWER",
+              );
+              const formula = efficiencyFormula(
+                r.budgetedManDays,
+                counted,
+                2,
+                2,
               );
               return (
                 <tr
@@ -181,18 +170,23 @@ function ManpowerUtilizationTableInner({
                     {fmt(r.budgetedManDays)}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    <div>{fmt(r.actualManDays)}</div>
-                    {breakdown && (
+                    <div>{fmt(counted)}</div>
+                    {identity && (
                       <div
                         className="text-[11px] text-text-muted italic"
-                        title={BREAKDOWN_TOOLTIP}
+                        title={COUNTED_TOOLTIP}
                       >
-                        ({breakdown})
+                        {identity}
                       </div>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center">
                     <UtilCell util={r.utilizationPct} />
+                    {formula && (
+                      <div className="text-[11px] text-text-muted mt-0.5">
+                        {formula}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     <CostLabel value={r.costImplication} />
@@ -203,7 +197,7 @@ function ManpowerUtilizationTableInner({
           </tbody>
         </table>
       </div>
-      <HiddenSideBanner notes={hiddenNotes} sideLabel="Manpower" />
+      <HiddenSideBanner notes={hiddenNotes} />
     </>
   );
 }
@@ -242,18 +236,25 @@ function EquipmentUtilizationTableInner({
               <th className="px-3 py-2 text-right">Eq Rate / Day</th>
               <th className="px-3 py-2 text-right">Qty Done</th>
               <th className="px-3 py-2 text-right">Bud. Eqpt-days</th>
-              <th className="px-3 py-2 text-right">Act. Eqpt-days</th>
+              <th className="px-3 py-2 text-right">Eqpt-days (counted)</th>
               <th className="px-3 py-2 text-center">Efficiency %</th>
               <th className="px-3 py-2 text-right">Cost Implication</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((r, i) => {
-              const breakdown = actualBreakdown(
+              const counted = countedDays(
                 r.actualDays,
                 r.actualDaysOnHiddenSides,
                 r.actualDaysUntracked,
               );
+              const identity = reconciliationText(
+                r.actualDays,
+                r.actualDaysOnHiddenSides,
+                r.actualDaysUntracked,
+                "EQUIPMENT",
+              );
+              const formula = efficiencyFormula(r.budgetedDays, counted, 2, 2);
               return (
                 <tr
                   key={r.equipmentKey}
@@ -276,18 +277,23 @@ function EquipmentUtilizationTableInner({
                     {fmt(r.budgetedDays)}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    <div>{fmt(r.actualDays)}</div>
-                    {breakdown && (
+                    <div>{fmt(counted)}</div>
+                    {identity && (
                       <div
                         className="text-[11px] text-text-muted italic"
-                        title={BREAKDOWN_TOOLTIP}
+                        title={COUNTED_TOOLTIP}
                       >
-                        ({breakdown})
+                        {identity}
                       </div>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center">
                     <UtilCell util={r.utilizationPct} />
+                    {formula && (
+                      <div className="text-[11px] text-text-muted mt-0.5">
+                        {formula}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     <CostLabel value={r.costImplication} />
@@ -298,7 +304,7 @@ function EquipmentUtilizationTableInner({
           </tbody>
         </table>
       </div>
-      <HiddenSideBanner notes={hiddenNotes} sideLabel="Equipment" />
+      <HiddenSideBanner notes={hiddenNotes} />
     </>
   );
 }

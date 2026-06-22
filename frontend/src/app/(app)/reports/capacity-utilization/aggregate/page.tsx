@@ -244,7 +244,10 @@ export default function CapacityUtilizationAggregatePage() {
                             key={`${row.roleId}-${i}`}
                             className="px-3 py-2 align-top border-l border-hairline"
                           >
-                            <PeriodCell period={cell?.cumulative ?? null} />
+                            <PeriodCell
+                              period={cell?.cumulative ?? null}
+                              side={row.kind === "Manpower" ? "MANPOWER" : "EQUIPMENT"}
+                            />
                           </td>
                         ))}
                       </tr>

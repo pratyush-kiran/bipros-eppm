@@ -18,6 +18,10 @@ import { TabTip } from "@/components/common/TabTip";
 import { SupervisorPerformanceSections } from "@/components/capacity-utilization/SupervisorPerformanceSections";
 import { SupervisorComparisonSections } from "@/components/capacity-utilization/SupervisorComparisonSections";
 import { PeriodCell as RolePeriodCellShared } from "@/components/capacity/PeriodCell";
+import {
+  hiddenSideSentence,
+  type CapacitySide,
+} from "@/lib/capacity/reconciliation";
 import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -160,9 +164,11 @@ const RolePeriodCell = RolePeriodCellShared;
 const Sc180SectionTable = memo(function Sc180SectionTable({
   title,
   section,
+  side,
 }: {
   title: string;
   section: CapacitySection | null;
+  side: CapacitySide;
 }) {
   const { money } = useProjectCurrency();
   if (!section || section.rows.length === 0) {
@@ -220,13 +226,13 @@ const Sc180SectionTable = memo(function Sc180SectionTable({
                   {r.ratePerDay == null ? "—" : money(r.ratePerDay, { decimals: 2 })}
                 </td>
                 <td className="px-4 py-3 align-top border-l border-border">
-                  <RolePeriodCell period={r.forTheDay} />
+                  <RolePeriodCell period={r.forTheDay} side={side} />
                 </td>
                 <td className="px-4 py-3 align-top">
-                  <RolePeriodCell period={r.forTheMonth} />
+                  <RolePeriodCell period={r.forTheMonth} side={side} />
                 </td>
                 <td className="px-4 py-3 align-top">
-                  <RolePeriodCell period={r.cumulative} />
+                  <RolePeriodCell period={r.cumulative} side={side} />
                 </td>
               </tr>
             ))}
@@ -234,13 +240,13 @@ const Sc180SectionTable = memo(function Sc180SectionTable({
               <td className="px-4 py-2 text-text-primary">Total</td>
               <td />
               <td className="px-4 py-2 border-l border-border">
-                <RolePeriodCell period={section.totalForTheDay} />
+                <RolePeriodCell period={section.totalForTheDay} side={side} />
               </td>
               <td className="px-4 py-2">
-                <RolePeriodCell period={section.totalForTheMonth} />
+                <RolePeriodCell period={section.totalForTheMonth} side={side} />
               </td>
               <td className="px-4 py-2">
-                <RolePeriodCell period={section.totalCumulative} />
+                <RolePeriodCell period={section.totalCumulative} side={side} />
               </td>
             </tr>
           </tbody>
@@ -248,18 +254,14 @@ const Sc180SectionTable = memo(function Sc180SectionTable({
       </div>
       {section.hiddenSideNotes && section.hiddenSideNotes.length > 0 && (
         <div className="mt-2 mx-4 mb-4 rounded border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-text-muted space-y-1">
-          {section.hiddenSideNotes.map((n) => {
-            const governing = n.governingSide === "MANPOWER" ? "Manpower" : "Equipment";
-            const thisSide = n.governingSide === "MANPOWER" ? "Equipment" : "Manpower";
-            return (
-              <div key={n.activityId}>
-                <span className="font-medium text-warning">
-                  {n.workActivityName ?? "Activity"}
-                </span>
-                {` (${n.mode}): ${governing} side governs this activity. ${thisSide} deployments here count toward Actual but are excluded from this section’s Efficiency — see ${governing} Utilization for the activity’s productivity.`}
-              </div>
-            );
-          })}
+          {section.hiddenSideNotes.map((n) => (
+            <div key={n.activityId}>
+              <span className="font-medium text-warning">
+                {n.workActivityName ?? "Activity"}
+              </span>
+              {hiddenSideSentence(n.mode, n.governingSide)}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -758,12 +760,14 @@ export default function CapacityUtilizationPage() {
                   <Sc180SectionTable
                     title="Manpower Utilization"
                     section={data.data.manpower}
+                    side="MANPOWER"
                   />
                 )}
                 {data?.data?.equipment && (
                   <Sc180SectionTable
                     title="Equipment Utilization"
                     section={data.data.equipment}
+                    side="EQUIPMENT"
                   />
                 )}
               </>
