@@ -124,22 +124,35 @@ public class EpsService {
 
         EpsNode node = epsNodeRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("EpsNode", id));
+        String label = node.getCode() + " — " + node.getName();
 
-        // Check for child nodes
+        // Block while the node still has children: deletion only ever removes this single
+        // node, so requiring it to be empty keeps any project deeper in the branch safe
+        // (you can never delete an ancestor of a node that a project depends on).
         List<EpsNode> children = epsNodeRepository.findByParentIdOrderBySortOrder(id);
         if (!children.isEmpty()) {
-            throw new BusinessRuleException("EPS_HAS_CHILDREN", "Cannot delete EPS node with child nodes");
+            throw new BusinessRuleException("EPS_HAS_CHILDREN",
+                "Cannot delete '" + label + "': it has " + count(children.size(), "child node")
+                    + ". Delete or move them first.");
         }
 
-        // Check for projects under this EPS node
+        // Block while any project (active or archived) is assigned to this node — every
+        // project must belong to an EPS node, so removing it would orphan one.
         long projectCount = projectRepository.findByEpsNodeId(id).size();
         if (projectCount > 0) {
-            throw new BusinessRuleException("EPS_HAS_PROJECTS", "Cannot delete EPS node with existing projects");
+            throw new BusinessRuleException("EPS_HAS_PROJECTS",
+                "Cannot delete '" + label + "': " + count(projectCount, "project")
+                    + " assigned to it. Reassign them to another EPS node first.");
         }
 
         epsNodeRepository.delete(node);
         log.info("EPS node deleted: {}", id);
         auditService.logDelete("EpsNode", id);
+    }
+
+    /** Formats "{n} {noun}" with naive pluralisation for user-facing block messages. */
+    private static String count(long n, String noun) {
+        return n + " " + noun + (n == 1 ? "" : "s");
     }
 
     public List<EpsNodeResponse> getTree() {

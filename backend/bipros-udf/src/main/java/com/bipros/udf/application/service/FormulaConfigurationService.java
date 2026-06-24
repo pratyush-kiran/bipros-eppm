@@ -79,13 +79,18 @@ public class FormulaConfigurationService {
         master.setDefaultExpression(request.getDefaultExpression());
         master.setInputVariablesJson(request.getInputVariablesJson());
         master.setOutputType(request.getOutputType());
-        master.setScale(request.getScale());
-        master.setRoundingMode(request.getRoundingMode());
-        master.setZeroDefault(request.getZeroDefault());
-        master.setIsActive(request.getIsActive());
-        master.setIsEditable(request.getIsEditable());
         master.setSortOrder(request.getSortOrder());
         master.setModuleSource(request.getModuleSource());
+
+        // These columns are NOT NULL (or carry meaningful defaults) and are not exposed on the
+        // edit form, so the request omits them (arrives null). Preserve the existing values rather
+        // than overwriting with null — otherwise editing e.g. just the description would null out
+        // is_active/is_editable/rounding_mode and violate the not-null constraints.
+        if (request.getScale() != null) master.setScale(request.getScale());
+        if (request.getRoundingMode() != null) master.setRoundingMode(request.getRoundingMode());
+        if (request.getZeroDefault() != null) master.setZeroDefault(request.getZeroDefault());
+        if (request.getIsActive() != null) master.setIsActive(request.getIsActive());
+        if (request.getIsEditable() != null) master.setIsEditable(request.getIsEditable());
 
         FormulaMaster saved = formulaMasterRepository.save(master);
         log.info("Updated formula master: {}", saved.getCode());

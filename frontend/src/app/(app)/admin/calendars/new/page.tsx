@@ -55,6 +55,9 @@ export default function NewCalendarPage() {
       const { code, ...submitData } = formData;
       const result = await calendarApi.createCalendar(submitData);
       if (result.data) {
+        // Invalidate the list cache so the new calendar shows immediately —
+        // without this the global 5-min staleTime serves the stale list until
+        // a hard refresh (see providers.tsx).
         await queryClient.invalidateQueries({ queryKey: ["calendars"] });
         router.push("/admin/calendars");
       }

@@ -12,10 +12,46 @@ import { obsApi } from "@/lib/api/obsApi";
 import { projectCategoryApi } from "@/lib/api/projectCategoryApi";
 import { calendarApi } from "@/lib/api/calendarApi";
 import { getErrorMessage } from "@/lib/utils/error";
-import { getPriorityInfo } from "@/lib/utils/format";
+import { PRIORITY_CHOICES } from "@/lib/utils/format";
 import { projectNotifications, notificationHelpers } from "@/lib/notificationHelpers";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import type { CreateProjectRequest } from "@/lib/types";
+
+// EPS and OBS are identical tree shapes (code / name / children). One helper
+// flattens either tree depth-first (preserving display order) and renders
+// indented dropdown options, so the New Project selectors offer every node — not
+// just roots. P6 files a project under any EPS/OBS node at any level; `depth`
+// drives the indentation.
+type TreeNode<T> = { id: string; code: string; name: string; children?: T[] };
+
+function flattenTree<T extends TreeNode<T>>(
+  nodes: T[],
+  depth = 0,
+): { node: T; depth: number }[] {
+  return nodes.flatMap((node) => [
+    { node, depth },
+    ...flattenTree(node.children ?? [], depth + 1),
+  ]);
+}
+
+function buildNodeSelect<T extends TreeNode<T>>(
+  nodes: T[],
+  selectedId: string | null | undefined,
+): { options: { value: string; label: string }[]; selectedLabel: string | undefined } {
+  const flat = flattenTree(nodes);
+  // Indent with NBSP so it doesn't collapse in the rendered <li>; search still
+  // substring-matches code/name after the indent.
+  const options = flat.map(({ node, depth }) => ({
+    value: node.id,
+    label:
+      depth === 0
+        ? `${node.code} - ${node.name}`
+        : `${"\u00A0\u00A0\u00A0\u00A0".repeat(depth)}↳ ${node.code} - ${node.name}`,
+  }));
+  // Keep the closed-button label clean (no indent/connector) for child nodes.
+  const sel = flat.find((f) => f.node.id === selectedId)?.node;
+  return { options, selectedLabel: sel ? `${sel.code} - ${sel.name}` : undefined };
+}
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -70,6 +106,14 @@ export default function NewProjectPage() {
 
   const epsNodes = epsData?.data ?? [];
   const obsNodes = obsData?.data ?? [];
+  const { options: epsOptions, selectedLabel: selectedEpsLabel } = buildNodeSelect(
+    epsNodes,
+    formData.epsNodeId,
+  );
+  const { options: obsOptions, selectedLabel: selectedObsLabel } = buildNodeSelect(
+    obsNodes,
+    formData.obsNodeId,
+  );
   const categories = categoriesData?.data ?? [];
   const allCalendars = calendarsData?.data ?? [];
   const configuredCurrencies = currenciesData?.data ?? [];
@@ -196,10 +240,8 @@ export default function NewProjectPage() {
                 value={formData.epsNodeId}
                 onChange={(val) => { if (error) setError(""); if (fieldErrors.epsNodeId) setFieldErrors((prev) => { const next = { ...prev }; delete next.epsNodeId; return next; }); setFormData((prev) => ({ ...prev, epsNodeId: val })); }}
                 placeholder="Search EPS nodes..."
-                options={epsNodes.map((node) => ({
-                  value: node.id,
-                  label: `${node.code} - ${node.name}`,
-                }))}
+                options={epsOptions}
+                selectedLabel={selectedEpsLabel}
                 disabled={isLoadingEps}
               />
               {fieldErrors.epsNodeId && <p className="mt-1 text-xs text-danger">{fieldErrors.epsNodeId}</p>}
@@ -211,10 +253,8 @@ export default function NewProjectPage() {
                 value={formData.obsNodeId || ""}
                 onChange={(val) => { if (error) setError(""); setFormData((prev) => ({ ...prev, obsNodeId: val })); }}
                 placeholder="Search OBS nodes..."
-                options={obsNodes.map((node) => ({
-                  value: node.id,
-                  label: `${node.code} - ${node.name}`,
-                }))}
+                options={obsOptions}
+                selectedLabel={selectedObsLabel}
                 disabled={isLoadingObs}
               />
             </div>
@@ -229,9 +269,9 @@ export default function NewProjectPage() {
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border border-border bg-surface-hover px-3 py-2 text-text-primary focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               >
-                {[5, 20, 35, 50, 65, 80, 95].map((p) => (
-                  <option key={p} value={p}>
-                    {p} - {getPriorityInfo(p).label}
+                {PRIORITY_CHOICES.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
                   </option>
                 ))}
               </select>

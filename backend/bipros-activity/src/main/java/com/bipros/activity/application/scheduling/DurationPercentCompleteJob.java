@@ -40,6 +40,7 @@ public class DurationPercentCompleteJob {
     private final PercentCompleteCalculator calculator;
     private final AuditService auditService;
     private final ScheduledJobLeaseRepository leaseRepository;
+    private final com.bipros.activity.application.percent.BoqProgressGuard boqProgressGuard;
 
     @Scheduled(cron = "${bipros.activity.duration-percent-cron:0 5 2 * * *}")
     @Transactional
@@ -85,6 +86,9 @@ public class DurationPercentCompleteJob {
             if (dataDate == null) {
                 skippedNoDataDate++;
                 continue;
+            }
+            if (boqProgressGuard.isBoqDriven(activity.getId())) {
+                continue; // BOQ-driven — its percentComplete is owned by the BOQ listener
             }
             Double oldPercent = activity.getPercentComplete();
 

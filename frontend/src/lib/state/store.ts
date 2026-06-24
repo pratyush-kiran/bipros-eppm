@@ -43,6 +43,10 @@ export const useAuthStore = create<AuthState>()(
       clearAuth: () => {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        // Also clear the access_token cookie — it is the source of truth for the server-side
+        // route guard (proxy.ts). Without this, logout leaves the cookie behind and the proxy
+        // still treats the user as signed in (e.g. it would bounce them off /auth/login).
+        document.cookie = "access_token=; path=/; max-age=0; SameSite=Strict";
         set({ user: null, accessToken: null, refreshToken: null });
       },
       isAuthenticated: () => get().accessToken !== null,

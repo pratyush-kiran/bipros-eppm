@@ -18,12 +18,14 @@ import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { LinkOrCreateWorkActivityDialog } from "@/components/activity/LinkOrCreateWorkActivityDialog";
 import { WorkActivityCoverageChip } from "@/components/activity/WorkActivityCoverageChip";
 import { Plus } from "lucide-react";
+import { useScheduleStaleStore } from "@/lib/state/scheduleStaleStore";
 
 export default function NewActivityPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const params = useParams();
   const projectId = params.projectId as string;
+  const markScheduleStale = useScheduleStaleStore((s) => s.markScheduleStale);
 
   const [formData, setFormData] = useState<{
     code: string;
@@ -182,6 +184,7 @@ export default function NewActivityPage() {
         }
         activityNotifications.created();
         queryClient.invalidateQueries({ queryKey: ["activities", projectId] });
+        markScheduleStale(projectId);
         router.push(`/projects/${projectId}/activities`);
       }
     } catch (err: unknown) {

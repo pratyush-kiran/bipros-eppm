@@ -1176,6 +1176,12 @@ export interface ActivityAiApplyRequest {
    * Default false: skip-and-report (current behavior).
    */
   strictWbs?: boolean;
+  /**
+   * When true (from-scratch generation), the backend compresses the computed
+   * schedule to fit inside the project's planned window. Omit/false for the
+   * from-document path (current behavior).
+   */
+  fromScratch?: boolean;
 }
 
 export interface ActivityAiApplyResponse {

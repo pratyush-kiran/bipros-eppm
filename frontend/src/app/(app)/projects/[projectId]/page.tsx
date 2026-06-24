@@ -152,7 +152,7 @@ export default function ProjectDetailPage() {
     mutationFn: () => activityApi.triggerSchedule(projectId, "RETAINED_LOGIC"),
     onSuccess: () => {
       refetchActivities();
-      queryClient.invalidateQueries({ queryKey: ["criticalPath", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["critical-path", projectId] });
       markScheduleFresh(projectId);
       setScheduleError("");
       toast.success("Schedule calculated successfully");
@@ -642,7 +642,7 @@ function OverviewTab({ project, projectId }: { project: ProjectResponse; project
         <div className="rounded-xl border border-border bg-surface/50 p-6 shadow-lg">
           <h3 className="text-sm font-medium text-text-secondary">Priority</h3>
           <p className={`mt-2 text-lg font-medium ${getPriorityInfo(project.priority).color}`}>
-            {getPriorityInfo(project.priority).label} ({project.priority})
+            {getPriorityInfo(project.priority).label}
           </p>
         </div>
         <DataDateCard project={project} />

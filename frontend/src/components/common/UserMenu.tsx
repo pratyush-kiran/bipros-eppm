@@ -50,7 +50,12 @@ export function UserMenu() {
     // Hard navigation guarantees the AccessProvider re-runs against an empty
     // auth store; a soft router.push after clearAuth can race with React's
     // state flush and leave the user on the (now broken) authenticated page.
-    window.location.href = withBasePath("/auth/login");
+    // replace (not href/push) so the authenticated page is dropped from history —
+    // pressing Back after logout must never reveal it. clearAuth() above also clears the
+    // access_token cookie so the server guard (proxy.ts) treats the user as signed out, and
+    // BfcacheAuthSync covers any deeper authenticated pages restored from the bfcache.
+    // withBasePath keeps the redirect correct under a non-root basePath.
+    window.location.replace(withBasePath("/auth/login"));
   };
 
   // SSR-safe placeholder until auth rehydrates from localStorage on the client.

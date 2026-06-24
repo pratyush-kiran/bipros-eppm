@@ -20,7 +20,9 @@ import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.DprEquipmentRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
 import com.bipros.project.domain.repository.DprMaterialRepository;
+import com.bipros.project.domain.repository.DprVoiceNoteRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
+import com.bipros.project.infrastructure.storage.VoiceNoteStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,8 +66,10 @@ class DailyProgressReportServiceChildrenTest {
   @Mock private DprMaterialRepository materialRepository;
   @Mock private com.bipros.project.domain.repository.DprSubContractorRepository subContractorRepository;
   @Mock private com.bipros.project.domain.repository.DprAttachmentRepository attachmentRepository;
+  @Mock private DprVoiceNoteRepository voiceNoteRepository;
   @Mock private com.bipros.project.domain.repository.DprIssueRepository issueRepository;
   @Mock private com.bipros.project.infrastructure.storage.DprAttachmentStorageService attachmentStorage;
+  @Mock private VoiceNoteStorage voiceNoteStorage;
   @Mock private ProjectRepository projectRepository;
   @Mock private DailyActivityResourceOutputService ledgerService;
   @Mock private AuditService auditService;
@@ -85,8 +89,9 @@ class DailyProgressReportServiceChildrenTest {
   void setUp() {
     service = new DailyProgressReportService(
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
-        subContractorRepository, attachmentRepository, issueRepository, attachmentStorage,
-        projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
+        subContractorRepository, attachmentRepository, voiceNoteRepository, issueRepository,
+        attachmentStorage, voiceNoteStorage, projectRepository, ledgerService, auditService,
+        eventPublisher, null, boqItemRepository);
     lenient().when(attachmentRepository.findByDprIdOrderByCreatedAtAsc(any())).thenReturn(java.util.List.of());
     lenient().when(attachmentRepository.findByDprIdIn(any())).thenReturn(java.util.List.of());
     lenient().when(issueRepository.findByDprIdOrderByOpenedAtAsc(any())).thenReturn(java.util.List.of());

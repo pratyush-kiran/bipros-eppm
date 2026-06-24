@@ -9,6 +9,7 @@ import { ChevronsDownUp, ChevronsUpDown, Plus, Trash2, FolderPlus } from "lucide
 import { TabTip } from "@/components/common/TabTip";
 import { getErrorMessage } from "@/lib/utils/error";
 import { findNodeById } from "@/lib/utils/tree";
+import { notificationHelpers } from "@/lib/notificationHelpers";
 
 export default function ObsPage() {
   const [obsTree, setObsTree] = useState<ObsNodeResponse[]>([]);
@@ -63,12 +64,13 @@ export default function ObsPage() {
         setParentLabel(null);
         setShowNewForm(false);
         setError("");
+        notificationHelpers.creationSuccess("OBS node");
         loadObsTree();
       } else if (result.error) {
         setError(result.error.message);
       }
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to create OBS node"));
+      notificationHelpers.handleApiError(err, "Couldn't create the OBS node");
     } finally {
       setSubmitting(false);
     }
@@ -81,10 +83,11 @@ export default function ObsPage() {
 
     try {
       await obsApi.deleteObsNode(id);
+      notificationHelpers.deletionSuccess("OBS node");
       loadObsTree();
       setSelectedNode(null);
     } catch (err: unknown) {
-      setError(getErrorMessage(err, "Failed to delete OBS node"));
+      notificationHelpers.handleApiError(err, "Couldn't delete the OBS node");
     }
   };
 

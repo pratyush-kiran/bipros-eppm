@@ -640,7 +640,7 @@ function renderRelationshipLines(
     const succY = succIdx * rowHeight + timelineStartY + rowHeight / 2;
 
     const isCritical =
-      predActivity.totalFloat === 0 && succActivity.totalFloat === 0;
+      predActivity.isCritical === true && succActivity.isCritical === true;
 
     const midX = (predX + succX) / 2;
 

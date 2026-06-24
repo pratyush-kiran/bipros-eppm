@@ -57,7 +57,7 @@ class DailyProgressReportControllerSecurityAndValidationTest {
     @Test
     @DisplayName("GET /dpr (list) requires DPR.READ on the path projectId")
     void listRequiresProjectReadPermission() throws Exception {
-        assertProjectReadGuarded(method("list", UUID.class, LocalDate.class, LocalDate.class, String.class));
+        assertProjectReadGuarded(method("list", UUID.class, LocalDate.class, LocalDate.class, String.class, LocalDate.class, int.class));
     }
 
     @Test

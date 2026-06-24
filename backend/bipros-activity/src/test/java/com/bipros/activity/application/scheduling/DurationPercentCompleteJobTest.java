@@ -1,5 +1,6 @@
 package com.bipros.activity.application.scheduling;
 
+import com.bipros.activity.application.percent.BoqProgressGuard;
 import com.bipros.activity.application.percent.PercentCompleteCalculator;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.model.ActivityStatus;
@@ -38,6 +39,7 @@ class DurationPercentCompleteJobTest {
   @Mock private PercentCompleteCalculator calculator;
   @Mock private AuditService auditService;
   @Mock private ScheduledJobLeaseRepository leaseRepository;
+  @Mock private BoqProgressGuard boqProgressGuard;
 
   private DurationPercentCompleteJob job;
   private UUID projectId;
@@ -45,11 +47,12 @@ class DurationPercentCompleteJobTest {
   @BeforeEach
   void setUp() {
     job = new DurationPercentCompleteJob(activityRepository, projectRepository,
-        calculator, auditService, leaseRepository);
+        calculator, auditService, leaseRepository, boqProgressGuard);
     projectId = UUID.randomUUID();
 
     // Default: lease acquired
     when(leaseRepository.tryAcquire(anyString(), any(), any(), anyString())).thenReturn(1);
+    lenient().when(boqProgressGuard.isBoqDriven(any())).thenReturn(false);
   }
 
   @Nested
@@ -123,8 +126,8 @@ class DurationPercentCompleteJobTest {
     }
 
     @Test
-    @DisplayName("falls back to today when project has no dataDate")
-    void fallsBackToToday() {
+    @DisplayName("skips activity when project has no dataDate")
+    void skipsWhenNoDataDate() {
       Activity activity = createActivity(PercentCompleteType.DURATION);
       when(activityRepository.findByPercentCompleteTypeAndStatusIn(
           eq(PercentCompleteType.DURATION), anyList())).thenReturn(List.of(activity));
@@ -133,13 +136,8 @@ class DurationPercentCompleteJobTest {
       project.setDataDate(null);
       when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
 
-      PercentCompleteCalculator.Result result = new PercentCompleteCalculator.Result(
-          0.0, ActivityStatus.NOT_STARTED, null);
-      when(calculator.calculate(eq(activity), isNull(), isNull(), any(LocalDate.class)))
-          .thenReturn(result);
-
       job.run();
-      verify(activityRepository).save(activity);
+      verify(activityRepository, never()).save(any());
     }
 
     @Test

@@ -160,6 +160,9 @@ export default function CalendarDetailPage() {
         standardWorkDaysPerWeek: daysPerWeek,
       });
       queryClient.invalidateQueries({ queryKey: ["calendar", calendarId] });
+      // Also refresh the list cache — name/type/hours/days are shown there, and
+      // the global 5-min staleTime would otherwise keep the old row until refresh.
+      queryClient.invalidateQueries({ queryKey: ["calendars"] });
       setSuccess("Calendar updated successfully");
     } catch (err: unknown) {
       const msg =

@@ -280,12 +280,13 @@ public class EvmRollupService {
     }
 
     /**
-     * Sum the three Actual Cost sources for an activity: {@link ActivityExpense#getActualCost()},
-     * {@link ResourceAssignment#getActualCost()}, and the DPR persisted {@code line_cost} carried
-     * in {@code dprAcByActivity}. The DPR contribution closes the loop on supervisor-entered cost:
-     * DPR rows compute and persist {@code line_cost} per child row but the prior code never rolled
-     * that figure back into either of the first two columns, so CPI sat at 0 even when 552 OMR of
-     * DPR cost existed on the project (FIX7 / A9–A10).
+     * Sum the Actual Cost sources for an activity: {@link ActivityExpense#getActualCost()} and
+     * the DPR persisted {@code line_cost} carried in {@code dprAcByActivity}.
+     *
+     * <p>NOTE: {@code resource_assignments.actual_cost} is intentionally excluded.
+     * {@code ResourceAssignmentCostRollupListener} keeps that column in lock-step with the DPR
+     * manpower+equipment ledger — including both would double-count the same money.
+     * The DPR sum is the single source of actuals (mirrors {@code CostService.getCostSummary}).
      */
     static BigDecimal getActivityAc(Activity activity,
                                      Map<UUID, List<ActivityExpense>> expensesByActivity,
@@ -296,12 +297,6 @@ public class EvmRollupService {
         for (ActivityExpense expense : expenses) {
             if (expense.getActualCost() != null) {
                 ac = ac.add(expense.getActualCost());
-            }
-        }
-        List<ResourceAssignment> assignments = assignmentsByActivity.getOrDefault(activity.getId(), List.of());
-        for (ResourceAssignment assignment : assignments) {
-            if (assignment.getActualCost() != null) {
-                ac = ac.add(assignment.getActualCost());
             }
         }
         BigDecimal dprAc = dprAcByActivity.get(activity.getId());

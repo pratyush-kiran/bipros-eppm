@@ -65,11 +65,12 @@ public interface ResourceAssignmentRepository extends JpaRepository<ResourceAssi
   BigDecimal sumPlannedCostByProjectId(@Param("projectId") UUID projectId);
 
   /**
-   * Sum of {@code actualCost} across all ResourceAssignments for a project. Used by
-   * {@code CostService.getCostSummary} to mirror the AC component that EVM already includes via
-   * {@code EvmRollupService.getActivityAc} — without this, Cost totalActual is understated whenever
-   * actuals are recorded on resource assignments rather than ActivityExpense rows. Returns 0 when
-   * none exist.
+   * Sum of {@code actualCost} across all ResourceAssignments for a project. NOTE: currently has no
+   * production caller. Resource-assignment actual cost is kept in lock-step with the DPR ledger by
+   * {@code ResourceAssignmentCostRollupListener} (same money), so the actual-cost paths source AC
+   * from DPR and deliberately EXCLUDE this sum to avoid double-counting — both
+   * {@code CostService.getCostSummary} and {@code EvmRollupService.getActivityAc} omit it. Retained
+   * for potential diagnostics/admin tooling. Returns 0 when none exist.
    */
   @Query("select coalesce(sum(ra.actualCost), 0) from ResourceAssignment ra where ra.projectId = :projectId")
   BigDecimal sumActualCostByProjectId(@Param("projectId") UUID projectId);

@@ -64,6 +64,7 @@ public class ActivityService {
   private final PercentCompleteCalculator percentCompleteCalculator;
   private final ActivityStepRepository stepRepository;
   private final ApplicationEventPublisher eventPublisher;
+  private final com.bipros.activity.application.percent.BoqProgressGuard boqProgressGuard;
 
   /** Cross-schema lookup of {@code resource.work_activities.default_unit} — keeps this module
    *  free of a Maven dep on {@code bipros-resource}, mirroring the precedent in
@@ -253,6 +254,8 @@ public class ActivityService {
     }
     if (request.actualFinishDate() != null) {
       activity.setActualFinishDate(request.actualFinishDate());
+      // Finishing an activity completes it — 100 ⇔ COMPLETED for every percentCompleteType.
+      activity.setPercentComplete(100.0);
     }
 
     // When progress changed but status wasn't explicitly set, derive status from the
@@ -383,13 +386,12 @@ public class ActivityService {
     Activity activity = activityRepository.findById(id)
         .orElseThrow(() -> new ResourceNotFoundException("Activity", id));
     projectAccess.requireRead(activity.getProjectId());
-    // Resolve status date: project.dataDate if set, else today
-    java.time.LocalDate statusDate = projectRepository.findById(activity.getProjectId())
-        .map(Project::getDataDate)
-        .orElse(java.time.LocalDate.now());
+    // Read the STORED percentComplete/status — identical to the list path, so the detail page
+    // and the list can never disagree. Writers (BOQ listener, duration/units listeners, nightly
+    // job, Complete button) keep the stored value current.
     List<SupervisorEntry> supervisors = loadSupervisorsByActivityId(List.of(id))
         .getOrDefault(id, List.of());
-    return ActivityResponse.from(activity, percentCompleteCalculator, statusDate, supervisors);
+    return ActivityResponse.from(activity, (String) null, supervisors);
   }
 
   public PagedResponse<ActivityResponse> listActivities(UUID projectId, Pageable pageable) {
@@ -707,24 +709,27 @@ public class ActivityService {
         updated = true;
       }
 
-      // Delegate % / status / forced-finish to the single source of truth so
-      // /apply-actuals matches the nightly DurationPercentCompleteJob and the
-      // on-read recompute. UNITS rollups are event-driven elsewhere — pass null
-      // sums and let calculateUnits return KEEP_PRIOR for those.
-      var result = percentCompleteCalculator.calculate(activity, null, null, dataDate);
-      if (!result.isKeepPrior()) {
-        if (result.percent() != null
-            && !java.util.Objects.equals(result.percent(), activity.getPercentComplete())) {
-          activity.setPercentComplete(result.percent());
-          updated = true;
-        }
-        if (result.status() != null && result.status() != activity.getStatus()) {
-          activity.setStatus(result.status());
-          updated = true;
-        }
-        if (result.forcedActualFinish() != null && activity.getActualFinishDate() == null) {
-          activity.setActualFinishDate(result.forcedActualFinish());
-          updated = true;
+      // Percent / status / forced-finish for non-BOQ activities only. BOQ-driven activities
+      // have their percentComplete owned by ActivityProgressFromBoqListener (precedence #1),
+      // so apply-actuals must not clobber it with the time-elapsed value. The date auto-stamp
+      // above still applies. UNITS rollups are event-driven elsewhere — pass null sums and let
+      // calculateUnits return KEEP_PRIOR for those.
+      if (!boqProgressGuard.isBoqDriven(activity.getId())) {
+        var result = percentCompleteCalculator.calculate(activity, null, null, dataDate);
+        if (!result.isKeepPrior()) {
+          if (result.percent() != null
+              && !java.util.Objects.equals(result.percent(), activity.getPercentComplete())) {
+            activity.setPercentComplete(result.percent());
+            updated = true;
+          }
+          if (result.status() != null && result.status() != activity.getStatus()) {
+            activity.setStatus(result.status());
+            updated = true;
+          }
+          if (result.forcedActualFinish() != null && activity.getActualFinishDate() == null) {
+            activity.setActualFinishDate(result.forcedActualFinish());
+            updated = true;
+          }
         }
       }
 

@@ -369,6 +369,10 @@ public class CalendarService {
   public LocalDate addWorkingDays(UUID calendarId, LocalDate start, double days) {
     log.debug("Adding {} working days from {} for calendar: id={}", days, start, calendarId);
 
+    if (days < 0) {
+      return subtractWorkingDays(calendarId, start, -days);
+    }
+
     LocalDate current = start;
     double remaining = days;
     while (remaining > 0) {
@@ -387,6 +391,10 @@ public class CalendarService {
   @Transactional(readOnly = true)
   public LocalDate subtractWorkingDays(UUID calendarId, LocalDate from, double days) {
     log.debug("Subtracting {} working days from {} for calendar: id={}", days, from, calendarId);
+
+    if (days < 0) {
+      return addWorkingDays(calendarId, from, -days);
+    }
 
     LocalDate current = from;
     double remaining = days;

@@ -17,7 +17,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.RoundingMode;
+import java.util.Optional;
+import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -86,6 +89,47 @@ class FormulaConfigurationServiceValidationTest {
         // Should not throw during validation
         assertThatCode(() -> service.createMasterFormula(request))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("update preserves is_active/is_editable/rounding_mode/zero_default when the edit form omits them")
+    void updatePreservesFieldsNotInEditForm() {
+        UUID id = UUID.randomUUID();
+        FormulaMaster existing = new FormulaMaster();
+        existing.setCode("RPT_VAC");
+        existing.setName("Report VAC");
+        existing.setCategory(FormulaCategory.REPORTING);
+        existing.setDefaultExpression("$BAC - $EAC");
+        existing.setOutputType(FormulaOutputType.CURRENCY);
+        existing.setScale(2);
+        existing.setRoundingMode(RoundingMode.HALF_UP);
+        existing.setZeroDefault("0");
+        existing.setIsActive(true);
+        existing.setIsEditable(true);
+
+        when(formulaMasterRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(formulaMasterRepository.save(any(FormulaMaster.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // The admin edit form changes only the description; it has no inputs for is_active,
+        // is_editable, rounding_mode or zero_default, so they arrive null in the request.
+        CreateFormulaRequest request = CreateFormulaRequest.builder()
+                .code("RPT_VAC")
+                .name("Report VAC")
+                .category(FormulaCategory.REPORTING)
+                .description("VAC used in reports — edited")
+                .defaultExpression("$BAC - $EAC")
+                .outputType(FormulaOutputType.CURRENCY)
+                .scale(2)
+                .build();
+
+        service.updateMasterFormula(id, request);
+
+        assertThat(existing.getIsActive()).isTrue();
+        assertThat(existing.getIsEditable()).isTrue();
+        assertThat(existing.getRoundingMode()).isEqualTo(RoundingMode.HALF_UP);
+        assertThat(existing.getZeroDefault()).isEqualTo("0");
+        assertThat(existing.getDescription()).isEqualTo("VAC used in reports — edited");
     }
 
     private CreateFormulaRequest buildRequest(String code, String expression) {

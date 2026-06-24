@@ -313,7 +313,7 @@ export function NetworkDiagram({ activities, relationships = [], onActivityClick
               const x2 = succNode.x - 10;
               const y2 = succNode.y + 60;
 
-              const isCritical = predNode.activity.totalFloat === 0 && succNode.activity.totalFloat === 0;
+              const isCritical = predNode.activity.isCritical === true && succNode.activity.isCritical === true;
 
               return (
                 <g key={`rel-${index}`}>
@@ -344,7 +344,7 @@ export function NetworkDiagram({ activities, relationships = [], onActivityClick
 
           {/* Activity boxes — draggable */}
           {draggableNodes.map((node) => {
-            const isCritical = node.activity.totalFloat === 0;
+            const isCritical = node.activity.isCritical === true;
             const boxWidth = 240;
             const boxHeight = 100;
             const isBeingDragged = draggingNodeId === node.activity.id;

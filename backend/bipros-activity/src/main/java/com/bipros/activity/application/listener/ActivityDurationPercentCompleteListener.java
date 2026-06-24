@@ -20,7 +20,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * event so EV is non-zero without waiting for the nightly {@code DurationPercentCompleteJob}.
  *
  * <p>Formula (P6-compatible): {@code (reportDate - actualStartDate + 1) / originalDuration * 100},
- * capped at 99.99. The update is monotonically forward — we only write a higher value than what
+ * capped at 100. The update is monotonically forward — we only write a higher value than what
  * is already stored (a later DPR always covers a longer elapsed span).
  *
  * <p>The nightly job remains the owner for activities where no DPR was filed that day;
@@ -34,6 +34,7 @@ public class ActivityDurationPercentCompleteListener {
     private final ActivityRepository activityRepository;
     private final PercentCompleteCalculator calculator;
     private final AuditService auditService;
+    private final com.bipros.activity.application.percent.BoqProgressGuard boqProgressGuard;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -57,6 +58,9 @@ public class ActivityDurationPercentCompleteListener {
         }
         if (activity.getPercentCompleteType() != PercentCompleteType.DURATION) {
             return;
+        }
+        if (boqProgressGuard.isBoqDriven(activity.getId())) {
+            return; // BOQ workdone owns percentComplete (precedence #1)
         }
         if (activity.getActualStartDate() == null) {
             log.debug("ActivityDurationPercentCompleteListener: activity {} has no actualStartDate, skipping",

@@ -1,5 +1,6 @@
 package com.bipros.scheduling.domain.algorithm;
 
+import com.bipros.activity.domain.model.RelationshipType;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.scheduling.domain.model.SchedulingOption;
 import org.junit.jupiter.api.BeforeEach;
@@ -354,6 +355,51 @@ class CPMSchedulerTest {
   }
 
   @Nested
+  @DisplayName("RelationshipType.code() feeds CPM engine correctly")
+  class RelationshipTypeCodeContractTests {
+
+    @Test
+    @DisplayName("SS+lag=2 via RelationshipType.code() shifts successor start by 2 days")
+    void startToStartViaEnumCode() {
+      UUID activityA = UUID.randomUUID();
+      UUID activityB = UUID.randomUUID();
+
+      List<SchedulableActivity> activities = List.of(
+          createActivity(activityA, 5.0),
+          createActivity(activityB, 3.0)
+      );
+
+      // Use RelationshipType.START_TO_START.code() rather than a bare "SS" literal
+      List<SchedulableRelationship> relationships = List.of(
+          new SchedulableRelationship(activityA, activityB, RelationshipType.START_TO_START.code(), 2)
+      );
+
+      ScheduleData data = new ScheduleData(
+          UUID.randomUUID(),
+          projectStartDate,
+          projectStartDate,
+          null,
+          activities,
+          relationships,
+          SchedulingOption.RETAINED_LOGIC
+      );
+
+      List<ScheduledActivity> scheduled = scheduler.schedule(data);
+      Map<UUID, ScheduledActivity> scheduledMap = buildScheduledMap(scheduled);
+
+      ScheduledActivity a = scheduledMap.get(activityA);
+      ScheduledActivity b = scheduledMap.get(activityB);
+
+      // A starts on 2025-01-01
+      assertEquals(projectStartDate, a.getEarlyStart());
+      // SS+lag=2 → B starts 2 days after A starts (2025-01-03)
+      assertEquals(LocalDate.of(2025, 1, 3), b.getEarlyStart());
+      // B has duration=3, so finishes on 2025-01-06
+      assertEquals(LocalDate.of(2025, 1, 6), b.getEarlyFinish());
+    }
+  }
+
+  @Nested
   @DisplayName("Constraint handling")
   class ConstraintTests {
 
@@ -523,6 +569,51 @@ class CPMSchedulerTest {
   }
 
   @Nested
+  @DisplayName("Dangling relationship (references a missing activity)")
+  class DanglingRelationshipTests {
+
+    @Test
+    @DisplayName("relationship to a missing activity reports DANGLING_RELATIONSHIP, not CIRCULAR_DEPENDENCY")
+    void relationshipToMissingActivityReportsDanglingNotCircular() {
+      UUID activityA = UUID.randomUUID();
+      UUID activityB = UUID.randomUUID();
+      UUID missingId = UUID.randomUUID(); // not in the activity list
+
+      List<SchedulableActivity> activities = List.of(
+          createActivity(activityA, 3.0),
+          createActivity(activityB, 3.0)
+      );
+
+      // successor points to an activity that does not exist in the schedule data
+      List<SchedulableRelationship> relationships = List.of(
+          new SchedulableRelationship(activityA, activityB, "FS", 0),
+          new SchedulableRelationship(activityB, missingId, "FS", 0)
+      );
+
+      ScheduleData data = new ScheduleData(
+          UUID.randomUUID(),
+          projectStartDate,
+          projectStartDate,
+          null,
+          activities,
+          relationships,
+          SchedulingOption.RETAINED_LOGIC
+      );
+
+      BusinessRuleException exception = assertThrows(
+          BusinessRuleException.class,
+          () -> scheduler.schedule(data)
+      );
+
+      assertEquals("DANGLING_RELATIONSHIP", exception.getRuleCode());
+      assertTrue(exception.getMessage().contains("missing activity"),
+          "Message should mention 'missing activity' but was: " + exception.getMessage());
+      assertFalse(exception.getMessage().toLowerCase().contains("circular"),
+          "Message must NOT mention 'circular' but was: " + exception.getMessage());
+    }
+  }
+
+  @Nested
   @DisplayName("Single activity")
   class SingleActivityTests {
 
@@ -653,6 +744,107 @@ class CPMSchedulerTest {
       ScheduledActivity c = scheduledMap.get(activityC);
       assertEquals(2, c.getTotalFloat());
       assertFalse(c.isCritical());
+    }
+  }
+
+  @Nested
+  @DisplayName("RETAINED_LOGIC: IN_PROGRESS activity with no actuals floors earlyStart to dataDate")
+  class InProgressDataDateFloorTests {
+
+    @Test
+    @DisplayName("IN_PROGRESS activity with null actuals gets earlyStart == dataDate")
+    void inProgressNoActualsUsesDataDate() {
+      UUID activityId = UUID.randomUUID();
+      LocalDate dataDate = LocalDate.of(2025, 3, 1);
+
+      // IN_PROGRESS, no actualStartDate, no actualFinishDate
+      SchedulableActivity activity = new SchedulableActivity(
+          activityId,
+          5.0,
+          5.0,
+          defaultCalendarId,
+          "Task",
+          "IN_PROGRESS",
+          50,
+          null,  // actualStartDate
+          null,  // actualFinishDate
+          null,
+          null,
+          null,
+          null
+      );
+
+      ScheduleData data = new ScheduleData(
+          UUID.randomUUID(),
+          dataDate,
+          projectStartDate,
+          null,
+          List.of(activity),
+          List.of(),
+          SchedulingOption.RETAINED_LOGIC
+      );
+
+      CPMScheduler.ScheduleOutput output = scheduler.scheduleWithWarnings(data);
+      ScheduledActivity result = output.activities().get(0);
+
+      assertEquals(dataDate, result.getEarlyStart(),
+          "IN_PROGRESS activity with no actuals must be floored to dataDate");
+    }
+  }
+
+  @Nested
+  @DisplayName("Null-safe actuals: completed without actual start")
+  class CompletedWithoutActualStartTests {
+
+    @Test
+    @DisplayName("COMPLETED activity with actualFinish but no actualStart does not crash")
+    void completedActivityWithoutActualStartDoesNotCrash() {
+      UUID activityId = UUID.randomUUID();
+      LocalDate finish = LocalDate.of(2025, 1, 10);
+
+      // COMPLETED activity: actualFinishDate set, actualStartDate null, originalDuration=5
+      SchedulableActivity activity = new SchedulableActivity(
+          activityId,
+          5.0,   // originalDuration
+          5.0,   // remainingDuration
+          defaultCalendarId,
+          "Task",
+          "COMPLETED",
+          100,
+          null,          // actualStartDate — null (the bug trigger)
+          finish,        // actualFinishDate
+          null,
+          null,
+          null,
+          null
+      );
+
+      ScheduleData data = new ScheduleData(
+          UUID.randomUUID(),
+          projectStartDate,
+          projectStartDate,
+          null,
+          List.of(activity),
+          List.of(),
+          SchedulingOption.RETAINED_LOGIC
+      );
+
+      CPMScheduler.ScheduleOutput output = assertDoesNotThrow(() -> scheduler.scheduleWithWarnings(data));
+      List<ScheduledActivity> scheduled = output.activities();
+      assertEquals(1, scheduled.size());
+
+      ScheduledActivity result = scheduled.get(0);
+
+      // earlyStart must be non-null (back-calculated: finish - 5 days = 2025-01-05)
+      assertNotNull(result.getEarlyStart(), "earlyStart must not be null for completed activity");
+      assertEquals(finish, result.getEarlyFinish());
+
+      // lateStart must also be non-null (backward pass same guard)
+      assertNotNull(result.getLateStart(), "lateStart must not be null for completed activity");
+      assertEquals(finish, result.getLateFinish());
+
+      // totalFloat must be a finite number, not an NPE
+      assertTrue(Double.isFinite(result.getTotalFloat()), "totalFloat must be finite");
     }
   }
 

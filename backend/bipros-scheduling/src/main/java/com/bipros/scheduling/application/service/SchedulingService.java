@@ -6,9 +6,14 @@ import com.bipros.activity.domain.model.ActivityRelationship;
 import com.bipros.activity.domain.repository.ActivityRelationshipRepository;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.calendar.application.service.CalendarService;
+import com.bipros.calendar.domain.model.Calendar;
+import com.bipros.calendar.domain.model.CalendarType;
+import com.bipros.calendar.domain.repository.CalendarRepository;
 import com.bipros.common.event.ScheduleRunRecordedEvent;
 import com.bipros.common.exception.ResourceNotFoundException;
 import com.bipros.common.util.AuditService;
+import com.bipros.project.domain.model.Project;
+import com.bipros.project.domain.repository.ProjectRepository;
 import com.bipros.scheduling.application.dto.FloatPathResponse;
 import com.bipros.scheduling.application.dto.ScheduleActivityResultResponse;
 import com.bipros.scheduling.application.dto.ScheduleResultResponse;
@@ -25,6 +30,7 @@ import com.bipros.scheduling.domain.model.ScheduleStatus;
 import com.bipros.scheduling.domain.model.SchedulingOption;
 import com.bipros.scheduling.domain.repository.ScheduleActivityResultRepository;
 import com.bipros.scheduling.domain.repository.ScheduleResultRepository;
+import com.bipros.scheduling.infrastructure.adapter.SnapshotCalendarCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -38,6 +44,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -55,11 +66,20 @@ public class SchedulingService {
   private final ScheduleHealthService scheduleHealthService;
   private final AuditService auditService;
   private final ApplicationEventPublisher eventPublisher;
+  private final ProjectRepository projectRepository;
+  private final CalendarRepository calendarRepository;
+  private final ScheduleFailureRecorder failureRecorder;
+
+  // Per-project lock to serialize concurrent schedule runs within a single instance.
+  // NOTE: a distributed lock (e.g. Redis SETNX) would be required for multi-node deployments.
+  private final ConcurrentHashMap<UUID, ReentrantLock> projectLocks = new ConcurrentHashMap<>();
 
   public ScheduleResultResponse scheduleProject(UUID projectId, SchedulingOption option) {
     log.info("Scheduling project: id={}, option={}", projectId, option);
     long startTime = System.currentTimeMillis();
 
+    ReentrantLock lock = projectLocks.computeIfAbsent(projectId, k -> new ReentrantLock());
+    lock.lock();
     try {
       // Load activities and relationships from database
       List<Activity> activities = activityRepository.findByProjectId(projectId);
@@ -69,19 +89,32 @@ public class SchedulingService {
 
       List<ActivityRelationship> relationships = activityRelationshipRepository.findByProjectId(projectId);
 
-      // Determine default calendar - use first available activity calendar or any with valid ID
-      UUID defaultCalendarId = activities.stream()
-          .map(Activity::getCalendarId)
-          .filter(calendarId -> calendarId != null)
-          .findFirst()
-          .orElseThrow(() -> new ResourceNotFoundException("Calendar", "No calendar assigned to activities for project: " + projectId));
+      // Determine default calendar via fallback chain: activity → project → project-default → global-default
+      UUID defaultCalendarId = resolveDefaultCalendarId(projectId, activities);
 
-      LocalDate dataDate = LocalDate.now();
-      LocalDate projectStartDate = activities.stream()
-          .map(Activity::getPlannedStartDate)
-          .filter(date -> date != null)
-          .min(LocalDate::compareTo)
-          .orElse(LocalDate.now());
+      // Load the project once to honour its schedule metadata (data date, planned start, must-finish-by).
+      Project project = projectRepository.findById(projectId).orElse(null);
+
+      // Use the project's data date for reproducible schedule runs; fall back to today only when unset.
+      LocalDate dataDate = (project != null && project.getDataDate() != null)
+          ? project.getDataDate()
+          : LocalDate.now();
+
+      // Prefer the project's own planned start; else derive from the earliest activity planned start.
+      LocalDate projectStartDate = (project != null && project.getPlannedStartDate() != null)
+          ? project.getPlannedStartDate()
+          : activities.stream()
+              .map(Activity::getPlannedStartDate)
+              .filter(date -> date != null)
+              .min(LocalDate::compareTo)
+              .orElse(LocalDate.now());
+
+      // Thread the contractual deadline into the backward pass (null = unconstrained).
+      // NOTE: The CPM engine currently anchors project finish to max(mustFinishByDate, maxEF),
+      // so a deadline earlier than the computed finish produces zero/positive float rather than
+      // negative float. Making an earlier deadline drive negative float requires a separate
+      // engine-semantics change in CPMScheduler and is deferred as a follow-up.
+      LocalDate mustFinishByDate = (project != null) ? project.getMustFinishByDate() : null;
 
       // Map Activity entities to SchedulableActivity records
       Map<UUID, Activity> activityMap = new HashMap<>();
@@ -136,7 +169,7 @@ public class SchedulingService {
         SchedulableRelationship schedulable = new SchedulableRelationship(
             rel.getPredecessorActivityId(),
             rel.getSuccessorActivityId(),
-            rel.getRelationshipType().name(),
+            rel.getRelationshipType().code(),
             rel.getLag() != null ? rel.getLag() : 0.0
         );
         schedulableRelationships.add(schedulable);
@@ -166,15 +199,26 @@ public class SchedulingService {
           projectId,
           dataDate,
           projectStartDate,
-          null,
+          mustFinishByDate,
           schedulableActivities,
           schedulableRelationships,
           option != null ? option : SchedulingOption.RETAINED_LOGIC,
           summaryChildren
       );
 
+      // Build a snapshot-backed calculator for this run.
+      // The window is intentionally generous (±1 year back, +10 years forward) so the
+      // engine never queries a date outside the snapshot's exception coverage. Construction
+      // schedules are far shorter in practice; the extra range has no performance cost
+      // because exceptions outside the range simply aren't loaded.
+      LocalDate windowFrom = (projectStartDate.isBefore(dataDate) ? projectStartDate : dataDate)
+          .minusYears(1);
+      LocalDate windowTo = projectStartDate.plusYears(10);
+      CalendarCalculator runCalculator =
+          new SnapshotCalendarCalculator(calendarService, windowFrom, windowTo);
+
       // Run CPM scheduler
-      CPMScheduler scheduler = new CPMScheduler(calendarCalculator, defaultCalendarId);
+      CPMScheduler scheduler = new CPMScheduler(runCalculator, defaultCalendarId);
       CPMScheduler.ScheduleOutput output = scheduler.scheduleWithWarnings(scheduleData);
       List<ScheduledActivity> scheduledActivities = output.activities();
       List<String> scheduleWarnings = output.warnings();
@@ -279,25 +323,39 @@ public class SchedulingService {
       // Calculate schedule health index
       scheduleHealthService.calculateHealth(saved.getId());
 
+      // Replace raw UUIDs in warnings with human-readable "code - name" labels
+      Map<UUID, String> labelById = activities.stream()
+          .collect(Collectors.toMap(Activity::getId, SchedulingService::activityLabel));
+      List<String> readableWarnings = toReadableWarnings(scheduleWarnings, labelById);
+
       log.info("Project scheduled successfully: id={}, duration={}s, warnings={}",
-          projectId, saved.getDurationSeconds(), scheduleWarnings.size());
+          projectId, saved.getDurationSeconds(), readableWarnings.size());
       return ScheduleResultResponse.from(
           saved,
-          scheduleWarnings,
+          readableWarnings,
           statusBreakdown.notStarted(),
           statusBreakdown.inProgress(),
           statusBreakdown.completed());
 
     } catch (Exception e) {
       log.error("Error scheduling project: id={}", projectId, e);
+      double elapsed = (System.currentTimeMillis() - startTime) / 1000.0;
+      // Best-effort audit write — never let a recorder failure mask the original scheduling error.
+      try {
+        failureRecorder.recordFailure(projectId, option, elapsed, e.getMessage());
+      } catch (Exception recorderEx) {
+        log.warn("Failed to persist FAILED schedule audit row for project={}", projectId, recorderEx);
+      }
       throw e;
+    } finally {
+      lock.unlock();
     }
   }
 
   public ScheduleResultResponse getLatestSchedule(UUID projectId) {
     log.debug("Fetching latest schedule for project: id={}", projectId);
 
-    return scheduleResultRepository.findTopByProjectIdOrderByCalculatedAtDesc(projectId)
+    return scheduleResultRepository.findTopByProjectIdAndStatusOrderByCalculatedAtDesc(projectId, ScheduleStatus.COMPLETED)
         .map(ScheduleResultResponse::from)
         .orElseGet(() -> scheduleProject(projectId, SchedulingOption.RETAINED_LOGIC));
   }
@@ -323,7 +381,17 @@ public class SchedulingService {
 
     // Convert to scheduled activities for float path finder
     List<ScheduledActivity> scheduledActivities = new ArrayList<>();
+
+    List<ActivityRelationship> relationships = activityRelationshipRepository.findByProjectId(projectId);
     Map<UUID, List<SchedulableRelationship>> adjacency = new HashMap<>();
+    for (ActivityRelationship rel : relationships) {
+      SchedulableRelationship sr = new SchedulableRelationship(
+          rel.getPredecessorActivityId(),
+          rel.getSuccessorActivityId(),
+          rel.getRelationshipType().code(),
+          rel.getLag() != null ? rel.getLag() : 0.0);
+      adjacency.computeIfAbsent(rel.getPredecessorActivityId(), k -> new ArrayList<>()).add(sr);
+    }
 
     for (ScheduleActivityResult result : activityResults) {
       ScheduledActivity scheduled = new ScheduledActivity(result.getActivityId(), result.getRemainingDuration());
@@ -356,16 +424,105 @@ public class SchedulingService {
   }
 
   /**
+   * Resolves the calendar to use for CPM scheduling via a four-step fallback chain:
+   * <ol>
+   *   <li>First non-null {@code Activity.calendarId} in the activity list (preserves current per-activity calendar behavior).</li>
+   *   <li>The project's own {@code Project.calendarId} (set on Overview → Calendar).</li>
+   *   <li>A project-scoped calendar from {@code CalendarRepository.findByProjectId}: prefers the one with {@code isDefault==true}, else the first in the list.</li>
+   *   <li>The global-default calendar: {@code CalendarRepository.findByCalendarTypeAndIsDefaultTrue(GLOBAL)}.</li>
+   * </ol>
+   * For steps 2-4 the candidate id is validated against {@code calendarRepository.findById} before being returned, so dangling ids are skipped.
+   * Throws {@link ResourceNotFoundException} with a clear message when no calendar can be resolved.
+   */
+  UUID resolveDefaultCalendarId(UUID projectId, List<Activity> activities) {
+    // Step 1 — activity-level calendar
+    UUID fromActivity = activities.stream()
+        .map(Activity::getCalendarId)
+        .filter(id -> id != null)
+        .findFirst()
+        .orElse(null);
+    if (fromActivity != null) {
+      return fromActivity;
+    }
+
+    // Step 2 — project-level calendar
+    UUID fromProject = projectRepository.findById(projectId)
+        .map(Project::getCalendarId)
+        .orElse(null);
+    if (fromProject != null && calendarRepository.findById(fromProject).isPresent()) {
+      return fromProject;
+    }
+
+    // Step 3 — project-scoped default calendar
+    List<Calendar> projectCalendars = calendarRepository.findByProjectId(projectId);
+    if (!projectCalendars.isEmpty()) {
+      UUID preferred = projectCalendars.stream()
+          .filter(c -> Boolean.TRUE.equals(c.getIsDefault()))
+          .map(Calendar::getId)
+          .findFirst()
+          .orElseGet(() -> projectCalendars.get(0).getId());
+      if (calendarRepository.findById(preferred).isPresent()) {
+        return preferred;
+      }
+    }
+
+    // Step 4 — global default calendar
+    UUID fromGlobal = calendarRepository
+        .findByCalendarTypeAndIsDefaultTrue(CalendarType.GLOBAL)
+        .map(Calendar::getId)
+        .orElse(null);
+    if (fromGlobal != null && calendarRepository.findById(fromGlobal).isPresent()) {
+      return fromGlobal;
+    }
+
+    throw new ResourceNotFoundException("Calendar",
+        "No calendar configured for this project — set one on the project (Overview → Calendar) or assign one to its activities.");
+  }
+
+  /**
    * Return the latest schedule for the project, running the scheduler on demand when none exists
    * yet. Keeps GET endpoints useful for freshly-imported projects where nobody has clicked
    * "Schedule" yet.
    */
   private ScheduleResult ensureSchedule(UUID projectId) {
-    return scheduleResultRepository.findTopByProjectIdOrderByCalculatedAtDesc(projectId)
+    return scheduleResultRepository.findTopByProjectIdAndStatusOrderByCalculatedAtDesc(projectId, ScheduleStatus.COMPLETED)
         .orElseGet(() -> {
           scheduleProject(projectId, SchedulingOption.RETAINED_LOGIC);
-          return scheduleResultRepository.findTopByProjectIdOrderByCalculatedAtDesc(projectId)
+          return scheduleResultRepository.findTopByProjectIdAndStatusOrderByCalculatedAtDesc(projectId, ScheduleStatus.COMPLETED)
               .orElseThrow(() -> new ResourceNotFoundException("ScheduleResult", projectId));
         });
+  }
+
+  // -------------------------------------------------------------------------
+  // Warning humanisation helpers (package-private for unit tests)
+  // -------------------------------------------------------------------------
+
+  private static final Pattern UUID_PATTERN = Pattern.compile(
+      "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+
+  /** Rewrites every activity UUID in each warning to its readable label. */
+  static List<String> toReadableWarnings(List<String> warnings, Map<UUID, String> labelById) {
+    if (warnings == null || warnings.isEmpty()) return warnings;
+    return warnings.stream().map(w -> replaceUuids(w, labelById)).toList();
+  }
+
+  /** Replaces all UUID occurrences in {@code warning} that are present in {@code labelById}. */
+  static String replaceUuids(String warning, Map<UUID, String> labelById) {
+    return UUID_PATTERN.matcher(warning).replaceAll(m -> {
+      String label = labelById.get(UUID.fromString(m.group()));
+      return label != null ? Matcher.quoteReplacement(label) : m.group();
+    });
+  }
+
+  /** Returns a human-readable label for an activity: "code - name", "code", "name", or UUID string. */
+  private static String activityLabel(Activity a) {
+    String code = a.getCode();
+    String name = a.getName();
+    boolean hasCode = code != null && !code.isBlank();
+    boolean hasName = name != null && !name.isBlank();
+    if (hasCode && hasName) return code + " - " + name;
+    if (hasCode) return code;
+    if (hasName) return name;
+    return a.getId().toString();
   }
 }

@@ -112,6 +112,8 @@ export function ActivityAiGenerateDialog({ open, onClose, projectId }: ActivityA
       aiApi.applyGeneratedActivities(projectId, {
         activities: generationResult?.activities ?? [],
         wbsRemap: Object.keys(wbsRemap).length > 0 ? wbsRemap : undefined,
+        // from-scratch batches are compressed to fit the project window on the backend
+        fromScratch: setupTab === "scratch",
       }),
     onSuccess: (data) => {
       if (data.data) {

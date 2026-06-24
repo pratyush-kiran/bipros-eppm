@@ -2,6 +2,7 @@ package com.bipros.resource.application.service;
 
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.repository.ActivityRepository;
+import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.util.AuditService;
 import com.bipros.resource.application.dto.CreateResourceAssignmentRequest;
 import com.bipros.resource.application.dto.ResourceAssignmentResponse;
@@ -25,9 +26,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -327,5 +331,86 @@ class ResourceAssignmentServiceTest {
       assertThat(r.effectiveRoleId()).isEqualTo(helperRole.getId());
       assertThat(r.effectiveRoleName()).isEqualTo("Helper");
     });
+  }
+
+  // ===== Deployment guard (legacy path): can't delete or reduce a row that already
+  //       has DPR-deployed actuals. =====
+
+  @Test
+  @DisplayName("removeAssignment rejects deleting a row with DPR-deployed actuals")
+  void removeRejectsWhenDeployed() {
+    UUID id = UUID.randomUUID();
+    ResourceAssignment a = ResourceAssignment.builder()
+        .activityId(activityId).projectId(projectId).actualUnits(6.0).build();
+    a.setId(id);
+    when(assignmentRepository.findById(id)).thenReturn(Optional.of(a));
+
+    assertThatThrownBy(() -> service.removeAssignment(id))
+        .isInstanceOf(BusinessRuleException.class)
+        .satisfies(ex -> assertThat(((BusinessRuleException) ex).getRuleCode())
+            .isEqualTo("RESOURCE_DEPLOYED_DELETE"))
+        .hasMessageContaining("6");
+    verify(assignmentRepository, never()).deleteById(any());
+  }
+
+  @Test
+  @DisplayName("removeAssignment allowed when no actuals deployed")
+  void removeAllowedWhenNoActuals() {
+    UUID id = UUID.randomUUID();
+    ResourceAssignment a = ResourceAssignment.builder()
+        .activityId(activityId).projectId(projectId).actualUnits(0.0).build();
+    a.setId(id);
+    when(assignmentRepository.findById(id)).thenReturn(Optional.of(a));
+
+    service.removeAssignment(id);
+
+    verify(assignmentRepository).deleteById(id);
+  }
+
+  @Test
+  @DisplayName("updateAssignment rejects reducing planned units below deployed actuals")
+  void updateRejectsReducingBelowActual() {
+    UUID id = UUID.randomUUID();
+    UUID roleId = UUID.randomUUID();
+    ResourceAssignment a = ResourceAssignment.builder()
+        .activityId(activityId).projectId(projectId).roleId(roleId).actualUnits(6.0).build();
+    a.setId(id);
+    when(assignmentRepository.findById(id)).thenReturn(Optional.of(a));
+
+    CreateResourceAssignmentRequest req = new CreateResourceAssignmentRequest(
+        activityId, null, roleId, projectId, 5.0, null, null, null, null);
+
+    assertThatThrownBy(() -> service.updateAssignment(id, req))
+        .isInstanceOf(BusinessRuleException.class)
+        .satisfies(ex -> assertThat(((BusinessRuleException) ex).getRuleCode())
+            .isEqualTo("RESOURCE_DEPLOYED_REDUCE"))
+        .hasMessageContaining("6");
+    verify(assignmentRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("updateAssignment rejects changing the role of a deployed row (identity guard)")
+  void updateRejectsRoleChangeWhenDeployed() {
+    UUID id = UUID.randomUUID();
+    UUID oldRole = UUID.randomUUID();
+    UUID newRole = UUID.randomUUID();
+    ResourceAssignment a = ResourceAssignment.builder()
+        .activityId(activityId).projectId(projectId).roleId(oldRole).actualUnits(6.0).build();
+    a.setId(id);
+    when(assignmentRepository.findById(id)).thenReturn(Optional.of(a));
+    // Role-only swap triggers the duplicate-role lookup before the identity guard; no dupe.
+    when(assignmentRepository.findByActivityIdAndResourceIdIsNullAndRoleId(activityId, newRole))
+        .thenReturn(Optional.empty());
+
+    // plannedUnits 10 >= actual 6 (reduce guard passes) but the role changes -> identity guard fires.
+    CreateResourceAssignmentRequest req = new CreateResourceAssignmentRequest(
+        activityId, null, newRole, projectId, 10.0, null, null, null, null);
+
+    assertThatThrownBy(() -> service.updateAssignment(id, req))
+        .isInstanceOf(BusinessRuleException.class)
+        .satisfies(ex -> assertThat(((BusinessRuleException) ex).getRuleCode())
+            .isEqualTo("RESOURCE_DEPLOYED_IDENTITY"))
+        .hasMessageContaining("6");
+    verify(assignmentRepository, never()).save(any());
   }
 }

@@ -24,4 +24,7 @@ public interface WbsNodeRepository extends JpaRepository<WbsNode, UUID> {
     boolean existsByCode(String code);
 
     boolean existsByProjectIdAndCode(UUID projectId, String code);
+
+    /** Number of WBS elements assigned to an OBS node — used to guard OBS deletion. */
+    long countByObsNodeId(UUID obsNodeId);
 }

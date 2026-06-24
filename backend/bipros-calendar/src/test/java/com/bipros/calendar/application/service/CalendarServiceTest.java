@@ -207,6 +207,39 @@ class CalendarServiceTest {
 
       assertEquals(startDate, result);
     }
+
+    @Test
+    @DisplayName("adding negative days delegates to subtractWorkingDays (lead)")
+    void addNegativeWorkingDaysDelegatesToSubtract() {
+      // Wednesday 2025-01-08; subtract 2 working days should land on Monday 2025-01-06
+      LocalDate startDate = LocalDate.of(2025, 1, 8); // Wednesday
+
+      // Mock Mon-Fri working, Sat-Sun non-working
+      for (int i = 1; i <= 5; i++) {
+        DayOfWeek day = DayOfWeek.of(i);
+        lenient()
+            .when(workWeekRepository.findByCalendarIdAndDayOfWeek(eq(calendarId), eq(day)))
+            .thenReturn(Optional.of(createWorkWeek(day, DayType.WORKING)));
+      }
+      for (int i = 6; i <= 7; i++) {
+        DayOfWeek day = DayOfWeek.of(i);
+        lenient()
+            .when(workWeekRepository.findByCalendarIdAndDayOfWeek(eq(calendarId), eq(day)))
+            .thenReturn(Optional.of(createWorkWeek(day, DayType.NON_WORKING)));
+      }
+      for (int offset = -5; offset <= 0; offset++) {
+        lenient()
+            .when(exceptionRepository.findByCalendarIdAndExceptionDate(eq(calendarId), eq(startDate.plusDays(offset))))
+            .thenReturn(Optional.empty());
+      }
+
+      // addWorkingDays(..., -2) must equal subtractWorkingDays(..., 2) and move backward
+      LocalDate viaAdd = calendarService.addWorkingDays(calendarId, startDate, -2);
+      LocalDate viaSubtract = calendarService.subtractWorkingDays(calendarId, startDate, 2);
+
+      assertEquals(viaSubtract, viaAdd, "addWorkingDays with negative days must equal subtractWorkingDays");
+      assertEquals(LocalDate.of(2025, 1, 6), viaAdd, "lead of 2 from Wednesday should land on Monday");
+    }
   }
 
   @Nested

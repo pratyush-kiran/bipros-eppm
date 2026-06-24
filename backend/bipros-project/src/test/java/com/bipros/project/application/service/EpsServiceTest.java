@@ -152,6 +152,8 @@ class EpsServiceTest {
 
       assertEquals("EPS_HAS_CHILDREN", exception.getRuleCode());
       assertTrue(exception.getMessage().contains("child") || exception.getMessage().contains("children"));
+      assertTrue(exception.getMessage().contains("EPS-001"), "message should name the node");
+      assertTrue(exception.getMessage().contains("1 child node"), "message should include the count");
       verify(epsNodeRepository, never()).delete(any());
     }
 
@@ -181,6 +183,8 @@ class EpsServiceTest {
 
       assertEquals("EPS_HAS_PROJECTS", exception.getRuleCode());
       assertTrue(exception.getMessage().contains("project"));
+      assertTrue(exception.getMessage().contains("EPS-001"), "message should name the node");
+      assertTrue(exception.getMessage().contains("1 project"), "message should include the count");
       verify(epsNodeRepository, never()).delete(any());
     }
 

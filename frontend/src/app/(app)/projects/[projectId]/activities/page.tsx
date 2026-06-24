@@ -288,7 +288,7 @@ export default function ActivitiesPage() {
 
   const canStart = (a: ActivityResponse) =>
     a.status === "NOT_STARTED" || (a.percentComplete ?? 0) === 0;
-  const canComplete = (a: ActivityResponse) => (a.percentComplete ?? 0) < 100;
+  const canComplete = (a: ActivityResponse) => a.status !== "COMPLETED";
 
   const start = (a: ActivityResponse) =>
     progressMutation.mutate({

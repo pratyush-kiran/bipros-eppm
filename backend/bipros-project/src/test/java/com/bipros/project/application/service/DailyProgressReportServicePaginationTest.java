@@ -13,9 +13,11 @@ import com.bipros.project.domain.repository.DprIssueRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
 import com.bipros.project.domain.repository.DprMaterialRepository;
 import com.bipros.project.domain.repository.DprSubContractorRepository;
+import com.bipros.project.domain.repository.DprVoiceNoteRepository;
 import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
 import com.bipros.project.infrastructure.storage.DprAttachmentStorageService;
+import com.bipros.project.infrastructure.storage.VoiceNoteStorage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,8 +49,10 @@ class DailyProgressReportServicePaginationTest {
   @Mock private DprMaterialRepository materialRepository;
   @Mock private DprSubContractorRepository subContractorRepository;
   @Mock private DprAttachmentRepository attachmentRepository;
+  @Mock private DprVoiceNoteRepository voiceNoteRepository;
   @Mock private DprIssueRepository issueRepository;
   @Mock private DprAttachmentStorageService attachmentStorage;
+  @Mock private VoiceNoteStorage voiceNoteStorage;
   @Mock private ProjectRepository projectRepository;
   @Mock private DailyActivityResourceOutputService ledgerService;
   @Mock private AuditService auditService;
@@ -65,8 +69,9 @@ class DailyProgressReportServicePaginationTest {
   void setUp() {
     service = new DailyProgressReportService(
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
-        subContractorRepository, attachmentRepository, issueRepository, attachmentStorage,
-        projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
+        subContractorRepository, attachmentRepository, voiceNoteRepository, issueRepository,
+        attachmentStorage, voiceNoteStorage, projectRepository, ledgerService, auditService,
+        eventPublisher, null, boqItemRepository);
     lenient().when(projectRepository.existsById(projectId)).thenReturn(true);
     lenient().when(manpowerRepository.sumNosByDprIdIn(any())).thenReturn(List.of());
     lenient().when(equipmentRepository.sumNosByDprIdIn(any())).thenReturn(List.of());

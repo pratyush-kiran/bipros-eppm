@@ -36,6 +36,16 @@ interface Props {
   locked?: boolean;
 }
 
+// A planned row becomes "deployed" once a DPR records actual units against it. Such a row can't be
+// deleted, and its planned units can't be edited below what's already deployed. The backend enforces
+// the same rule (RESOURCE_DEPLOYED_*); these are the matching on-screen guards.
+const deployedUnits = (actualUnits?: number | null): number => actualUnits ?? 0;
+const isDeployed = (actualUnits?: number | null): boolean => deployedUnits(actualUnits) > 0;
+const deployedDeleteTitle = (actualUnits?: number | null): string =>
+  `Can't delete — ${deployedUnits(actualUnits)} unit(s) already deployed in DPRs`;
+const reduceBlockedMsg = (value: number, actualUnits?: number | null): string =>
+  `Can't set to ${value} — ${deployedUnits(actualUnits)} unit(s) already deployed in DPRs. Planned can't be below what's already deployed.`;
+
 /**
  * Three-section role-based demand editor that mirrors the legacy mockup:
  * Manpower / Equipment / Material — each with its own cascade picker
@@ -334,7 +344,13 @@ function ManpowerSection({
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
-        onEditSave={(row, value) => update.mutate({ row, value })}
+        onEditSave={(row, value) => {
+          if (value < (row.actualUnits ?? 0)) {
+            setError(reduceBlockedMsg(value, row.actualUnits));
+            return;
+          }
+          update.mutate({ row, value });
+        }}
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />
@@ -502,7 +518,13 @@ function EquipmentSection({
         ]}
         editCellIndex={2}
         editValueOf={(a) => a.headcount ?? a.plannedUnits ?? 0}
-        onEditSave={(row, value) => update.mutate({ row, value })}
+        onEditSave={(row, value) => {
+          if (value < (row.actualUnits ?? 0)) {
+            setError(reduceBlockedMsg(value, row.actualUnits));
+            return;
+          }
+          update.mutate({ row, value });
+        }}
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />
@@ -665,7 +687,13 @@ function MaterialSection({
         ]}
         editCellIndex={2}
         editValueOf={(a) => Number(a.quantity ?? 0)}
-        onEditSave={(row, value) => update.mutate({ row, value })}
+        onEditSave={(row, value) => {
+          if (value < (row.actualUnits ?? 0)) {
+            setError(reduceBlockedMsg(value, row.actualUnits));
+            return;
+          }
+          update.mutate({ row, value });
+        }}
         onDelete={(id) => remove.mutate(id)}
         locked={locked}
       />
@@ -886,9 +914,15 @@ function SubContractorSection({
                   <td className="py-1.5 text-right">
                     <button
                       onClick={() => remove.mutate(r.id)}
-                      disabled={locked}
+                      disabled={locked || isDeployed(r.actualUnits)}
                       className="text-danger hover:opacity-80 disabled:opacity-40"
-                      title={locked ? "Activity is locked" : "Remove"}
+                      title={
+                        locked
+                          ? "Activity is locked"
+                          : isDeployed(r.actualUnits)
+                            ? deployedDeleteTitle(r.actualUnits)
+                            : "Remove"
+                      }
                     >
                       <Trash2 className="h-3.5 w-3.5 inline" />
                     </button>
@@ -979,7 +1013,7 @@ function DemandTable({
                       <input
                         type="number"
                         step="0.01"
-                        min={0}
+                        min={r.actualUnits ?? 0}
                         value={draft}
                         onChange={(e) => setDraft(parseFloat(e.target.value) || 0)}
                         className="w-20 rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs"
@@ -1044,9 +1078,15 @@ function DemandTable({
                       )}
                       <button
                         onClick={() => onDelete(r.id)}
-                        disabled={locked}
+                        disabled={locked || isDeployed(r.actualUnits)}
                         className="text-danger hover:opacity-80 disabled:opacity-40"
-                        title={locked ? "Activity is locked" : "Remove"}
+                        title={
+                          locked
+                            ? "Activity is locked"
+                            : isDeployed(r.actualUnits)
+                              ? deployedDeleteTitle(r.actualUnits)
+                              : "Remove"
+                        }
                       >
                         <Trash2 className="h-3.5 w-3.5 inline" />
                       </button>

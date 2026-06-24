@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { TabTip } from "@/components/common/TabTip";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { apiClient } from "@/lib/api/client";
+import { notificationHelpers } from "@/lib/notificationHelpers";
 import type { EpsNodeResponse, ApiResponse, NodeSearchResult } from "@/lib/types";
 
 interface EpsNodeCreateRequest {
@@ -43,7 +44,9 @@ export default function EpsPage() {
       setFormData({ code: "", name: "", parentId: undefined });
       setParentLabel(null);
       setShowForm(false);
+      notificationHelpers.creationSuccess("EPS node");
     },
+    onError: (err) => notificationHelpers.handleApiError(err, "Couldn't create the EPS node"),
   });
 
   const updateMutation = useMutation({
@@ -55,7 +58,9 @@ export default function EpsPage() {
       queryClient.invalidateQueries({ queryKey: ["eps"] });
       setEditingNodeId(null);
       setEditingName("");
+      notificationHelpers.updateSuccess("EPS node");
     },
+    onError: (err) => notificationHelpers.handleApiError(err, "Couldn't update the EPS node"),
   });
 
   const deleteMutation = useMutation({
@@ -63,6 +68,12 @@ export default function EpsPage() {
       return apiClient.delete(`/v1/eps/${nodeId}`);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["eps"] });
+      notificationHelpers.deletionSuccess("EPS node");
+    },
+    onError: (err) => {
+      notificationHelpers.handleApiError(err, "Couldn't delete the EPS node");
+      // Refresh in case the node was already removed elsewhere (stale 404).
       queryClient.invalidateQueries({ queryKey: ["eps"] });
     },
   });
@@ -72,6 +83,11 @@ export default function EpsPage() {
       return projectApi.moveEpsNode(nodeId, newParentId);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["eps"] });
+    },
+    onError: (err) => {
+      notificationHelpers.handleApiError(err, "Couldn't move the EPS node");
+      // Revert the optimistic drag by reloading the server tree.
       queryClient.invalidateQueries({ queryKey: ["eps"] });
     },
   });

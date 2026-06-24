@@ -140,7 +140,7 @@ export function GanttTaskRow({
   const displayStatus = getGanttStatus(activity);
   const token = getGanttStatusToken(displayStatus);
   const isCriticalOverride =
-    activity.totalFloat === 0 && activity.status !== "COMPLETED";
+    activity.isCritical === true && activity.status !== "COMPLETED";
   const fillVar = isCriticalOverride ? "--danger" : token.fillVar;
   const fillColor = `var(${fillVar})`;
 

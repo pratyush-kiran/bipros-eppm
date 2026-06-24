@@ -445,9 +445,11 @@ public class ActivityAiGenerationService {
             }
         }
 
-        // Third pass: forward-pass date computation, deadline validation, then persist dates.
-        // Aborts the entire transaction (hard reject) if any activity exceeds the project deadline.
-        computeAndPersistDates(project, req.activities(), skippedCodes, codeRemap, generatedCodeToId);
+        // Third pass: forward-pass date computation, then persist dates. For a from-scratch batch
+        // the schedule is compressed to fit the project window; otherwise (from-document) an overrun
+        // hard-rejects and aborts the entire transaction.
+        computeAndPersistDates(project, req.activities(), skippedCodes, codeRemap, generatedCodeToId,
+                Boolean.TRUE.equals(req.fromScratch()));
 
         auditService.logCreate("ActivityAiBatch", projectId, req);
 
@@ -610,7 +612,8 @@ public class ActivityAiGenerationService {
                                         List<ActivityAiNode> nodes,
                                         Set<String> skippedCodes,
                                         Map<String, String> codeRemap,
-                                        Map<String, UUID> generatedCodeToId) {
+                                        Map<String, UUID> generatedCodeToId,
+                                        boolean fromScratch) {
         LocalDate effectiveStart = project.getPlannedStartDate() != null
                 ? project.getPlannedStartDate() : LocalDate.now();
         LocalDate effectiveDeadline = project.getMustFinishByDate() != null
@@ -685,8 +688,15 @@ public class ActivityAiGenerationService {
             }
         }
 
-        // Hard-reject if any activity breaches the deadline.
-        if (effectiveDeadline != null) {
+        // From-scratch with a known deadline: compress the schedule to fit the project window
+        // rather than hard-rejecting. Scaling the start/finish offsets (from the project start) by
+        // the same factor preserves ordering/parallelism and shrinks durations proportionally; the
+        // final clamp guarantees nothing starts before the project start or ends after its deadline.
+        boolean fitToWindow = fromScratch && effectiveDeadline != null;
+        if (fitToWindow) {
+            compressToWindow(computedStart, computedFinish, effectiveStart, effectiveDeadline);
+        } else if (effectiveDeadline != null) {
+            // From-document (or any non-from-scratch) path: hard-reject if any activity overruns.
             List<String> violations = new ArrayList<>();
             for (Map.Entry<String, LocalDate> e : computedFinish.entrySet()) {
                 if (e.getValue().isAfter(effectiveDeadline)) {
@@ -715,6 +725,39 @@ public class ActivityAiGenerationService {
                 activityRepository.save(activity);
             });
             log.debug("AI activity {} ({}) dates: {} → {}", node.code(), resolvedCode, start, finish);
+        }
+    }
+
+    /**
+     * Proportionally compresses a computed schedule so it fits within
+     * {@code [effectiveStart, deadline]}. Mutates the start/finish maps in place. Each activity's
+     * start and finish offsets (measured in days from {@code effectiveStart}) are scaled by
+     * {@code windowDays / naturalSpanDays}, which preserves ordering and parallelism and shrinks
+     * durations proportionally; a final clamp guarantees no activity starts before
+     * {@code effectiveStart} or ends after {@code deadline}. No-op when the natural span already
+     * fits within the window (or is zero). Package-private for unit testing.
+     */
+    static void compressToWindow(Map<String, LocalDate> computedStart,
+                                 Map<String, LocalDate> computedFinish,
+                                 LocalDate effectiveStart,
+                                 LocalDate deadline) {
+        if (computedFinish.isEmpty()) return;
+        LocalDate maxFinish = computedFinish.values().stream()
+                .max(LocalDate::compareTo).orElse(effectiveStart);
+        long naturalSpan = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, maxFinish);
+        long windowDays = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, deadline);
+        if (naturalSpan <= windowDays || naturalSpan <= 0) return; // already fits
+        double scale = (double) windowDays / (double) naturalSpan;
+        for (String code : new ArrayList<>(computedStart.keySet())) {
+            long startOff = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, computedStart.get(code));
+            long finishOff = java.time.temporal.ChronoUnit.DAYS.between(effectiveStart, computedFinish.get(code));
+            LocalDate newStart = effectiveStart.plusDays(Math.round(startOff * scale));
+            LocalDate newFinish = effectiveStart.plusDays(Math.round(finishOff * scale));
+            if (newFinish.isAfter(deadline)) newFinish = deadline;
+            if (newStart.isAfter(newFinish)) newStart = newFinish;
+            if (newStart.isBefore(effectiveStart)) newStart = effectiveStart;
+            computedStart.put(code, newStart);
+            computedFinish.put(code, newFinish);
         }
     }
 

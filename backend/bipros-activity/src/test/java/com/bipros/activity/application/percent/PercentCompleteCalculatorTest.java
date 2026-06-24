@@ -162,6 +162,63 @@ class PercentCompleteCalculatorTest {
   }
 
   @Nested
+  @DisplayName("BOQ")
+  class Boq {
+
+    @Test
+    @DisplayName("computes workdone / boqQty * 100")
+    void computesBoqPercent() {
+      Activity activity = new Activity();
+      activity.setActualStartDate(LocalDate.of(2026, 4, 1));
+
+      PercentCompleteCalculator.Result result =
+          calculator.calculateBoq(activity, 250.0, 1000.0, LocalDate.of(2026, 4, 20));
+
+      assertEquals(25.0, result.percent());
+      assertEquals(ActivityStatus.IN_PROGRESS, result.status());
+      assertNull(result.forcedActualFinish());
+    }
+
+    @Test
+    @DisplayName("caps at 100 and completes, forcing actualFinish when null")
+    void capsAndCompletes() {
+      LocalDate now = LocalDate.of(2026, 4, 29);
+      Activity activity = new Activity();
+      activity.setActualStartDate(LocalDate.of(2026, 4, 1));
+      activity.setActualFinishDate(null);
+
+      PercentCompleteCalculator.Result result =
+          calculator.calculateBoq(activity, 1200.0, 1000.0, now);
+
+      assertEquals(100.0, result.percent());
+      assertEquals(ActivityStatus.COMPLETED, result.status());
+      assertEquals(now, result.forcedActualFinish());
+    }
+
+    @Test
+    @DisplayName("does not overwrite an existing actualFinishDate")
+    void keepsExistingFinish() {
+      Activity activity = new Activity();
+      activity.setActualStartDate(LocalDate.of(2026, 4, 1));
+      activity.setActualFinishDate(LocalDate.of(2026, 4, 20));
+
+      PercentCompleteCalculator.Result result =
+          calculator.calculateBoq(activity, 1000.0, 1000.0, LocalDate.of(2026, 4, 29));
+
+      assertEquals(100.0, result.percent());
+      assertNull(result.forcedActualFinish());
+    }
+
+    @Test
+    @DisplayName("zero or null boqQty returns KEEP_PRIOR")
+    void zeroBoqQtyKeepsPrior() {
+      Activity activity = new Activity();
+      assertTrue(calculator.calculateBoq(activity, 50.0, 0.0, LocalDate.now()).isKeepPrior());
+      assertTrue(calculator.calculateBoq(activity, 50.0, null, LocalDate.now()).isKeepPrior());
+    }
+  }
+
+  @Nested
   @DisplayName("DURATION")
   class Duration {
 
@@ -211,19 +268,20 @@ class PercentCompleteCalculatorTest {
     }
 
     @Test
-    @DisplayName("caps at 99.99 for over-run durations")
-    void capsAt99_99() {
+    @DisplayName("caps at 100 for over-run durations and completes")
+    void capsAt100() {
       Activity activity = new Activity();
       activity.setPercentCompleteType(PercentCompleteType.DURATION);
       activity.setActualStartDate(LocalDate.of(2026, 4, 1));
       activity.setOriginalDuration(10.0);
 
-      // 30 days elapsed on a 10-day activity → 99.99%
+      // 30 days elapsed on a 10-day activity → 100% (was 99.99)
       PercentCompleteCalculator.Result result = calculator.calculate(
           activity, null, null, LocalDate.of(2026, 5, 1));
 
-      assertEquals(99.99, result.percent());
-      assertEquals(ActivityStatus.IN_PROGRESS, result.status());
+      assertEquals(100.0, result.percent());
+      assertEquals(ActivityStatus.COMPLETED, result.status());
+      assertEquals(LocalDate.of(2026, 5, 1), result.forcedActualFinish());
     }
 
     @Test

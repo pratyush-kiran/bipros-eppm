@@ -67,18 +67,42 @@ export function formatDate(date: string | null | undefined): string {
  * so both data seeded on a 1-10 scale and projects created on the 1-100 scale produce the same
  * six labels everywhere in the UI.
  */
+/**
+ * Canonical priority buckets, highest → lowest. {@code max} is the inclusive upper bound of the
+ * clamped 1-100 value for the bucket (the last one catches everything up to 100). Single source of
+ * truth for the label/colour shown everywhere AND for the project-list priority filter options
+ * (via {@link PRIORITY_LABELS}), so the displayed label and the filterable buckets never drift.
+ */
+const PRIORITY_BUCKETS = [
+  { value: 5, max: 10, label: "Critical", color: "text-red-400" },
+  { value: 20, max: 25, label: "Very High", color: "text-red-400" },
+  { value: 35, max: 40, label: "High", color: "text-orange-400" },
+  { value: 50, max: 60, label: "Medium", color: "text-yellow-400" },
+  { value: 70, max: 80, label: "Low", color: "text-slate-400" },
+  { value: 90, max: 100, label: "Very Low", color: "text-slate-500" },
+] as const;
+
+/** The six priority labels in order (highest → lowest), derived from {@link PRIORITY_BUCKETS}. */
+export const PRIORITY_LABELS: readonly string[] = PRIORITY_BUCKETS.map((b) => b.label);
+
+/**
+ * The selectable priority options for the project create/edit form — one per bucket, highest →
+ * lowest. {@code value} is the representative integer stored on the project (the raw number is
+ * never shown to users; nothing in the system reads it — see {@link getPriorityInfo}); {@code label}
+ * is what the dropdown displays. Driving the dropdown off this guarantees exactly one option per
+ * label (no duplicate "Low") and that every option round-trips back to its own label.
+ */
+export const PRIORITY_CHOICES: readonly { value: number; label: string }[] =
+  PRIORITY_BUCKETS.map((b) => ({ value: b.value, label: b.label }));
+
 export function getPriorityInfo(priority: number | null | undefined): { label: string; color: string } {
   if (priority == null || Number.isNaN(priority)) {
     return { label: "—", color: "text-slate-500" };
   }
   // Clamp into 1-100 for bucketing, but keep the raw value visible for out-of-range data.
   const p = Math.max(1, Math.min(100, Math.round(priority)));
-  if (p <= 10) return { label: "Critical", color: "text-red-400" };
-  if (p <= 25) return { label: "Very High", color: "text-red-400" };
-  if (p <= 40) return { label: "High", color: "text-orange-400" };
-  if (p <= 60) return { label: "Medium", color: "text-yellow-400" };
-  if (p <= 80) return { label: "Low", color: "text-slate-400" };
-  return { label: "Very Low", color: "text-slate-500" };
+  const bucket = PRIORITY_BUCKETS.find((b) => p <= b.max) ?? PRIORITY_BUCKETS[PRIORITY_BUCKETS.length - 1];
+  return { label: bucket.label, color: bucket.color };
 }
 
 /**

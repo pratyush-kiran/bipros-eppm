@@ -5,6 +5,7 @@ import com.bipros.activity.domain.model.ActivityEditStatus;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
+import com.bipros.resource.application.service.ResourceDeploymentGuard;
 import com.bipros.resource.application.dto.role.RoleAssignmentRequest;
 import com.bipros.resource.application.dto.role.RoleAssignmentResponse;
 import com.bipros.resource.domain.model.ResourceAssignment;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -236,6 +238,21 @@ public class RoleAssignmentService {
             ? quantity.multiply(rate)
             : BigDecimal.valueOf(headcount).multiply(rate);
 
+    // Deployment guard: a row with DPR-deployed actuals can't drop its planned units below
+    // those actuals, nor change its role/variant identity (which would orphan the actuals).
+    // Read the old identity here, before the setters below overwrite it.
+    UUID oldRoleId = a.getRoleId();
+    UUID oldVariantId =
+        a.getManpowerRoleRateId() != null
+            ? a.getManpowerRoleRateId()
+            : a.getEquipmentRoleVariantId() != null
+                ? a.getEquipmentRoleVariantId()
+                : a.getMaterialRoleVariantId();
+    boolean identityChanged =
+        !Objects.equals(oldRoleId, req.roleId()) || !Objects.equals(oldVariantId, variantId);
+    ResourceDeploymentGuard.assertIdentityUnchangedWhenDeployed(identityChanged, a.getActualUnits());
+    ResourceDeploymentGuard.assertNotReducedBelowActual(plannedUnits.doubleValue(), a.getActualUnits());
+
     a.setRoleId(req.roleId());
     a.setManpowerRoleRateId(
         "LABOR".equals(typeCode) || "MANPOWER".equals(typeCode) ? variantId : null);
@@ -265,6 +282,7 @@ public class RoleAssignmentService {
             .findById(assignmentId)
             .orElseThrow(() -> new ResourceNotFoundException("ResourceAssignment", assignmentId));
     assertActivityEditable(a.getActivityId());
+    ResourceDeploymentGuard.assertDeletable(a.getActualUnits());
     assignmentRepo.delete(a);
   }
 

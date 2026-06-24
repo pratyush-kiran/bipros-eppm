@@ -11,8 +11,10 @@ import com.bipros.project.domain.repository.DprEquipmentRepository;
 import com.bipros.project.domain.repository.DprIssueRepository;
 import com.bipros.project.domain.repository.DprManpowerRepository;
 import com.bipros.project.domain.repository.DprMaterialRepository;
+import com.bipros.project.domain.repository.DprVoiceNoteRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
 import com.bipros.project.infrastructure.storage.DprAttachmentStorageService;
+import com.bipros.project.infrastructure.storage.VoiceNoteStorage;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,8 +59,10 @@ class DailyProgressReportServiceDraftRejectionTest {
   @Mock private DprMaterialRepository materialRepository;
   @Mock private com.bipros.project.domain.repository.DprSubContractorRepository subContractorRepository;
   @Mock private DprAttachmentRepository attachmentRepository;
+  @Mock private DprVoiceNoteRepository voiceNoteRepository;
   @Mock private DprIssueRepository issueRepository;
   @Mock private DprAttachmentStorageService attachmentStorage;
+  @Mock private VoiceNoteStorage voiceNoteStorage;
   @Mock private ProjectRepository projectRepository;
   @Mock private DailyActivityResourceOutputService ledgerService;
   @Mock private AuditService auditService;
@@ -79,8 +83,9 @@ class DailyProgressReportServiceDraftRejectionTest {
   void setUp() {
     service = new DailyProgressReportService(
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
-        subContractorRepository, attachmentRepository, issueRepository, attachmentStorage,
-        projectRepository, ledgerService, auditService, eventPublisher, null, boqItemRepository);
+        subContractorRepository, attachmentRepository, voiceNoteRepository, issueRepository,
+        attachmentStorage, voiceNoteStorage, projectRepository, ledgerService, auditService,
+        eventPublisher, null, boqItemRepository);
 
     // Inject the mocked EntityManager — @PersistenceContext field, can't use @InjectMocks here
     // because the service also has @RequiredArgsConstructor for the other deps.

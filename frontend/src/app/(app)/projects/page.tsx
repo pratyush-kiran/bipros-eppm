@@ -6,14 +6,16 @@ import { Plus, Search, Trash2, Edit2, Download, Archive } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { projectApi } from "@/lib/api/projectApi";
-import { formatDate, getPriorityInfo } from "@/lib/utils/format";
+import { formatDate, getPriorityInfo, PRIORITY_LABELS } from "@/lib/utils/format";
 import { getErrorMessage } from "@/lib/utils/error";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { VirtualDataTable, type ColumnDef } from "@/components/common/VirtualDataTable";
 
 const STATUS_OPTIONS = ["All", "PLANNED", "ACTIVE", "INACTIVE", "COMPLETED"] as const;
-const PRIORITY_OPTIONS = ["All", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
+// Options mirror the labels getPriorityInfo() actually renders, so every project the table can
+// show is filterable and the filter never disagrees with the displayed priority.
+const PRIORITY_OPTIONS = ["All", ...PRIORITY_LABELS];
 
 function statusVariant(status: string) {
   switch (status) {
@@ -76,9 +78,9 @@ export default function ProjectsPage() {
     }
     if (statusFilter !== "All") out = out.filter((p) => p.status === statusFilter);
     if (priorityFilter !== "All") {
-      out = out.filter(
-        (p) => (p.priority ?? "").toString().toUpperCase() === priorityFilter
-      );
+      // priority is a numeric 1-100 value; match on the bucketed label so the filter agrees with
+      // what getPriorityInfo() renders in the table (e.g. 50 → "Medium").
+      out = out.filter((p) => getPriorityInfo(p.priority).label === priorityFilter);
     }
     return out;
   }, [allProjects, searchQuery, statusFilter, priorityFilter]);
@@ -241,7 +243,7 @@ export default function ProjectsPage() {
         >
           {PRIORITY_OPTIONS.map((p) => (
             <option key={p} value={p}>
-              {p === "All" ? "All priorities" : p.charAt(0) + p.slice(1).toLowerCase()}
+              {p === "All" ? "All priorities" : p}
             </option>
           ))}
         </select>

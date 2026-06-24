@@ -69,6 +69,37 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
       @Param("reportDate") LocalDate reportDate);
 
   /**
+   * This activity's OWN Σ qty_executed across its BOQ-linked DPRs (BOQ item must have a
+   * positive boq_qty). Numerator for the per-activity BOQ progress (precedence #1) — note this
+   * is the activity's own workdone, NOT the BOQ's cross-activity {@code qty_executed_to_date},
+   * so two activities sharing a BOQ each get their own share. Never null.
+   */
+  @Query(value = """
+      SELECT COALESCE(SUM(d.qty_executed), 0)
+      FROM project.daily_progress_reports d
+      JOIN project.boq_items b ON b.id = d.boq_item_id
+      WHERE d.activity_id = :activityId
+        AND b.boq_qty IS NOT NULL AND b.boq_qty > 0
+      """, nativeQuery = true)
+  BigDecimal sumActivityWorkdoneOnBoq(@Param("activityId") UUID activityId);
+
+  /**
+   * Σ boq_qty of the DISTINCT BOQ items referenced by this activity's DPRs (only positive
+   * boq_qty). Denominator for the per-activity BOQ progress. A positive result means the
+   * activity is "BOQ-driven" and BOQ workdone takes precedence over its percentCompleteType.
+   * Never null.
+   */
+  @Query(value = """
+      SELECT COALESCE(SUM(b.boq_qty), 0)
+      FROM project.boq_items b
+      WHERE b.id IN (
+        SELECT DISTINCT d.boq_item_id FROM project.daily_progress_reports d
+        WHERE d.activity_id = :activityId AND d.boq_item_id IS NOT NULL)
+        AND b.boq_qty IS NOT NULL AND b.boq_qty > 0
+      """, nativeQuery = true)
+  BigDecimal sumLinkedBoqQty(@Param("activityId") UUID activityId);
+
+  /**
    * Null out the supervisor FK when the underlying user is deleted. {@code supervisorName}
    * stays put because the column is NOT NULL and the display snapshot is still valid history.
    */

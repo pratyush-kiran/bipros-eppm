@@ -22,7 +22,7 @@ interface ChecklistItem {
 
 const dismissKey = (projectId: string) => `project-setup-progress-dismissed:${projectId}`;
 
-export function ProjectSetupProgress({ projectId, project, poolSize }: Props) {
+export function ProjectSetupProgress({ projectId, project }: Props) {
   const [dismissed, setDismissed] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -48,12 +48,9 @@ export function ProjectSetupProgress({ projectId, project, poolSize }: Props) {
       done: true,
       href: `/projects/${projectId}`,
     },
-    {
-      key: "team",
-      label: poolSize > 0 ? `Team assigned (${poolSize})` : "Add team & resources",
-      done: poolSize > 0,
-      href: `/projects/${projectId}?tab=resources`,
-    },
+    // "Add team & resources" intentionally omitted — the resource-management flow it linked to
+    // no longer fits the project's business, so the step is hidden from the setup checklist.
+    // The `poolSize` prop is still accepted (caller passes it) so the step is easy to restore.
     {
       key: "activities",
       label: activityCount > 0 ? `Activities planned (${activityCount})` : "Plan activities",
@@ -99,7 +96,7 @@ export function ProjectSetupProgress({ projectId, project, poolSize }: Props) {
           <X size={14} />
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
         {items.map((item) => (
           <Link
             key={item.key}

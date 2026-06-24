@@ -18,20 +18,26 @@ import java.util.Map;
  * {@code wbsResolutionFailures}. {@code true} causes apply to throw
  * {@code STRICT_WBS_FAILED} before any insert happens — useful when callers
  * cannot tolerate a partial apply.
+ *
+ * <p>{@code fromScratch} marks a "from scratch" generation (vs. from a document).
+ * When {@code true}, apply compresses the computed schedule to fit inside the
+ * project window instead of hard-rejecting an overrun. Null/false preserves the
+ * existing behavior (the from-document path).
  */
 public record ActivityAiApplyRequest(
         ApplyMode mode,
         List<ActivityAiNode> activities,
         Map<String, String> wbsRemap,
-        Boolean strictWbs
+        Boolean strictWbs,
+        Boolean fromScratch
 ) {
-    /** Back-compat: defaults mode to MERGE, no remap, non-strict. */
+    /** Back-compat: defaults mode to MERGE, no remap, non-strict, not-from-scratch. */
     public ActivityAiApplyRequest(List<ActivityAiNode> activities) {
-        this(ApplyMode.MERGE, activities, null, null);
+        this(ApplyMode.MERGE, activities, null, null, null);
     }
 
-    /** Back-compat: explicit mode, no remap, non-strict. */
+    /** Back-compat: explicit mode, no remap, non-strict, not-from-scratch. */
     public ActivityAiApplyRequest(ApplyMode mode, List<ActivityAiNode> activities) {
-        this(mode, activities, null, null);
+        this(mode, activities, null, null, null);
     }
 }

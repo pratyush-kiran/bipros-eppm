@@ -1,6 +1,7 @@
 package com.bipros.activity.application.service;
 
 import com.bipros.activity.application.dto.UpdateActivityRequest;
+import com.bipros.activity.application.percent.BoqProgressGuard;
 import com.bipros.activity.application.percent.PercentCompleteCalculator;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.model.ActivityStatus;
@@ -26,9 +27,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.mockito.ArgumentCaptor;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,6 +48,7 @@ class ActivityServicePercentCompleteValidationTest {
   @Mock private ProjectRepository projectRepository;
   @Mock private PercentCompleteCalculator percentCompleteCalculator;
   @Mock private ActivityStepRepository stepRepository;
+  @Mock private BoqProgressGuard boqProgressGuard;
 
   private ActivityService service;
   private UUID activityId;
@@ -53,7 +59,8 @@ class ActivityServicePercentCompleteValidationTest {
     service = new ActivityService(activityRepository, activitySupervisorRepository,
         relationshipRepository, auditService, projectAccess, projectRepository,
         percentCompleteCalculator, stepRepository,
-        org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
+        org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class),
+        boqProgressGuard);
 
     activityId = UUID.randomUUID();
     activity = new Activity();
@@ -180,6 +187,26 @@ class ActivityServicePercentCompleteValidationTest {
           null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
       assertDoesNotThrow(() -> service.updateActivity(activityId, req));
+    }
+
+    @Test
+    @DisplayName("setting actualFinishDate forces 100% + COMPLETED for a DURATION activity")
+    void finishDateCompletesDurationActivity() {
+      activity.setPercentCompleteType(PercentCompleteType.DURATION);
+      activity.setActualStartDate(LocalDate.of(2026, 4, 1));
+      activity.setPercentComplete(30.0);
+
+      UpdateActivityRequest req = new UpdateActivityRequest(
+          null, null, null, null, null, null, null, null, null,
+          null, null, null, LocalDate.of(2026, 6, 1),
+          null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+
+      service.updateActivity(activityId, req);
+
+      ArgumentCaptor<Activity> saved = ArgumentCaptor.forClass(Activity.class);
+      verify(activityRepository).save(saved.capture());
+      assertThat(saved.getValue().getPercentComplete()).isEqualTo(100.0);
+      assertThat(saved.getValue().getStatus()).isEqualTo(ActivityStatus.COMPLETED);
     }
   }
 

@@ -95,6 +95,20 @@ public class CPMScheduler {
       }
     }
 
+    // Validate that every relationship references activities that actually exist
+    Set<UUID> activityIds = new HashSet<>();
+    for (SchedulableActivity a : data.activities()) {
+      activityIds.add(a.id());
+    }
+    for (SchedulableRelationship rel : data.relationships()) {
+      if (!activityIds.contains(rel.predecessorId()) || !activityIds.contains(rel.successorId())) {
+        throw new BusinessRuleException(
+            "DANGLING_RELATIONSHIP",
+            "Relationship references a missing activity (predecessor=" + rel.predecessorId()
+            + ", successor=" + rel.successorId() + "). Remove the stale dependency and try again.");
+      }
+    }
+
     // Topological sort (Kahn's algorithm) to detect circular dependencies
     List<UUID> topologicalOrder = topologicalSort(data.activities(), inDegree, successorMap);
     if (topologicalOrder.size() != data.activities().size()) {
@@ -119,7 +133,7 @@ public class CPMScheduler {
       LocalDate latest = null;
       for (UUID childId : children) {
         ScheduledActivity child = scheduledActivities.get(childId);
-        if (child == null) continue;
+        if (child == null || child.getEarlyStart() == null || child.getEarlyFinish() == null) continue;
         if (earliest == null || child.getEarlyStart().isBefore(earliest)) {
           earliest = child.getEarlyStart();
         }
@@ -148,7 +162,7 @@ public class CPMScheduler {
       LocalDate latestLate = null;
       for (UUID childId : children) {
         ScheduledActivity child = scheduledActivities.get(childId);
-        if (child == null) continue;
+        if (child == null || child.getLateStart() == null || child.getLateFinish() == null) continue;
         if (earliestLate == null || child.getLateStart().isBefore(earliestLate)) {
           earliestLate = child.getLateStart();
         }
@@ -287,12 +301,12 @@ public class CPMScheduler {
       // Handle actuals based on scheduling option
       if (data.schedulingOption() == SchedulingOption.RETAINED_LOGIC) {
         if (activity.actualFinishDate() != null) {
-          scheduled.setEarlyStart(activity.actualStartDate());
+          scheduled.setEarlyStart(effectiveActualStart(activity));
           scheduled.setEarlyFinish(activity.actualFinishDate());
           continue;
         } else if (activity.actualStartDate() != null) {
           earlyStart = activity.actualStartDate();
-        } else if (activity.status() != null && activity.status().equals("In Progress")) {
+        } else if (activity.status() != null && activity.status().equals("IN_PROGRESS")) {
           earlyStart = data.dataDate();
         }
       } else if (data.schedulingOption() == SchedulingOption.PROGRESS_OVERRIDE) {
@@ -300,7 +314,7 @@ public class CPMScheduler {
         // ignore retained logic and schedule remaining work from data date forward,
         // disregarding predecessor relationships for the remaining portion.
         if (activity.actualFinishDate() != null) {
-          scheduled.setEarlyStart(activity.actualStartDate());
+          scheduled.setEarlyStart(effectiveActualStart(activity));
           scheduled.setEarlyFinish(activity.actualFinishDate());
           continue;
         } else if (activity.actualStartDate() != null || "IN_PROGRESS".equals(activity.status())) {
@@ -311,7 +325,7 @@ public class CPMScheduler {
       } else if (data.schedulingOption() == SchedulingOption.ACTUAL_DATES) {
         // ACTUAL_DATES: use actual dates as-is, no recalculation
         if (activity.actualFinishDate() != null) {
-          scheduled.setEarlyStart(activity.actualStartDate());
+          scheduled.setEarlyStart(effectiveActualStart(activity));
           scheduled.setEarlyFinish(activity.actualFinishDate());
           continue;
         } else if (activity.actualStartDate() != null) {
@@ -374,7 +388,7 @@ public class CPMScheduler {
 
       // Handle actuals
       if (data.schedulingOption() == SchedulingOption.RETAINED_LOGIC && activity.actualFinishDate() != null) {
-        scheduled.setLateStart(activity.actualStartDate());
+        scheduled.setLateStart(effectiveActualStart(activity));
         scheduled.setLateFinish(activity.actualFinishDate());
         continue;
       }
@@ -390,10 +404,35 @@ public class CPMScheduler {
   }
 
   /**
+   * Returns a non-null effective actual start for {@code activity}. If {@code actualStartDate} is
+   * present it is returned as-is. When only {@code actualFinishDate} is recorded (e.g. completed
+   * via DPR without a logged start), the start is back-calculated from the finish using the
+   * original duration so the bar has sensible width. Falls back to the finish date (zero-width
+   * point) when duration is unavailable.
+   */
+  private LocalDate effectiveActualStart(SchedulableActivity activity) {
+    if (activity.actualStartDate() != null) {
+      return activity.actualStartDate();
+    }
+    // actualFinishDate must be non-null in all callers; back-calculate start from finish
+    LocalDate finish = activity.actualFinishDate();
+    double dur = activity.originalDuration() > 0 ? activity.originalDuration()
+        : activity.remainingDuration();
+    if (finish != null && dur > 0) {
+      UUID calId = activity.calendarId() != null ? activity.calendarId() : defaultCalendarId;
+      return calendarCalculator.subtractWorkingDays(calId, finish, dur);
+    }
+    return finish; // last resort: zero-width point, non-null in all callers
+  }
+
+  /**
    * Working-day distance from {@code from} to {@code to}. Positive if {@code from <= to}, negative
    * otherwise. {@code countWorkingDays} is half-open [start, end) so same-day returns 0.
    */
   private double computeWorkingDayDelta(LocalDate from, LocalDate to) {
+    if (from == null || to == null) {
+      return 0.0;
+    }
     if (from.isEqual(to)) {
       return 0.0;
     }

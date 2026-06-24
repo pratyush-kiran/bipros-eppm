@@ -10,6 +10,8 @@ import com.bipros.project.application.dto.NodeSearchResultResponse;
 import com.bipros.project.application.dto.UpdateEpsNodeRequest;
 import com.bipros.project.domain.model.ObsNode;
 import com.bipros.project.domain.repository.ObsNodeRepository;
+import com.bipros.project.domain.repository.ProjectRepository;
+import com.bipros.project.domain.repository.WbsNodeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -35,6 +37,8 @@ import java.util.stream.Collectors;
 public class ObsService {
 
     private final ObsNodeRepository obsNodeRepository;
+    private final ProjectRepository projectRepository;
+    private final WbsNodeRepository wbsNodeRepository;
     private final AuditService auditService;
 
     public EpsNodeResponse createNode(CreateEpsNodeRequest request) {
@@ -84,16 +88,38 @@ public class ObsService {
 
         ObsNode node = obsNodeRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("ObsNode", id));
+        String label = node.getCode() + " — " + node.getName();
 
-        // Check for child nodes
+        // Block while the node still has children (deletion removes this single node only).
         List<ObsNode> children = obsNodeRepository.findByParentIdOrderBySortOrder(id);
         if (!children.isEmpty()) {
-            throw new BusinessRuleException("OBS_HAS_CHILDREN", "Cannot delete OBS node with child nodes");
+            throw new BusinessRuleException("OBS_HAS_CHILDREN",
+                "Cannot delete '" + label + "': it has " + count(children.size(), "child node")
+                    + ". Delete or move them first.");
+        }
+
+        // Block while anything still references this OBS node. Both projects and WBS
+        // elements carry an obs_node_id for responsibility assignment; deleting the node
+        // would orphan those references.
+        long projectCount = projectRepository.countByObsNodeId(id);
+        long wbsCount = wbsNodeRepository.countByObsNodeId(id);
+        if (projectCount > 0 || wbsCount > 0) {
+            List<String> parts = new ArrayList<>();
+            if (projectCount > 0) parts.add(count(projectCount, "project"));
+            if (wbsCount > 0) parts.add(count(wbsCount, "WBS element"));
+            throw new BusinessRuleException("OBS_IN_USE",
+                "Cannot delete '" + label + "': it's assigned to " + String.join(" and ", parts)
+                    + ". Reassign them first.");
         }
 
         obsNodeRepository.delete(node);
         log.info("OBS node deleted: {}", id);
         auditService.logDelete("ObsNode", id);
+    }
+
+    /** Formats "{n} {noun}" with naive pluralisation for user-facing block messages. */
+    private static String count(long n, String noun) {
+        return n + " " + noun + (n == 1 ? "" : "s");
     }
 
     public List<EpsNodeResponse> getTree() {

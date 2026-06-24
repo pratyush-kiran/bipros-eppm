@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -207,5 +208,41 @@ class ActivitySubContractorAssignmentServiceTest {
 
     assertThatCode(() -> service.create(projectId, req)).doesNotThrowAnyException();
     verify(assignmentRepository, times(1)).save(any(ActivitySubContractorAssignment.class));
+  }
+
+  @Test
+  @DisplayName("delete rejects when sub-contractor work already deployed (actualUnits > 0)")
+  void deleteRejectsWhenDeployed() {
+    UUID id = UUID.randomUUID();
+    UUID activityId = UUID.randomUUID();
+    ActivitySubContractorAssignment a = ActivitySubContractorAssignment.builder()
+        .activityId(activityId).actualUnits(new BigDecimal("3")).build();
+    a.setId(id);
+    when(assignmentRepository.findById(id)).thenReturn(Optional.of(a));
+    // Activity not found -> editable (no lock), so we reach the deployment guard.
+    when(activityRepository.findById(activityId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.delete(id))
+        .isInstanceOf(BusinessRuleException.class)
+        .satisfies(ex -> assertThat(((BusinessRuleException) ex).getRuleCode())
+            .isEqualTo("RESOURCE_DEPLOYED_DELETE"))
+        .hasMessageContaining("3");
+    verify(assignmentRepository, never()).delete(any());
+  }
+
+  @Test
+  @DisplayName("delete allowed when no sub-contractor work deployed")
+  void deleteAllowedWhenNoActuals() {
+    UUID id = UUID.randomUUID();
+    UUID activityId = UUID.randomUUID();
+    ActivitySubContractorAssignment a = ActivitySubContractorAssignment.builder()
+        .activityId(activityId).actualUnits(BigDecimal.ZERO).build();
+    a.setId(id);
+    when(assignmentRepository.findById(id)).thenReturn(Optional.of(a));
+    when(activityRepository.findById(activityId)).thenReturn(Optional.empty());
+
+    service.delete(id);
+
+    verify(assignmentRepository).delete(a);
   }
 }

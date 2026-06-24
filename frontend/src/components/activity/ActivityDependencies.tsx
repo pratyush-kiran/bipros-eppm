@@ -11,6 +11,7 @@ import { getErrorMessage } from "@/lib/utils/error";
 import { Plus, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import { useScheduleStaleStore } from "@/lib/state/scheduleStaleStore";
 
 const RELATIONSHIP_TYPE_LABELS: Record<RelationshipType, string> = {
   FINISH_TO_START: "Finish to Start (FS)",
@@ -34,6 +35,7 @@ interface ActivityDependenciesProps {
 
 export function ActivityDependencies({ projectId, activityId, activityName }: ActivityDependenciesProps) {
   const queryClient = useQueryClient();
+  const markScheduleStale = useScheduleStaleStore((s) => s.markScheduleStale);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addDirection, setAddDirection] = useState<"predecessor" | "successor">("predecessor");
 
@@ -75,6 +77,7 @@ export function ActivityDependencies({ projectId, activityId, activityName }: Ac
       queryClient.invalidateQueries({ queryKey: ["predecessors", projectId, activityId] });
       queryClient.invalidateQueries({ queryKey: ["successors", projectId, activityId] });
       queryClient.invalidateQueries({ queryKey: ["relationships", projectId] });
+      markScheduleStale(projectId);
       toast.success("Dependency removed");
     },
     onError: (err: unknown) => {
@@ -334,6 +337,7 @@ function AddDependencyForm({
   onClose,
   onSuccess,
 }: AddDependencyFormProps) {
+  const markScheduleStale = useScheduleStaleStore((s) => s.markScheduleStale);
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [relationshipType, setRelationshipType] = useState<RelationshipType>("FINISH_TO_START");
   const [lag, setLag] = useState<number | "">(0);
@@ -358,6 +362,7 @@ function AddDependencyForm({
       return activityApi.createRelationship(projectId, data);
     },
     onSuccess: () => {
+      markScheduleStale(projectId);
       toast.success("Dependency added");
       onSuccess();
     },

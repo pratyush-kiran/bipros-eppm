@@ -555,6 +555,19 @@ public class ResourceAssignmentService {
           });
     }
 
+    // Deployment guard: a row with DPR-deployed actuals can't reduce planned units below those
+    // actuals, nor change its role/resource identity (which would orphan the deployed actuals the
+    // DPR rollup keys on). Read the old identity here, before the setters below overwrite it.
+    if (request.plannedUnits() != null) {
+      ResourceDeploymentGuard.assertNotReducedBelowActual(
+          request.plannedUnits(), assignment.getActualUnits());
+    }
+    boolean identityChanged =
+        !java.util.Objects.equals(assignment.getRoleId(), request.roleId())
+            || !java.util.Objects.equals(assignment.getResourceId(), request.resourceId());
+    ResourceDeploymentGuard.assertIdentityUnchangedWhenDeployed(
+        identityChanged, assignment.getActualUnits());
+
     assignment.setActivityId(request.activityId());
     assignment.setResourceId(request.resourceId());
     assignment.setRoleId(request.roleId());
@@ -735,9 +748,9 @@ public class ResourceAssignmentService {
   }
 
   public void removeAssignment(UUID assignmentId) {
-    if (!assignmentRepository.existsById(assignmentId)) {
-      throw new ResourceNotFoundException("ResourceAssignment", assignmentId);
-    }
+    ResourceAssignment assignment = assignmentRepository.findById(assignmentId)
+        .orElseThrow(() -> new ResourceNotFoundException("ResourceAssignment", assignmentId));
+    ResourceDeploymentGuard.assertDeletable(assignment.getActualUnits());
     assignmentRepository.deleteById(assignmentId);
     auditService.logDelete("ResourceAssignment", assignmentId);
   }

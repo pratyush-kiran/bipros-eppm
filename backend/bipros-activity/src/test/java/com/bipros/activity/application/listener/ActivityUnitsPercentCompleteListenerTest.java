@@ -1,5 +1,6 @@
 package com.bipros.activity.application.listener;
 
+import com.bipros.activity.application.percent.BoqProgressGuard;
 import com.bipros.activity.application.percent.PercentCompleteCalculator;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.model.ActivityStatus;
@@ -31,6 +32,7 @@ class ActivityUnitsPercentCompleteListenerTest {
   @Mock private ActivityRepository activityRepository;
   @Mock private PercentCompleteCalculator calculator;
   @Mock private AuditService auditService;
+  @Mock private BoqProgressGuard boqProgressGuard;
 
   private ActivityUnitsPercentCompleteListener listener;
 
@@ -40,7 +42,7 @@ class ActivityUnitsPercentCompleteListenerTest {
 
   @BeforeEach
   void setUp() {
-    listener = new ActivityUnitsPercentCompleteListener(activityRepository, calculator, auditService);
+    listener = new ActivityUnitsPercentCompleteListener(activityRepository, calculator, auditService, boqProgressGuard);
 
     activityId = UUID.randomUUID();
     projectId = UUID.randomUUID();
@@ -52,6 +54,7 @@ class ActivityUnitsPercentCompleteListenerTest {
     activity.setStatus(ActivityStatus.IN_PROGRESS);
 
     when(activityRepository.findById(activityId)).thenReturn(Optional.of(activity));
+    lenient().when(boqProgressGuard.isBoqDriven(activityId)).thenReturn(false);
   }
 
   @Nested

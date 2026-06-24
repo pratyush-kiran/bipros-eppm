@@ -120,6 +120,8 @@ public class ActivitySubContractorAssignmentService {
     ActivitySubContractorAssignment a = assignmentRepository.findById(assignmentId)
         .orElseThrow(() -> new ResourceNotFoundException("ActivitySubContractorAssignment", assignmentId));
     assertActivityEditable(loadActivity(a.getActivityId()));
+    ResourceDeploymentGuard.assertDeletable(
+        a.getActualUnits() == null ? null : a.getActualUnits().doubleValue());
     assignmentRepository.delete(a);
     auditService.logDelete("ActivitySubContractorAssignment", assignmentId);
   }

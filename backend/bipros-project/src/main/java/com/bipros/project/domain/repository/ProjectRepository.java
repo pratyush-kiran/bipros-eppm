@@ -17,6 +17,9 @@ public interface ProjectRepository extends JpaRepository<Project, UUID>, JpaSpec
 
     List<Project> findByEpsNodeId(UUID epsNodeId);
 
+    /** Number of projects (active or archived) assigned to an OBS node — used to guard OBS deletion. */
+    long countByObsNodeId(UUID obsNodeId);
+
     Page<Project> findByStatus(ProjectStatus status, Pageable pageable);
 
     boolean existsByCode(String code);

@@ -42,6 +42,7 @@ import { SetSupervisorDialog } from "@/components/activity/SetSupervisorDialog";
 import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import type { ExpenseResponse } from "@/lib/types";
 import { AlertTriangle, Lock, RefreshCw, Unlock } from "lucide-react";
+import { useScheduleStaleStore } from "@/lib/state/scheduleStaleStore";
 
 // Heavy children deferred so the initial paint of the detail page is cheap —
 // when arriving here from /activities (especially WBS Tree view) the router
@@ -92,6 +93,7 @@ export default function ActivityDetailPage() {
   const canEditActivity = hasPermission("ACTIVITY.UPDATE");
   const canLockActivity = hasPermission("ACTIVITY.LOCK");
   const canUnlockActivity = hasPermission("ACTIVITY.UNLOCK");
+  const markScheduleStale = useScheduleStaleStore((s) => s.markScheduleStale);
 
   const [isEditing, setIsEditing] = useState(false);
   const [error, setError] = useState("");
@@ -175,6 +177,7 @@ export default function ActivityDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["activity", projectId, activityId] });
       queryClient.invalidateQueries({ queryKey: ["activities", projectId] });
+      markScheduleStale(projectId);
       setIsEditing(false);
       setError("");
       activityNotifications.updated();

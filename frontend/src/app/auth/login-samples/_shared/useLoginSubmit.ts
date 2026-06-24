@@ -56,9 +56,10 @@ export function useLoginSubmit(): LoginState {
       if (!user) throw new Error("Failed to load current user");
       setAuth(user, accessToken, refreshToken);
 
-      // Raw navigation (full reload to re-run the proxy auth gate) → prefix the
-      // in-app `next` path with the basePath, which window.location won't add.
-      window.location.href = withBasePath(safeNext);
+      // replace (not href/push) so /auth/login is not left in history — pressing Back after
+      // signing in must never return to the sign-in form. withBasePath prefixes the in-app
+      // path (a full reload via window.location won't add the basePath on its own).
+      window.location.replace(withBasePath(safeNext));
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 401) {
         setFieldError("Invalid username or password.");

@@ -1,6 +1,7 @@
 package com.bipros.activity.application.service;
 
 import com.bipros.activity.application.dto.UpdateActivityRequest;
+import com.bipros.activity.application.percent.BoqProgressGuard;
 import com.bipros.activity.application.percent.PercentCompleteCalculator;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.model.ActivityRelationship;
@@ -47,6 +48,7 @@ class ActivityServicePredecessorValidationTest {
   @Mock private ProjectRepository projectRepository;
   @Mock private PercentCompleteCalculator percentCompleteCalculator;
   @Mock private ActivityStepRepository stepRepository;
+  @Mock private BoqProgressGuard boqProgressGuard;
 
   private ActivityService service;
 
@@ -57,7 +59,7 @@ class ActivityServicePredecessorValidationTest {
 
   @BeforeEach
   void setUp() {
-    service = new ActivityService(activityRepository, activitySupervisorRepository, relationshipRepository, auditService, projectAccess, projectRepository, percentCompleteCalculator, stepRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class));
+    service = new ActivityService(activityRepository, activitySupervisorRepository, relationshipRepository, auditService, projectAccess, projectRepository, percentCompleteCalculator, stepRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class), boqProgressGuard);
 
     successorId = UUID.randomUUID();
     predecessorId = UUID.randomUUID();

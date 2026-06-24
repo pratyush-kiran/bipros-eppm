@@ -190,7 +190,7 @@ function TreeRow({
 
   const canStart = (a: ActivityResponse) =>
     a.status === "NOT_STARTED" || (a.percentComplete ?? 0) === 0;
-  const canComplete = (a: ActivityResponse) => (a.percentComplete ?? 0) < 100;
+  const canComplete = (a: ActivityResponse) => a.status !== "COMPLETED";
 
   const predCountMap = new Map<string, number>();
   const succCountMap = new Map<string, number>();

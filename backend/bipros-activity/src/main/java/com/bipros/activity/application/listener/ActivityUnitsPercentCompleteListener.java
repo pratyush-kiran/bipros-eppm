@@ -29,6 +29,7 @@ public class ActivityUnitsPercentCompleteListener {
     private final ActivityRepository activityRepository;
     private final PercentCompleteCalculator calculator;
     private final AuditService auditService;
+    private final com.bipros.activity.application.percent.BoqProgressGuard boqProgressGuard;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -40,6 +41,9 @@ public class ActivityUnitsPercentCompleteListener {
         }
         if (activity.getPercentCompleteType() != PercentCompleteType.UNITS) {
             return;
+        }
+        if (boqProgressGuard.isBoqDriven(activity.getId())) {
+            return; // BOQ workdone owns percentComplete (precedence #1)
         }
 
         Double oldPercent = activity.getPercentComplete();
