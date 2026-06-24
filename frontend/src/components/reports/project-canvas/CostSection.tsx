@@ -16,14 +16,21 @@ import { projectInsightsApi } from "@/lib/api/projectInsightsApi";
 import {
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
-  formatCrore,
   truncate,
 } from "@/components/common/dashboard/primitives";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 export function CostSection({ projectId }: { projectId: string }) {
+  const currency = useProjectCurrencyOptional();
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ["project-cost-variance", projectId],
     queryFn: () => projectInsightsApi.getCostVariance(projectId),
@@ -75,7 +82,7 @@ export function CostSection({ projectId }: { projectId: string }) {
   return (
     <SectionCard
       title="Cost Analysis"
-      subtitle="Budget vs forecast vs actual by WBS element (₹ Cr)"
+      subtitle="Budget vs forecast vs actual by WBS element"
     >
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <div>
@@ -84,12 +91,14 @@ export function CostSection({ projectId }: { projectId: string }) {
           </h3>
           <ResponsiveContainer width="100%" height={Math.max(220, chartData.length * 38)}>
             <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" stroke="#64748b" style={{ fontSize: "12px" }} />
               <YAxis type="category" dataKey="name" stroke="#64748b" style={{ fontSize: "11px" }} width={120} />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
-                formatter={(value) => formatCrore(Number(value ?? 0))}
+                labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                formatter={(value) => moneyCompact(Number(value ?? 0) * 1e7)}
               />
               <Legend wrapperStyle={{ fontSize: "11px" }} />
               <Bar dataKey="Budget" fill={CHART_COLORS.pv} />
@@ -105,15 +114,17 @@ export function CostSection({ projectId }: { projectId: string }) {
           </h3>
           <ResponsiveContainer width="100%" height={Math.max(220, varianceData.length * 38)}>
             <BarChart data={varianceData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" stroke="#64748b" style={{ fontSize: "12px" }} />
               <YAxis type="category" dataKey="name" stroke="#64748b" style={{ fontSize: "11px" }} width={120} />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
+                labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                 formatter={(value, _name, props) => {
                   const row = props.payload as (typeof varianceData)[number];
                   return [
-                    `${formatCrore(Number(value ?? 0))} (${row.pct.toFixed(1)}%)`,
+                    `${moneyCompact(Number(value ?? 0) * 1e7)} (${row.pct.toFixed(1)}%)`,
                     "Variance",
                   ];
                 }}

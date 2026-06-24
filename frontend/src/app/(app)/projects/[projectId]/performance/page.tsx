@@ -20,6 +20,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 
 function fmtRatio(n: number | null | undefined): string {
   if (n === null || n === undefined) return "—";
@@ -118,7 +119,7 @@ export default function PerformanceDashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="name" stroke="#64748b" style={{ fontSize: 11 }} />
               <YAxis stroke="#64748b" style={{ fontSize: 12 }} />
-              <Tooltip contentStyle={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 12 }} />
+              <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={CHART_TOOLTIP_LABEL_STYLE} itemStyle={CHART_TOOLTIP_ITEM_STYLE} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Bar dataKey="PV" fill="#94a3b8" radius={[4, 4, 0, 0]} />
               <Bar dataKey="EV" fill="#16a34a" radius={[4, 4, 0, 0]} />

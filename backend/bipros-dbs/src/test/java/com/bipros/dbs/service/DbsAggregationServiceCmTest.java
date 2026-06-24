@@ -59,6 +59,7 @@ class DbsAggregationServiceCmTest {
     @Mock private ObjectMapper objectMapper;
     @Mock private RegisterAggregationService registerAggregationService;
     @Mock private DbsRecomputeLock recomputeLock;
+    @Mock private com.bipros.dbs.config.DbsProperties dbsProperties;
 
     @InjectMocks private DbsAggregationService service;
 
@@ -71,6 +72,9 @@ class DbsAggregationServiceCmTest {
         UUID sup2 = UUID.randomUUID();
         UUID eng1 = UUID.randomUUID();
         LocalDate date = LocalDate.of(2026, 5, 18);
+
+        org.mockito.Mockito.lenient().when(dbsProperties.getFuelMachineryCostRatio())
+            .thenReturn(new java.math.BigDecimal("0.35"));
 
         DbsDailySupervisor row1 = DbsDailySupervisor.builder()
             .projectId(projectId)
@@ -137,7 +141,9 @@ class DbsAggregationServiceCmTest {
         assertThat(saved.getManpowerAmount()).isEqualByComparingTo("3000.00");
         assertThat(saved.getAdminAmount()).isEqualByComparingTo("300.00");
         assertThat(saved.getMachineryAmount()).isEqualByComparingTo("1300.00");
-        assertThat(saved.getFuelAmount()).isEqualByComparingTo("150.00");
+        // Fuel is now derived: 35% of the CM's machinery (sum of supervisor machinery).
+        assertThat(saved.getFuelAmount())
+            .isEqualByComparingTo(saved.getMachineryAmount().multiply(new java.math.BigDecimal("0.35")));
         assertThat(saved.getMaterialAmount()).isEqualByComparingTo("5000.00");
         assertThat(saved.getBoqForTheDayAmount()).isEqualByComparingTo("13000.00");
         assertThat(saved.getBoqPlannedToDate()).isEqualByComparingTo("200000.00");

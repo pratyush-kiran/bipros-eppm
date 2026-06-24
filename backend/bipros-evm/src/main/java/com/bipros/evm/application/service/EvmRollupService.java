@@ -326,6 +326,105 @@ public class EvmRollupService {
         return calc;
     }
 
+    /** Transient index calc — same math as createCalculation but NO repository.save. */
+    private EvmCalculation computeCalculationTransient(UUID projectId, UUID wbsNodeId, LocalDate dataDate,
+                                                       BigDecimal pv, BigDecimal ev, BigDecimal ac, BigDecimal bac,
+                                                       EtcMethod etcMethod, EvmTechnique technique) {
+        var calc = new EvmCalculation();
+        calc.setProjectId(projectId);
+        calc.setWbsNodeId(wbsNodeId);
+        calc.setDataDate(dataDate);
+        calc.setBudgetAtCompletion(bac);
+        calc.setPlannedValue(pv);
+        calc.setEarnedValue(ev);
+        calc.setActualCost(ac);
+        if (technique != null) calc.setEvmTechnique(technique);
+        if (etcMethod != null) calc.setEtcMethod(etcMethod);
+        EvmServiceHelper.calculateIndices(calc, formulaEngine);
+        return calc;
+    }
+
+    @Transactional(readOnly = true)
+    public List<WbsEvmNode> computeWbsTree(UUID projectId, EvmTechnique technique, EtcMethod etcMethod) {
+        LocalDate dataDate = resolveDataDate(projectId);
+        List<WbsNode> allWbs = wbsNodeRepository.findByProjectIdOrderBySortOrder(projectId);
+        List<Activity> allActivities = activityRepository.findByProjectId(projectId);
+        List<ActivityExpense> allExpenses = activityExpenseRepository.findByProjectId(projectId);
+        List<ResourceAssignment> allAssignments = resourceAssignmentRepository.findByProjectId(projectId);
+        List<ActivitySubContractorAssignment> allScAssignments =
+                activitySubContractorAssignmentRepository.findByProjectId(projectId);
+
+        Map<UUID, List<Activity>> activitiesByWbs = allActivities.stream()
+                .filter(a -> a.getWbsNodeId() != null)
+                .collect(Collectors.groupingBy(Activity::getWbsNodeId));
+        Map<UUID, List<ActivityExpense>> expensesByActivity = allExpenses.stream()
+                .filter(e -> e.getActivityId() != null)
+                .collect(Collectors.groupingBy(ActivityExpense::getActivityId));
+        Map<UUID, List<ResourceAssignment>> assignmentsByActivity = allAssignments.stream()
+                .collect(Collectors.groupingBy(ResourceAssignment::getActivityId));
+        Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity = allScAssignments.stream()
+                .filter(s -> s.getActivityId() != null)
+                .collect(Collectors.groupingBy(ActivitySubContractorAssignment::getActivityId));
+        Map<UUID, BigDecimal> dprAcByActivity = dprActualCostLookup.sumByActivity(projectId);
+
+        EvmTechniqueStrategy strategy = EvmTechniqueFactory.getStrategy(technique);
+        Map<UUID, List<WbsNode>> childrenMap = allWbs.stream()
+                .filter(w -> w.getParentId() != null)
+                .collect(Collectors.groupingBy(WbsNode::getParentId));
+        List<WbsNode> roots = allWbs.stream().filter(w -> w.getParentId() == null).toList();
+
+        List<WbsEvmNode> result = new ArrayList<>();
+        for (WbsNode root : roots) {
+            result.add(buildWbsEvmTreeTransient(root, childrenMap, activitiesByWbs,
+                    expensesByActivity, assignmentsByActivity, scAssignmentsByActivity, dprAcByActivity,
+                    strategy, dataDate, etcMethod, projectId));
+        }
+        return result;
+    }
+
+    private WbsEvmNode buildWbsEvmTreeTransient(
+            WbsNode node, Map<UUID, List<WbsNode>> childrenMap,
+            Map<UUID, List<Activity>> activitiesByWbs,
+            Map<UUID, List<ActivityExpense>> expensesByActivity,
+            Map<UUID, List<ResourceAssignment>> assignmentsByActivity,
+            Map<UUID, List<ActivitySubContractorAssignment>> scAssignmentsByActivity,
+            Map<UUID, BigDecimal> dprAcByActivity,
+            EvmTechniqueStrategy strategy, LocalDate dataDate, EtcMethod etcMethod, UUID projectId) {
+
+        List<WbsNode> children = childrenMap.getOrDefault(node.getId(), List.of());
+        BigDecimal totalPv = BigDecimal.ZERO, totalEv = BigDecimal.ZERO,
+                   totalAc = BigDecimal.ZERO, totalBac = BigDecimal.ZERO;
+        List<WbsEvmNode> childResults = new ArrayList<>();
+        for (WbsNode child : children) {
+            WbsEvmNode cr = buildWbsEvmTreeTransient(child, childrenMap, activitiesByWbs,
+                    expensesByActivity, assignmentsByActivity, scAssignmentsByActivity, dprAcByActivity,
+                    strategy, dataDate, etcMethod, projectId);
+            childResults.add(cr);
+            totalPv = totalPv.add(cr.plannedValue());
+            totalEv = totalEv.add(cr.earnedValue());
+            totalAc = totalAc.add(cr.actualCost());
+            totalBac = totalBac.add(cr.budgetAtCompletion());
+        }
+        for (Activity activity : activitiesByWbs.getOrDefault(node.getId(), List.of())) {
+            BigDecimal aBac = getActivityBac(activity, expensesByActivity, assignmentsByActivity, scAssignmentsByActivity);
+            BigDecimal aPv = getActivityPv(activity, aBac, dataDate);
+            BigDecimal aEv = strategy.calculateEarnedValue(activity, aBac, aPv);
+            BigDecimal aAc = getActivityAc(activity, expensesByActivity, assignmentsByActivity, dprAcByActivity);
+            totalBac = totalBac.add(aBac);
+            totalPv = totalPv.add(aPv);
+            totalEv = totalEv.add(aEv);
+            totalAc = totalAc.add(aAc);
+        }
+        EvmCalculation calc = computeCalculationTransient(projectId, node.getId(), dataDate,
+                totalPv, totalEv, totalAc, totalBac, etcMethod, EvmTechnique.ACTIVITY_PERCENT_COMPLETE);
+        return new WbsEvmNode(node.getId(), node.getName(), node.getCode(),
+                totalBac, totalPv, totalEv, totalAc,
+                calc.getScheduleVariance(), calc.getCostVariance(),
+                calc.getSchedulePerformanceIndex(), calc.getCostPerformanceIndex(),
+                calc.getEstimateAtCompletion(), calc.getEstimateToComplete(),
+                calc.getVarianceAtCompletion(), childResults);
+    }
+
     /**
      * Returns the project's {@code dataDate} when set; otherwise falls back to {@code LocalDate.now()}
      * and logs an INFO so the operator knows the computation is anchored to the system clock.

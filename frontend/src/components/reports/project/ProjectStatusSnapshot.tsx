@@ -35,6 +35,7 @@ const RAG_BAND: Record<string, RagBand> = {
   AMBER: "amber",
   RED: "red",
   CRIMSON: "red",
+  GREY: "neutral",
 };
 
 const RAG_LABEL: Record<string, string> = {
@@ -42,6 +43,7 @@ const RAG_LABEL: Record<string, string> = {
   AMBER: "At risk",
   RED: "Critical",
   CRIMSON: "Critical",
+  GREY: "No data",
 };
 
 const RAG_TONE: Record<RagBand, {
@@ -124,7 +126,7 @@ function RagTile({
           className={`mt-1 font-display text-[28px] font-semibold leading-none tracking-tight ${tone.label}`}
           style={{ fontVariationSettings: "'opsz' 144" }}
         >
-          {rag}
+          {rag === "GREY" ? "N/A" : rag}
         </div>
       </div>
     </div>

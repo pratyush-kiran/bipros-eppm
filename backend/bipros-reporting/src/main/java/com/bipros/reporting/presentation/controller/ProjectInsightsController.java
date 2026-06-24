@@ -3,8 +3,12 @@ package com.bipros.reporting.presentation.controller;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.common.dto.ApiResponse;
+import com.bipros.evm.application.dto.WbsEvmNode;
+import com.bipros.evm.application.service.EvmRollupService;
+import com.bipros.evm.application.service.EvmService;
+import com.bipros.evm.domain.entity.EtcMethod;
 import com.bipros.evm.domain.entity.EvmCalculation;
-import com.bipros.evm.domain.repository.EvmCalculationRepository;
+import com.bipros.evm.domain.entity.EvmTechnique;
 import com.bipros.project.domain.model.Project;
 import com.bipros.project.domain.model.WbsNode;
 import com.bipros.project.domain.repository.ProjectRepository;
@@ -44,7 +48,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -64,7 +67,8 @@ public class ProjectInsightsController {
 
   private final ProjectRepository projectRepository;
   private final WbsNodeRepository wbsNodeRepository;
-  private final EvmCalculationRepository evmCalculationRepository;
+  private final EvmService evmService;
+  private final EvmRollupService evmRollupService;
   private final ActivityRepository activityRepository;
 
   @PersistenceContext private EntityManager em;
@@ -178,16 +182,18 @@ public class ProjectInsightsController {
     Project p = projectRepository.findById(projectId).orElse(null);
     if (p == null) return ApiResponse.ok(null);
 
-    Optional<EvmCalculation> latest =
-        evmCalculationRepository.findTopByProjectIdOrderByDataDateDesc(projectId);
+    EvmCalculation snap = evmService.computeEvmSnapshot(projectId);
+    double cpi = snap.getCostPerformanceIndex() != null ? snap.getCostPerformanceIndex() : 0.0;
+    double spi = snap.getSchedulePerformanceIndex() != null ? snap.getSchedulePerformanceIndex() : 0.0;
+    BigDecimal bac = nullToZero(snap.getBudgetAtCompletion());
+    BigDecimal eac = nullToZero(snap.getEstimateAtCompletion());
+    BigDecimal ev = nullToZero(snap.getEarnedValue());
+    BigDecimal ac = nullToZero(snap.getActualCost());
 
-    double cpi = latest.map(e -> e.getCostPerformanceIndex() != null ? e.getCostPerformanceIndex() : 0.0).orElse(0.0);
-    double spi = latest.map(e -> e.getSchedulePerformanceIndex() != null ? e.getSchedulePerformanceIndex() : 0.0).orElse(0.0);
-    BigDecimal bac = latest.map(e -> nullToZero(e.getBudgetAtCompletion())).orElse(BigDecimal.ZERO);
-    BigDecimal eac = latest.map(e -> nullToZero(e.getEstimateAtCompletion())).orElse(BigDecimal.ZERO);
-
-    String scheduleRag = bandOne(spi);
-    String costRag = bandOne(cpi);
+    // No EVM signal at all (no budget AND no earned value) → grey, not a false GREEN.
+    boolean hasEvmSignal = bac.signum() > 0 || ev.signum() > 0 || ac.signum() > 0;
+    String scheduleRag = hasEvmSignal ? bandOne(spi) : "GREY";
+    String costRag = hasEvmSignal ? bandOne(cpi) : "GREY";
     String scopeRag = "GREEN"; // no scope-change feed yet
     long activeRisks = queryScalarLong(
         "SELECT COUNT(*) FROM risk.risks WHERE project_id = ?1 AND status NOT IN ('CLOSED','MITIGATED')",
@@ -302,6 +308,17 @@ public class ProjectInsightsController {
       log.debug("cost-variance aggregate failed: {}", e.getMessage());
     }
 
+    // When a node has no explicit WBS budget and no activity_expenses, fall back to the
+    // bottom-up EVM rollup (resource planned cost = budget, DPR/expense actual = actual, EAC = forecast)
+    // so the section reflects the real plan. RAW values → toCrores keeps the crore-transport unit.
+    Map<UUID, WbsEvmNode> rollupByWbs = new HashMap<>();
+    try {
+      flattenWbsEvm(evmRollupService.computeWbsTree(
+          projectId, EvmTechnique.ACTIVITY_PERCENT_COMPLETE, EtcMethod.CPI_BASED), rollupByWbs);
+    } catch (Exception e) {
+      log.debug("cost-variance EVM rollup fallback failed: {}", e.getMessage());
+    }
+
     List<CostVarianceRow> result = new ArrayList<>();
     for (WbsNode n : nodes) {
       BigDecimal budget = n.getBudgetCrores() != null ? n.getBudgetCrores() : BigDecimal.ZERO;
@@ -313,6 +330,16 @@ public class ProjectInsightsController {
         committed = agg[0];
         actualRupees = agg[1];
         forecastRupees = agg[2];
+      }
+      if (budget.signum() == 0 && actualRupees.signum() == 0 && forecastRupees.signum() == 0) {
+        WbsEvmNode roll = rollupByWbs.get(n.getId());
+        if (roll != null) {
+          // Budget column is crore-scaled (toCrores applied below for the others); convert the
+          // raw rollup BAC to crore units so it lands in the same basis as n.getBudgetCrores().
+          budget = toCrores(nullToZero(roll.budgetAtCompletion()));
+          actualRupees = nullToZero(roll.actualCost());
+          forecastRupees = nullToZero(roll.estimateAtCompletion());
+        }
       }
       BigDecimal actualCrores = toCrores(actualRupees);
       BigDecimal committedCrores = toCrores(committed);
@@ -725,6 +752,14 @@ public class ProjectInsightsController {
 
   // ─────────────── helpers ───────────────
 
+  private static void flattenWbsEvm(List<WbsEvmNode> nodes, Map<UUID, WbsEvmNode> out) {
+    if (nodes == null) return;
+    for (WbsEvmNode n : nodes) {
+      out.put(n.wbsNodeId(), n);
+      flattenWbsEvm(n.children(), out);
+    }
+  }
+
   private static double computePlannedPct(LocalDate today, LocalDate start, LocalDate finish) {
     if (start == null || finish == null) return 0.0;
     if (!today.isAfter(start)) return 0.0;
@@ -749,7 +784,6 @@ public class ProjectInsightsController {
   }
 
   private static String bandOne(double idx) {
-    if (idx == 0.0) return "GREEN";
     if (idx >= 0.95) return "GREEN";
     if (idx >= 0.85) return "AMBER";
     return "RED";

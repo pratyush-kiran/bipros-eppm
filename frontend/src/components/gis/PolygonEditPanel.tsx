@@ -93,7 +93,7 @@ export function PolygonEditPanel({
       </section>
 
       {saveError && (
-        <div className="rounded-md border border-red-800 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+        <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
           {saveError}
         </div>
       )}
@@ -120,7 +120,7 @@ export function PolygonEditPanel({
               )}
             </p>
             {fetchResult.errorMessages.length > 0 && (
-              <details className="rounded-md border border-red-800 bg-red-950/40 px-2 py-1 text-xs text-red-200">
+              <details className="rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
                 <summary className="cursor-pointer">Show error detail</summary>
                 <ul className="mt-1 list-disc pl-4 space-y-1 break-words">
                   {fetchResult.errorMessages.map((m, i) => (
@@ -132,7 +132,7 @@ export function PolygonEditPanel({
           </>
         )}
         {fetchError && (
-          <div className="rounded-md border border-red-800 bg-red-950/40 px-2 py-1 text-xs text-red-200">
+          <div className="rounded-md border border-danger/30 bg-danger/10 px-2 py-1 text-xs text-danger">
             {fetchError}
           </div>
         )}

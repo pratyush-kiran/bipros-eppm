@@ -14,6 +14,8 @@ import {
 import { portfolioReportApi } from "@/lib/api/portfolioReportApi";
 import { ragFill } from "@/lib/utils/rag";
 import {
+  CHART_TOOLTIP_ITEM_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
   CHART_TOOLTIP_STYLE,
   EmptyBlock,
   LoadingBlock,
@@ -73,7 +75,7 @@ export function DelayedProjectsChart() {
           layout="vertical"
           margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis type="number" stroke="#64748b" style={{ fontSize: "12px" }} />
           <YAxis
             type="category"
@@ -84,6 +86,8 @@ export function DelayedProjectsChart() {
           />
           <Tooltip
             contentStyle={CHART_TOOLTIP_STYLE}
+            labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+            itemStyle={CHART_TOOLTIP_ITEM_STYLE}
             formatter={(value, _name, props) => {
               const row = props.payload as (typeof chartData)[number];
               return [

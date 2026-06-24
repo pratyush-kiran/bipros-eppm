@@ -15,6 +15,8 @@ import {
 import {
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
@@ -78,6 +80,8 @@ export function CostSCurveChart({ data, isLoading }: Props) {
               />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
+                labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                 formatter={(value, name) => [formatINR(Number(value)), String(name)]}
               />
               <Legend

@@ -17,6 +17,8 @@ import { KpiTile } from "@/components/common/KpiTile";
 import { ragFill, ragFromScore } from "@/lib/utils/rag";
 import {
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
@@ -122,11 +124,13 @@ export function ResourcesSection({ projectId }: { projectId: string }) {
           </h3>
           <ResponsiveContainer width="100%" height={Math.max(220, topRows.length * 30)}>
             <BarChart data={topRows} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis type="number" stroke="#64748b" style={{ fontSize: "12px" }} domain={[0, 100]} />
               <YAxis type="category" dataKey="name" stroke="#64748b" style={{ fontSize: "11px" }} width={160} />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
+                labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                 formatter={(value, _name, props) => {
                   const row = props.payload as (typeof topRows)[number];
                   return [`${Number(value ?? 0).toFixed(1)}% (${row.type})`, "Util"];

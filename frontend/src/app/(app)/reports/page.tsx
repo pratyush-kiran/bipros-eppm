@@ -22,6 +22,7 @@ import {
 import { ProjectReportsCanvas } from "@/components/reports/project-canvas/ProjectReportsCanvas";
 import { downloadCsv, toCsv } from "@/lib/utils/csvExport";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 import { reportApi } from "@/lib/api/reportApi";
 import { reportDataApi } from "@/lib/api/reportDataApi";
 import { projectApi } from "@/lib/api/projectApi";
@@ -35,6 +36,7 @@ import { RiskRegisterReport } from "@/components/reports/RiskRegisterReport";
 import { ResourceUtilizationReport } from "@/components/reports/ResourceUtilizationReport";
 import type { ProjectResponse } from "@/lib/types";
 import { SimpleTable } from "@/components/common/SimpleTable";
+import { ProjectCurrencyProvider } from "@/lib/currency/ProjectCurrencyProvider";
 import type { ColumnDef } from "@tanstack/react-table";
 
 interface ReportCard {
@@ -604,7 +606,9 @@ export default function ReportsPage() {
               hint="Use the project picker in the header. The canvas pulls Status, Tasks, Schedule, Cost, EVM, Resources, Risks, Milestones, Bills & Compliance into one scrollable view."
             />
           ) : (
-            <ProjectReportsCanvas projectId={selectedProjectId} />
+            <ProjectCurrencyProvider key={selectedProjectId} currency={selectedProject?.budgetCurrency}>
+              <ProjectReportsCanvas projectId={selectedProjectId} />
+            </ProjectCurrencyProvider>
           )}
         </>
       )}
@@ -706,40 +710,44 @@ export default function ReportsPage() {
             </div>
           </a>
 
-          {monthlyProgressData && !monthlyProgressLoading && (
-            <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
-              <MonthlyProgressReport data={monthlyProgressData as any} />
-            </div>
-          )}
+          {selectedProjectId && (
+            <ProjectCurrencyProvider key={selectedProjectId} currency={selectedProject?.budgetCurrency}>
+              {monthlyProgressData && !monthlyProgressLoading && (
+                <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
+                  <MonthlyProgressReport data={monthlyProgressData as any} />
+                </div>
+              )}
 
-          {evmReportData && !evmReportLoading && (
-            <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
-              <EvmReport data={evmReportData as any} />
-            </div>
-          )}
+              {evmReportData && !evmReportLoading && (
+                <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
+                  <EvmReport data={evmReportData as any} />
+                </div>
+              )}
 
-          {cashFlowData && !cashFlowLoading && (
-            <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
-              <CashFlowReport data={cashFlowData as any} />
-            </div>
-          )}
+              {cashFlowData && !cashFlowLoading && (
+                <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
+                  <CashFlowReport data={cashFlowData as any} />
+                </div>
+              )}
 
-          {contractStatusData && !contractStatusLoading && (
-            <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
-              <ContractStatusReport data={contractStatusData as any} />
-            </div>
-          )}
+              {contractStatusData && !contractStatusLoading && (
+                <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
+                  <ContractStatusReport data={contractStatusData as any} />
+                </div>
+              )}
 
-          {riskRegisterData && !riskRegisterLoading && (
-            <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
-              <RiskRegisterReport data={riskRegisterData as any} />
-            </div>
-          )}
+              {riskRegisterData && !riskRegisterLoading && (
+                <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
+                  <RiskRegisterReport data={riskRegisterData as any} />
+                </div>
+              )}
 
-          {resourceUtilizationData && !resourceUtilizationLoading && (
-            <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
-              <ResourceUtilizationReport data={resourceUtilizationData as any} />
-            </div>
+              {resourceUtilizationData && !resourceUtilizationLoading && (
+                <div className="rounded-2xl border border-hairline bg-paper p-6 shadow-[0_1px_2px_rgba(28,28,28,0.04),0_8px_24px_-12px_rgba(28,28,28,0.08)]">
+                  <ResourceUtilizationReport data={resourceUtilizationData as any} />
+                </div>
+              )}
+            </ProjectCurrencyProvider>
           )}
 
           {!selectedProjectId && (
@@ -864,7 +872,7 @@ export default function ReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
                   <YAxis />
-                  <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#e2e8f0" }} />
+                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={CHART_TOOLTIP_LABEL_STYLE} itemStyle={CHART_TOOLTIP_ITEM_STYLE} />
                   <Legend />
                   <Line type="monotone" dataKey="pv" stroke="#3b82f6" name="Planned Value" />
                   <Line type="monotone" dataKey="ev" stroke="#10b981" name="Earned Value" />
@@ -881,7 +889,7 @@ export default function ReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#e2e8f0" }} />
+                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={CHART_TOOLTIP_LABEL_STYLE} itemStyle={CHART_TOOLTIP_ITEM_STYLE} />
                   <Legend />
                   {reportData.histogram.length > 0 &&
                     Object.keys(reportData.histogram[0])
@@ -901,7 +909,7 @@ export default function ReportsPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
                   <YAxis />
-                  <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "8px", color: "#e2e8f0" }} />
+                  <Tooltip contentStyle={CHART_TOOLTIP_STYLE} labelStyle={CHART_TOOLTIP_LABEL_STYLE} itemStyle={CHART_TOOLTIP_ITEM_STYLE} />
                   <Legend />
                   <Bar dataKey="income" fill="#10b981" name="Income" />
                   <Bar dataKey="expense" fill="#ef4444" name="Expense" />

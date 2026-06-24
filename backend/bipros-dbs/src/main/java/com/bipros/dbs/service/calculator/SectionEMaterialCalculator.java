@@ -23,11 +23,9 @@ import java.util.UUID;
  * receiver semantics, not the supervisor-who-executed-work semantics that DBS attributes by.
  * Project-only attribution avoids double-counting at the project rollup.
  *
- * <p><b>Bug 5 fix (2026-05-17):</b> Diesel / fuel / petrol / HSD rows are EXCLUDED from
- * Section E because {@link SectionDFuelCalculator} already books them as fuel. Without
- * this filter the same DPR material row appeared in both Section D (Fuel) and Section E
- * (Material), double-counting the line in Total Expense. The exclusion mirrors the WHERE
- * clause used by the fuel calculator's fallback path so the two stay in lockstep.
+ * <p>Diesel / fuel / petrol / HSD material rows ARE included here as ordinary material
+ * cost. Section D (Fuel) is now a derived figure (a configurable % of Section C machinery)
+ * and no longer sources from material rows, so there is no double-count.
  */
 @Slf4j
 @Component
@@ -43,9 +41,6 @@ public class SectionEMaterialCalculator {
 
         // ── (1) DPR material rows (the real cost source) ──────────────────────────
         try {
-            // Bug 5 fix: exclude diesel / fuel / petrol / HSD — those are booked as Section D
-            // (Fuel). Without this filter the same row would appear in both Section D and
-            // Section E, inflating Total Expense by the duplicate amount.
             String dprSql = """
                 SELECT mat.material_name,
                        COALESCE(mat.unit, '')                                 AS unit,
@@ -59,10 +54,6 @@ public class SectionEMaterialCalculator {
                 WHERE d.project_id = cast(:pid as uuid)
                   AND d.report_date = :dt
                   AND (cast(:sup as uuid) IS NULL OR d.supervisor_user_id = cast(:sup as uuid))
-                  AND NOT (mat.material_name ILIKE '%diesel%'
-                        OR mat.material_name ILIKE '%fuel%'
-                        OR mat.material_name ILIKE '%petrol%'
-                        OR mat.material_name ILIKE '%hsd%')
                 """;
             List<Object[]> rows = em.createNativeQuery(dprSql)
                 .setParameter("pid", projectId.toString())
@@ -100,8 +91,6 @@ public class SectionEMaterialCalculator {
         // ── (2) Legacy MCL rows — project-only attribution (no clean supervisor FK). ─
         if (supervisorUserId == null) {
             try {
-                // Bug 5 fix: same fuel-name exclusion as the DPR-material query above so MCL
-                // diesel/fuel rows aren't double-counted alongside Section D fuel.
                 String mclSql = """
                     SELECT material_name,
                            COALESCE(unit, '')           AS unit,
@@ -111,10 +100,6 @@ public class SectionEMaterialCalculator {
                     FROM resource.material_consumption_logs
                     WHERE project_id = :pid
                       AND log_date = :dt
-                      AND NOT (material_name ILIKE '%diesel%'
-                            OR material_name ILIKE '%fuel%'
-                            OR material_name ILIKE '%petrol%'
-                            OR material_name ILIKE '%hsd%')
                     """;
                 List<Object[]> rows = em.createNativeQuery(mclSql)
                     .setParameter("pid", projectId)

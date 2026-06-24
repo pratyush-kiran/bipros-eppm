@@ -5,38 +5,14 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { dashboardApi } from "@/lib/api/dashboardApi";
 import { projectApi } from "@/lib/api/projectApi";
 import { riskApi } from "@/lib/api/riskApi";
+import { portfolioReportApi } from "@/lib/api/portfolioReportApi";
+import { formatMoney } from "@/lib/currency/format";
+import { BudgetByCurrencyChip } from "@/components/dashboards/common/BudgetByCurrencyChip";
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, ShieldAlert, Sparkles } from "lucide-react";
-import type { ProjectResponse, WbsNodeResponse } from "@/lib/types";
+import type { ProjectResponse } from "@/lib/types";
 import type { RiskRag, RiskResponse } from "@/lib/api/riskApi";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
-
-// IC-PMS budgets are in INR crores on WBS nodes.
-function formatCrores(crores: number): string {
-  const rounded = Number.isFinite(crores) ? Math.round(crores * 100) / 100 : 0;
-  return `₹${rounded.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}cr`;
-}
-
-function pickTopLevelBudgetCrores(nodes: WbsNodeResponse[]): number {
-  const roots = nodes.filter((n) => n.budgetCrores != null);
-  if (roots.length > 0) return roots.reduce((s, n) => s + Number(n.budgetCrores ?? 0), 0);
-  let total = 0;
-  for (const n of nodes) {
-    if (n.budgetCrores != null) total += Number(n.budgetCrores);
-    if (n.children?.length) total += pickTopLevelBudgetCrores(n.children);
-  }
-  return total;
-}
-
-function pickRootPercentComplete(nodes: WbsNodeResponse[]): number {
-  for (const n of nodes) {
-    if (n.summaryPercentComplete != null) return Number(n.summaryPercentComplete);
-  }
-  return 0;
-}
 
 const RAG_SEVERITY: Record<RiskRag, number> = {
   CRIMSON: 5,
@@ -78,12 +54,6 @@ function progressBarClass(percent: number, planned?: number): string {
   return "bg-bronze-warn";
 }
 
-function budgetBarClass(util: number): string {
-  if (util > 90) return "bg-burgundy";
-  if (util > 75) return "bg-bronze-warn";
-  return "bg-emerald";
-}
-
 export default function ExecutiveDashboardPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
@@ -106,21 +76,21 @@ export default function ExecutiveDashboardPage() {
     enabled: !!selectedProjectId,
   });
 
+  const { data: scorecard } = useQuery({
+    queryKey: ["portfolio-scorecard"],
+    queryFn: () => portfolioReportApi.getScorecard(),
+    staleTime: 60_000,
+  });
+
+  const { data: evmRollup } = useQuery({
+    queryKey: ["portfolio-evm-rollup"],
+    queryFn: () => portfolioReportApi.getEvmRollup(),
+    staleTime: 60_000,
+  });
+
   const projects = projectsData?.data?.content ?? [];
 
-  const wbsQueries = useQueries({
-    queries: projects.map((p: ProjectResponse) => ({
-      queryKey: ["wbs", p.id],
-      queryFn: () => projectApi.getWbsTree(p.id),
-      staleTime: 60_000,
-    })),
-  });
-
-  const wbsByProjectId = new Map<string, WbsNodeResponse[]>();
-  projects.forEach((p: ProjectResponse, i: number) => {
-    const resp = wbsQueries[i]?.data;
-    if (resp?.data) wbsByProjectId.set(p.id, resp.data);
-  });
+  const evmByProjectId = new Map((evmRollup?.data ?? []).map((r) => [r.projectId, r]));
 
   const riskQueries = useQueries({
     queries: projects.map((p: ProjectResponse) => ({
@@ -144,10 +114,6 @@ export default function ExecutiveDashboardPage() {
   // Roll-ups for the KPI strip
   const totalProjects = projects.length;
   const activeCount = projects.filter((p: ProjectResponse) => p.status === "ACTIVE").length;
-  const totalBudget = projects.reduce((sum: number, p: ProjectResponse) => {
-    const wbs = wbsByProjectId.get(p.id) ?? [];
-    return sum + pickTopLevelBudgetCrores(wbs);
-  }, 0);
   const criticalRiskCount = allRisks.filter(
     (r) => r.rag === "CRIMSON" || r.rag === "RED"
   ).length;
@@ -188,15 +154,19 @@ export default function ExecutiveDashboardPage() {
       </div>
 
       {/* KPI strip */}
-      <div className="mb-7 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <KpiCard label="Projects" value={totalProjects} />
         <KpiCard label="Active" value={activeCount} accent="emerald" />
-        <KpiCard label="Portfolio budget" value={formatCrores(totalBudget)} accent="gold" />
+        <KpiCard label="Avg progress" value={`${Math.round(scorecard?.avgPercentComplete ?? 0)}%`} accent="gold" />
         <KpiCard
           label="Critical risks"
           value={criticalRiskCount}
           accent={criticalRiskCount > 0 ? "burgundy" : "emerald"}
         />
+      </div>
+      <div className="mb-7 flex items-center gap-2 text-xs text-slate">
+        <span className="font-semibold uppercase tracking-[0.14em] text-gold-deep">Budget by currency</span>
+        <BudgetByCurrencyChip items={scorecard?.budgetByCurrency ?? []} />
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
@@ -219,12 +189,16 @@ export default function ExecutiveDashboardPage() {
             ) : (
               <ul className="divide-y divide-hairline">
                 {projects.map((project: ProjectResponse) => {
-                  const wbs = wbsByProjectId.get(project.id) ?? [];
-                  const budgetCrores = pickTopLevelBudgetCrores(wbs);
-                  const progressPercent = Math.round(pickRootPercentComplete(wbs));
-                  const spentCrores = (budgetCrores * progressPercent) / 100;
-                  const budgetUtilization =
-                    budgetCrores > 0 ? (spentCrores / budgetCrores) * 100 : 0;
+                  const row = evmByProjectId.get(project.id);
+                  const progressPercent = Math.round(row?.percentComplete ?? 0);
+                  const budgetLabel =
+                    row && row.bac > 0
+                      ? formatMoney(
+                          row.bac,
+                          { code: row.budgetCurrency ?? project.budgetCurrency ?? "INR" },
+                          { compact: true },
+                        )
+                      : "—";
                   const isSelected = selectedProjectId === project.id;
 
                   return (
@@ -268,9 +242,9 @@ export default function ExecutiveDashboardPage() {
                           />
                           <ProgressRow
                             label="Budget"
-                            value={`${formatCrores(spentCrores)} / ${formatCrores(budgetCrores)}`}
-                            percent={budgetUtilization}
-                            barClass={budgetBarClass(budgetUtilization)}
+                            value={budgetLabel}
+                            percent={0}
+                            barClass=""
                           />
                         </div>
                       </button>

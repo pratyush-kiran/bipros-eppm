@@ -10,7 +10,6 @@ import {
   EmptyBlock,
   LoadingBlock,
   SectionCard,
-  formatCrore,
   truncate,
 } from "@/components/common/dashboard/primitives";
 import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
@@ -20,8 +19,8 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
   // The project-canvas can render on the portfolio reports page (outside a
   // project route), so fall back to INR when no project currency is in context.
   const currency = useProjectCurrencyOptional();
-  const money = (value: number | null | undefined) =>
-    currency ? currency.money(value, { decimals: 0 }) : formatMoney(value, { code: "INR" }, { decimals: 0 });
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
 
   const billsQuery = useQuery({
     queryKey: ["project-ra-bill-summary", projectId],
@@ -73,7 +72,7 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
         header: "Gross",
         cell: (info) => (
           <span className="block text-right font-mono">
-            {money(info.getValue() as number)}
+            {moneyCompact(info.getValue() as number)}
           </span>
         ),
       },
@@ -82,7 +81,7 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
         header: "Net",
         cell: (info) => (
           <span className="block text-right font-mono">
-            {money(info.getValue() as number)}
+            {moneyCompact(info.getValue() as number)}
           </span>
         ),
       },
@@ -132,7 +131,7 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
                 v < 0 ? "text-success" : "text-danger"
               }`}
             >
-              {formatCrore(v)}
+              {moneyCompact(v * 1e7)}
             </span>
           );
         },
@@ -161,7 +160,8 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
         cell: (info) => <span>{(info.getValue() as string) ?? "—"}</span>,
       },
     ],
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currency]
   );
 
   if (billsQuery.isLoading || vosQuery.isLoading)
@@ -199,12 +199,12 @@ export function BillsVosSection({ projectId }: { projectId: string }) {
       {hasBills && bills && (
         <>
           <div className="mb-3 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
-            <KpiTile label="Submitted" value={formatCrore(bills.totalSubmittedCrores)} />
-            <KpiTile label="Pending approval" value={formatCrore(bills.pendingApprovalCrores)} tone="warning" />
-            <KpiTile label="Approved" value={formatCrore(bills.approvedCrores)} tone="accent" />
-            <KpiTile label="Paid" value={formatCrore(bills.paidCrores)} tone="success" />
-            <KpiTile label="Rejected" value={formatCrore(bills.rejectedCrores)} tone="danger" />
-            <KpiTile label="Retention" value={formatCrore(bills.retentionHeldCrores)} />
+            <KpiTile label="Submitted" value={moneyCompact(bills.totalSubmittedCrores * 1e7)} />
+            <KpiTile label="Pending approval" value={moneyCompact(bills.pendingApprovalCrores * 1e7)} tone="warning" />
+            <KpiTile label="Approved" value={moneyCompact(bills.approvedCrores * 1e7)} tone="accent" />
+            <KpiTile label="Paid" value={moneyCompact(bills.paidCrores * 1e7)} tone="success" />
+            <KpiTile label="Rejected" value={moneyCompact(bills.rejectedCrores * 1e7)} tone="danger" />
+            <KpiTile label="Retention" value={moneyCompact(bills.retentionHeldCrores * 1e7)} />
           </div>
 
           {bills.bills && bills.bills.length > 0 && (

@@ -17,6 +17,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { CashFlowEntry } from "@/lib/api/reportDataApi";
 import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
 import { formatMoney } from "@/lib/currency/format";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 
 interface CashFlowReportProps {
   data: CashFlowEntry[];
@@ -27,10 +28,8 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
   // May render on the portfolio reports page (outside a project route), so fall
   // back to INR when no project currency is in context.
   const currency = useProjectCurrencyOptional();
-  const money = (value: number | null | undefined) =>
-    currency ? currency.money(value) : formatMoney(value, { code: "INR" });
-  const symbol = currency?.symbol ?? "₹";
-
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
   const chartData = useMemo(() => {
     return data.map((entry) => ({
       period: entry.period,
@@ -72,7 +71,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
         header: showCumulative ? "Cum. Planned" : "Planned",
         cell: (info) => (
           <span className="block text-right">
-            {money(Number(info.getValue()))}
+            {moneyCompact(Number(info.getValue()))}
           </span>
         ),
       },
@@ -81,7 +80,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
         header: showCumulative ? "Cum. Actual" : "Actual",
         cell: (info) => (
           <span className="block text-right">
-            {money(Number(info.getValue()))}
+            {moneyCompact(Number(info.getValue()))}
           </span>
         ),
       },
@@ -90,7 +89,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
         header: showCumulative ? "Cum. Forecast" : "Forecast",
         cell: (info) => (
           <span className="block text-right">
-            {money(Number(info.getValue()))}
+            {moneyCompact(Number(info.getValue()))}
           </span>
         ),
       },
@@ -102,7 +101,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg border border-green-200">
+      <div className="rounded-lg border border-border bg-surface/50 p-4">
         <div className="flex justify-between items-start">
           <div>
             <h3 className="font-semibold text-lg text-text-primary">Cash Flow Report</h3>
@@ -124,7 +123,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
       <div className="bg-surface/50 border border-border rounded-lg p-4">
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis
               dataKey="period"
               stroke="#64748b"
@@ -133,15 +132,13 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             <YAxis
               stroke="#64748b"
               style={{ fontSize: "12px" }}
-              label={{ value: `Amount (${symbol})`, angle: -90, position: "insideLeft" }}
+              label={{ value: `Amount (${currency?.code ?? ""})`, angle: -90, position: "insideLeft" }}
             />
             <Tooltip
-              formatter={(value) => money(Number(value))}
-              contentStyle={{
-                backgroundColor: "#1e293b",
-                border: "1px solid #334155",
-                borderRadius: "0.5rem",
-              }}
+              formatter={(value) => moneyCompact(Number(value))}
+              contentStyle={CHART_TOOLTIP_STYLE}
+              labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+              itemStyle={CHART_TOOLTIP_ITEM_STYLE}
             />
             <Legend />
             <Line
@@ -174,15 +171,15 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Total Planned</p>
-          <p className="text-3xl font-bold text-accent">{money(totals.totalPlanned)}</p>
+          <p className="text-3xl font-bold text-accent">{moneyCompact(totals.totalPlanned)}</p>
         </div>
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Total Actual</p>
-          <p className="text-3xl font-bold text-success">{money(totals.totalActual)}</p>
+          <p className="text-3xl font-bold text-success">{moneyCompact(totals.totalActual)}</p>
         </div>
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Total Forecast</p>
-          <p className="text-3xl font-bold text-amber-600">{money(totals.totalForecast)}</p>
+          <p className="text-3xl font-bold text-amber-600">{moneyCompact(totals.totalForecast)}</p>
         </div>
       </div>
 
@@ -194,7 +191,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Variance</span>
               <span className={`font-semibold ${variance.planned >= 0 ? "text-success" : "text-danger"}`}>
-                {money(variance.planned)}
+                {moneyCompact(variance.planned)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
@@ -214,7 +211,7 @@ export function CashFlowReport({ data }: CashFlowReportProps) {
             <div className="flex justify-between text-sm">
               <span className="text-text-secondary">Remaining</span>
               <span className={`font-semibold ${variance.forecast >= 0 ? "text-success" : "text-danger"}`}>
-                {money(variance.forecast)}
+                {moneyCompact(variance.forecast)}
               </span>
             </div>
             <div className="flex justify-between text-sm">

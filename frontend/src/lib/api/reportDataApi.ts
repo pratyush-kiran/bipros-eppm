@@ -23,7 +23,7 @@ export interface ActivitySummaryRow {
   code: string;
   name: string;
   status: string;
-  totalFloat: number;
+  delayDays: number;
   plannedFinish: string;
 }
 
@@ -32,6 +32,7 @@ export interface EvmReportData {
   pv: number; // Planned Value
   ev: number; // Earned Value
   ac: number; // Actual Cost
+  bac: number; // Budget at Completion
   spi: number; // Schedule Performance Index
   cpi: number; // Cost Performance Index
   eac: number; // Estimate at Completion

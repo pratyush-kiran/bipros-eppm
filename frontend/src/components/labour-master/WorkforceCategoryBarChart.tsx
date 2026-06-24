@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { LabourCategorySummary } from "@/lib/api/labourMasterApi";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 import { CATEGORY_ACCENT } from "./labourMasterTokens";
 
 type Props = { rows: LabourCategorySummary[] };
@@ -54,14 +55,9 @@ export function WorkforceCategoryBarChart({ rows }: Props) {
             />
             <Tooltip
               cursor={{ fill: "var(--ivory)", opacity: 0.6 }}
-              contentStyle={{
-                background: "var(--paper)",
-                border: "1px solid var(--hairline)",
-                borderRadius: 8,
-                color: "var(--charcoal)",
-                fontSize: 12,
-              }}
-              labelStyle={{ color: "var(--slate)" }}
+              contentStyle={CHART_TOOLTIP_STYLE}
+              labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+              itemStyle={CHART_TOOLTIP_ITEM_STYLE}
               formatter={(value) => [value ?? 0, "Workers"]}
             />
             <Bar dataKey="workers" radius={[0, 4, 4, 0]}>

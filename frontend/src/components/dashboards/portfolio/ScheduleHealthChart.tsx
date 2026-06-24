@@ -15,6 +15,8 @@ import { portfolioReportApi } from "@/lib/api/portfolioReportApi";
 import { ragFill, ragFromScore } from "@/lib/utils/rag";
 import {
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
@@ -70,7 +72,7 @@ export function ScheduleHealthChart() {
           layout="vertical"
           margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis
             type="number"
             stroke="#64748b"
@@ -86,6 +88,8 @@ export function ScheduleHealthChart() {
           />
           <Tooltip
             contentStyle={CHART_TOOLTIP_STYLE}
+            labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+            itemStyle={CHART_TOOLTIP_ITEM_STYLE}
             formatter={(value, _name, props) => {
               const row = props.payload as (typeof chartData)[number];
               return [

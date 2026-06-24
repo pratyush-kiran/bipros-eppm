@@ -387,7 +387,7 @@ export function MapViewer({
         className="w-full h-[32rem] bg-surface-hover rounded-lg border border-border"
       />
       {selectedPolygon && (
-        <div className="mt-4 p-3 bg-blue-950 border border-blue-700 rounded">
+        <div className="mt-4 p-3 bg-info/10 border border-info/20 rounded">
           <p className="text-sm font-medium text-text-primary">
             Selected: {String(selectedPolygon.wbsCode ?? "")}
           </p>

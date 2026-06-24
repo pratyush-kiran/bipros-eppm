@@ -77,6 +77,7 @@ public class DbsQueryService {
     private final DailyProgressReportRepository dprRepository;
     private final ObjectMapper objectMapper;
     private final DbsAlertEvaluator alertEvaluator;
+    private final com.bipros.dbs.config.DbsProperties dbsProperties;
 
     /**
      * Used for lightweight cross-schema lookups (e.g. resolving supervisor display
@@ -146,7 +147,9 @@ public class DbsQueryService {
         DbsDailyProject row = projectRepo.findByProjectIdAndReportDate(projectId, date).orElse(null);
         List<DbsDailyProject> historical = projectRepo
             .findByProjectIdAndReportDateBetween(projectId, LocalDate.of(1970, 1, 1), date);
-        BigDecimal cumExpense = sum(historical, DbsDailyProject::getTotalExpense);
+        BigDecimal cumExpense = historical.stream()
+            .map(h -> liveExpense(h.getTotalExpense(), h.getFuelAmount(), h.getMachineryAmount()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal cumIncome = sum(historical, DbsDailyProject::getTotalIncome);
         BigDecimal cumContribution = cumIncome.subtract(cumExpense).setScale(2, RoundingMode.HALF_UP);
         return row == null
@@ -292,9 +295,11 @@ public class DbsQueryService {
             .map(entry -> {
                 List<DbsDailySupervisor> daily = entry.getValue();
                 UUID supId = entry.getKey();
-                BigDecimal expense = sumRows(daily, DbsDailySupervisor::getTotalExpense);
+                BigDecimal expense = daily.stream()
+                    .map(d -> liveExpense(d.getTotalExpense(), d.getFuelAmount(), d.getMachineryAmount()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal income = sumRows(daily, DbsDailySupervisor::getTotalIncome);
-                BigDecimal contribution = sumRows(daily, DbsDailySupervisor::getContribution);
+                BigDecimal contribution = income.subtract(expense);
                 BigDecimal direct = sumRows(daily, DbsDailySupervisor::getDirectCost);
                 BigDecimal prelim = sumRows(daily, DbsDailySupervisor::getPrelimCost);
                 BigDecimal totalIncl = direct.add(prelim);
@@ -333,27 +338,55 @@ public class DbsQueryService {
             .filter(Objects::nonNull)
             .collect(Collectors.toCollection(LinkedHashSet::new)));
         return rows.stream()
-            .map(r -> new DbsSupervisorSummaryDto(
-                r.getSupervisorUserId(),
-                nameByUser.get(r.getSupervisorUserId()),
-                nz(r.getTotalExpense()),
-                nz(r.getTotalIncome()),
-                nz(r.getContribution()),
-                nz(r.getContributionPct()),
-                // Phase 7: BOQ direct/prelim split + cumulative progress KPI.
-                nz(r.getDirectCost()),
-                nz(r.getPrelimCost()),
-                nz(r.getTotalCostInclPrelims()),
-                nz(r.getPctAchieved()),
-                // The supervisor row is per-(project, supervisor, date); each row corresponds to
-                // the aggregated work for that supervisor that day. We surface 1 as the count
-                // because we don't currently persist the source-DPR count on the supervisor row.
-                // TODO bug-5/8 follow-up: when DailyProgressReportRepository gains a
-                // countByProjectIdAndReportDateAndSupervisorUserId finder, surface the real
-                // source-DPR count here.
-                1
-            ))
+            .map(r -> {
+                BigDecimal expense = liveExpense(r.getTotalExpense(), r.getFuelAmount(), r.getMachineryAmount());
+                BigDecimal income = nz(r.getTotalIncome());
+                BigDecimal contribution = income.subtract(expense);
+                return new DbsSupervisorSummaryDto(
+                    r.getSupervisorUserId(),
+                    nameByUser.get(r.getSupervisorUserId()),
+                    expense,
+                    income,
+                    contribution,
+                    pctFraction(contribution, income),
+                    // Phase 7: BOQ direct/prelim split + cumulative progress KPI.
+                    nz(r.getDirectCost()),
+                    nz(r.getPrelimCost()),
+                    nz(r.getTotalCostInclPrelims()),
+                    nz(r.getPctAchieved()),
+                    // The supervisor row is per-(project, supervisor, date); each row corresponds to
+                    // the aggregated work for that supervisor that day. We surface 1 as the count
+                    // because we don't currently persist the source-DPR count on the supervisor row.
+                    // TODO bug-5/8 follow-up: when DailyProgressReportRepository gains a
+                    // countByProjectIdAndReportDateAndSupervisorUserId finder, surface the real
+                    // source-DPR count here.
+                    1
+                );
+            })
             .toList();
+    }
+
+    // ── fuel derivation (read-time) ─────────────────────────────────────────────
+    // Section D (Fuel) is a pure function of Section C (Machinery): fuel = ratio ×
+    // machinery. We compute it on read so every view (any supervisor / period) is
+    // always correct without a recompute. liveExpense swaps the (possibly stale)
+    // stored fuel out of the stored totalExpense and the freshly-derived fuel in —
+    // correct whether or not the day was recomputed, and tier-agnostic because the
+    // stored totalExpense already sums each tier's own buckets.
+
+    private BigDecimal fuelOf(BigDecimal machinery) {
+        return nz(machinery).multiply(dbsProperties.getFuelMachineryCostRatio())
+            .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal liveExpense(BigDecimal storedTotalExpense, BigDecimal storedFuel, BigDecimal machinery) {
+        return nz(storedTotalExpense).subtract(nz(storedFuel)).add(fuelOf(machinery));
+    }
+
+    private static BigDecimal pctFraction(BigDecimal contribution, BigDecimal income) {
+        return income.compareTo(BigDecimal.ZERO) > 0
+            ? contribution.divide(income, 4, RoundingMode.HALF_UP)
+            : BigDecimal.ZERO;
     }
 
     // ── mappers ─────────────────────────────────────────────────────────────────
@@ -362,6 +395,10 @@ public class DbsQueryService {
         String supervisorName = e.getSupervisorUserId() == null
             ? null
             : resolveUserNames(Set.of(e.getSupervisorUserId())).get(e.getSupervisorUserId());
+        BigDecimal fuel = fuelOf(e.getMachineryAmount());
+        BigDecimal expense = liveExpense(e.getTotalExpense(), e.getFuelAmount(), e.getMachineryAmount());
+        BigDecimal income = nz(e.getTotalIncome());
+        BigDecimal contribution = income.subtract(expense);
         return new DbsSupervisorDayResponse(
             e.getId(),
             e.getProjectId(),
@@ -373,7 +410,7 @@ public class DbsQueryService {
             nz(e.getManpowerAmount()),
             nz(e.getAdminAmount()),
             nz(e.getMachineryAmount()),
-            nz(e.getFuelAmount()),
+            fuel,
             nz(e.getSubcontractAmount()),
             nz(e.getBoqForTheDayAmount()),
             nz(e.getBoqPlannedAmount()),
@@ -382,10 +419,10 @@ public class DbsQueryService {
             nz(e.getPrelimCost()),
             nz(e.getTotalCostInclPrelims()),
             nz(e.getPctAchieved()),
-            nz(e.getTotalExpense()),
-            nz(e.getTotalIncome()),
-            nz(e.getContribution()),
-            nz(e.getContributionPct()),
+            expense,
+            income,
+            contribution,
+            pctFraction(contribution, income),
             parseLines(e.getMaterialLinesJson()),
             parseLines(e.getManpowerLinesJson()),
             parseLines(e.getAdminLinesJson()),
@@ -398,6 +435,10 @@ public class DbsQueryService {
     }
 
     private DbsEngineerDayResponse toResponse(DbsDailyEngineer e) {
+        BigDecimal fuel = fuelOf(e.getMachineryAmount());
+        BigDecimal expense = liveExpense(e.getTotalExpense(), e.getFuelAmount(), e.getMachineryAmount());
+        BigDecimal income = nz(e.getTotalIncome());
+        BigDecimal contribution = income.subtract(expense);
         return new DbsEngineerDayResponse(
             e.getId(),
             e.getProjectId(),
@@ -408,7 +449,7 @@ public class DbsQueryService {
             nz(e.getManpowerAmount()),
             nz(e.getAdminAmount()),
             nz(e.getMachineryAmount()),
-            nz(e.getFuelAmount()),
+            fuel,
             nz(e.getSubcontractAmount()),
             nz(e.getBoqForTheDayAmount()),
             nz(e.getBoqPlannedAmount()),
@@ -417,10 +458,10 @@ public class DbsQueryService {
             nz(e.getPrelimCost()),
             nz(e.getTotalCostInclPrelims()),
             nz(e.getPctAchieved()),
-            nz(e.getTotalExpense()),
-            nz(e.getTotalIncome()),
-            nz(e.getContribution()),
-            nz(e.getContributionPct()),
+            expense,
+            income,
+            contribution,
+            pctFraction(contribution, income),
             e.getRecomputedAt()
         );
     }
@@ -438,7 +479,7 @@ public class DbsQueryService {
             nz(e.getManpowerAmount()),
             nz(e.getAdminAmount()),
             nz(e.getMachineryAmount()),
-            nz(e.getFuelAmount()),
+            fuelOf(e.getMachineryAmount()),
             nz(e.getDirectCost()),
             nz(e.getPrelimCost()),
             nz(e.getTotalCostInclPrelims()),
@@ -455,6 +496,10 @@ public class DbsQueryService {
                                               BigDecimal cumExpense,
                                               BigDecimal cumIncome,
                                               BigDecimal cumContribution) {
+        BigDecimal fuel = fuelOf(e.getMachineryAmount());
+        BigDecimal expense = liveExpense(e.getTotalExpense(), e.getFuelAmount(), e.getMachineryAmount());
+        BigDecimal income = nz(e.getTotalIncome());
+        BigDecimal contribution = income.subtract(expense);
         return new DbsProjectDayResponse(
             e.getId(),
             e.getProjectId(),
@@ -466,7 +511,7 @@ public class DbsQueryService {
             nz(e.getManpowerAmount()),
             nz(e.getAdminAmount()),
             nz(e.getMachineryAmount()),
-            nz(e.getFuelAmount()),
+            fuel,
             nz(e.getSubcontractAmount()),
             nz(e.getGeneralExpenseAmount()),
             nz(e.getGeneralExpenseMonthlyTotal()),
@@ -478,10 +523,10 @@ public class DbsQueryService {
             nz(e.getPrelimCost()),
             nz(e.getTotalCostInclPrelims()),
             nz(e.getPctAchieved()),
-            nz(e.getTotalExpense()),
-            nz(e.getTotalIncome()),
-            nz(e.getContribution()),
-            nz(e.getContributionPct()),
+            expense,
+            income,
+            contribution,
+            pctFraction(contribution, income),
             cumExpense,
             cumIncome,
             cumContribution,
@@ -720,7 +765,9 @@ public class DbsQueryService {
         // Cumulative through "to" — fetched fresh, not summed from daily (those carry zero cum).
         List<DbsDailyProject> historical = projectRepo
             .findByProjectIdAndReportDateBetween(projectId, LocalDate.of(1970, 1, 1), to);
-        BigDecimal cumExpense = sum(historical, DbsDailyProject::getTotalExpense);
+        BigDecimal cumExpense = historical.stream()
+            .map(h -> liveExpense(h.getTotalExpense(), h.getFuelAmount(), h.getMachineryAmount()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal cumIncome = sum(historical, DbsDailyProject::getTotalIncome);
         BigDecimal cumContribution = cumIncome.subtract(cumExpense).setScale(2, RoundingMode.HALF_UP);
 

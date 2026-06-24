@@ -5,6 +5,8 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
@@ -72,6 +74,8 @@ export function CostVarianceDonut({ summary, isLoading }: Props) {
                 </Pie>
                 <Tooltip
                   contentStyle={CHART_TOOLTIP_STYLE}
+                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                   formatter={(value, name) => [`${Number(value)} items`, String(name)]}
                 />
               </PieChart>

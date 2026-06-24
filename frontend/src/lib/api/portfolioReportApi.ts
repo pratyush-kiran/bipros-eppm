@@ -1,6 +1,11 @@
 import { apiClient } from "./client";
 import type { ApiResponse } from "../types";
 
+export interface CurrencyBudget {
+  currency: string;
+  totalBudgetRaw: number;
+}
+
 export interface PortfolioEvmRow {
   projectId: string;
   projectCode: string;
@@ -14,6 +19,8 @@ export interface PortfolioEvmRow {
   sv: number;
   eac: number;
   bac: number;
+  budgetCurrency: string | null;
+  percentComplete: number;
 }
 
 export interface PortfolioScorecard {
@@ -22,9 +29,13 @@ export interface PortfolioScorecard {
   totalBudgetCrores: number;
   totalCommittedCrores: number;
   totalSpentCrores: number;
-  rag: { green: number; amber: number; red: number };
+  rag: { green: number; amber: number; red: number; grey: number };
   activeProjectsWithCriticalActivities: number;
   openRisksCritical: number;
+  budgetByCurrency: CurrencyBudget[];
+  spentByCurrency: CurrencyBudget[];
+  committedByCurrency: CurrencyBudget[];
+  avgPercentComplete: number;
 }
 
 export interface DelayedProjectRow {
@@ -46,6 +57,7 @@ export interface CostOverrunRow {
   eacCrores: number;
   varianceCrores: number;
   cpi: number;
+  budgetCurrency: string | null;
 }
 
 export interface FundingUtilizationRow {
@@ -58,6 +70,7 @@ export interface FundingUtilizationRow {
   releasePct: number;
   utilizationPct: number;
   fundingStatus: string;
+  currency: string | null;
 }
 
 export interface ContractorLeagueRow {
@@ -100,6 +113,7 @@ export interface CashFlowOutlookPoint {
   plannedInflowCrores: number;
   netCrores: number;
   cumulativeCrores: number;
+  currency: string | null;
 }
 
 export interface ComplianceRow {

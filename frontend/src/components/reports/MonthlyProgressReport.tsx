@@ -6,12 +6,18 @@ import { SimpleTable } from "@/components/common/SimpleTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Progress } from "@/components/ui/progress";
 import type { MonthlyProgressData, ActivitySummaryRow } from "@/lib/api/reportDataApi";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 interface MonthlyProgressReportProps {
   data: MonthlyProgressData;
 }
 
 export function MonthlyProgressReport({ data }: MonthlyProgressReportProps) {
+  const currency = useProjectCurrencyOptional();
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
+
   const costVariance = useMemo(() => {
     const variance = data.budgetAmount - data.actualCost;
     const percentage = data.budgetAmount > 0 ? (variance / data.budgetAmount) * 100 : 0;
@@ -54,7 +60,7 @@ export function MonthlyProgressReport({ data }: MonthlyProgressReportProps) {
         ),
       },
       {
-        accessorKey: "totalFloat",
+        accessorKey: "delayDays",
         header: "Days Delayed",
         cell: (info) => (
           <span className="block text-right text-danger font-semibold">
@@ -78,7 +84,7 @@ export function MonthlyProgressReport({ data }: MonthlyProgressReportProps) {
   return (
     <div className="space-y-6">
       {/* Header Info */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+      <div className="rounded-lg border border-border bg-surface/50 p-4">
         <div className="flex justify-between items-start">
           <div>
             <h3 className="font-semibold text-lg text-text-primary">{data.projectName}</h3>
@@ -158,19 +164,19 @@ export function MonthlyProgressReport({ data }: MonthlyProgressReportProps) {
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-text-secondary">Budget</span>
-                <span className="font-semibold">${data.budgetAmount.toFixed(2)}</span>
+                <span className="font-semibold">{moneyCompact(data.budgetAmount)}</span>
               </div>
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-text-secondary">Actual Cost</span>
-                <span className="font-semibold">${data.actualCost.toFixed(2)}</span>
+                <span className="font-semibold">{moneyCompact(data.actualCost)}</span>
               </div>
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-text-secondary">Forecast</span>
-                <span className="font-semibold">${data.forecastCost.toFixed(2)}</span>
+                <span className="font-semibold">{moneyCompact(data.forecastCost)}</span>
               </div>
             </div>
             <div className="border-t pt-4">
@@ -179,7 +185,7 @@ export function MonthlyProgressReport({ data }: MonthlyProgressReportProps) {
                   Variance
                 </span>
                 <span className={`font-semibold ${costVariance.percentage >= 0 ? "text-success" : "text-danger"}`}>
-                  ${costVariance.amount.toFixed(2)} ({costVariance.percentage.toFixed(1)}%)
+                  {moneyCompact(costVariance.amount)} ({costVariance.percentage.toFixed(1)}%)
                 </span>
               </div>
             </div>

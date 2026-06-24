@@ -15,24 +15,27 @@ function MetricCard({
   value,
   isGood,
   suffix = "",
+  display,
 }: {
   label: string;
   value: number;
   isGood: boolean;
   suffix?: string;
+  display?: string;
 }) {
   const isPositive = value >= 1 || value >= 0;
   const bgColor = isGood ? "bg-success/10" : "bg-danger/10";
   const textColor = isGood ? "text-success" : "text-danger";
-  const borderColor = isGood ? "border-green-200" : "border-red-200";
+  const borderColor = isGood ? "border-success/30" : "border-danger/30";
 
   return (
     <div className={`${bgColor} border ${borderColor} rounded-lg p-4`}>
       <p className="text-xs text-text-secondary uppercase tracking-wider mb-1">{label}</p>
       <div className="flex items-center justify-between">
         <p className={`text-2xl font-bold ${textColor}`}>
-          {typeof value === "number" && !isNaN(value) ? value.toFixed(2) : "0.00"}
-          {suffix}
+          {display !== undefined
+            ? display
+            : (typeof value === "number" && !isNaN(value) ? value.toFixed(2) : "0.00") + suffix}
         </p>
         {isGood ? (
           <TrendingUp className={textColor} size={24} />
@@ -50,7 +53,13 @@ export function EvmReport({ data }: EvmReportProps) {
   const currency = useProjectCurrencyOptional();
   const money = (value: number | null | undefined) =>
     currency ? currency.money(value) : formatMoney(value, { code: "INR" });
-  const symbol = currency?.symbol ?? "₹";
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
+
+  const tcpiBac = useMemo(() => {
+    const denom = data.bac - data.ac;
+    return denom !== 0 ? (data.bac - data.ev) / denom : 0;
+  }, [data.bac, data.ev, data.ac]);
 
   const metrics = useMemo(
     () => ({
@@ -80,7 +89,7 @@ export function EvmReport({ data }: EvmReportProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg border border-purple-200">
+      <div className="rounded-lg border border-border bg-surface/50 p-4">
         <div className="flex justify-between items-start">
           <div>
             <h3 className="font-semibold text-lg text-text-primary">{data.projectName}</h3>
@@ -94,9 +103,9 @@ export function EvmReport({ data }: EvmReportProps) {
 
       {/* Core EVM Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard label="Planned Value (PV)" value={data.pv} isGood={true} suffix={` ${symbol}`} />
-        <MetricCard label="Earned Value (EV)" value={data.ev} isGood={true} suffix={` ${symbol}`} />
-        <MetricCard label="Actual Cost (AC)" value={data.ac} isGood={data.ac <= data.ev} suffix={` ${symbol}`} />
+        <MetricCard label="Planned Value (PV)" value={data.pv} isGood={true} display={moneyCompact(data.pv)} />
+        <MetricCard label="Earned Value (EV)" value={data.ev} isGood={true} display={moneyCompact(data.ev)} />
+        <MetricCard label="Actual Cost (AC)" value={data.ac} isGood={data.ac <= data.ev} display={moneyCompact(data.ac)} />
       </div>
 
       {/* Performance Indices */}
@@ -115,19 +124,42 @@ export function EvmReport({ data }: EvmReportProps) {
 
       {/* Forecast Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard label="Estimate at Completion (EAC)" value={data.eac} isGood={metrics.eacGood} suffix={` ${symbol}`} />
-        <MetricCard label="Estimate to Complete (ETC)" value={data.etc} isGood={data.etc >= 0} suffix={` ${symbol}`} />
-        <MetricCard label="Variance at Completion (VAC)" value={data.vac} isGood={metrics.vacGood} suffix={` ${symbol}`} />
+        <MetricCard label="Estimate at Completion (EAC)" value={data.eac} isGood={metrics.eacGood} display={moneyCompact(data.eac)} />
+        <MetricCard label="Estimate to Complete (ETC)" value={data.etc} isGood={data.etc >= 0} display={moneyCompact(data.etc)} />
+        <MetricCard label="Variance at Completion (VAC)" value={data.vac} isGood={metrics.vacGood} display={moneyCompact(data.vac)} />
       </div>
 
-      {/* Completion Metric */}
+      {/* BAC card */}
       <div className="grid grid-cols-1 gap-4">
         <MetricCard
-          label="To-Complete Performance Index (TCPI)"
+          label="Budget at Completion (BAC)"
+          value={data.bac}
+          isGood={true}
+          display={moneyCompact(data.bac)}
+        />
+      </div>
+
+      {/* Completion Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <MetricCard
+          label="To-Complete Performance Index (TCPI, EAC-basis)"
           value={data.tcpi}
           isGood={metrics.tcpiGood}
         />
+        <MetricCard
+          label="TCPI (to finish within BAC)"
+          value={tcpiBac}
+          isGood={tcpiBac <= 1}
+        />
       </div>
+
+      {/* Early-stage caption */}
+      {data.ev > 0 && data.ac / data.ev < 0.5 && (
+        <p className="text-xs text-text-secondary">
+          Early-stage estimate — CPI/VAC are based on limited actuals and may be optimistic; BAC
+          reflects the approved project budget, while PV/EV/AC use the bottom-up activity plan.
+        </p>
+      )}
 
       {/* Interpretation */}
       <div className="bg-surface/50 border border-border rounded-lg p-4">

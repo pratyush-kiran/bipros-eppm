@@ -19,6 +19,8 @@ import {
   EmptyBlock,
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
 } from "@/components/common/dashboard/primitives";
 import {
   CATEGORY_OPTIONS,
@@ -203,6 +205,8 @@ export default function IssuesDashboardPage() {
                     />
                     <Tooltip
                       contentStyle={CHART_TOOLTIP_STYLE}
+                      labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                      itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                       formatter={(v) => [v, "Issues"]}
                     />
                     <Bar dataKey="count" fill={CHART_COLORS.planned} radius={[0, 4, 4, 0]} />
@@ -234,6 +238,8 @@ export default function IssuesDashboardPage() {
                       </Pie>
                       <Tooltip
                         contentStyle={CHART_TOOLTIP_STYLE}
+                        labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                        itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                         formatter={(v, name) => [v, name]}
                       />
                     </PieChart>

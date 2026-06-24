@@ -384,7 +384,7 @@ function AddDependencyForm({
   };
 
   return (
-    <div className="rounded-lg border border-blue-800/50 bg-blue-900/10 p-4">
+    <div className="rounded-lg border border-info/20 bg-info/10 p-4">
       <h4 className="mb-3 text-sm font-medium text-text-primary">
         Add {direction === "predecessor" ? "Predecessor" : "Successor"}
       </h4>

@@ -10,4 +10,5 @@ public record CashFlowOutlookPoint(
     BigDecimal plannedOutflowCrores,
     BigDecimal plannedInflowCrores,
     BigDecimal netCrores,
-    BigDecimal cumulativeCrores) {}
+    BigDecimal cumulativeCrores,
+    String currency) {}

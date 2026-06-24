@@ -13,13 +13,15 @@ import {
   YAxis,
 } from "recharts";
 import { portfolioReportApi } from "@/lib/api/portfolioReportApi";
+import { formatMoney } from "@/lib/currency/format";
 import {
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
-  formatCrore,
 } from "@/components/common/dashboard/primitives";
 
 export function CashFlowOutlookChart() {
@@ -56,6 +58,9 @@ export function CashFlowOutlookChart() {
     );
   }
 
+  const currencyCode = data[0]?.currency ?? "USD";
+  const currencyMeta = { code: currencyCode };
+
   const chartData = data.map((r) => ({
     month: r.yearMonth,
     Outflow: -r.plannedOutflowCrores,
@@ -71,24 +76,28 @@ export function CashFlowOutlookChart() {
     >
       <ResponsiveContainer width="100%" height={360}>
         <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: "11px" }} />
           <YAxis
             yAxisId="left"
             stroke="#64748b"
             style={{ fontSize: "12px" }}
-            tickFormatter={(v: number) => `₹${v.toFixed(0)}Cr`}
+            tickFormatter={(v: number) => formatMoney(v, currencyMeta, { compact: true })}
           />
           <YAxis
             yAxisId="right"
             orientation="right"
             stroke="#64748b"
             style={{ fontSize: "12px" }}
-            tickFormatter={(v: number) => `₹${v.toFixed(0)}Cr`}
+            tickFormatter={(v: number) => formatMoney(v, currencyMeta, { compact: true })}
           />
           <Tooltip
             contentStyle={CHART_TOOLTIP_STYLE}
-            formatter={(value) => formatCrore(Math.abs(Number(value ?? 0)))}
+            labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+            itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+            formatter={(value) =>
+              formatMoney(Math.abs(Number(value ?? 0)), currencyMeta, { compact: true })
+            }
           />
           <Legend wrapperStyle={{ fontSize: "12px" }} />
           <Bar yAxisId="left" dataKey="Inflow" fill={CHART_COLORS.ev} />

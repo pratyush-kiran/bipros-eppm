@@ -13,4 +13,5 @@ public record CostOverrunRow(
     BigDecimal bacCrores,
     BigDecimal eacCrores,
     BigDecimal varianceCrores,
-    double cpi) {}
+    double cpi,
+    String budgetCurrency) {}

@@ -11,6 +11,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  CHART_TOOLTIP_ITEM_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_STYLE,
+} from "@/components/common/dashboard/primitives";
 
 export interface MarginPeriodPoint {
   periodName: string;
@@ -47,12 +52,9 @@ export function MarginTrendChart({
         <XAxis dataKey="name" stroke="#64748b" style={{ fontSize: 11 }} />
         <YAxis stroke="#64748b" style={{ fontSize: 12 }} />
         <Tooltip
-          contentStyle={{
-            background: "#ffffff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 6,
-            fontSize: 12,
-          }}
+          contentStyle={CHART_TOOLTIP_STYLE}
+          labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+          itemStyle={CHART_TOOLTIP_ITEM_STYLE}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Bar dataKey="Revenue" name={revenueLabel} fill="#16a34a" radius={[4, 4, 0, 0]} />

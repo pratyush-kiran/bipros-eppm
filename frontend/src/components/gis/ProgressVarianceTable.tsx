@@ -13,11 +13,11 @@ interface ProgressVarianceTableProps {
 function getStatusColor(status: string): string {
   switch (status) {
     case "ON_TRACK":
-      return "bg-green-950 text-green-300";
+      return "bg-success/10 text-success";
     case "BEHIND":
-      return "bg-red-950 text-danger";
+      return "bg-danger/10 text-danger";
     case "AHEAD":
-      return "bg-blue-950 text-blue-300";
+      return "bg-info/10 text-info";
     default:
       return "bg-surface-hover text-text-secondary";
   }
@@ -132,7 +132,7 @@ export function ProgressVarianceTable({
       )}
 
       {/* Legend */}
-      <div className="bg-blue-950 border border-blue-700 rounded-lg p-4 text-sm text-text-secondary">
+      <div className="bg-info/10 border border-info/20 rounded-lg p-4 text-sm text-text-secondary">
         <p className="font-medium mb-2">Understanding Variance:</p>
         <ul className="space-y-1 text-xs">
           <li>

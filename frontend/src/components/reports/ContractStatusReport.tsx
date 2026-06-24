@@ -5,12 +5,18 @@ import { FileCheck, AlertCircle } from "lucide-react";
 import type { ContractStatusData } from "@/lib/api/reportDataApi";
 import { SimpleTable } from "@/components/common/SimpleTable";
 import type { ColumnDef } from "@tanstack/react-table";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 interface ContractStatusReportProps {
   data: ContractStatusData;
 }
 
 export function ContractStatusReport({ data }: ContractStatusReportProps) {
+  const currency = useProjectCurrencyOptional();
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
+
   const milestoneCompletion = useMemo(() => {
     const total = data.pendingMilestones + data.achievedMilestones;
     return total > 0 ? (data.achievedMilestones / total) * 100 : 0;
@@ -19,7 +25,7 @@ export function ContractStatusReport({ data }: ContractStatusReportProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-200">
+      <div className="rounded-lg border border-border bg-surface/50 p-4">
         <div>
           <h3 className="font-semibold text-lg text-text-primary">{data.projectName}</h3>
           <p className="text-sm text-text-secondary">Contract & Variation Order Status</p>
@@ -36,12 +42,12 @@ export function ContractStatusReport({ data }: ContractStatusReportProps) {
 
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider">Total Value</p>
-          <p className="text-2xl font-bold text-accent">${data.totalContractValue.toFixed(0)}</p>
+          <p className="text-2xl font-bold text-accent">{moneyCompact(data.totalContractValue)}</p>
         </div>
 
         <div className="bg-surface/50 border border-border rounded-lg p-4">
           <p className="text-xs text-text-muted uppercase tracking-wider">VO Value</p>
-          <p className="text-2xl font-bold text-orange-600">${data.totalVoValue.toFixed(0)}</p>
+          <p className="text-2xl font-bold text-orange-600">{moneyCompact(data.totalVoValue)}</p>
         </div>
 
         <div className="bg-surface/50 border border-border rounded-lg p-4">
@@ -73,7 +79,7 @@ export function ContractStatusReport({ data }: ContractStatusReportProps) {
               {
                 accessorKey: "value",
                 header: "Value",
-                cell: ({ row }) => <span className="text-right font-semibold">${row.original.value.toFixed(2)}</span>,
+                cell: ({ row }) => <span className="text-right font-semibold">{moneyCompact(row.original.value)}</span>,
               },
               {
                 accessorKey: "status",
@@ -124,7 +130,7 @@ export function ContractStatusReport({ data }: ContractStatusReportProps) {
             </div>
             <div className="flex justify-between border-t pt-2 mt-2">
               <span className="text-text-secondary">Total Contract Value</span>
-              <span className="font-semibold text-accent">${data.totalContractValue.toFixed(0)}</span>
+              <span className="font-semibold text-accent">{moneyCompact(data.totalContractValue)}</span>
             </div>
           </div>
         </div>
@@ -137,7 +143,7 @@ export function ContractStatusReport({ data }: ContractStatusReportProps) {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-text-secondary">Total VO Value</span>
-              <span className="font-semibold text-orange-600">${data.totalVoValue.toFixed(0)}</span>
+              <span className="font-semibold text-orange-600">{moneyCompact(data.totalVoValue)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-text-secondary">% of Contract Value</span>
@@ -150,7 +156,7 @@ export function ContractStatusReport({ data }: ContractStatusReportProps) {
             <div className="flex justify-between border-t pt-2 mt-2">
               <span className="text-text-secondary">Total Project Value</span>
               <span className="font-semibold text-text-primary">
-                ${(data.totalContractValue + data.totalVoValue).toFixed(0)}
+                {moneyCompact(data.totalContractValue + data.totalVoValue)}
               </span>
             </div>
           </div>

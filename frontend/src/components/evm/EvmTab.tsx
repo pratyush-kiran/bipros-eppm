@@ -25,6 +25,7 @@ import { KpiTile } from "@/components/common/KpiTile";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
 import { budgetApi } from "@/lib/api/budgetApi";
 import { formatMoney } from "@/lib/currency/format";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 
 /**
  * Money formatter for the EVM tab. Delegates to the canonical per-currency
@@ -413,6 +414,9 @@ export function EvmTab({ projectId }: { projectId: string }) {
                   <Tooltip
                     formatter={(value) => fmt(Number(value))}
                     labelFormatter={(label) => `Date: ${label}`}
+                    contentStyle={CHART_TOOLTIP_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                   />
                   <Legend />
                   <Line

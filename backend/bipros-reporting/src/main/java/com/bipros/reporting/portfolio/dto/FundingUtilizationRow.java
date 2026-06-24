@@ -15,4 +15,5 @@ public record FundingUtilizationRow(
     BigDecimal pendingWithTreasuryCrores,
     double releasePct,
     double utilizationPct,
-    String fundingStatus) {}
+    String fundingStatus,
+    String currency) {}

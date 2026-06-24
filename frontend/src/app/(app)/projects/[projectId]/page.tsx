@@ -1807,7 +1807,7 @@ function WbsTree({
                 </span>
               )}
               {node.summaryPercentComplete != null && (
-                <span className="ml-1 rounded-full bg-emerald-900/40 px-2 py-0.5 text-xs text-success flex-shrink-0">
+                <span className="ml-1 rounded-full bg-success/10 px-2 py-0.5 text-xs text-success flex-shrink-0">
                   {node.summaryPercentComplete}%
                 </span>
               )}

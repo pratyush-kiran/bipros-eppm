@@ -68,14 +68,35 @@ export function EmptyBlock({ label }: { label: string }) {
   );
 }
 
+// Theme-aware chart tooltip styling. Colors are CSS variables (defined on
+// :root / .dark in globals.css) so the tooltip flips between the light and
+// dark palettes automatically — parchment surface + charcoal text in both.
+// IMPORTANT: recharts' default tooltip renders the label and each item in its
+// OWN near-black default unless overridden, which reads as black-on-black on
+// the dark theme. Always pass all three of these to a recharts <Tooltip>:
+//   contentStyle={CHART_TOOLTIP_STYLE}
+//   labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+//   itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+// A custom tooltip component should set style={CHART_TOOLTIP_STYLE} on its
+// container and leave inner text uncolored so it inherits var(--charcoal).
 export const CHART_TOOLTIP_STYLE = {
-  backgroundColor: "#1C1C1C",
-  border: "1px solid #2A2520",
+  backgroundColor: "var(--parchment)",
+  border: "1px solid var(--hairline)",
   borderRadius: "0.625rem",
-  color: "#F5F2E8",
-  boxShadow: "0 12px 32px -8px rgba(28,28,28,0.25)",
+  color: "var(--charcoal)",
+  boxShadow: "0 12px 32px -8px rgba(0,0,0,0.28)",
   padding: "10px 12px",
   fontSize: "12px",
+};
+
+export const CHART_TOOLTIP_LABEL_STYLE = {
+  color: "var(--charcoal)",
+  fontWeight: 600,
+  marginBottom: "2px",
+};
+
+export const CHART_TOOLTIP_ITEM_STYLE = {
+  color: "var(--charcoal)",
 };
 
 export const CHART_COLORS = {

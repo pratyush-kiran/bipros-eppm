@@ -141,6 +141,9 @@ bipros:
   # E2E run we explicitly recompute via /v1/projects/{pid}/dbs/recompute-range
   # after DPR import (faster + deterministic).
   dbs:
+    # Section D (Fuel) in the Daily Balance Sheet is derived as this fraction of
+    # Section C (Machinery) cost. 0.35 = 35%. Change here + restart (no UI, no recompile).
+    fuel-machinery-cost-ratio: 0.35
     backfill:
       enabled: ${BIPROS_DBS_BACKFILL_ENABLED:false}
 

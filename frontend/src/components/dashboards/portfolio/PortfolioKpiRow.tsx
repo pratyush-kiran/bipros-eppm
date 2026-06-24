@@ -5,7 +5,6 @@ import {
   Briefcase,
   CheckCircle2,
   Clock,
-  Coins,
   Flame,
   PauseCircle,
   PlayCircle,
@@ -21,9 +20,9 @@ import { portfolioReportApi } from "@/lib/api/portfolioReportApi";
 import {
   EmptyBlock,
   LoadingBlock,
-  formatCrore,
-  formatPct,
 } from "@/components/common/dashboard/primitives";
+import { BudgetByCurrencyChip } from "@/components/dashboards/common/BudgetByCurrencyChip";
+import type { CurrencyBudget } from "@/lib/api/portfolioReportApi";
 
 const STATUS_META: Record<
   string,
@@ -60,16 +59,9 @@ export function PortfolioKpiRow() {
   const onHold = data.byStatus?.ON_HOLD ?? 0;
   const cancelled = data.byStatus?.CANCELLED ?? 0;
 
-  const budget = data.totalBudgetCrores ?? 0;
-  const committed = data.totalCommittedCrores ?? 0;
-  const spent = data.totalSpentCrores ?? 0;
-  const utilizationPct = budget > 0 ? (spent / budget) * 100 : 0;
-  const commitmentPct = budget > 0 ? (committed / budget) * 100 : 0;
-  const remainingCr = Math.max(budget - spent, 0);
-
   return (
     <div className="space-y-5">
-      {/* HERO ROW — Portfolio Value + supporting KPIs */}
+      {/* HERO ROW — Budget by currency + supporting KPIs */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         {/* Hero card — gold gradient */}
         <div className="lg:col-span-5">
@@ -84,9 +76,9 @@ export function PortfolioKpiRow() {
                 </div>
                 <div>
                   <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-gold-ink">
-                    Portfolio value
+                    Portfolio money (per currency)
                   </div>
-                  <div className="text-xs text-slate">Approved budget across all projects</div>
+                  <div className="text-xs text-slate">Per project currency — not converted</div>
                 </div>
               </div>
               <span className="hidden items-center gap-1 rounded-full border border-gold/30 bg-paper/80 px-2.5 py-1 text-[10px] font-semibold text-gold-deep backdrop-blur md:inline-flex">
@@ -96,48 +88,13 @@ export function PortfolioKpiRow() {
             </div>
 
             <div className="relative mt-5">
-              <div
-                className="font-display text-[42px] font-semibold leading-none tracking-tight text-charcoal"
-                style={{ fontVariationSettings: "'opsz' 144" }}
-              >
-                {formatCrore(budget)}
+              <div className="space-y-2">
+                <MoneyRow label="Budget"    items={data.budgetByCurrency ?? []} />
+                <MoneyRow label="Spent"     items={data.spentByCurrency ?? []} />
+                <MoneyRow label="Committed" items={data.committedByCurrency ?? []} />
               </div>
               <div className="mt-1.5 text-xs text-slate">
-                {data.totalProjects} project{data.totalProjects === 1 ? "" : "s"} · committed{" "}
-                <span className="font-semibold text-charcoal">{formatPct(commitmentPct)}</span>{" "}
-                · spent{" "}
-                <span className="font-semibold text-charcoal">{formatPct(utilizationPct)}</span>
-              </div>
-            </div>
-
-            {/* Budget burn meter */}
-            <div className="relative mt-5">
-              <div className="relative h-2 w-full overflow-hidden rounded-full bg-ivory">
-                <div
-                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald to-emerald/70"
-                  style={{ width: `${Math.min(utilizationPct, 100)}%` }}
-                />
-                <div
-                  className="absolute inset-y-0 rounded-full bg-gradient-to-r from-gold to-gold-deep opacity-70"
-                  style={{
-                    left: `${Math.min(utilizationPct, 100)}%`,
-                    width: `${Math.max(Math.min(commitmentPct - utilizationPct, 100 - utilizationPct), 0)}%`,
-                  }}
-                />
-              </div>
-              <div className="mt-2.5 flex items-center justify-between text-[10px] font-medium text-slate">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-emerald" />
-                  Spent {formatCrore(spent, 1)}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-gold" />
-                  Committed {formatCrore(committed, 1)}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-ivory ring-1 ring-hairline" />
-                  Remaining {formatCrore(remainingCr, 1)}
-                </span>
+                {data.totalProjects} project{data.totalProjects === 1 ? "" : "s"}
               </div>
             </div>
           </div>
@@ -146,17 +103,11 @@ export function PortfolioKpiRow() {
         {/* Supporting KPIs — 4 in a 2×2 grid on lg, single row on xl */}
         <div className="grid grid-cols-2 gap-3 lg:col-span-7 lg:grid-cols-4">
           <KpiTile
-            label="Spent"
-            value={formatCrore(spent, 1)}
-            hint={`${formatPct(utilizationPct)} of budget`}
-            icon={<Coins size={14} />}
-            tone="success"
-          />
-          <KpiTile
-            label="Committed"
-            value={formatCrore(committed, 1)}
-            hint={`${formatPct(commitmentPct)} of budget`}
+            label="Avg progress"
+            value={`${Math.round(data.avgPercentComplete ?? 0)}%`}
+            hint="Across all projects"
             icon={<TrendingUp size={14} />}
+            tone="default"
           />
           <KpiTile
             label="At-risk active"
@@ -216,6 +167,15 @@ export function PortfolioKpiRow() {
           <StatusPill code="CANCELLED" count={cancelled} total={data.totalProjects} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function MoneyRow({ label, items }: { label: string; items: CurrencyBudget[] }) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate">{label}</span>
+      <BudgetByCurrencyChip items={items} />
     </div>
   );
 }
@@ -282,4 +242,3 @@ function StatusPill({
     </div>
   );
 }
-

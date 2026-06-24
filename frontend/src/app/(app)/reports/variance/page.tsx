@@ -9,6 +9,7 @@ import { baselineApi } from "@/lib/api/baselineApi";
 import type { ProjectResponse } from "@/lib/types";
 import { ScheduleVarianceSection } from "@/components/reports/ScheduleVarianceSection";
 import { CostVarianceSection } from "@/components/reports/CostVarianceSection";
+import { ProjectCurrencyProvider } from "@/lib/currency/ProjectCurrencyProvider";
 
 type Tab = "schedule" | "cost";
 
@@ -182,10 +183,14 @@ export default function VarianceReportPage() {
         <div className="rounded-2xl border border-dashed border-hairline bg-ivory/50 p-10 text-center text-sm text-slate">
           Pick a project and baseline above to load the report.
         </div>
-      ) : tab === "schedule" ? (
-        <ScheduleVarianceSection projectId={projectId} baselineId={baselineId} />
       ) : (
-        <CostVarianceSection projectId={projectId} baselineId={baselineId} />
+        <ProjectCurrencyProvider key={projectId} currency={selectedProject?.budgetCurrency}>
+          {tab === "schedule" ? (
+            <ScheduleVarianceSection projectId={projectId} baselineId={baselineId} />
+          ) : (
+            <CostVarianceSection projectId={projectId} baselineId={baselineId} />
+          )}
+        </ProjectCurrencyProvider>
       )}
     </div>
   );

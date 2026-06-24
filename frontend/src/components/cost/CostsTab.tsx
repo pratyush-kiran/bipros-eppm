@@ -25,6 +25,7 @@ import { useCurrency } from "@/lib/hooks/useCurrency";
 import { formatMoney } from "@/lib/currency/format";
 import { SecretField } from "@/components/auth/SecretField";
 import { AiInsightsPanel } from "@/components/ai/AiInsightsPanel";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 
 const FINANCE_ROLES = ["ROLE_FINANCE", "ROLE_PMO", "ROLE_ADMIN"] as const;
 const NO_FINANCE_PLACEHOLDER = (
@@ -363,12 +364,9 @@ export function CostsTab({ projectId }: { projectId: string }) {
                 width={90}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "0.5rem",
-                  color: "var(--text-primary)",
-                }}
+                contentStyle={CHART_TOOLTIP_STYLE}
+                labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                 formatter={(value) =>
                   typeof value === "number" ? fmt(value) : String(value ?? "")
                 }

@@ -104,7 +104,7 @@ export function ResourceUtilizationReport({ data }: ResourceUtilizationReportPro
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
+      <div className="rounded-lg border border-border bg-surface/50 p-4">
         <div className="flex justify-between items-start">
           <div>
             <h3 className="font-semibold text-lg text-text-primary">{data.projectName}</h3>
@@ -183,7 +183,7 @@ export function ResourceUtilizationReport({ data }: ResourceUtilizationReportPro
       </div>
 
       {/* Recommendations */}
-      <div className="bg-accent/10 border border-blue-200 rounded-lg p-4">
+      <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
         <h4 className="font-semibold text-text-primary mb-3">Insights & Recommendations</h4>
         <ul className="space-y-2 text-sm text-text-secondary">
           {data.avgUtilization < 60 && (

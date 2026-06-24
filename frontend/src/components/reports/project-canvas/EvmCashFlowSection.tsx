@@ -18,6 +18,8 @@ import { formatMoney } from "@/lib/currency/format";
 import {
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
@@ -27,8 +29,8 @@ export function EvmCashFlowSection({ projectId }: { projectId: string }) {
   // The project-canvas can render on the portfolio reports page (outside a
   // project route), so fall back to INR when no project currency is in context.
   const currency = useProjectCurrencyOptional();
-  const money = (value: number | null | undefined) =>
-    currency ? currency.money(value) : formatMoney(value, { code: "INR" });
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
 
   const evmQuery = useQuery({
     queryKey: ["project-evm", projectId],
@@ -80,19 +82,26 @@ export function EvmCashFlowSection({ projectId }: { projectId: string }) {
   return (
     <SectionCard title="EVM & Cash Flow" subtitle="Earned Value Management and cash flow trajectory">
       {hasEvm && (
-        <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-          <KpiTile label="PV" value={(evm.pv ?? 0).toFixed(0)} />
-          <KpiTile label="EV" value={(evm.ev ?? 0).toFixed(0)} />
-          <KpiTile label="AC" value={(evm.ac ?? 0).toFixed(0)} />
-          <KpiTile label="CPI" value={cpi.toFixed(3)} tone={cpiTone} />
-          <KpiTile label="SPI" value={spi.toFixed(3)} tone={spiTone} />
-          <KpiTile label="EAC" value={(evm.eac ?? 0).toFixed(0)} />
-          <KpiTile
-            label="VAC"
-            value={(evm.vac ?? 0).toFixed(0)}
-            tone={evm.vac < 0 ? "danger" : "success"}
-          />
-        </div>
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+            <KpiTile label="PV" value={moneyCompact(evm.pv ?? 0)} />
+            <KpiTile label="EV" value={moneyCompact(evm.ev ?? 0)} />
+            <KpiTile label="AC" value={moneyCompact(evm.ac ?? 0)} />
+            <KpiTile label="CPI" value={cpi.toFixed(3)} tone={cpiTone} />
+            <KpiTile label="SPI" value={spi.toFixed(3)} tone={spiTone} />
+            <KpiTile label="EAC" value={moneyCompact(evm.eac ?? 0)} />
+            <KpiTile
+              label="VAC"
+              value={moneyCompact(evm.vac ?? 0)}
+              tone={evm.vac < 0 ? "danger" : "success"}
+            />
+          </div>
+          {evm.ev > 0 && evm.ac / evm.ev < 0.5 && (
+            <p className="mb-4 text-xs text-text-secondary">
+              Early-stage estimate — CPI/VAC are based on limited actuals and may be optimistic.
+            </p>
+          )}
+        </>
       )}
 
       {hasCashFlow ? (
@@ -102,12 +111,14 @@ export function EvmCashFlowSection({ projectId }: { projectId: string }) {
           </h3>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={cashFlowChartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="period" stroke="#64748b" style={{ fontSize: "11px" }} />
               <YAxis stroke="#64748b" style={{ fontSize: "12px" }} />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
-                formatter={(value) => money(Number(value ?? 0))}
+                labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                formatter={(value) => moneyCompact(Number(value ?? 0))}
               />
               <Legend wrapperStyle={{ fontSize: "12px" }} />
               <Line

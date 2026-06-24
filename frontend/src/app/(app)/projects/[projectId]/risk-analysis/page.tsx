@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { SimpleTable } from "@/components/common/SimpleTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 
 const TABS = ["overview", "criticality", "tornado", "milestones", "cashflow", "drivers"] as const;
 type Tab = typeof TABS[number];
@@ -336,7 +337,12 @@ export default function RiskAnalysisPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="range" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
                         <YAxis />
-                        <Tooltip formatter={(v) => `${v} iterations`} />
+                        <Tooltip
+                          formatter={(v) => `${v} iterations`}
+                          contentStyle={CHART_TOOLTIP_STYLE}
+                          labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                          itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                        />
                         <ReferenceLine
                           x={durationHistogram.reduce((best, b) =>
                             Math.abs(b.mid - sim.baselineDuration) < Math.abs(best.mid - sim.baselineDuration) ? b : best
@@ -385,7 +391,12 @@ export default function RiskAnalysisPage() {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="range" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
                         <YAxis />
-                        <Tooltip formatter={(v) => `${v} iterations`} />
+                        <Tooltip
+                          formatter={(v) => `${v} iterations`}
+                          contentStyle={CHART_TOOLTIP_STYLE}
+                          labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                          itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                        />
                         <Bar dataKey="count" fill="#a855f7" />
                       </BarChart>
                     </ResponsiveContainer>

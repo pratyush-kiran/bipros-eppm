@@ -22,6 +22,11 @@ import { VirtualDataTable } from "@/components/common/VirtualDataTable";
 import type { ColumnDef } from "@tanstack/react-table";
 import { downloadCsv, toCsv } from "@/lib/utils/csvExport";
 import {
+  CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
+} from "@/components/common/dashboard/primitives";
+import {
   varianceReportApi,
   type ScheduleVarianceRow,
   type ActivityStatusName,
@@ -489,12 +494,9 @@ export function ScheduleVarianceSection({ projectId, baselineId }: Props) {
               width={28}
             />
             <Tooltip
-              contentStyle={{
-                background: "#FFFFFF",
-                border: "1px solid #EDE7D3",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
+              contentStyle={CHART_TOOLTIP_STYLE}
+              labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+              itemStyle={CHART_TOOLTIP_ITEM_STYLE}
               cursor={{ fill: "rgba(0,88,202,0.06)" }}
             />
             <Bar dataKey="count" radius={[4, 4, 0, 0]}>

@@ -156,10 +156,10 @@ export function LayerControlPanel({
               <span
                 className={`ml-1 px-2 py-0.5 rounded text-xs font-medium ${
                   selectedScene.status === "READY"
-                    ? "bg-green-950 text-green-300"
+                    ? "bg-success/10 text-success"
                     : selectedScene.status === "FAILED"
-                      ? "bg-red-950 text-danger"
-                      : "bg-yellow-950 text-yellow-300"
+                      ? "bg-danger/10 text-danger"
+                      : "bg-warning/10 text-warning"
                 }`}
               >
                 {selectedScene.status}

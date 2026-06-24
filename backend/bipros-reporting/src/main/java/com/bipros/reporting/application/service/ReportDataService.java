@@ -1,5 +1,8 @@
 package com.bipros.reporting.application.service;
 
+import com.bipros.evm.application.service.EvmService;
+import com.bipros.evm.domain.entity.EvmCalculation;
+import com.bipros.project.application.service.DprActualCostLookup;
 import com.bipros.reporting.application.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +17,8 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.*;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
@@ -47,6 +52,9 @@ public class ReportDataService {
 
   @PersistenceContext private EntityManager em;
 
+  private final EvmService evmService;
+  private final DprActualCostLookup dprActualCostLookup;
+
   // =========================================================================
   // 1. Monthly Progress
   // =========================================================================
@@ -64,14 +72,18 @@ public class ReportDataService {
     LocalDate monthStart = ym.atDay(1);
     LocalDate monthEnd = ym.atEndOfMonth();
 
-    int totalActivities = countActivitiesInWindow(projectId, monthStart, monthEnd);
+    EvmCalculation snap = evmService.computeEvmSnapshot(projectId);
+
+    int totalActivities = scalarInt(
+        "SELECT CAST(COUNT(*) AS INTEGER) FROM activity.activities WHERE project_id = ?1",
+        projectId);
     int completedActivities = countCompletedActivities(projectId, monthEnd);
     int inProgressActivities = countInProgressActivities(projectId);
     double overallPercentComplete = computeOverallPercentComplete(projectId, monthEnd);
 
     BigDecimal budgetAmount = getProjectBudget(projectId);
-    BigDecimal actualCost = getActualCostInWindow(projectId, monthStart, monthEnd);
-    BigDecimal forecastCost = getForecastCost(projectId);
+    BigDecimal actualCost = nz(snap.getActualCost());
+    BigDecimal forecastCost = nz(snap.getEstimateAtCompletion());
 
     int totalMilestones = getTotalMilestones(projectId);
     int achievedMilestones = getAchievedMilestones(projectId, monthEnd);
@@ -80,7 +92,7 @@ public class ReportDataService {
     int highRisks = getHighRisks(projectId);
 
     List<MonthlyProgressData.ActivitySummaryRow> topDelayed =
-        getTopDelayedActivities(projectId, 5, monthEnd);
+        getTopDelayedActivities(projectId, 5);
 
     return new MonthlyProgressData(
         projectName, projectCode, period,
@@ -98,37 +110,20 @@ public class ReportDataService {
   public EvmReportData getEvmReport(UUID projectId) {
     String projectName = getProjectName(projectId);
 
-    // Pull the latest monthly EVM snapshot rolled up for the project. Phase E
-    // seeder writes one row per (node, month); we sum across nodes for the
-    // most recent month per project.
-    EvmSnapshot latest = loadLatestEvmSnapshot(projectId);
+    EvmCalculation snap = evmService.computeEvmSnapshot(projectId);
+    BigDecimal pv = nz(snap.getPlannedValue());
+    BigDecimal ev = nz(snap.getEarnedValue());
+    BigDecimal ac = nz(snap.getActualCost());
+    BigDecimal bac = nz(snap.getBudgetAtCompletion());
 
-    BigDecimal pv = latest.bcws;
-    BigDecimal ev = latest.bcwp;
-    BigDecimal ac = latest.acwp;
-    BigDecimal bac = latest.bac.signum() > 0 ? latest.bac : getProjectBudget(projectId);
+    double spi = snap.getSchedulePerformanceIndex() != null ? snap.getSchedulePerformanceIndex() : 0.0;
+    double cpi = snap.getCostPerformanceIndex() != null ? snap.getCostPerformanceIndex() : 0.0;
+    BigDecimal eac = nz(snap.getEstimateAtCompletion());
+    BigDecimal etc = nz(snap.getEstimateToComplete());
+    BigDecimal vac = nz(snap.getVarianceAtCompletion());
+    double tcpi = snap.getToCompletePerformanceIndex() != null ? snap.getToCompletePerformanceIndex() : 0.0;
 
-    double spi = pv.signum() > 0 ? ev.doubleValue() / pv.doubleValue() : 0.0;
-    double cpi = ac.signum() > 0 ? ev.doubleValue() / ac.doubleValue() : 0.0;
-
-    BigDecimal eac = cpi > 0 && bac != null
-        ? bac.divide(BigDecimal.valueOf(cpi), 2, RoundingMode.HALF_UP)
-        : (bac != null ? bac : BigDecimal.ZERO);
-
-    BigDecimal etc = eac.subtract(ac);
-    BigDecimal vac = (bac != null ? bac : BigDecimal.ZERO).subtract(eac);
-
-    double tcpi = 0.0;
-    if (bac != null && bac.signum() > 0 && eac.subtract(ac).signum() > 0) {
-      tcpi = bac.subtract(ev).doubleValue() / eac.subtract(ac).doubleValue();
-    }
-
-    return new EvmReportData(
-        projectName,
-        pv, ev, ac,
-        spi, cpi,
-        eac, etc, vac,
-        tcpi);
+    return new EvmReportData(projectName, pv, ev, ac, bac, spi, cpi, eac, etc, vac, tcpi);
   }
 
   // =========================================================================
@@ -143,7 +138,11 @@ public class ReportDataService {
     if (!forecasted.isEmpty()) {
       return forecasted;
     }
-    return deriveCashFlowFromActivities(projectId);
+    List<CashFlowEntry> fromActivities = deriveCashFlowFromActivities(projectId);
+    if (!fromActivities.isEmpty()) {
+      return fromActivities;
+    }
+    return deriveCashFlowFromDpr(projectId);
   }
 
   // =========================================================================
@@ -248,6 +247,8 @@ public class ReportDataService {
   // =========================================================================
   // EVM helpers
   // =========================================================================
+  private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+
   /** Compact value object for the latest EVM snapshot. */
   private record EvmSnapshot(
       BigDecimal bcws, BigDecimal bcwp, BigDecimal acwp, BigDecimal bac) {}
@@ -348,6 +349,73 @@ public class ReportDataService {
       return result;
     } catch (Exception e) {
       log.warn("Failed to derive cash flow from activity_expenses for projectId={}: {}",
+          projectId, e.getMessage());
+      return new ArrayList<>();
+    }
+  }
+
+  /**
+   * Third cash-flow fallback: build a monthly series from the DPR ledger (actual)
+   * and resource_assignments planned_cost (planned/forecast) when both primary
+   * sources are empty. Degrades gracefully — on any error returns empty list.
+   */
+  private List<CashFlowEntry> deriveCashFlowFromDpr(UUID projectId) {
+    try {
+      // ACTUAL: bucket DPR daily costs into YYYY-MM.
+      Map<String, BigDecimal> actualByMonth = new TreeMap<>();
+      Map<LocalDate, BigDecimal> dailyActuals = dprActualCostLookup.sumByProjectGroupedByDate(projectId);
+      for (Map.Entry<LocalDate, BigDecimal> e : dailyActuals.entrySet()) {
+        String month = e.getKey().toString().substring(0, 7); // YYYY-MM
+        actualByMonth.merge(month, e.getValue(), BigDecimal::add);
+      }
+
+      // PLANNED: SUM(planned_cost) by activity planned_start_date month.
+      Map<String, BigDecimal> plannedByMonth = new TreeMap<>();
+      try {
+        @SuppressWarnings("unchecked")
+        List<Object> rows = em.createNativeQuery(
+                "SELECT to_char(a.planned_start_date, 'YYYY-MM') AS m, " +
+                "  COALESCE(SUM(ra.planned_cost), 0) " +
+                "FROM resource.resource_assignments ra " +
+                "JOIN activity.activities a ON a.id = ra.activity_id " +
+                "WHERE ra.project_id = ?1 AND a.planned_start_date IS NOT NULL " +
+                "GROUP BY to_char(a.planned_start_date, 'YYYY-MM')")
+            .setParameter(1, projectId)
+            .getResultList();
+        for (Object r : rows) {
+          Object[] c = (Object[]) r;
+          if (c[0] != null) {
+            plannedByMonth.put(c[0].toString(), toBigDecimal(c[1]));
+          }
+        }
+      } catch (Exception e) {
+        log.debug("DPR cash-flow planned query failed for projectId={}: {}", projectId, e.getMessage());
+        // Proceed with actual-only — still non-empty if actualByMonth has data.
+      }
+
+      // Merge all months.
+      Set<String> allMonths = new TreeSet<>();
+      allMonths.addAll(actualByMonth.keySet());
+      allMonths.addAll(plannedByMonth.keySet());
+      if (allMonths.isEmpty()) return new ArrayList<>();
+
+      BigDecimal cumPlanned = BigDecimal.ZERO;
+      BigDecimal cumActual = BigDecimal.ZERO;
+      BigDecimal cumForecast = BigDecimal.ZERO;
+      List<CashFlowEntry> result = new ArrayList<>(allMonths.size());
+      for (String month : allMonths) {
+        BigDecimal planned = plannedByMonth.getOrDefault(month, BigDecimal.ZERO);
+        BigDecimal actual = actualByMonth.getOrDefault(month, BigDecimal.ZERO);
+        BigDecimal forecast = planned; // forecast = plan (best-effort)
+        cumPlanned = cumPlanned.add(planned);
+        cumActual = cumActual.add(actual);
+        cumForecast = cumForecast.add(forecast);
+        result.add(new CashFlowEntry(month, planned, actual, forecast,
+            cumPlanned, cumActual, cumForecast));
+      }
+      return result;
+    } catch (Exception e) {
+      log.warn("Failed to derive cash flow from DPR for projectId={}: {}",
           projectId, e.getMessage());
       return new ArrayList<>();
     }
@@ -501,31 +569,29 @@ public class ReportDataService {
     } catch (Exception ignored) {
       // fall through
     }
-    // Fall back to activity count ratio.
-    int total = scalarInt(
-        "SELECT CAST(COUNT(*) AS INTEGER) FROM activity.activities WHERE project_id = ?1",
-        projectId);
-    int completed = countCompletedActivities(projectId, asOf);
-    return total > 0 ? (completed * 100.0) / total : 0.0;
+    // Fall back to average percent_complete across all activities.
+    return scalarDecimal(
+        "SELECT COALESCE(AVG(percent_complete), 0) FROM activity.activities WHERE project_id = ?1",
+        projectId).doubleValue();
   }
 
   private List<MonthlyProgressData.ActivitySummaryRow> getTopDelayedActivities(
-      UUID projectId, int limit, LocalDate asOf) {
+      UUID projectId, int limit) {
     try {
       @SuppressWarnings("unchecked")
       List<Object> rows = em.createNativeQuery(
               "SELECT code, name, status, " +
-              "  COALESCE(total_float, 0) AS total_float, " +
+              "  GREATEST(0, (COALESCE((SELECT p.data_date FROM project.projects p WHERE p.id = ?1), CURRENT_DATE) - planned_finish_date)) AS delay_days, " +
               "  planned_finish_date " +
               "FROM activity.activities " +
               "WHERE project_id = ?1 " +
               "  AND actual_finish_date IS NULL " +
-              "  AND planned_finish_date < ?2 " +
-              "ORDER BY planned_finish_date ASC NULLS LAST " +
-              "LIMIT ?3")
+              "  AND planned_finish_date IS NOT NULL " +
+              "  AND planned_finish_date < COALESCE((SELECT p.data_date FROM project.projects p WHERE p.id = ?1), CURRENT_DATE) " +
+              "ORDER BY delay_days DESC, planned_finish_date ASC " +
+              "LIMIT ?2")
           .setParameter(1, projectId)
-          .setParameter(2, asOf)
-          .setParameter(3, limit)
+          .setParameter(2, limit)
           .getResultList();
 
       return rows.stream().map(r -> {
@@ -540,7 +606,7 @@ public class ReportDataService {
             c[0] != null ? c[0].toString() : "",
             c[1] != null ? c[1].toString() : "",
             c[2] != null ? c[2].toString() : "",
-            toDouble(c[3]),
+            toInt(c[3]),
             plannedFinish);
       }).collect(Collectors.toList());
     } catch (Exception e) {
@@ -553,13 +619,25 @@ public class ReportDataService {
   // Cost helpers
   // =========================================================================
   private BigDecimal getProjectBudget(UUID projectId) {
-    // Project.current_budget is the authoritative BAC (approved, change-controlled).
-    // Activity-expense rollup is the bottom-up forecast and is used only when no
-    // project-level budget has been set yet.
-    BigDecimal fromProject = scalarDecimal(
-        "SELECT COALESCE(current_budget, 0) FROM project.projects WHERE id = ?1",
-        projectId);
-    if (fromProject.signum() > 0) return fromProject;
+    // Project.current_budget is stored in the currency's major-unit
+    // (crore = 1e7 for INR, million = 1e6 for every other currency).
+    // Multiply back to raw money before returning.
+    try {
+      Object[] row = (Object[]) em.createNativeQuery(
+              "SELECT COALESCE(current_budget, 0), COALESCE(budget_currency, 'INR') " +
+              "FROM project.projects WHERE id = ?1")
+          .setParameter(1, projectId)
+          .getSingleResult();
+      BigDecimal rawBudget = toBigDecimal(row[0]);
+      if (rawBudget.signum() > 0) {
+        String currencyCode = row[1] != null ? row[1].toString() : "INR";
+        BigDecimal factor = "INR".equalsIgnoreCase(currencyCode)
+            ? new BigDecimal("10000000") : new BigDecimal("1000000");
+        return rawBudget.multiply(factor);
+      }
+    } catch (Exception e) {
+      log.debug("getProjectBudget project row failed for projectId={}: {}", projectId, e.getMessage());
+    }
 
     return scalarDecimal(
         "SELECT COALESCE(SUM(budgeted_cost), 0) FROM cost.activity_expenses WHERE project_id = ?1",
@@ -726,8 +804,11 @@ public class ReportDataService {
     try {
       @SuppressWarnings("unchecked")
       List<Object> rows = em.createNativeQuery(
-              "SELECT COALESCE(category::text, 'UNKNOWN'), CAST(COUNT(*) AS INTEGER) " +
-              "FROM risk.risks WHERE project_id = ?1 GROUP BY category")
+              "SELECT COALESCE(rcm.name, 'UNKNOWN'), CAST(COUNT(*) AS INTEGER) " +
+              "FROM risk.risks r " +
+              "LEFT JOIN risk.risk_category_master rcm ON rcm.id = r.category_id " +
+              "WHERE r.project_id = ?1 " +
+              "GROUP BY rcm.name")
           .setParameter(1, projectId)
           .getResultList();
 
@@ -747,13 +828,14 @@ public class ReportDataService {
     try {
       @SuppressWarnings("unchecked")
       List<Object> rows = em.createNativeQuery(
-              "SELECT code, title, COALESCE(category::text, ''), " +
-              "  COALESCE(probability::text, ''), " +
-              "  COALESCE(rag::text, '') AS rag, " +
-              "  COALESCE(risk_score, 0) " +
-              "FROM risk.risks " +
-              "WHERE project_id = ?1 " +
-              "ORDER BY risk_score DESC NULLS LAST, created_at DESC " +
+              "SELECT r.code, r.title, COALESCE(rcm.name, ''), " +
+              "  COALESCE(r.probability::text, ''), " +
+              "  COALESCE(r.rag::text, '') AS rag, " +
+              "  COALESCE(r.risk_score, 0) " +
+              "FROM risk.risks r " +
+              "LEFT JOIN risk.risk_category_master rcm ON rcm.id = r.category_id " +
+              "WHERE r.project_id = ?1 " +
+              "ORDER BY r.risk_score DESC NULLS LAST, r.created_at DESC " +
               "LIMIT ?2")
           .setParameter(1, projectId)
           .setParameter(2, limit)

@@ -2,6 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { projectInsightsApi } from "@/lib/api/projectInsightsApi";
+import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
+import { formatMoney } from "@/lib/currency/format";
 
 function tick(b: boolean): React.ReactNode {
   return b ? <span className="text-success">✓</span> : <span className="text-danger">✗</span>;
@@ -12,6 +14,12 @@ export function ComplianceChecklist({ projectId }: { projectId: string }) {
     queryKey: ["project-compliance", projectId],
     queryFn: () => projectInsightsApi.getCompliance(projectId),
   });
+
+  const currency = useProjectCurrencyOptional();
+  const money = (v: number | null | undefined) =>
+    currency ? currency.money(v) : formatMoney(v, { code: "INR" });
+  const moneyCompact = (v: number | null | undefined) =>
+    currency ? currency.moneyCompact(v) : formatMoney(v, { code: "INR" }, { compact: true });
 
   if (isLoading)
     return (
@@ -51,7 +59,7 @@ export function ComplianceChecklist({ projectId }: { projectId: string }) {
         <Block title="PFMS (Funding)">
           <Row label="Sanction OK">{tick(c.pfms.sanctionOk)}</Row>
           <Row label="Last release">{c.pfms.lastRelease ?? "—"}</Row>
-          <Row label="Pending amount">₹ {c.pfms.pendingAmount.toFixed(2)}</Row>
+          <Row label="Pending amount">{money(c.pfms.pendingAmount)}</Row>
         </Block>
         <Block title="GSTN (Contractors)">
           <Row label="Total contractors">{c.gstn.contractorCount}</Row>
@@ -60,7 +68,7 @@ export function ComplianceChecklist({ projectId }: { projectId: string }) {
         </Block>
         <Block title="GeM (Orders)">
           <Row label="Linked orders">{c.gem.linkedOrders}</Row>
-          <Row label="Total value">₹ {c.gem.totalValueCrores.toFixed(2)} Cr</Row>
+          <Row label="Total value">{moneyCompact(c.gem.totalValueCrores * 1e7)}</Row>
         </Block>
         <Block title="CPPP (Tenders)">
           <Row label="Published">{c.cppp.publishedTenders}</Row>

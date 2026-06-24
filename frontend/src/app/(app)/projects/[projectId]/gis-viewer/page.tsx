@@ -513,7 +513,7 @@ function GisViewerPageInner() {
                 polygonExtent4326 &&
                 allScenes.length > 0 &&
                 relevantScenes.length === 0 && (
-                  <div className="rounded-md border border-yellow-800 bg-yellow-950/40 px-3 py-2 text-xs text-yellow-200 flex items-center justify-between gap-2">
+                  <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning flex items-center justify-between gap-2">
                     <span>
                       No scenes intersect this project&apos;s polygon area.
                     </span>
@@ -528,7 +528,7 @@ function GisViewerPageInner() {
                   </div>
                 )}
               {sceneBlobError && (
-                <div className="rounded-md border border-red-800 bg-red-950/40 px-3 py-2 text-xs text-red-200">
+                <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
                   Could not load scene imagery · {selectedSceneId}
                 </div>
               )}

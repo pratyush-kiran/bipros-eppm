@@ -23,9 +23,9 @@ import {
 import { KpiTile } from "@/components/common/KpiTile";
 import {
   EmptyBlock,
-  formatINR,
   formatPct,
 } from "@/components/common/dashboard/primitives";
+import { formatMoney } from "@/lib/currency/format";
 import { SectionNav, type SectionNavItem } from "@/components/common/dashboard/SectionNav";
 import { boqApi } from "@/lib/api/boqApi";
 import { contractApi } from "@/lib/api/contractApi";
@@ -130,6 +130,12 @@ export default function FinancialDashboardPage() {
     enabled,
     staleTime: 60_000,
   });
+  const { data: projectEnv } = useQuery({
+    queryKey: ["financial-dashboard", pid, "project"],
+    queryFn: () => projectApi.getProject(pid),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
 
   const costSummary = costSummaryEnv?.data ?? undefined;
   const cashFlow = cashFlowEnv?.data ?? undefined;
@@ -174,6 +180,9 @@ export default function FinancialDashboardPage() {
   );
 
   const selectedProject = projects.find((p) => p.id === projectId) ?? null;
+  const currencyCode = projectEnv?.data?.budgetCurrency ?? "INR";
+  const fmt = (n: number | null | undefined) =>
+    formatMoney(n, { code: currencyCode }, { compact: true });
 
   const handleRefresh = async () => {
     if (!projectId) return;
@@ -349,9 +358,9 @@ export default function FinancialDashboardPage() {
               <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-5">
                 <KpiTile
                   label="Contract Value"
-                  value={formatINR(contractValue)}
+                  value={fmt(contractValue)}
                   hint={contractValueOriginal > 0 && contractValue !== contractValueOriginal
-                    ? `Original ${formatINR(contractValueOriginal)}`
+                    ? `Original ${fmt(contractValueOriginal)}`
                     : `${contracts.length} contract${contracts.length === 1 ? "" : "s"}`}
                   tone="accent"
                   icon={<Landmark size={14} strokeWidth={1.75} />}
@@ -366,7 +375,7 @@ export default function FinancialDashboardPage() {
                 />
                 <KpiTile
                   label="Approved BOQ"
-                  value={formatINR(approvedBoq)}
+                  value={fmt(approvedBoq)}
                   hint={
                     contractValue > 0
                       ? `${((approvedBoq / contractValue) * 100).toFixed(1)}% of contract · ${boqSummary?.items?.length ?? 0} items`
@@ -377,11 +386,11 @@ export default function FinancialDashboardPage() {
                 />
                 <KpiTile
                   label="Expenditure to Date"
-                  value={formatINR(expenditure)}
+                  value={fmt(expenditure)}
                   // Budget reference instead of CPI — keeps CPI in one place (the EVM
                   // footer) so two different CPI bases (cost-summary vs EVM) don't appear
                   // on the same screen with conflicting numbers.
-                  hint={`of ${formatINR(costSummary?.totalBudget)} budget`}
+                  hint={`of ${fmt(costSummary?.totalBudget)} budget`}
                   tone={expenditureDelta != null && expenditureDelta > 0 ? "warning" : "default"}
                   icon={<TrendingDown size={14} strokeWidth={1.75} />}
                   delta={
@@ -396,7 +405,7 @@ export default function FinancialDashboardPage() {
                 />
                 <KpiTile
                   label="Billing Raised"
-                  value={formatINR(billingRaised)}
+                  value={fmt(billingRaised)}
                   hint={
                     billingPctOfContract != null
                       ? `${formatPct(billingPctOfContract)} of contract`
@@ -407,7 +416,7 @@ export default function FinancialDashboardPage() {
                 />
                 <KpiTile
                   label="Pending Recovery"
-                  value={formatINR(pendingRecovery)}
+                  value={fmt(pendingRecovery)}
                   hint={
                     recoveryPctOfRaised != null
                       ? `${formatPct(recoveryPctOfRaised)} of raised`
@@ -461,7 +470,7 @@ export default function FinancialDashboardPage() {
                   <>
                     {" · EAC "}
                     <span className="font-semibold text-charcoal">
-                      {formatINR(evm.estimateAtCompletion)}
+                      {fmt(evm.estimateAtCompletion)}
                     </span>
                   </>
                 )}
@@ -469,7 +478,7 @@ export default function FinancialDashboardPage() {
                   <>
                     {" · VAC "}
                     <span className="font-semibold text-charcoal">
-                      {formatINR(evm.varianceAtCompletion)}
+                      {fmt(evm.varianceAtCompletion)}
                     </span>
                   </>
                 )}

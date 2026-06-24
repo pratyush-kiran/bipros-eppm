@@ -4,6 +4,8 @@ import { Activity } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
   CHART_COLORS,
+  CHART_TOOLTIP_ITEM_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
   CHART_TOOLTIP_STYLE,
   EmptyBlock,
   SectionCard,
@@ -63,6 +65,8 @@ export function ProjectHealthDonut({
                 </Pie>
                 <Tooltip
                   contentStyle={CHART_TOOLTIP_STYLE}
+                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                   formatter={(v, n) => [
                     `${v} (${formatPct((Number(v) / total) * 100, 0)})`,
                     n,

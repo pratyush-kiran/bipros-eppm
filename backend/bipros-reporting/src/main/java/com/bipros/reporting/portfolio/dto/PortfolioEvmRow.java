@@ -18,4 +18,6 @@ public record PortfolioEvmRow(
     BigDecimal cv,
     BigDecimal sv,
     BigDecimal eac,
-    BigDecimal bac) {}
+    BigDecimal bac,
+    String budgetCurrency,
+    Double percentComplete) {}

@@ -66,9 +66,8 @@ public class EvmService {
     private final DprActualCostLookup dprActualCostLookup;
     private final PercentCompleteCalculator percentCompleteCalculator;
 
-    @Transactional
-    public EvmCalculationResponse calculateEvm(UUID projectId, CalculateEvmRequest request) {
-        // Fetch project once — used for both dataDate and BAC override.
+    @Transactional(readOnly = true)
+    public EvmCalculation computeEvmSnapshot(UUID projectId, EvmTechnique technique, EtcMethod etcMethod) {
         var project = projectRepository.findById(projectId).orElse(null);
         LocalDate dataDate = resolveDataDate(project, projectId);
 
@@ -78,7 +77,6 @@ public class EvmService {
         List<ActivitySubContractorAssignment> allScAssignments =
                 activitySubContractorAssignmentRepository.findByProjectId(projectId);
 
-        // Group cost data by activity
         Map<UUID, List<ActivityExpense>> expensesByActivity = allExpenses.stream()
                 .filter(e -> e.getActivityId() != null)
                 .collect(Collectors.groupingBy(ActivityExpense::getActivityId));
@@ -89,7 +87,7 @@ public class EvmService {
                 .collect(Collectors.groupingBy(ActivitySubContractorAssignment::getActivityId));
         Map<UUID, BigDecimal> dprAcByActivity = dprActualCostLookup.sumByActivity(projectId);
 
-        EvmTechniqueStrategy strategy = EvmTechniqueFactory.getStrategy(request.technique());
+        EvmTechniqueStrategy strategy = EvmTechniqueFactory.getStrategy(technique);
 
         BigDecimal totalPv = BigDecimal.ZERO;
         BigDecimal totalEv = BigDecimal.ZERO;
@@ -139,15 +137,26 @@ public class EvmService {
         var calculation = new EvmCalculation();
         calculation.setProjectId(projectId);
         calculation.setDataDate(dataDate);
-        calculation.setEvmTechnique(request.technique());
-        calculation.setEtcMethod(request.etcMethod());
+        calculation.setEvmTechnique(technique);
+        calculation.setEtcMethod(etcMethod);
         calculation.setBudgetAtCompletion(totalBac);
         calculation.setPlannedValue(totalPv);
         calculation.setEarnedValue(totalEv);
         calculation.setActualCost(totalAc);
 
         EvmServiceHelper.calculateIndices(calculation, formulaEngine);
+        return calculation;
+    }
 
+    /** Default technique/ETC convenience overload used by read-only report surfaces. */
+    @Transactional(readOnly = true)
+    public EvmCalculation computeEvmSnapshot(UUID projectId) {
+        return computeEvmSnapshot(projectId, EvmTechnique.ACTIVITY_PERCENT_COMPLETE, EtcMethod.CPI_BASED);
+    }
+
+    @Transactional
+    public EvmCalculationResponse calculateEvm(UUID projectId, CalculateEvmRequest request) {
+        EvmCalculation calculation = computeEvmSnapshot(projectId, request.technique(), request.etcMethod());
         var saved = evmCalculationRepository.save(calculation);
         auditService.logCreate("EvmCalculation", saved.getId(), EvmCalculationResponse.from(saved));
         eventPublisher.publishEvent(new EvmRecalculatedEvent(

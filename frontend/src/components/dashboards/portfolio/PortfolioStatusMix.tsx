@@ -13,6 +13,8 @@ import { portfolioReportApi } from "@/lib/api/portfolioReportApi";
 import {
   CHART_COLORS,
   CHART_TOOLTIP_STYLE,
+  CHART_TOOLTIP_LABEL_STYLE,
+  CHART_TOOLTIP_ITEM_STYLE,
   EmptyBlock,
   LoadingBlock,
   SectionCard,
@@ -60,11 +62,14 @@ export function PortfolioStatusMix() {
     .map(([name, value]) => ({ name, value }));
   const statusTotal = statusData.reduce((s, e) => s + e.value, 0);
 
-  const ragTotal = data.rag.green + data.rag.amber + data.rag.red || 1;
+  const ragTotal = data.rag.green + data.rag.amber + data.rag.red + (data.rag.grey ?? 0) || 1;
   const ragSegments = [
     { key: "green", label: "On track", count: data.rag.green, color: CHART_COLORS.goldDeep },
     { key: "amber", label: "At risk", count: data.rag.amber, color: CHART_COLORS.amber },
     { key: "red", label: "Critical", count: data.rag.red, color: CHART_COLORS.red },
+    ...(( data.rag.grey ?? 0) > 0
+      ? [{ key: "grey", label: "No EVM", count: data.rag.grey, color: "#94a3b8" }]
+      : []),
   ];
   const healthScore =
     ragTotal > 0
@@ -129,6 +134,8 @@ export function PortfolioStatusMix() {
                     </Pie>
                     <Tooltip
                       contentStyle={CHART_TOOLTIP_STYLE}
+                      labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                      itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                       formatter={(v, n) => [
                         `${v} (${formatPct((Number(v) / statusTotal) * 100, 0)})`,
                         STATUS_LABEL[String(n)] ?? n,
@@ -220,7 +227,7 @@ export function PortfolioStatusMix() {
           </div>
 
           {/* Detail tiles */}
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className={`mt-3 grid gap-2 ${ragSegments.length === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
             {ragSegments.map((seg) => {
               const pct = (seg.count / ragTotal) * 100;
               return (

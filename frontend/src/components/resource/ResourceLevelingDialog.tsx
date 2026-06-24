@@ -19,6 +19,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { SimpleTable } from "@/components/common/SimpleTable";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 import type { ColumnDef } from "@tanstack/react-table";
 
 const LEVELING_MODES: { value: LevelingMode; label: string; description: string }[] = [
@@ -111,7 +112,7 @@ export function ResourceLevelingDialog({ projectId, open, onClose }: ResourceLev
                 onClick={() => { setMode(m.value); setResult(null); }}
                 className={`rounded-lg border p-3 text-left transition-colors ${
                   mode === m.value
-                    ? "border-accent bg-blue-950/50"
+                    ? "border-accent bg-accent/10"
                     : "border-border bg-surface-hover/50 hover:border-border"
                 }`}
               >
@@ -128,11 +129,13 @@ export function ResourceLevelingDialog({ projectId, open, onClose }: ResourceLev
             <h3 className="mb-3 text-sm font-semibold text-text-secondary">Resource Utilization Profile</h3>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" stroke="#64748b" style={{ fontSize: "10px" }} />
                 <YAxis stroke="#64748b" style={{ fontSize: "11px" }} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "0.5rem" }}
+                  contentStyle={CHART_TOOLTIP_STYLE}
+                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                   formatter={(value) => typeof value === "number" ? value.toFixed(2) : value}
                 />
                 <Legend />
@@ -235,7 +238,7 @@ export function ResourceLevelingDialog({ projectId, open, onClose }: ResourceLev
 
         {/* Error */}
         {levelMutation.isError && (
-          <div className="mt-4 rounded-lg border border-red-800 bg-red-950/50 p-3 text-sm text-danger">
+          <div className="mt-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
             Leveling failed: {levelMutation.error instanceof Error ? levelMutation.error.message : "Unknown error"}
           </div>
         )}

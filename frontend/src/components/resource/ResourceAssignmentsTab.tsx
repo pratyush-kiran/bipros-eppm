@@ -15,6 +15,7 @@ import { ResourceAssignmentForm } from "./ResourceAssignmentForm";
 import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { UdfSection } from "@/components/udf/UdfSection";
 import { ResourceAssignmentTree, ViewModeToggle, type AssignmentRow } from "./ResourceAssignmentTree";
+import { CHART_TOOLTIP_STYLE, CHART_TOOLTIP_LABEL_STYLE, CHART_TOOLTIP_ITEM_STYLE } from "@/components/common/dashboard/primitives";
 
 interface ResourceAssignmentRow {
   id: string;
@@ -407,12 +408,9 @@ export function ResourceAssignmentsTab({ projectId }: { projectId: string }) {
                   label={{ value: "Units", angle: -90, position: "insideLeft" }}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #475569",
-                    borderRadius: "0.375rem",
-                    color: "#e2e8f0",
-                  }}
+                  contentStyle={CHART_TOOLTIP_STYLE}
+                  labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                  itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                   formatter={(value) => (typeof value === "number" ? value.toFixed(2) : value)}
                 />
                 <Legend wrapperStyle={{ paddingTop: "16px" }} />

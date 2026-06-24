@@ -9,6 +9,7 @@ public record EvmReportData(
     BigDecimal pv,
     BigDecimal ev,
     BigDecimal ac,
+    BigDecimal bac,
     double spi,
     double cpi,
     BigDecimal eac,

@@ -74,6 +74,7 @@ public class DbsAggregationService {
     private final RegisterAggregationService registerAggregationService;
     private final com.bipros.project.domain.repository.DailyProgressReportRepository dprRepository;
     private final DbsRecomputeLock recomputeLock;
+    private final com.bipros.dbs.config.DbsProperties dbsProperties;
 
     /**
      * Recompute the supervisor-day row by running the six section calculators and
@@ -86,7 +87,8 @@ public class DbsAggregationService {
         SectionResult manpower = manpowerCalc.compute(projectId, supervisorUserId, date);
         SectionResult admin = adminCalc.compute(projectId, supervisorUserId, date);
         SectionResult machinery = machineryCalc.compute(projectId, supervisorUserId, date);
-        SectionResult fuel = fuelCalc.compute(projectId, supervisorUserId, date);
+        SectionResult fuel = fuelCalc.fromMachinery(
+            machinery.totalAmount(), dbsProperties.getFuelMachineryCostRatio());
         SectionResult material = materialCalc.compute(projectId, supervisorUserId, date);
         BoqSectionResult boq = boqCalc.compute(projectId, supervisorUserId, date);
 
@@ -200,7 +202,7 @@ public class DbsAggregationService {
         applyAggregates(row::setManpowerAmount, supRows, DbsDailySupervisor::getManpowerAmount);
         applyAggregates(row::setAdminAmount, supRows, DbsDailySupervisor::getAdminAmount);
         applyAggregates(row::setMachineryAmount, supRows, DbsDailySupervisor::getMachineryAmount);
-        applyAggregates(row::setFuelAmount, supRows, DbsDailySupervisor::getFuelAmount);
+        row.setFuelAmount(fuelFromMachinery(row.getMachineryAmount()));
         applyAggregates(row::setMaterialAmount, supRows, DbsDailySupervisor::getMaterialAmount);
         applyAggregates(row::setSubcontractAmount, supRows, DbsDailySupervisor::getSubcontractAmount);
         applyAggregates(row::setBoqForTheDayAmount, supRows, DbsDailySupervisor::getBoqForTheDayAmount);
@@ -278,7 +280,7 @@ public class DbsAggregationService {
         row.setManpowerAmount(sumOf(supRows, DbsDailySupervisor::getManpowerAmount));
         row.setAdminAmount(sumOf(supRows, DbsDailySupervisor::getAdminAmount));
         row.setMachineryAmount(sumOf(supRows, DbsDailySupervisor::getMachineryAmount));
-        row.setFuelAmount(sumOf(supRows, DbsDailySupervisor::getFuelAmount));
+        row.setFuelAmount(fuelFromMachinery(row.getMachineryAmount()));
         row.setMaterialAmount(sumOf(supRows, DbsDailySupervisor::getMaterialAmount));
 
         BigDecimal boqForDay = sumOf(supRows, DbsDailySupervisor::getBoqForTheDayAmount);
@@ -361,7 +363,7 @@ public class DbsAggregationService {
         totals.setManpowerAmount(sumOf(rows, DbsDailyCm::getManpowerAmount));
         totals.setAdminAmount(sumOf(rows, DbsDailyCm::getAdminAmount));
         totals.setMachineryAmount(sumOf(rows, DbsDailyCm::getMachineryAmount));
-        totals.setFuelAmount(sumOf(rows, DbsDailyCm::getFuelAmount));
+        totals.setFuelAmount(fuelFromMachinery(totals.getMachineryAmount()));
         totals.setMaterialAmount(sumOf(rows, DbsDailyCm::getMaterialAmount));
         totals.setDirectCost(sumOf(rows, DbsDailyCm::getDirectCost));
         totals.setPrelimCost(sumOf(rows, DbsDailyCm::getPrelimCost));
@@ -443,7 +445,7 @@ public class DbsAggregationService {
             DbsDailySupervisor::getAdminAmount, nz(projectAdmin.totalAmount()));
         applyAggregatesWithExtra(row::setMachineryAmount, supRows,
             DbsDailySupervisor::getMachineryAmount, machineryLegacyOnly);
-        applyAggregates(row::setFuelAmount, supRows, DbsDailySupervisor::getFuelAmount);
+        row.setFuelAmount(fuelFromMachinery(row.getMachineryAmount()));
         applyAggregatesWithExtra(row::setMaterialAmount, supRows,
             DbsDailySupervisor::getMaterialAmount, materialLegacyOnly);
         // Sub-contractor: project-scope only. Supervisor rows always carry subcontractAmount = 0
@@ -573,6 +575,12 @@ public class DbsAggregationService {
 
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /** Section D fuel = ratio × Section C machinery, rounded to 2dp. */
+    private BigDecimal fuelFromMachinery(BigDecimal machineryAmount) {
+        BigDecimal m = nz(machineryAmount);
+        return m.multiply(dbsProperties.getFuelMachineryCostRatio()).setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     /**

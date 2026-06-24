@@ -28,6 +28,6 @@ public record MonthlyProgressData(
       String code,
       String name,
       String status,
-      double totalFloat,
+      int delayDays,
       LocalDate plannedFinish) {}
 }
