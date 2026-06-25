@@ -44,4 +44,22 @@ public interface DprMaterialRepository extends JpaRepository<DprMaterial, UUID> 
     /** Per-DPR material line count. Returns [dprId (UUID), count (Long)]. */
     @Query("select m.dprId, count(m) from DprMaterial m where m.dprId in :ids group by m.dprId")
     List<Object[]> countByDprIdIn(@Param("ids") Collection<UUID> ids);
+
+    // ---- From-scratch rebuild queries (Task 1: DPR Data Repair) ----
+
+    /** All material rows for a DPR — used by data-repair to inspect/rebuild resource lines. */
+    List<DprMaterial> findByDprId(UUID dprId);
+
+    /**
+     * Absolute sum of material line_cost across all DPRs for a (project, boqItem).
+     * Used by the from-scratch BOQ actualRate rebuild.
+     */
+    @Query("""
+        select coalesce(sum(mt.lineCost), 0)
+        from DprMaterial mt, com.bipros.project.domain.model.DailyProgressReport d
+        where mt.dprId = d.id and d.projectId = :projectId and d.boqItemId = :boqItemId
+        """)
+    java.math.BigDecimal sumLineCostByBoqItemId(
+        @Param("projectId") UUID projectId,
+        @Param("boqItemId") UUID boqItemId);
 }

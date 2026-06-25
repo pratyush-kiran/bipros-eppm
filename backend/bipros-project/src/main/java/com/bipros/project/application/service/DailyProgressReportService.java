@@ -1902,6 +1902,18 @@ public class DailyProgressReportService {
         .executeUpdate();
   }
 
+  /** Public, idempotent: recompute resource-assignment actuals for an activity from current DPR rows. */
+  @org.springframework.transaction.annotation.Transactional
+  public void recomputeActivityResourceActuals(UUID activityId) {
+    rollupRoleAssignmentActuals(activityId);
+  }
+
+  /** Public, idempotent: recompute sub-contractor assignment actuals from current DPR rows. */
+  @org.springframework.transaction.annotation.Transactional
+  public void recomputeScActualsForAssignments(java.util.Set<UUID> assignmentIds) {
+    recomputeScActuals(assignmentIds);
+  }
+
   private static Object[] findAssignmentRow(List<Object[]> rows, UUID roleId, UUID variantId) {
     for (Object[] row : rows) {
       UUID rid = (UUID) row[0];

@@ -11,6 +11,8 @@ import java.util.UUID;
 @Repository
 public interface BoqItemRepository extends JpaRepository<BoqItem, UUID> {
 
+  List<BoqItem> findByProjectId(UUID projectId);
+
   List<BoqItem> findByProjectIdOrderByItemNoAsc(UUID projectId);
 
   Optional<BoqItem> findByProjectIdAndItemNo(UUID projectId, String itemNo);

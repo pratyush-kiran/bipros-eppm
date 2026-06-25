@@ -51,4 +51,22 @@ public interface DprManpowerRepository extends JpaRepository<DprManpower, UUID> 
     /** Per-DPR sum of manpower headcount (nos) for the given dpr ids. Returns [dprId (UUID), total (Long)]. */
     @Query("select m.dprId, coalesce(sum(m.nos), 0) from DprManpower m where m.dprId in :ids group by m.dprId")
     List<Object[]> sumNosByDprIdIn(@Param("ids") Collection<UUID> ids);
+
+    // ---- From-scratch rebuild queries (Task 1: DPR Data Repair) ----
+
+    /** All manpower rows for a DPR — used by data-repair to inspect/rebuild resource lines. */
+    List<DprManpower> findByDprId(UUID dprId);
+
+    /**
+     * Absolute sum of manpower line_cost across all DPRs for a (project, boqItem).
+     * Used by the from-scratch BOQ actualRate rebuild.
+     */
+    @Query("""
+        select coalesce(sum(m.lineCost), 0)
+        from DprManpower m, com.bipros.project.domain.model.DailyProgressReport d
+        where m.dprId = d.id and d.projectId = :projectId and d.boqItemId = :boqItemId
+        """)
+    java.math.BigDecimal sumLineCostByBoqItemId(
+        @Param("projectId") UUID projectId,
+        @Param("boqItemId") UUID boqItemId);
 }

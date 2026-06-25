@@ -347,6 +347,51 @@ public class DbsAggregationService {
     }
 
     /**
+     * Fan-out recompute for all tiers on a single day: supervisor → engineer → CM → project.
+     * Replicates the fan-out that previously lived in {@code DbsController.recomputeProjectDay}.
+     * Exposed as a public method so both the REST endpoint and the data-repair tool reuse one
+     * code path.
+     *
+     * @return the saved {@link DbsDailyProject} row for the date
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public DbsDailyProject recomputeAllTiersForDay(UUID projectId, LocalDate date) {
+        List<UUID> supervisorIds = dprRepository.findDistinctSupervisorUserIdsByProjectAndDate(projectId, date);
+        Set<UUID> engineerIds = new LinkedHashSet<>();
+        Set<UUID> cmIds = new LinkedHashSet<>();
+        for (UUID sup : supervisorIds) {
+            recomputeSupervisorDay(projectId, sup, date);
+            projectTeamService.resolveEngineerFor(projectId, sup).ifPresent(engineerIds::add);
+            projectTeamService.resolveCmFor(projectId, sup).ifPresent(cmIds::add);
+        }
+        for (UUID eng : engineerIds) {
+            recomputeEngineerDay(projectId, eng, date);
+        }
+        for (UUID cm : cmIds) {
+            recomputeCmDay(projectId, cm, date);
+        }
+        return recomputeProjectDay(projectId, date);
+    }
+
+    /**
+     * Recompute all tiers for every date in {@code [from, to]} inclusive (swaps if reversed).
+     * Returns the per-day {@link DbsDailyProject} rows.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public List<DbsDailyProject> recomputeRange(UUID projectId, LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            LocalDate tmp = from;
+            from = to;
+            to = tmp;
+        }
+        List<DbsDailyProject> out = new java.util.ArrayList<>();
+        for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
+            out.add(recomputeAllTiersForDay(projectId, d));
+        }
+        return out;
+    }
+
+    /**
      * Period rollup for a single CM — SUMs of all {@code dbs_daily_cm} rows in the range
      * {@code [from, to]} inclusive. Returns a transient {@link DbsDailyCm} (no id, not
      * persisted) carrying the totals.

@@ -44,4 +44,22 @@ public interface DprEquipmentRepository extends JpaRepository<DprEquipment, UUID
     /** Per-DPR sum of equipment count (nos) for the given dpr ids. Returns [dprId (UUID), total (Long)]. */
     @Query("select e.dprId, coalesce(sum(e.nos), 0) from DprEquipment e where e.dprId in :ids group by e.dprId")
     List<Object[]> sumNosByDprIdIn(@Param("ids") Collection<UUID> ids);
+
+    // ---- From-scratch rebuild queries (Task 1: DPR Data Repair) ----
+
+    /** All equipment rows for a DPR — used by data-repair to inspect/rebuild resource lines. */
+    List<DprEquipment> findByDprId(UUID dprId);
+
+    /**
+     * Absolute sum of equipment line_cost across all DPRs for a (project, boqItem).
+     * Used by the from-scratch BOQ actualRate rebuild.
+     */
+    @Query("""
+        select coalesce(sum(e.lineCost), 0)
+        from DprEquipment e, com.bipros.project.domain.model.DailyProgressReport d
+        where e.dprId = d.id and d.projectId = :projectId and d.boqItemId = :boqItemId
+        """)
+    java.math.BigDecimal sumLineCostByBoqItemId(
+        @Param("projectId") UUID projectId,
+        @Param("boqItemId") UUID boqItemId);
 }

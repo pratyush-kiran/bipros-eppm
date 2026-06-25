@@ -99,6 +99,32 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
       """, nativeQuery = true)
   BigDecimal sumLinkedBoqQty(@Param("activityId") UUID activityId);
 
+  // ---- From-scratch rebuild queries (Task 1: DPR Data Repair) ----
+
+  /** All DPRs for a project — used by the data-repair orchestrator for full-project scans. */
+  List<DailyProgressReport> findByProjectId(UUID projectId);
+
+  @org.springframework.data.jpa.repository.Query(
+      "select min(d.reportDate) from DailyProgressReport d where d.projectId = :projectId")
+  java.util.Optional<java.time.LocalDate> findMinReportDate(
+      @org.springframework.data.repository.query.Param("projectId") UUID projectId);
+
+  @org.springframework.data.jpa.repository.Query(
+      "select max(d.reportDate) from DailyProgressReport d where d.projectId = :projectId")
+  java.util.Optional<java.time.LocalDate> findMaxReportDate(
+      @org.springframework.data.repository.query.Param("projectId") UUID projectId);
+
+  /**
+   * Absolute sum of qty_executed across all DPRs for a (project, boqItem).
+   * Used by the from-scratch BOQ rebuild to set qtyExecutedToDate idempotently.
+   */
+  @org.springframework.data.jpa.repository.Query(
+      "select coalesce(sum(d.qtyExecuted), 0) from DailyProgressReport d "
+          + "where d.projectId = :projectId and d.boqItemId = :boqItemId")
+  java.math.BigDecimal sumQtyExecutedByBoqItemId(
+      @org.springframework.data.repository.query.Param("projectId") UUID projectId,
+      @org.springframework.data.repository.query.Param("boqItemId") UUID boqItemId);
+
   /**
    * Null out the supervisor FK when the underlying user is deleted. {@code supervisorName}
    * stays put because the column is NOT NULL and the display snapshot is still valid history.

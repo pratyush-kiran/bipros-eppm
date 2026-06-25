@@ -19,8 +19,6 @@ import com.bipros.dbs.export.DbsPdfWriter;
 import com.bipros.dbs.service.DbsAggregationService;
 import com.bipros.dbs.service.DbsQueryService;
 import com.bipros.dbs.service.RegisterAggregationService;
-import com.bipros.project.application.service.ProjectTeamService;
-import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -35,11 +33,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -61,8 +56,6 @@ public class DbsController {
 
     private final DbsQueryService queryService;
     private final DbsAggregationService aggregationService;
-    private final DailyProgressReportRepository dprRepository;
-    private final ProjectTeamService projectTeamService;
     private final DbsExcelWriter excelWriter;
     private final DbsPdfWriter pdfWriter;
     private final RegisterAggregationService registerAggregationService;
@@ -246,15 +239,7 @@ public class DbsController {
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 
         log.info("Admin recompute-range requested projectId={} from={} to={}", projectId, from, to);
-        if (to.isBefore(from)) {
-            LocalDate tmp = from;
-            from = to;
-            to = tmp;
-        }
-        List<DbsDailyProject> results = new ArrayList<>();
-        for (LocalDate d = from; !d.isAfter(to); d = d.plusDays(1)) {
-            results.add(recomputeProjectDay(projectId, d));
-        }
+        List<DbsDailyProject> results = aggregationService.recomputeRange(projectId, from, to);
         return ResponseEntity.ok(ApiResponse.ok(results));
     }
 
@@ -323,34 +308,13 @@ public class DbsController {
 
     // ── helpers ─────────────────────────────────────────────────────────────────
 
+    /**
+     * Delegates the full fan-out (supervisor → engineer → CM → project) to
+     * {@link DbsAggregationService#recomputeAllTiersForDay} and returns the saved
+     * project row. Behaviour is identical to the previous inline fan-out.
+     */
     private DbsDailyProject recomputeProjectDay(UUID projectId, LocalDate date) {
-        // Bug 5/7 fix: when no DPRs exist for this date, do NOT synthesize a
-        // null-supervisor row. The previous behaviour created a placeholder row
-        // that inflated dprCount to 1 on empty dates and polluted the engineer
-        // aggregation. Skipping the call lets recomputeProjectDay write an
-        // honest empty row (supRows.isEmpty() ⇒ dprCount = 0).
-        List<UUID> supervisorIds = dprRepository.findDistinctSupervisorUserIdsByProjectAndDate(projectId, date);
-        Set<UUID> engineerIds = new LinkedHashSet<>();
-        Set<UUID> cmIds = new LinkedHashSet<>();
-        for (UUID sup : supervisorIds) {
-            aggregationService.recomputeSupervisorDay(projectId, sup, date);
-            // Bug 8 fix: admin recompute previously skipped the engineer-day rollup,
-            // so the engineer tab stayed stale until the next event-driven recompute.
-            // Resolve each supervisor's engineer-of-record and queue a recompute.
-            projectTeamService.resolveEngineerFor(projectId, sup)
-                .ifPresent(engineerIds::add);
-            // Phase 4: same fan-out for the CM tier — admin recompute must refresh
-            // dbs_daily_cm rows alongside engineer + project.
-            projectTeamService.resolveCmFor(projectId, sup)
-                .ifPresent(cmIds::add);
-        }
-        for (UUID eng : engineerIds) {
-            aggregationService.recomputeEngineerDay(projectId, eng, date);
-        }
-        for (UUID cm : cmIds) {
-            aggregationService.recomputeCmDay(projectId, cm, date);
-        }
-        return aggregationService.recomputeProjectDay(projectId, date);
+        return aggregationService.recomputeAllTiersForDay(projectId, date);
     }
 
     private static boolean isPeriod(String periodType) {
