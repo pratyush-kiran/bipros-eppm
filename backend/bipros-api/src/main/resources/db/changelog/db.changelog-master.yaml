@@ -205,3 +205,9 @@ databaseChangeLog:
       file: db/changelog/changeset-2026-05-add-dbs-unique-keys.xml
   - include:
       file: db/changelog/107-dpr-voice-notes.yaml
+  - include:
+      file: db/changelog/108-dpr-approval-workflow.yaml
+  - include:
+      file: db/changelog/109-dpr-escalated-at.yaml
+  - include:
+      file: db/changelog/110-user-notifications.yaml

@@ -54,10 +54,10 @@ public class ActivityProgressFromBoqListener {
     Activity activity = activityRepository.findById(activityId).orElse(null);
     if (activity == null) return;
 
-    BigDecimal boqQty = dprRepository.sumLinkedBoqQty(activityId);
+    BigDecimal boqQty = dprRepository.sumLinkedBoqQtyApproved(activityId);
     if (boqQty == null || boqQty.signum() <= 0) return; // not BOQ-driven — leave to type writers
 
-    BigDecimal workdone = dprRepository.sumActivityWorkdoneOnBoq(activityId);
+    BigDecimal workdone = dprRepository.sumActivityWorkdoneOnBoqApproved(activityId);
 
     PercentCompleteCalculator.Result result = calculator.calculateBoq(
         activity,

@@ -2,6 +2,7 @@ package com.bipros.api.service;
 
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprMaterial;
 import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
@@ -142,7 +143,8 @@ public class MaterialKpiService {
 
     // KPI 9.5 — Material Cost / Unit Finished Work
     List<DailyProgressReport> dprs = dprRepository
-        .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, from, to);
+        .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, from, to);
     List<BoqItem> boqItems = boqItemRepository.findByProjectIdOrderByItemNoAsc(projectId);
     List<CostPerUnitRow> costRows = computeCostPerUnitFinished(dprs, dprMaterials, boqItems);
     double weightedCpu = computeWeightedCpu(costRows);
@@ -243,7 +245,8 @@ public class MaterialKpiService {
 
   private List<DprMaterial> fetchDprMaterials(UUID projectId, LocalDate from, LocalDate to) {
     List<DailyProgressReport> dprs = dprRepository
-        .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, from, to);
+        .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, from, to);
     if (dprs.isEmpty()) return List.of();
     Set<UUID> dprIds = dprs.stream().map(DailyProgressReport::getId).collect(Collectors.toSet());
     return dprMaterialRepository.findByDprIdIn(dprIds);

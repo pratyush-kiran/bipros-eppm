@@ -313,7 +313,7 @@ public class ActivityCostQueryService {
             + "LEFT JOIN resource.resource_assignments a "
             + "  ON a.activity_id = d.activity_id AND a." + fkCol + " = c." + fkCol + " "
             + "WHERE d.activity_id = :activityId "
-            + "AND COALESCE(d.approval_status, 'DRAFT') IN ('SUBMITTED', 'APPROVED')");
+            + "AND COALESCE(d.approval_status, 'DRAFT') = 'APPROVED'");
     if (fromDate != null) sql.append(" AND d.report_date >= :fromDate");
     if (toDate != null) sql.append(" AND d.report_date <= :toDate");
     if (supervisorUserId != null) sql.append(" AND d.supervisor_user_id = :supervisorUserId");
@@ -384,7 +384,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.manpower_role_rate_id = c.manpower_role_rate_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + "  UNION ALL "
             + "  SELECT c.role_id, (c.nos * COALESCE(a.effective_rate, 0))::numeric "
             + "  FROM project.dpr_equipment c "
@@ -393,7 +393,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.equipment_role_variant_id = c.equipment_role_variant_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + "  UNION ALL "
             + "  SELECT c.role_id, (c.quantity * COALESCE(a.effective_rate, 0))::numeric "
             + "  FROM project.dpr_material c "
@@ -402,7 +402,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.material_role_variant_id = c.material_role_variant_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter;
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter;
     String sql = "SELECT COALESCE(r.code, '(legacy)') AS role_code, COALESCE(SUM(u.contrib), 0) "
         + "FROM (" + childUnion + ") u "
         + "LEFT JOIN resource.resource_roles r ON r.id = u.role_id "
@@ -434,7 +434,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.manpower_role_rate_id = c.manpower_role_rate_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + "  UNION ALL "
             + "  SELECT d.report_date, (c.nos * COALESCE(a.effective_rate, 0))::numeric "
             + "  FROM project.dpr_equipment c "
@@ -443,7 +443,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.equipment_role_variant_id = c.equipment_role_variant_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + "  UNION ALL "
             + "  SELECT d.report_date, (c.quantity * COALESCE(a.effective_rate, 0))::numeric "
             + "  FROM project.dpr_material c "
@@ -452,7 +452,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.material_role_variant_id = c.material_role_variant_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + ") u "
             + "GROUP BY u.report_date ORDER BY u.report_date";
     Query q = em.createNativeQuery(sql);
@@ -484,7 +484,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.manpower_role_rate_id = c.manpower_role_rate_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + "  UNION ALL "
             + "  SELECT d.supervisor_user_id, (c.nos * COALESCE(a.effective_rate, 0))::numeric "
             + "  FROM project.dpr_equipment c "
@@ -493,7 +493,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.equipment_role_variant_id = c.equipment_role_variant_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + "  UNION ALL "
             + "  SELECT d.supervisor_user_id, (c.quantity * COALESCE(a.effective_rate, 0))::numeric "
             + "  FROM project.dpr_material c "
@@ -502,7 +502,7 @@ public class ActivityCostQueryService {
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.material_role_variant_id = c.material_role_variant_id "
             + "   WHERE d.activity_id = :activityId "
-            + "     AND COALESCE(d.approval_status,'DRAFT') IN ('SUBMITTED','APPROVED') " + filter
+            + "     AND COALESCE(d.approval_status,'DRAFT') = 'APPROVED'" + filter
             + ") u "
             + "GROUP BY u.supervisor_user_id ORDER BY 2 DESC";
     Query q = em.createNativeQuery(sql);

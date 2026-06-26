@@ -4,6 +4,7 @@ import com.bipros.ai.context.AiContext;
 import com.bipros.ai.tool.Tool;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprEquipment;
 import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
@@ -134,7 +135,7 @@ public class DailyBalanceSheetTool implements Tool {
         UUID supervisorUserId = parseUuid(input.path("supervisorUserId").asText(null));
 
         List<DailyProgressReport> dprs = dprRepository
-                .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, fromDate, toDate);
+                .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, DprApprovalStatus.APPROVED, fromDate, toDate);
         if (supervisorUserId != null) {
             UUID supId = supervisorUserId;
             dprs = dprs.stream()

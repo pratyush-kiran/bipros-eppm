@@ -115,6 +115,7 @@ public class SubContractorKpiService {
         + "    JOIN resource.activity_sub_contractor_assignments a ON a.id = c.activity_sub_contractor_assignment_id "
         + "   WHERE d.project_id = :projectId "
         + "     AND d.report_date BETWEEN :fromDate AND :toDate "
+        + "     AND d.approval_status = 'APPROVED' "
         + "   GROUP BY a.sub_contractor_master_id, a.sc_work_type_id "
         + ") "
         + "SELECT plan.sub_contractor_master_id, sm.code, sm.name, "
@@ -144,6 +145,7 @@ public class SubContractorKpiService {
         + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
         + "WHERE d.project_id = :projectId "
         + "  AND d.report_date BETWEEN :fromDate AND :toDate "
+        + "  AND d.approval_status = 'APPROVED' "
         + "  AND c.activity_sub_contractor_assignment_id IS NULL";
     Number orphan = (Number) em.createNativeQuery(orphanSql)
         .setParameter("projectId", projectId)

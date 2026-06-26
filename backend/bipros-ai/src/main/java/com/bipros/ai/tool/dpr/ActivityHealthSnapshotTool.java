@@ -7,6 +7,7 @@ import com.bipros.ai.context.AiContext;
 import com.bipros.ai.tool.Tool;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprIssue;
 import com.bipros.project.domain.model.IssueStatus;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
@@ -150,7 +151,8 @@ public class ActivityHealthSnapshotTool implements Tool {
         }
 
         List<DailyProgressReport> dprs =
-                dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId);
+                dprRepository.findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+                        projectId, DprApprovalStatus.APPROVED);
         for (DailyProgressReport d : dprs) {
             if (!inWindow(d.getReportDate(), dateFrom, dateTo)) continue;
             Bucket b = resolveBucket(d.getActivityId(), d.getActivityName(), buckets, nameIndex);

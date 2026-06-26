@@ -5,6 +5,7 @@ import com.bipros.project.application.dto.DailyCostReportResponse;
 import com.bipros.project.application.dto.DailyCostReportRow;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
@@ -68,8 +69,10 @@ public class DailyCostReportService {
     }
 
     List<DailyProgressReport> dprRows = (from != null && to != null)
-        ? dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, from, to)
-        : dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId);
+        ? dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, from, to)
+        : dprRepository.findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED);
 
     return buildResponse(projectId, dprRows, from, to, null);
   }
@@ -88,8 +91,10 @@ public class DailyCostReportService {
       throw new IllegalArgumentException("boqItemId is required for drilldown");
     }
     List<DailyProgressReport> all = (from != null && to != null)
-        ? dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, from, to)
-        : dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId);
+        ? dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, from, to)
+        : dprRepository.findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED);
     List<DailyProgressReport> filtered = new ArrayList<>();
     for (DailyProgressReport d : all) {
       if (boqItemId.equals(d.getBoqItemId())) {

@@ -4,6 +4,7 @@ import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.model.ActivityStatus;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprEquipment;
 import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.model.SafetyIncidentType;
@@ -104,7 +105,7 @@ public class FieldDashboardSummaryService {
 
     // ---- Top-strip: workers + equipment counts on the as-of date ----
     List<DailyProgressReport> dprsToday = dprRepository
-        .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, asOfDate, asOfDate);
+        .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, DprApprovalStatus.APPROVED, asOfDate, asOfDate);
     Set<UUID> dprIdsToday = dprsToday.stream()
         .map(DailyProgressReport::getId)
         .collect(Collectors.toSet());
@@ -116,7 +117,7 @@ public class FieldDashboardSummaryService {
     LocalDate hoursFrom = asOfDate.minusDays(OPERATING_HOURS_WINDOW_DAYS - 1L);
     LocalDate siteWindowFrom = asOfDate.minusDays(ACTIVE_SITE_WINDOW_DAYS - 1L);
     List<DailyProgressReport> dprsWindow = dprRepository
-        .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, siteWindowFrom, asOfDate);
+        .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, DprApprovalStatus.APPROVED, siteWindowFrom, asOfDate);
     Set<UUID> hoursWindowDprIds = dprsWindow.stream()
         .filter(d -> d.getReportDate() != null && !d.getReportDate().isBefore(hoursFrom))
         .map(DailyProgressReport::getId)
@@ -246,7 +247,7 @@ public class FieldDashboardSummaryService {
     // Fall back to the most recent DPR report_date in the project — repository returns ascending,
     // so the last element is the latest. If the project has no DPRs yet, return null and the
     // caller will surface zeroed tiles.
-    List<DailyProgressReport> all = dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId);
+    List<DailyProgressReport> all = dprRepository.findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(projectId, DprApprovalStatus.APPROVED);
     if (all.isEmpty()) return null;
     return all.get(all.size() - 1).getReportDate();
   }

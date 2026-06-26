@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
@@ -140,6 +141,39 @@ public class DailyProgressReport extends BaseEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "approval_status", length = 20)
   private DprApprovalStatus approvalStatus;
+
+  /**
+   * Approval-workflow fields (DPR approval feature). Set by DailyProgressReportService
+   * submit/approve/reject/revoke transitions; null on legacy/backfilled rows.
+   */
+  @Column(name = "assigned_approver_user_id")
+  private UUID assignedApproverUserId;
+
+  @Column(name = "submitted_at")
+  private Instant submittedAt;
+
+  @Column(name = "submitted_by_user_id")
+  private UUID submittedByUserId;
+
+  @Column(name = "approved_by_user_id")
+  private UUID approvedByUserId;
+
+  @Column(name = "approved_at")
+  private Instant approvedAt;
+
+  @Column(name = "rejected_by_user_id")
+  private UUID rejectedByUserId;
+
+  @Column(name = "rejected_at")
+  private Instant rejectedAt;
+
+  @Column(name = "rejection_reason", length = 1000)
+  private String rejectionReason;
+
+  /** SLA escalation timestamp — set by the SLA scheduler when the DPR has been pending too long;
+   *  reset to null each time the DPR is (re)submitted so the SLA clock restarts. */
+  @Column(name = "escalated_at")
+  private Instant escalatedAt;
 
   /** Top-level contractor name on the activity (subcontractor crews go on the manpower row). */
   @Column(name = "contractor_name", length = 150)

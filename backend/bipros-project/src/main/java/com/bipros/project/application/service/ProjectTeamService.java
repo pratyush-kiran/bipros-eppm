@@ -2,6 +2,7 @@ package com.bipros.project.application.service;
 
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
+import com.bipros.common.security.UserPermissionPort;
 import com.bipros.project.application.dto.ProjectTeamMemberRequest;
 import com.bipros.project.application.dto.ProjectTeamMemberResponse;
 import com.bipros.project.domain.model.ProjectRole;
@@ -35,6 +36,9 @@ public class ProjectTeamService {
 
     private final ProjectTeamRepository teamRepository;
     private final ProjectRepository projectRepository;
+    private final UserPermissionPort userPermissionPort;
+
+    public static final String DPR_APPROVE = "DPR.APPROVE";
 
     public ProjectTeamMemberResponse create(UUID projectId, ProjectTeamMemberRequest req) {
         ensureProjectExists(projectId);
@@ -133,6 +137,15 @@ public class ProjectTeamService {
             .map(ProjectTeamMember::getUserId);
     }
 
+    /** The user {@code userId} reports to on this project (one level up), or empty. Role-agnostic. */
+    @Transactional(readOnly = true)
+    public Optional<UUID> getImmediateReporter(UUID projectId, UUID userId) {
+        if (userId == null) return Optional.empty();
+        return teamRepository.findAllByProjectIdAndUserId(projectId, userId).stream()
+            .findFirst()
+            .map(ProjectTeamMember::getReportsToUserId);
+    }
+
     /**
      * Walk the reporting chain from {@code startUserId} upward and return the first
      * CONSTRUCTION_MANAGER encountered. Returns empty if the chain does not include a
@@ -158,6 +171,22 @@ public class ProjectTeamService {
             .filter(m -> m.getRole() == ProjectRole.PM)
             .findFirst()
             .map(ProjectTeamMember::getUserId);
+    }
+
+    /**
+     * Resolve the DPR approver for {@code submitterUserId}: the FIRST member strictly ABOVE the
+     * submitter in the project reporting chain whose effective permissions include DPR.APPROVE.
+     * The submitter is never their own approver (separation of duties). Empty when no capable
+     * approver exists up the chain (caller treats this as "unassigned — pending").
+     */
+    @Transactional(readOnly = true)
+    public Optional<UUID> resolveApprover(UUID projectId, UUID submitterUserId) {
+        if (submitterUserId == null) return Optional.empty();
+        return walkUpChain(projectId, submitterUserId)
+            .map(ProjectTeamMember::getUserId)
+            .filter(uid -> !uid.equals(submitterUserId))      // exclude self (separation of duties)
+            .filter(uid -> userPermissionPort.hasPermission(uid, DPR_APPROVE))
+            .findFirst();
     }
 
     /**

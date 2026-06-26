@@ -1,5 +1,6 @@
 package com.bipros.project.application.service;
 
+import com.bipros.common.security.UserPermissionPort;
 import com.bipros.project.domain.model.ProjectRole;
 import com.bipros.project.domain.model.ProjectTeamMember;
 import com.bipros.project.domain.repository.ProjectRepository;
@@ -34,6 +35,7 @@ class ProjectTeamServiceCmResolutionTest {
 
     @Mock private ProjectTeamRepository teamRepository;
     @Mock private ProjectRepository projectRepository;
+    @Mock private UserPermissionPort userPermissionPort;
 
     private ProjectTeamService service;
 
@@ -45,7 +47,7 @@ class ProjectTeamServiceCmResolutionTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProjectTeamService(teamRepository, projectRepository);
+        service = new ProjectTeamService(teamRepository, projectRepository, userPermissionPort);
 
         projectId = UUID.randomUUID();
         pmId  = UUID.randomUUID();

@@ -25,6 +25,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <ul>
  *   <li>070 → {@code boq_items_status_check} CHECK includes {@code OVERRUN}</li>
  *   <li>071 → {@code ra_bill_items.description} is at least VARCHAR(500)</li>
+ *   <li>108-4 → {@code daily_progress_reports.approval_status} backfilled to APPROVED for legacy rows</li>
  * </ul>
  *
  * <p>If a fixup fails (e.g. Postgres returns an unexpected error), it logs and continues —
@@ -44,6 +45,7 @@ public class DevSchemaFixupRunner {
       log.info("[DevSchemaFixupRunner] running idempotent schema fixups (dev profile only)");
       ensureBoqStatusCheckIncludesOverrun();
       ensureRaBillItemDescriptionIsAtLeast500();
+      backfillDprApprovalStatus();
       log.info("[DevSchemaFixupRunner] complete");
     };
   }
@@ -109,6 +111,32 @@ public class DevSchemaFixupRunner {
           currentLength);
     } catch (Exception e) {
       log.warn("[DevSchemaFixupRunner] fixup 071 (ra_bill_items.description) failed — continuing", e);
+    }
+  }
+
+  /**
+   * Fixup 108-4 — backfill {@code daily_progress_reports.approval_status} to APPROVED for any
+   * rows that are NULL or not yet APPROVED. Mirrors the Liquibase changeset 108-4 that runs in
+   * prod; dev databases (ddl-auto: update, Liquibase disabled) need this applied at startup.
+   * The UPDATE is idempotent — a no-op once all rows are APPROVED.
+   */
+  private void backfillDprApprovalStatus() {
+    try {
+      int updated = jdbcTemplate.update(
+          """
+          UPDATE project.daily_progress_reports
+             SET approval_status = 'APPROVED',
+                 submitted_at = COALESCE(submitted_at, created_at),
+                 approved_at  = COALESCE(approved_at, updated_at)
+           WHERE approval_status IS NULL OR approval_status <> 'APPROVED'
+          """);
+      if (updated > 0) {
+        log.info("[DevSchemaFixupRunner] fixup 108-4 applied: backfilled {} DPR rows to APPROVED", updated);
+      } else {
+        log.debug("[DevSchemaFixupRunner] fixup 108-4: all DPR rows already APPROVED — no-op");
+      }
+    } catch (Exception e) {
+      log.warn("[DevSchemaFixupRunner] fixup 108-4 (dpr approval_status backfill) failed — continuing", e);
     }
   }
 }

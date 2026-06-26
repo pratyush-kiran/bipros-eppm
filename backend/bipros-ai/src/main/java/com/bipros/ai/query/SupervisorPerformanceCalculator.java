@@ -9,6 +9,7 @@ import com.bipros.evm.domain.entity.EvmCalculation;
 import com.bipros.evm.domain.repository.EvmCalculationRepository;
 import com.bipros.project.domain.model.DailyActivityResourceOutput;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.repository.DailyActivityResourceOutputRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.resource.domain.model.Resource;
@@ -434,8 +435,8 @@ public class SupervisorPerformanceCalculator {
       Set<UUID> teamResourceIds) {
 
     List<DailyProgressReport> all =
-        dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-            projectId, from, to);
+        dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, from, to);
 
     Set<UUID> supervisedSet = new HashSet<>(supervisedActivityIds);
     int dprCount = 0;

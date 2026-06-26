@@ -1,6 +1,7 @@
 package com.bipros.project.api;
 
 import com.bipros.project.application.dto.CreateDailyProgressReportRequest;
+import com.bipros.project.application.dto.DprApprovalActionRequest;
 import com.bipros.project.application.dto.UpdateDailyProgressReportRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -91,6 +92,38 @@ class DailyProgressReportControllerSecurityAndValidationTest {
                 com.bipros.project.application.dto.ProductivityPreviewRequest.class));
     }
 
+    // ─── Approval action endpoints require DPR.APPROVE ──────────────────────────────
+
+    @Test
+    @DisplayName("POST /dpr/{id}/approve requires DPR.APPROVE on the path projectId")
+    void approveRequiresDprApprovePermission() throws Exception {
+        assertProjectApproveGuarded(method("approve", UUID.class, UUID.class, DprApprovalActionRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /dpr/{id}/reject requires DPR.APPROVE on the path projectId")
+    void rejectRequiresDprApprovePermission() throws Exception {
+        assertProjectApproveGuarded(method("reject", UUID.class, UUID.class, DprApprovalActionRequest.class));
+    }
+
+    @Test
+    @DisplayName("POST /dpr/{id}/revoke requires DPR.APPROVE on the path projectId")
+    void revokeRequiresDprApprovePermission() throws Exception {
+        assertProjectApproveGuarded(method("revoke", UUID.class, UUID.class, DprApprovalActionRequest.class));
+    }
+
+    @Test
+    @DisplayName("GET /dpr/approvals/pending requires DPR.APPROVE on the path projectId")
+    void listPendingApprovalsRequiresDprApprovePermission() throws Exception {
+        assertProjectApproveGuarded(method("listPendingApprovals", UUID.class));
+    }
+
+    @Test
+    @DisplayName("GET /dpr/approvals/unassigned requires DPR.APPROVE on the path projectId")
+    void listUnassignedPendingRequiresDprApprovePermission() throws Exception {
+        assertProjectApproveGuarded(method("listUnassignedPending", UUID.class));
+    }
+
     // ─── DA-EDGE-3 — reportDate rejects future dates on create + update ─────────────
 
     @Test
@@ -153,6 +186,17 @@ class DailyProgressReportControllerSecurityAndValidationTest {
                 .as("%s must scope the check to the request's #projectId with DPR.READ", m.getName())
                 .contains("projectAccess.hasProjectPermission(#projectId,")
                 .contains("DPR.READ");
+    }
+
+    private static void assertProjectApproveGuarded(Method m) {
+        PreAuthorize ann = m.getAnnotation(PreAuthorize.class);
+        assertThat(ann)
+                .as("%s must be annotated with @PreAuthorize", m.getName())
+                .isNotNull();
+        assertThat(ann.value())
+                .as("%s must scope the check to #projectId with DPR.APPROVE", m.getName())
+                .contains("projectAccess.hasProjectPermission(#projectId,")
+                .contains("DPR.APPROVE");
     }
 
     private static CreateDailyProgressReportRequest createReq(LocalDate reportDate) {

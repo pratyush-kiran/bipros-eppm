@@ -71,7 +71,7 @@ class DailyProgressReportServicePaginationTest {
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
         subContractorRepository, attachmentRepository, voiceNoteRepository, issueRepository,
         attachmentStorage, voiceNoteStorage, projectRepository, ledgerService, auditService,
-        eventPublisher, null, boqItemRepository);
+        eventPublisher, null, boqItemRepository, null, null, null, null);
     lenient().when(projectRepository.existsById(projectId)).thenReturn(true);
     lenient().when(manpowerRepository.sumNosByDprIdIn(any())).thenReturn(List.of());
     lenient().when(equipmentRepository.sumNosByDprIdIn(any())).thenReturn(List.of());

@@ -372,6 +372,7 @@ public class SupervisorPerformanceReportService {
                 + "JOIN project.dpr_sub_contractor sc ON sc.dpr_id = d.id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
+                + "  AND d.approval_status = 'APPROVED' "
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
                 + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY d.id")
@@ -516,6 +517,7 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND m.role_id IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 // Filter by the supervisor who actually filed the DPR. Co-supervisors on a
                 // shared activity each see only their own DPRs — matches the supervisor-dropdown
                 // count semantics and the user's mental model. NULL = project-wide.
@@ -578,6 +580,7 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND e.role_id IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 // Same filer-based filter as the manpower query above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
                 + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
@@ -635,6 +638,7 @@ public class SupervisorPerformanceReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND d.activity_id IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 // Same filer-based filter — activity meta should only include activities the
                 // selected supervisor actually filed a DPR for, matching the cells above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
@@ -686,6 +690,7 @@ public class SupervisorPerformanceReportService {
       List<Object> snap = em.createNativeQuery(
               "SELECT supervisor_name FROM project.daily_progress_reports "
                   + "WHERE project_id = :p AND supervisor_user_id = :id "
+                  + "AND approval_status = 'APPROVED' "
                   + "ORDER BY report_date DESC LIMIT 1")
           .setParameter("p", projectId)
           .setParameter("id", supervisorUserId)

@@ -6,6 +6,7 @@ import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.common.event.DprMutationType;
 import com.bipros.common.event.DprSubmittedEvent;
 import com.bipros.common.util.AuditService;
+import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -14,13 +15,20 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.LocalDate;
+import java.util.Optional;
+
 /**
- * Bootstraps an activity from {@code NOT_STARTED} to {@code IN_PROGRESS} the first time a DPR
- * is filed against it (A3/ACT-001).
+ * Bootstraps an activity from {@code NOT_STARTED} to {@code IN_PROGRESS} when the first
+ * APPROVED DPR is filed against it (A3/ACT-001).
+ *
+ * <p>Gating on APPROVED (not merely SUBMITTED) means a DPR in SUBMITTED/DRAFT state does NOT
+ * flip the activity; the transition happens when the approver approves, which re-publishes
+ * an UPDATED event that re-triggers this listener.
  *
  * <p>Without this listener, {@code DurationPercentCompleteJob} (nightly) skips
  * {@code NOT_STARTED} activities, so EV stays 0 even after real work is reported.
- * The fix is minimal and idempotent: subsequent DPRs leave an already-{@code IN_PROGRESS}
+ * The fix is minimal and idempotent: subsequent DPR events leave an already-{@code IN_PROGRESS}
  * activity untouched; percent-complete and COMPLETED transitions remain owned by the
  * existing calculator and nightly job.
  *
@@ -33,6 +41,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class ActivityStartOnFirstDprListener {
 
     private final ActivityRepository activityRepository;
+    private final DailyProgressReportRepository dprRepository;
     private final AuditService auditService;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -57,9 +66,17 @@ public class ActivityStartOnFirstDprListener {
             return;
         }
 
+        // Gate on APPROVED: only bootstrap when at least one APPROVED DPR exists for this activity.
+        Optional<LocalDate> earliestApproved =
+                dprRepository.findEarliestApprovedReportDateForActivity(event.activityId());
+        if (earliestApproved.isEmpty()) {
+            // No APPROVED DPR yet (still SUBMITTED/DRAFT) — do not flip the activity.
+            return;
+        }
+
         activity.setStatus(ActivityStatus.IN_PROGRESS);
-        if (activity.getActualStartDate() == null && event.reportDate() != null) {
-            activity.setActualStartDate(event.reportDate());
+        if (activity.getActualStartDate() == null) {
+            activity.setActualStartDate(earliestApproved.get());
         }
 
         activityRepository.save(activity);

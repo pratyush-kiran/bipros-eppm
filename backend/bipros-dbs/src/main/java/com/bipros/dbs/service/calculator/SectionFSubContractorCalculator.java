@@ -60,6 +60,7 @@ public class SectionFSubContractorCalculator {
                   LEFT JOIN project.boq_items b ON b.id = d.boq_item_id
                  WHERE d.project_id = cast(:pid as uuid)
                    AND d.report_date = :dt
+                   AND d.approval_status = 'APPROVED'
                    AND a.id IS NOT NULL
                  GROUP BY c.sub_contractor_master_id, c.sub_contractor_code, c.sub_contractor_name,
                           a.work_type_name, a.unit, a.rate_per_unit, b.boq_rate

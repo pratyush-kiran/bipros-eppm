@@ -64,6 +64,7 @@ public class DprReportService {
                 + "WHERE dpr.project_id = :projectId "
                 + "  AND dpr.report_date BETWEEN :from AND :to "
                 + "  AND dpr.boq_item_no IS NOT NULL "
+                + "  AND dpr.approval_status = 'APPROVED' "
                 + "GROUP BY dpr.boq_item_no, dpr.report_date")
         .setParameter("projectId", projectId)
         .setParameter("from", from)

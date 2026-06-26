@@ -19,7 +19,7 @@ public class BoqProgressGuard {
   private final DailyProgressReportRepository dprRepository;
 
   public boolean isBoqDriven(UUID activityId) {
-    BigDecimal linkedBoqQty = dprRepository.sumLinkedBoqQty(activityId);
+    BigDecimal linkedBoqQty = dprRepository.sumLinkedBoqQtyApproved(activityId);
     return linkedBoqQty != null && linkedBoqQty.signum() > 0;
   }
 }

@@ -3,7 +3,9 @@ package com.bipros.project.api;
 import com.bipros.common.dto.ApiResponse;
 import com.bipros.project.application.dto.CreateDailyProgressReportRequest;
 import com.bipros.project.application.dto.DailyProgressReportResponse;
+import com.bipros.project.application.dto.DprApprovalActionRequest;
 import com.bipros.project.application.dto.DprAttachmentResponse;
+import com.bipros.project.application.dto.DprSummaryResponse;
 import com.bipros.project.application.dto.DprVoiceNoteResponse;
 import com.bipros.project.application.dto.SupervisorOption;
 import com.bipros.project.application.dto.DprPage;
@@ -141,6 +143,51 @@ public class DailyProgressReportController {
       @PathVariable UUID id) {
     service.delete(projectId, id);
     return ResponseEntity.ok(ApiResponse.ok(null));
+  }
+
+  // ─── Approval actions ─────────────────────────────────────────────────────────────
+
+  @PostMapping("/{id}/approve")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.APPROVE')")
+  public ResponseEntity<ApiResponse<DailyProgressReportResponse>> approve(
+      @PathVariable UUID projectId,
+      @PathVariable UUID id,
+      @RequestBody(required = false) DprApprovalActionRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(service.approve(projectId, id, request)));
+  }
+
+  @PostMapping("/{id}/reject")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.APPROVE')")
+  public ResponseEntity<ApiResponse<DailyProgressReportResponse>> reject(
+      @PathVariable UUID projectId,
+      @PathVariable UUID id,
+      @RequestBody DprApprovalActionRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(service.reject(projectId, id, request)));
+  }
+
+  @PostMapping("/{id}/revoke")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.APPROVE')")
+  public ResponseEntity<ApiResponse<DailyProgressReportResponse>> revoke(
+      @PathVariable UUID projectId,
+      @PathVariable UUID id,
+      @RequestBody(required = false) DprApprovalActionRequest request) {
+    return ResponseEntity.ok(ApiResponse.ok(service.revoke(projectId, id, request)));
+  }
+
+  // ─── Approval queue ────────────────────────────────────────────────────────────────
+
+  @GetMapping("/approvals/pending")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.APPROVE')")
+  public ResponseEntity<ApiResponse<List<DprSummaryResponse>>> listPendingApprovals(
+      @PathVariable UUID projectId) {
+    return ResponseEntity.ok(ApiResponse.ok(service.listPendingApprovals(projectId)));
+  }
+
+  @GetMapping("/approvals/unassigned")
+  @PreAuthorize("@projectAccess.hasProjectPermission(#projectId, 'DPR.APPROVE')")
+  public ResponseEntity<ApiResponse<List<DprSummaryResponse>>> listUnassignedPending(
+      @PathVariable UUID projectId) {
+    return ResponseEntity.ok(ApiResponse.ok(service.listUnassignedPending(projectId)));
   }
 
   // ─── Photo attachments ──────────────────────────────────────────────────────────

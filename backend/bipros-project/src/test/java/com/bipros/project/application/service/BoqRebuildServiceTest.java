@@ -42,10 +42,10 @@ class BoqRebuildServiceTest {
     item.setBudgetedRate(new BigDecimal("80")); item.setManualOverride(null);
 
     when(boqRepo.findByProjectId(projectId)).thenReturn(List.of(item));
-    when(dprRepo.sumQtyExecutedByBoqItemId(projectId, boqId)).thenReturn(new BigDecimal("200"));
-    when(manpowerRepo.sumLineCostByBoqItemId(projectId, boqId)).thenReturn(new BigDecimal("1500"));
-    when(equipmentRepo.sumLineCostByBoqItemId(projectId, boqId)).thenReturn(new BigDecimal("500"));
-    when(materialRepo.sumLineCostByBoqItemId(projectId, boqId)).thenReturn(BigDecimal.ZERO);
+    when(dprRepo.sumQtyExecutedByBoqItemIdApproved(projectId, boqId)).thenReturn(new BigDecimal("200"));
+    when(manpowerRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)).thenReturn(new BigDecimal("1500"));
+    when(equipmentRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)).thenReturn(new BigDecimal("500"));
+    when(materialRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)).thenReturn(BigDecimal.ZERO);
 
     int n = service.rebuildFromDprs(projectId);
 
@@ -54,6 +54,16 @@ class BoqRebuildServiceTest {
     assertThat(item.getActualRate()).isEqualByComparingTo("10"); // (1500+500+0)/200
     assertThat(item.getActualAmount()).isEqualByComparingTo("2000"); // recomputed by BoqCalculator
     verify(boqRepo).save(item);
+    // Assert the approved-only repo methods are invoked (Deliverable 3 assertion)
+    verify(dprRepo).sumQtyExecutedByBoqItemIdApproved(projectId, boqId);
+    verify(manpowerRepo).sumLineCostByBoqItemIdApproved(projectId, boqId);
+    verify(equipmentRepo).sumLineCostByBoqItemIdApproved(projectId, boqId);
+    verify(materialRepo).sumLineCostByBoqItemIdApproved(projectId, boqId);
+    // Non-approved variants must NOT be called
+    verify(dprRepo, never()).sumQtyExecutedByBoqItemId(any(), any());
+    verify(manpowerRepo, never()).sumLineCostByBoqItemId(any(), any());
+    verify(equipmentRepo, never()).sumLineCostByBoqItemId(any(), any());
+    verify(materialRepo, never()).sumLineCostByBoqItemId(any(), any());
   }
 
   @Test

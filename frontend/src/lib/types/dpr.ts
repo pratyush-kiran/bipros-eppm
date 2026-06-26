@@ -270,6 +270,20 @@ export interface DailyProgressReportResponse extends DprBaseFields {
   issues?: DprIssueRow[];
   /** Server-side warnings (e.g. rate-missing:trade-name, assignment-not-found:uuid). */
   warnings?: string[];
+  // ─── Approval workflow fields ──────────────────────────────────────────────
+  assignedApproverUserId?: string | null;
+  submittedAt?: string | null;
+  submittedByUserId?: string | null;
+  approvedByUserId?: string | null;
+  approvedAt?: string | null;
+  rejectedByUserId?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+}
+
+/** Request body for approve / reject / revoke actions. {@code reason} is optional for approve and revoke; required for reject. */
+export interface DprApprovalActionRequest {
+  reason?: string;
 }
 
 export type CreateDailyProgressReportRequest = DprBaseFields;
@@ -297,6 +311,7 @@ export interface DprSummaryRow {
   side?: Side | null;
   approvalStatus?: DprApprovalStatus | null;
   weatherCondition?: string | null;
+  assignedApproverUserId?: string | null;
   manpowerNos: number;
   equipmentNos: number;
   materialCount: number;

@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { dprApi } from "@/lib/api/dprApi";
 import type {
   DailyProgressReportResponse,
+  DprApprovalStatus,
   DprBaseFields,
   DprSummaryRow,
 } from "@/lib/types/dpr";
@@ -20,8 +21,12 @@ import { TabTip } from "@/components/common/TabTip";
 import { DprActivityForm } from "@/components/dpr/DprActivityForm";
 import type { SelectOption } from "@/components/common/SearchableSelect";
 import { DprDayList, DprDaySkeleton } from "@/components/dpr/DprDayList";
+import { DprApprovalActions } from "@/components/dpr/DprApprovalActions";
+import { Badge } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/utils/error";
 import { useStickyMeasure } from "@/hooks/useStickyMeasure";
+import { useAuthStore } from "@/lib/state/store";
+import { cn } from "@/lib/utils/cn";
 
 const todayIso = () => new Date().toISOString().split("T")[0];
 
@@ -45,12 +50,120 @@ interface DprPrefill {
   unit: string | null;
 }
 
+type ViewMode = "feed" | "approvals";
+
+const STATUS_OPTIONS: Array<{ value: DprApprovalStatus | "ALL"; label: string }> = [
+  { value: "ALL", label: "All" },
+  { value: "DRAFT", label: "Draft" },
+  { value: "SUBMITTED", label: "Submitted" },
+  { value: "APPROVED", label: "Approved" },
+  { value: "REJECTED", label: "Rejected" },
+];
+
+// ─── Approvals queue view ──────────────────────────────────────────────────────
+
+function DprApprovalsView({ projectId }: { projectId: string }) {
+  const { data: pendingData, isLoading: pendingLoading } = useQuery({
+    queryKey: ["dpr-pending-approvals", projectId],
+    queryFn: () => dprApi.pendingApprovals(projectId),
+    enabled: !!projectId,
+  });
+  const { data: unassignedData, isLoading: unassignedLoading } = useQuery({
+    queryKey: ["dpr-unassigned-approvals", projectId],
+    queryFn: () => dprApi.unassignedApprovals(projectId),
+    enabled: !!projectId,
+  });
+
+  const pendingRows: DprSummaryRow[] = pendingData?.data ?? [];
+  const unassignedRows: DprSummaryRow[] = unassignedData?.data ?? [];
+
+  return (
+    <div className="space-y-8">
+      {/* Pending my approval */}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">
+          Pending my approval
+        </h2>
+        {pendingLoading ? (
+          <div className="space-y-2">
+            <div className="h-14 animate-pulse rounded-lg bg-parchment/60" />
+            <div className="h-14 animate-pulse rounded-lg bg-parchment/60" />
+          </div>
+        ) : pendingRows.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-hairline bg-ivory/30 px-6 py-8 text-center text-sm text-slate">
+            No DPRs waiting for your approval.
+          </div>
+        ) : (
+          <div className="divide-y divide-hairline rounded-lg border border-hairline bg-paper">
+            {pendingRows.map((row) => (
+              <ApprovalQueueRow key={row.id} projectId={projectId} row={row} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Unassigned pending */}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate">
+          Unassigned pending
+        </h2>
+        {unassignedLoading ? (
+          <div className="space-y-2">
+            <div className="h-14 animate-pulse rounded-lg bg-parchment/60" />
+          </div>
+        ) : unassignedRows.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-hairline bg-ivory/30 px-6 py-8 text-center text-sm text-slate">
+            No unassigned pending DPRs.
+          </div>
+        ) : (
+          <div className="divide-y divide-hairline rounded-lg border border-hairline bg-paper">
+            {unassignedRows.map((row) => (
+              <ApprovalQueueRow key={row.id} projectId={projectId} row={row} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ApprovalQueueRow({ projectId, row }: { projectId: string; row: DprSummaryRow }) {
+  const fmt = (n: number | null | undefined) =>
+    typeof n === "number" && Number.isFinite(n)
+      ? n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+      : "—";
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-semibold text-charcoal">{row.activityName}</div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate">
+            <span>{row.reportDate}</span>
+            {row.supervisorName && <span>· {row.supervisorName}</span>}
+            {row.qtyExecuted != null && (
+              <span>
+                · {fmt(row.qtyExecuted)} {row.unit}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <DprApprovalActions projectId={projectId} row={row} />
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function DprPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const canApprove = hasPermission("DPR.APPROVE");
 
   const { data: projectData } = useQuery({
     queryKey: ["project", projectId],
@@ -176,6 +289,8 @@ export default function DprPage() {
   const [editing, setEditing] = useState<DailyProgressReportResponse | null>(null);
   const [prefill, setPrefill] = useState<DprPrefill | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("feed");
+  const [statusFilter, setStatusFilter] = useState<DprApprovalStatus | "ALL">("ALL");
 
   // "Create DPR" deep-link from the Activities page lands here as ?new=1&activityId=<aid>.
   // We wait until both activities and the supervisor pool have loaded so the form's
@@ -234,10 +349,27 @@ export default function DprPage() {
     enabled: !!projectId && !!from && !!to,
   });
 
-  const rows: DprSummaryRow[] = useMemo(
+  const allRows: DprSummaryRow[] = useMemo(
     () => (listPages?.pages ?? []).flatMap((p) => p.data?.items ?? []),
     [listPages],
   );
+
+  // Client-side status filter — lightweight since rows are already loaded.
+  const rows: DprSummaryRow[] = useMemo(
+    () =>
+      statusFilter === "ALL"
+        ? allRows
+        : allRows.filter((r) => (r.approvalStatus ?? "DRAFT") === statusFilter),
+    [allRows, statusFilter],
+  );
+
+  // Pending approvals count for the badge (always fetched when user has DPR.APPROVE).
+  const { data: pendingBadgeData } = useQuery({
+    queryKey: ["dpr-pending-approvals", projectId],
+    queryFn: () => dprApi.pendingApprovals(projectId),
+    enabled: !!projectId && canApprove,
+  });
+  const pendingCount = pendingBadgeData?.data?.length ?? 0;
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -348,43 +480,117 @@ export default function DprPage() {
         >
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h1 className="font-display text-3xl font-bold text-charcoal">Daily Progress Report</h1>
-            <button
-              onClick={openNew}
-              className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-semibold text-gold-ink hover:bg-gold-deep transition"
-            >
-              <Plus className="h-4 w-4" /> Add DPR
-            </button>
+            <div className="flex items-center gap-2">
+              {/* View toggle — only for approvers */}
+              {canApprove && (
+                <div
+                  role="group"
+                  aria-label="DPR view"
+                  className="flex items-center rounded-lg border border-hairline bg-ivory p-0.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("feed")}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                      viewMode === "feed"
+                        ? "bg-paper text-charcoal shadow-sm"
+                        : "text-slate hover:text-charcoal"
+                    )}
+                  >
+                    Daily Reports
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("approvals")}
+                    className={cn(
+                      "relative inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
+                      viewMode === "approvals"
+                        ? "bg-paper text-charcoal shadow-sm"
+                        : "text-slate hover:text-charcoal"
+                    )}
+                  >
+                    Approvals
+                    {pendingCount > 0 && (
+                      <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-gold px-1.5 py-0.5 text-[10px] font-bold leading-none text-gold-ink">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={openNew}
+                className="inline-flex items-center gap-1.5 rounded-md bg-gold px-4 py-2 text-sm font-semibold text-gold-ink hover:bg-gold-deep transition"
+              >
+                <Plus className="h-4 w-4" /> Add DPR
+              </button>
+            </div>
           </div>
-          <form onSubmit={handleFilterSubmit} className="mt-3 flex flex-wrap items-end gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate">
-                From
-              </label>
-              <input
-                type="date"
-                value={fromInput}
-                onChange={(e) => setFromInput(e.target.value)}
-                className="rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-charcoal focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/40"
-              />
+
+          {/* Feed filters — only shown in daily reports view */}
+          {viewMode === "feed" && (
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate">
+                    From
+                  </label>
+                  <input
+                    type="date"
+                    value={fromInput}
+                    onChange={(e) => setFromInput(e.target.value)}
+                    className="rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-charcoal focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/40"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate">
+                    To
+                  </label>
+                  <input
+                    type="date"
+                    value={toInput}
+                    onChange={(e) => setToInput(e.target.value)}
+                    className="rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-charcoal focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/40"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-md border border-hairline bg-paper px-4 py-2 text-sm font-semibold text-charcoal hover:bg-ivory"
+                >
+                  {isFetchingNextPage ? "Loading…" : "Refresh"}
+                </button>
+              </form>
+
+              {/* Status filter */}
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate">
+                  Status
+                </label>
+                <div
+                  role="group"
+                  aria-label="Filter by status"
+                  className="flex items-center gap-1"
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setStatusFilter(opt.value)}
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-sm font-semibold transition-colors",
+                        statusFilter === opt.value
+                          ? "border-gold bg-gold-tint text-gold-ink"
+                          : "border-hairline bg-paper text-slate hover:bg-ivory hover:text-charcoal"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate">
-                To
-              </label>
-              <input
-                type="date"
-                value={toInput}
-                onChange={(e) => setToInput(e.target.value)}
-                className="rounded-md border border-hairline bg-paper px-3 py-2 text-sm text-charcoal focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold/40"
-              />
-            </div>
-            <button
-              type="submit"
-              className="rounded-md border border-hairline bg-paper px-4 py-2 text-sm font-semibold text-charcoal hover:bg-ivory"
-            >
-              {isFetchingNextPage ? "Loading…" : "Refresh"}
-            </button>
-          </form>
+          )}
         </div>
 
         {pageError && <div className="mb-4 text-sm text-burgundy">{pageError}</div>}
@@ -417,16 +623,27 @@ export default function DprPage() {
           />
         </Drawer>
 
-        <DprDayList
-          rows={rows}
-          projectId={projectId}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-          stickyOffset={dayStickyOffset}
-        />
-        <div ref={sentinelRef} aria-hidden className="h-1" />
-        {isFetchingNextPage && (
-          <div className="py-6 text-center text-sm text-slate">Loading older days…</div>
+        {viewMode === "approvals" ? (
+          <DprApprovalsView projectId={projectId} />
+        ) : (
+          <>
+            {statusFilter !== "ALL" && rows.length === 0 && allRows.length > 0 && (
+              <div className="mb-4 rounded-lg border border-dashed border-hairline bg-ivory/30 px-6 py-8 text-center text-sm text-slate">
+                No DPRs with status &ldquo;{statusFilter}&rdquo; in this date range.
+              </div>
+            )}
+            <DprDayList
+              rows={rows}
+              projectId={projectId}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              stickyOffset={dayStickyOffset}
+            />
+            <div ref={sentinelRef} aria-hidden className="h-1" />
+            {isFetchingNextPage && (
+              <div className="py-6 text-center text-sm text-slate">Loading older days…</div>
+            )}
+          </>
         )}
       </div>
     </div>

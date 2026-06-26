@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, HelpCircle, Plus, Search } from "lucide-react";
+import { HelpCircle, Plus, Search } from "lucide-react";
+import { NotificationBell } from "@/components/common/NotificationBell";
 import { AppSwitcher } from "@/components/common/AppSwitcher";
 import { Brand } from "@/components/common/Brand";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -147,17 +148,7 @@ export function Header() {
           it the search bar's max-w-[440px] cap leaves dead space on the right
           on wide viewports, and theme/avatar end up floating mid-header. */}
       <div className="ml-auto flex items-center gap-2.5">
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative flex h-10 w-10 items-center justify-center rounded-[10px] border border-transparent text-slate transition-colors hover:border-hairline hover:bg-ivory hover:text-gold-deep"
-        >
-          <Bell size={17} strokeWidth={1.5} />
-          <span
-            aria-hidden
-            className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full bg-gold ring-2 ring-paper"
-          />
-        </button>
+        <NotificationBell />
         <button
           type="button"
           aria-label="Help"

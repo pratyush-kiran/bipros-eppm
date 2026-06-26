@@ -7,6 +7,7 @@ import com.bipros.project.domain.model.Shift;
 import com.bipros.project.domain.model.Side;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -41,6 +42,16 @@ public record DailyProgressReportResponse(
     String delayReason,
     String safetyObservation,
     SafetyIncidentType safetyIncidentType,
+
+    // Approval-workflow fields
+    UUID assignedApproverUserId,
+    Instant submittedAt,
+    UUID submittedByUserId,
+    UUID approvedByUserId,
+    Instant approvedAt,
+    UUID rejectedByUserId,
+    Instant rejectedAt,
+    String rejectionReason,
 
     List<DprManpowerRow> manpower,
     List<DprEquipmentRow> equipment,
@@ -117,6 +128,14 @@ public record DailyProgressReportResponse(
         r.getDelayReason(),
         r.getSafetyObservation(),
         r.getSafetyIncidentType(),
+        r.getAssignedApproverUserId(),
+        r.getSubmittedAt(),
+        r.getSubmittedByUserId(),
+        r.getApprovedByUserId(),
+        r.getApprovedAt(),
+        r.getRejectedByUserId(),
+        r.getRejectedAt(),
+        r.getRejectionReason(),
         manpower,
         equipment,
         materials,

@@ -1,6 +1,7 @@
 package com.bipros.project.domain.repository;
 
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -8,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -20,6 +22,10 @@ import org.springframework.data.domain.Pageable;
 public interface DailyProgressReportRepository extends JpaRepository<DailyProgressReport, UUID> {
 
   List<DailyProgressReport> findByProjectIdOrderByReportDateAscIdAsc(UUID projectId);
+
+  /** APPROVED-only variant — same as {@link #findByProjectIdOrderByReportDateAscIdAsc} but restricted to APPROVED DPRs. */
+  List<DailyProgressReport> findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+      UUID projectId, DprApprovalStatus approvalStatus);
 
   /**
    * Used by the create path to reject duplicate DPRs for the same (project, day, activity).
@@ -44,6 +50,10 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
 
   List<DailyProgressReport> findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
       UUID projectId, LocalDate from, LocalDate to);
+
+  /** APPROVED-only variant — same as {@link #findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc} but restricted to APPROVED DPRs. */
+  List<DailyProgressReport> findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+      UUID projectId, DprApprovalStatus approvalStatus, LocalDate from, LocalDate to);
 
   List<DailyProgressReport> findByProjectIdAndActivityNameIgnoreCaseOrderByReportDateAsc(
       UUID projectId, String activityName);
@@ -83,6 +93,17 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
       """, nativeQuery = true)
   BigDecimal sumActivityWorkdoneOnBoq(@Param("activityId") UUID activityId);
 
+  /** APPROVED-only variant — same as {@link #sumActivityWorkdoneOnBoq} but restricted to APPROVED DPRs. */
+  @Query(value = """
+      SELECT COALESCE(SUM(d.qty_executed), 0)
+      FROM project.daily_progress_reports d
+      JOIN project.boq_items b ON b.id = d.boq_item_id
+      WHERE d.activity_id = :activityId
+        AND b.boq_qty IS NOT NULL AND b.boq_qty > 0
+        AND d.approval_status = 'APPROVED'
+      """, nativeQuery = true)
+  BigDecimal sumActivityWorkdoneOnBoqApproved(@Param("activityId") UUID activityId);
+
   /**
    * Σ boq_qty of the DISTINCT BOQ items referenced by this activity's DPRs (only positive
    * boq_qty). Denominator for the per-activity BOQ progress. A positive result means the
@@ -98,6 +119,18 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
         AND b.boq_qty IS NOT NULL AND b.boq_qty > 0
       """, nativeQuery = true)
   BigDecimal sumLinkedBoqQty(@Param("activityId") UUID activityId);
+
+  /** APPROVED-only variant — same as {@link #sumLinkedBoqQty} but restricted to APPROVED DPRs. */
+  @Query(value = """
+      SELECT COALESCE(SUM(b.boq_qty), 0)
+      FROM project.boq_items b
+      WHERE b.id IN (
+        SELECT DISTINCT d.boq_item_id FROM project.daily_progress_reports d
+        WHERE d.activity_id = :activityId AND d.boq_item_id IS NOT NULL
+          AND d.approval_status = 'APPROVED')
+        AND b.boq_qty IS NOT NULL AND b.boq_qty > 0
+      """, nativeQuery = true)
+  BigDecimal sumLinkedBoqQtyApproved(@Param("activityId") UUID activityId);
 
   // ---- From-scratch rebuild queries (Task 1: DPR Data Repair) ----
 
@@ -125,6 +158,15 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
       @org.springframework.data.repository.query.Param("projectId") UUID projectId,
       @org.springframework.data.repository.query.Param("boqItemId") UUID boqItemId);
 
+  /** APPROVED-only variant — same as {@link #sumQtyExecutedByBoqItemId} but restricted to APPROVED DPRs. */
+  @org.springframework.data.jpa.repository.Query(
+      "select coalesce(sum(d.qtyExecuted), 0) from DailyProgressReport d "
+          + "where d.projectId = :projectId and d.boqItemId = :boqItemId "
+          + "and d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED")
+  java.math.BigDecimal sumQtyExecutedByBoqItemIdApproved(
+      @org.springframework.data.repository.query.Param("projectId") UUID projectId,
+      @org.springframework.data.repository.query.Param("boqItemId") UUID boqItemId);
+
   /**
    * Null out the supervisor FK when the underlying user is deleted. {@code supervisorName}
    * stays put because the column is NOT NULL and the display snapshot is still valid history.
@@ -144,6 +186,14 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
       + "WHERE d.projectId = :projectId AND d.reportDate = :date "
       + "AND d.supervisorUserId IS NOT NULL")
   List<UUID> findDistinctSupervisorUserIdsByProjectAndDate(
+      @Param("projectId") UUID projectId, @Param("date") LocalDate date);
+
+  /** APPROVED-only variant — same as {@link #findDistinctSupervisorUserIdsByProjectAndDate} but restricted to APPROVED DPRs. */
+  @Query("SELECT DISTINCT d.supervisorUserId FROM DailyProgressReport d "
+      + "WHERE d.projectId = :projectId AND d.reportDate = :date "
+      + "AND d.supervisorUserId IS NOT NULL "
+      + "AND d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED")
+  List<UUID> findDistinctSupervisorUserIdsByProjectAndDateApproved(
       @Param("projectId") UUID projectId, @Param("date") LocalDate date);
 
   /** Actual DPR count for the (project, date) — drives the PM-tab "DPRs" KPI honestly. */
@@ -193,4 +243,34 @@ public interface DailyProgressReportRepository extends JpaRepository<DailyProgre
   @Query("UPDATE DailyProgressReport d SET d.activityName = :newName "
       + "WHERE d.activityId = :activityId")
   int renameActivity(@Param("activityId") UUID activityId, @Param("newName") String newName);
+
+  /**
+   * Earliest {@code reportDate} among APPROVED DPRs for the given activity.
+   * Used by {@code ActivityStartOnFirstDprListener} to gate NOT_STARTED → IN_PROGRESS on
+   * approval (not mere submission). Returns {@link Optional#empty()} when no APPROVED DPR exists.
+   */
+  @Query("SELECT MIN(d.reportDate) FROM DailyProgressReport d "
+      + "WHERE d.activityId = :activityId "
+      + "AND d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED")
+  Optional<LocalDate> findEarliestApprovedReportDateForActivity(@Param("activityId") UUID activityId);
+
+  // ─── Approval queue finders ─────────────────────────────────────────────────────
+
+  /** SUBMITTED DPRs assigned to a specific approver, ordered by report date (oldest first). */
+  List<DailyProgressReport> findByProjectIdAndApprovalStatusAndAssignedApproverUserIdOrderByReportDateAsc(
+      UUID projectId, DprApprovalStatus approvalStatus, UUID assignedApproverUserId);
+
+  /** SUBMITTED DPRs with no assigned approver, ordered by report date (oldest first). */
+  List<DailyProgressReport> findByProjectIdAndApprovalStatusAndAssignedApproverUserIdIsNullOrderByReportDateAsc(
+      UUID projectId, DprApprovalStatus approvalStatus);
+
+  // ─── SLA escalation finder ───────────────────────────────────────────────────
+
+  /**
+   * Returns SUBMITTED DPRs that were submitted before {@code submittedAtBefore} and have not yet
+   * been escalated ({@code escalatedAt} is null). Used by {@link com.bipros.api.scheduling.DprApprovalSlaEscalationJob}
+   * to find DPRs pending approval past the SLA window.
+   */
+  List<DailyProgressReport> findByApprovalStatusAndSubmittedAtBeforeAndEscalatedAtIsNull(
+      DprApprovalStatus approvalStatus, Instant submittedAtBefore);
 }

@@ -38,5 +38,6 @@ public record DprSummaryResponse(
     int photoCount,
     int issueCount,
     int openIssueCount,
-    boolean hasCriticalOpen
+    boolean hasCriticalOpen,
+    UUID assignedApproverUserId
 ) {}

@@ -7,6 +7,7 @@ import com.bipros.ai.context.AiContext;
 import com.bipros.ai.testsupport.AiContextFixtures;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprIssue;
 import com.bipros.project.domain.model.IssueCategory;
 import com.bipros.project.domain.model.IssueSeverity;
@@ -58,7 +59,8 @@ class ActivityHealthSnapshotToolTest {
         when(activityRepository.findByProjectId(projectId)).thenReturn(List.of(act1, act2));
 
         DailyProgressReport dpr = dpr(act2, LocalDate.of(2026, 5, 12), "Care Taker");
-        when(dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId)).thenReturn(List.of(dpr));
+        when(dprRepository.findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+                projectId, DprApprovalStatus.APPROVED)).thenReturn(List.of(dpr));
 
         DprIssue issue = issue(act2, dpr.getId(),
                 IssueCategory.MATERIAL_SHORTAGE, IssueSeverity.HIGH, IssueStatus.OPEN);
@@ -98,7 +100,8 @@ class ActivityHealthSnapshotToolTest {
     void cancelledHandling() {
         Activity a = activity("ACT-100", "Bench Cutting");
         when(activityRepository.findByProjectId(projectId)).thenReturn(List.of(a));
-        when(dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId)).thenReturn(List.of());
+        when(dprRepository.findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+                projectId, DprApprovalStatus.APPROVED)).thenReturn(List.of());
         when(issueRepository.findByProjectIdOrderByOpenedAtDesc(projectId)).thenReturn(List.of(
                 issue(a, UUID.randomUUID(), IssueCategory.WEATHER, IssueSeverity.LOW, IssueStatus.OPEN),
                 issue(a, UUID.randomUUID(), IssueCategory.OTHER, IssueSeverity.LOW, IssueStatus.CANCELLED)));
@@ -119,7 +122,8 @@ class ActivityHealthSnapshotToolTest {
         Activity a1 = activity("ACT-100", "Excavation");
         Activity a2 = activity("ACT-200", "Asphalting");
         when(activityRepository.findByProjectId(projectId)).thenReturn(List.of(a1, a2));
-        when(dprRepository.findByProjectIdOrderByReportDateAscIdAsc(projectId))
+        when(dprRepository.findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+                projectId, DprApprovalStatus.APPROVED))
                 .thenReturn(List.of(dpr(a1, LocalDate.now(), "Mohd"), dpr(a2, LocalDate.now(), "Ravi")));
         when(issueRepository.findByProjectIdOrderByOpenedAtDesc(projectId))
                 .thenReturn(List.of(issue(a2, UUID.randomUUID(),

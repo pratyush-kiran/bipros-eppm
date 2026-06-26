@@ -98,7 +98,7 @@ class DailyProgressReportServiceSubContractorTest {
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
         subContractorRepository, attachmentRepository, voiceNoteRepository, issueRepository,
         attachmentStorage, voiceNoteStorage, projectRepository, ledgerService, auditService,
-        eventPublisher, null, boqItemRepository);
+        eventPublisher, null, boqItemRepository, null, null, null, null);
     ReflectionTestUtils.setField(service, "em", entityManager);
 
     // Route every native query to a Query mock that consults resultListBySql.
@@ -145,7 +145,7 @@ class DailyProgressReportServiceSubContractorTest {
         .thenReturn(List.of());
     lenient().when(subContractorRepository.findByDprIdIn(any())).thenReturn(List.of());
     lenient().when(subContractorRepository.saveAll(any())).thenAnswer(inv -> inv.getArgument(0));
-    lenient().when(subContractorRepository.sumQuantityByActivitySubContractorAssignmentId(any()))
+    lenient().when(subContractorRepository.sumQuantityByActivitySubContractorAssignmentIdApproved(any()))
         .thenReturn(BigDecimal.ZERO);
 
     lenient().when(attachmentRepository.findByDprIdOrderByCreatedAtAsc(any())).thenReturn(List.of());
@@ -221,7 +221,7 @@ class DailyProgressReportServiceSubContractorTest {
   @DisplayName("create persists valid SC row and triggers actuals recompute SUM query")
   void createValidScRowPersistsAndRecomputes() {
     stubAssignmentLookup(assignmentA, dprActivityId, masterA, "Cum", new BigDecimal("4250"));
-    when(subContractorRepository.sumQuantityByActivitySubContractorAssignmentId(eq(assignmentA)))
+    when(subContractorRepository.sumQuantityByActivitySubContractorAssignmentIdApproved(eq(assignmentA)))
         .thenReturn(new BigDecimal("30"));
 
     CreateDailyProgressReportRequest req = createRequest(
@@ -242,7 +242,7 @@ class DailyProgressReportServiceSubContractorTest {
 
     // The recompute path: sumQuantity… for assignmentA must have been queried.
     verify(subContractorRepository, atLeastOnce())
-        .sumQuantityByActivitySubContractorAssignmentId(assignmentA);
+        .sumQuantityByActivitySubContractorAssignmentIdApproved(assignmentA);
   }
 
   @Test
@@ -261,7 +261,7 @@ class DailyProgressReportServiceSubContractorTest {
     when(subContractorRepository.findByDprIdOrderBySubContractorNameAsc(dprId))
         .thenReturn(List.of(existing));
     // After removal, the sum drops to zero.
-    when(subContractorRepository.sumQuantityByActivitySubContractorAssignmentId(eq(assignmentA)))
+    when(subContractorRepository.sumQuantityByActivitySubContractorAssignmentIdApproved(eq(assignmentA)))
         .thenReturn(BigDecimal.ZERO);
 
     // Update with empty subContractors list to remove the row.
@@ -272,7 +272,7 @@ class DailyProgressReportServiceSubContractorTest {
     verify(subContractorRepository).deleteByDprId(dprId);
     // The orphaned assignment must have been recomputed (SUM call) after the delete.
     verify(subContractorRepository, atLeastOnce())
-        .sumQuantityByActivitySubContractorAssignmentId(assignmentA);
+        .sumQuantityByActivitySubContractorAssignmentIdApproved(assignmentA);
   }
 
   // ─── helpers ──────────────────────────────────────────────────────────────

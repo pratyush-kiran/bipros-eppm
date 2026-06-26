@@ -3,6 +3,7 @@ package com.bipros.api.config.seeder;
 import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DailyResourceDeployment;
 import com.bipros.project.domain.model.DailyWeather;
 import com.bipros.project.domain.model.DeploymentResourceType;
@@ -297,7 +298,6 @@ public class OmanRoadDailyDataSeeder implements CommandLineRunner {
                                        List<ProductivityNorm> norms, Random rng) {
     if (workingDays.isEmpty()) return 0;
     Map<String, BigDecimal> cumulativeByActivity = new HashMap<>();
-    int approvedThreshold = (int) (workingDays.size() * 0.80);  // first 80% APPROVED, rest SUBMITTED
     long workFront = CHAINAGE_START_M;
     List<DailyProgressReport> rows = new ArrayList<>();
 
@@ -319,8 +319,6 @@ public class OmanRoadDailyDataSeeder implements CommandLineRunner {
       cumulativeByActivity.put(activityName, cumulative);
 
       String unit = pickUnit(act, norms);
-      String approvalStatus = i < approvedThreshold ? "APPROVED" : "SUBMITTED";
-
       DailyProgressReport d = DailyProgressReport.builder()
           .projectId(projectId)
           .reportDate(day)
@@ -332,7 +330,8 @@ public class OmanRoadDailyDataSeeder implements CommandLineRunner {
           .qtyExecuted(qty)
           // cumulativeQty is computed on read — no longer stored.
           .weatherCondition(weatherConditionForDay(day, i))
-          .remarks("Section " + supervisor + " — " + approvalStatus)
+          .remarks("Section " + supervisor)
+          .approvalStatus(DprApprovalStatus.APPROVED)
           .build();
       rows.add(d);
     }

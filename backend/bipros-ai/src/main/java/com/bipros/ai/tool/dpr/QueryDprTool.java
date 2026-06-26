@@ -6,6 +6,7 @@ import com.bipros.ai.context.AiContext;
 import com.bipros.ai.tool.Tool;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprSubContractor;
 import com.bipros.project.domain.model.WbsNode;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
@@ -207,8 +208,8 @@ public class QueryDprTool implements Tool {
     }
 
     List<DailyProgressReport> baseRows =
-        dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-            projectId, dateFrom, dateTo);
+        dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, dateFrom, dateTo);
 
     List<DailyProgressReport> filtered = new ArrayList<>();
     for (DailyProgressReport d : baseRows) {

@@ -1,6 +1,7 @@
 package com.bipros.api.service;
 
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprEquipment;
 import com.bipros.project.domain.model.EquipmentOwnership;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
@@ -166,7 +167,8 @@ public class EquipmentKpiService {
   @Transactional(readOnly = true)
   public EquipmentKpiResponse compute(UUID projectId, LocalDate from, LocalDate to) {
     List<DailyProgressReport> dprs = dprRepository
-        .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, from, to);
+        .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, from, to);
     if (dprs.isEmpty()) {
       return emptyResponse(projectId, from, to);
     }

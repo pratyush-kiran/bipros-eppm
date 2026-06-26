@@ -33,6 +33,18 @@ public interface DprMaterialRepository extends JpaRepository<DprMaterial, UUID> 
     BigDecimal sumLineCostByProjectAndActivity(@Param("projectId") UUID projectId,
                                                @Param("activityId") UUID activityId);
 
+    /** APPROVED-only variant — same as {@link #sumLineCostByProjectAndActivity} but restricted to APPROVED DPRs. */
+    @Query("""
+        select coalesce(sum(m.lineCost), 0)
+        from DprMaterial m, com.bipros.project.domain.model.DailyProgressReport d
+        where m.dprId = d.id
+          and d.projectId = :projectId
+          and d.activityId = :activityId
+          and d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED
+        """)
+    BigDecimal sumLineCostByProjectAndActivityApproved(@Param("projectId") UUID projectId,
+                                                       @Param("activityId") UUID activityId);
+
     @Query("""
         select coalesce(sum(m.lineCost), 0)
         from DprMaterial m, com.bipros.project.domain.model.DailyProgressReport d
@@ -40,6 +52,16 @@ public interface DprMaterialRepository extends JpaRepository<DprMaterial, UUID> 
           and d.projectId = :projectId
         """)
     BigDecimal sumLineCostByProject(@Param("projectId") UUID projectId);
+
+    /** APPROVED-only variant — same as {@link #sumLineCostByProject} but restricted to APPROVED DPRs. */
+    @Query("""
+        select coalesce(sum(m.lineCost), 0)
+        from DprMaterial m, com.bipros.project.domain.model.DailyProgressReport d
+        where m.dprId = d.id
+          and d.projectId = :projectId
+          and d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED
+        """)
+    BigDecimal sumLineCostByProjectApproved(@Param("projectId") UUID projectId);
 
     /** Per-DPR material line count. Returns [dprId (UUID), count (Long)]. */
     @Query("select m.dprId, count(m) from DprMaterial m where m.dprId in :ids group by m.dprId")
@@ -60,6 +82,17 @@ public interface DprMaterialRepository extends JpaRepository<DprMaterial, UUID> 
         where mt.dprId = d.id and d.projectId = :projectId and d.boqItemId = :boqItemId
         """)
     java.math.BigDecimal sumLineCostByBoqItemId(
+        @Param("projectId") UUID projectId,
+        @Param("boqItemId") UUID boqItemId);
+
+    /** APPROVED-only variant — same as {@link #sumLineCostByBoqItemId} but restricted to APPROVED DPRs. */
+    @Query("""
+        select coalesce(sum(mt.lineCost), 0)
+        from DprMaterial mt, com.bipros.project.domain.model.DailyProgressReport d
+        where mt.dprId = d.id and d.projectId = :projectId and d.boqItemId = :boqItemId
+          and d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED
+        """)
+    java.math.BigDecimal sumLineCostByBoqItemIdApproved(
         @Param("projectId") UUID projectId,
         @Param("boqItemId") UUID boqItemId);
 }

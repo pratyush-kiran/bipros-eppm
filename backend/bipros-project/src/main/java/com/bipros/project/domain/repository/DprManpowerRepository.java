@@ -39,6 +39,18 @@ public interface DprManpowerRepository extends JpaRepository<DprManpower, UUID> 
     BigDecimal sumLineCostByProjectAndActivity(@Param("projectId") UUID projectId,
                                                @Param("activityId") UUID activityId);
 
+    /** APPROVED-only variant — same as {@link #sumLineCostByProjectAndActivity} but restricted to APPROVED DPRs. */
+    @Query("""
+        select coalesce(sum(m.lineCost), 0)
+        from DprManpower m, com.bipros.project.domain.model.DailyProgressReport d
+        where m.dprId = d.id
+          and d.projectId = :projectId
+          and d.activityId = :activityId
+          and d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED
+        """)
+    BigDecimal sumLineCostByProjectAndActivityApproved(@Param("projectId") UUID projectId,
+                                                       @Param("activityId") UUID activityId);
+
     /** Project-level total used by Cost summary. */
     @Query("""
         select coalesce(sum(m.lineCost), 0)
@@ -47,6 +59,16 @@ public interface DprManpowerRepository extends JpaRepository<DprManpower, UUID> 
           and d.projectId = :projectId
         """)
     BigDecimal sumLineCostByProject(@Param("projectId") UUID projectId);
+
+    /** APPROVED-only variant — same as {@link #sumLineCostByProject} but restricted to APPROVED DPRs. */
+    @Query("""
+        select coalesce(sum(m.lineCost), 0)
+        from DprManpower m, com.bipros.project.domain.model.DailyProgressReport d
+        where m.dprId = d.id
+          and d.projectId = :projectId
+          and d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED
+        """)
+    BigDecimal sumLineCostByProjectApproved(@Param("projectId") UUID projectId);
 
     /** Per-DPR sum of manpower headcount (nos) for the given dpr ids. Returns [dprId (UUID), total (Long)]. */
     @Query("select m.dprId, coalesce(sum(m.nos), 0) from DprManpower m where m.dprId in :ids group by m.dprId")
@@ -67,6 +89,17 @@ public interface DprManpowerRepository extends JpaRepository<DprManpower, UUID> 
         where m.dprId = d.id and d.projectId = :projectId and d.boqItemId = :boqItemId
         """)
     java.math.BigDecimal sumLineCostByBoqItemId(
+        @Param("projectId") UUID projectId,
+        @Param("boqItemId") UUID boqItemId);
+
+    /** APPROVED-only variant — same as {@link #sumLineCostByBoqItemId} but restricted to APPROVED DPRs. */
+    @Query("""
+        select coalesce(sum(m.lineCost), 0)
+        from DprManpower m, com.bipros.project.domain.model.DailyProgressReport d
+        where m.dprId = d.id and d.projectId = :projectId and d.boqItemId = :boqItemId
+          and d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED
+        """)
+    java.math.BigDecimal sumLineCostByBoqItemIdApproved(
         @Param("projectId") UUID projectId,
         @Param("boqItemId") UUID boqItemId);
 }

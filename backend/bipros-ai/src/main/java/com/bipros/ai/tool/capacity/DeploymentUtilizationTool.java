@@ -5,6 +5,7 @@ import com.bipros.ai.tool.Tool;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprEquipment;
 import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.model.DprMaterial;
@@ -157,7 +158,7 @@ public class DeploymentUtilizationTool implements Tool {
         // 1. Window DPRs (optionally supervisor-scoped) → drives the actual side and the
         //    activity set for the denominator.
         List<DailyProgressReport> windowDprs = dprRepository
-                .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, fromDate, toDate);
+                .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, DprApprovalStatus.APPROVED, fromDate, toDate);
         if (supervisorUserId != null) {
             List<DailyProgressReport> filtered = new ArrayList<>(windowDprs.size());
             for (DailyProgressReport d : windowDprs) {

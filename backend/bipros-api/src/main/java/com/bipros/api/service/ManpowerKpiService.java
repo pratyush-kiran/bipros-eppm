@@ -4,6 +4,7 @@ import com.bipros.activity.domain.model.Activity;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprManpower;
 import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
@@ -193,7 +194,8 @@ public class ManpowerKpiService {
   @Transactional(readOnly = true)
   public ManpowerKpiResponse compute(UUID projectId, LocalDate from, LocalDate to) {
     List<DailyProgressReport> dprs = dprRepository
-        .findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(projectId, from, to);
+        .findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+            projectId, DprApprovalStatus.APPROVED, from, to);
 
     if (dprs.isEmpty()) {
       return emptyResponse(projectId, from, to);
@@ -260,12 +262,12 @@ public class ManpowerKpiService {
     // Sub-contractor quantity per activity, used to subtract from qty_executed so PF + CPU
     // reflect supervisor's crew productivity only, not crew + SC combined.
     java.util.Map<UUID, BigDecimal> scQtyByActivity = new java.util.HashMap<>();
-    for (Object[] row : dprSubContractorRepository.sumQuantityByProjectGroupedByActivity(projectId)) {
+    for (Object[] row : dprSubContractorRepository.sumQuantityByProjectGroupedByActivityApproved(projectId)) {
       if (row[0] != null) scQtyByActivity.put((UUID) row[0], (BigDecimal) row[1]);
     }
 
     java.util.Map<UUID, BigDecimal> scQtyByBoqItem = new java.util.HashMap<>();
-    for (Object[] row : dprSubContractorRepository.sumQuantityByProjectGroupedByBoqItem(projectId)) {
+    for (Object[] row : dprSubContractorRepository.sumQuantityByProjectGroupedByBoqItemApproved(projectId)) {
       if (row[0] != null) scQtyByBoqItem.put((UUID) row[0], (BigDecimal) row[1]);
     }
 

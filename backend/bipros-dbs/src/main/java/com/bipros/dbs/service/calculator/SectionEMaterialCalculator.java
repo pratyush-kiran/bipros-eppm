@@ -53,6 +53,7 @@ public class SectionEMaterialCalculator {
                 LEFT JOIN resource.material_role_variants mrv ON mrv.id = mat.material_role_variant_id
                 WHERE d.project_id = cast(:pid as uuid)
                   AND d.report_date = :dt
+                  AND d.approval_status = 'APPROVED'
                   AND (cast(:sup as uuid) IS NULL OR d.supervisor_user_id = cast(:sup as uuid))
                 """;
             List<Object[]> rows = em.createNativeQuery(dprSql)

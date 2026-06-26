@@ -17,6 +17,7 @@ import com.bipros.calendar.domain.repository.CalendarWorkWeekRepository;
 import com.bipros.project.application.service.BoqCalculator;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DailyResourceDeployment;
 import com.bipros.project.domain.model.DailyWeather;
 import com.bipros.project.domain.model.EpsNode;
@@ -748,6 +749,7 @@ public class OdishaSh10ProjectSeeder implements CommandLineRunner {
                     .boqItemNo(boqForActivity(act))
                     .wbsNodeId(wbsKey != null ? wbs.get(wbsKey) : null)
                     .remarks(remarksRotation[idx % remarksRotation.length])
+                    .approvalStatus(DprApprovalStatus.APPROVED)
                     .build();
             saved.add(dpr);
             idx++;

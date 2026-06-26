@@ -3,8 +3,10 @@ import type { ApiResponse } from "../types";
 import type {
   CreateDailyProgressReportRequest,
   DailyProgressReportResponse,
+  DprApprovalActionRequest,
   DprAttachment,
   DprPage,
+  DprSummaryRow,
   DprVoiceNote,
   UpdateDailyProgressReportRequest,
 } from "../types/dpr";
@@ -13,7 +15,9 @@ import type {
 export type {
   CreateDailyProgressReportRequest,
   DailyProgressReportResponse,
+  DprApprovalActionRequest,
   DprAttachment,
+  DprSummaryRow,
   DprVoiceNote,
   UpdateDailyProgressReportRequest,
 } from "../types/dpr";
@@ -97,6 +101,42 @@ export const dprApi = {
 
   delete: (projectId: string, id: string) =>
     apiClient.delete(`/v1/projects/${projectId}/dpr/${id}`),
+
+  // ─── Approval workflow ────────────────────────────────────────────────────────
+
+  approve: (projectId: string, id: string, reason?: string) =>
+    apiClient
+      .post<ApiResponse<DailyProgressReportResponse>>(
+        `/v1/projects/${projectId}/dpr/${id}/approve`,
+        { reason } satisfies DprApprovalActionRequest,
+      )
+      .then((r) => r.data),
+
+  reject: (projectId: string, id: string, reason: string) =>
+    apiClient
+      .post<ApiResponse<DailyProgressReportResponse>>(
+        `/v1/projects/${projectId}/dpr/${id}/reject`,
+        { reason } satisfies DprApprovalActionRequest,
+      )
+      .then((r) => r.data),
+
+  revoke: (projectId: string, id: string, reason?: string) =>
+    apiClient
+      .post<ApiResponse<DailyProgressReportResponse>>(
+        `/v1/projects/${projectId}/dpr/${id}/revoke`,
+        { reason } satisfies DprApprovalActionRequest,
+      )
+      .then((r) => r.data),
+
+  pendingApprovals: (projectId: string) =>
+    apiClient
+      .get<ApiResponse<DprSummaryRow[]>>(`/v1/projects/${projectId}/dpr/approvals/pending`)
+      .then((r) => r.data),
+
+  unassignedApprovals: (projectId: string) =>
+    apiClient
+      .get<ApiResponse<DprSummaryRow[]>>(`/v1/projects/${projectId}/dpr/approvals/unassigned`)
+      .then((r) => r.data),
 
   // ─── Photo attachments ───────────────────────────────────────────────────────
   // Multi-image upload. The backend accepts parallel `files[]` and `captions[]` parts; we

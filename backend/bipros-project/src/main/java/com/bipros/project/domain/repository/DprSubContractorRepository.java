@@ -33,6 +33,19 @@ public interface DprSubContractorRepository extends JpaRepository<DprSubContract
       @Param("assignmentId") UUID assignmentId);
 
   /**
+   * APPROVED-only variant — joins the parent {@code DailyProgressReport} (via {@code sc.dprId = d.id})
+   * so the sum is restricted to APPROVED DPRs. Used by
+   * {@code DailyProgressReportService.recomputeScActuals} once it switches to approved-only.
+   */
+  @Query("SELECT COALESCE(SUM(sc.quantity), 0) "
+      + "FROM DprSubContractor sc, DailyProgressReport d "
+      + "WHERE sc.activitySubContractorAssignmentId = :assignmentId "
+      + "  AND sc.dprId = d.id "
+      + "  AND d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED")
+  BigDecimal sumQuantityByActivitySubContractorAssignmentIdApproved(
+      @Param("assignmentId") UUID assignmentId);
+
+  /**
    * Σ dpr_sub_contractor.quantity for a project, grouped by activity (activity_id is on the
    * parent daily_progress_reports row). Used by ManpowerKpiService to subtract SC quantity
    * from qty_executed before computing Productivity Factor — so the metric reflects
@@ -49,6 +62,16 @@ public interface DprSubContractorRepository extends JpaRepository<DprSubContract
       + "GROUP BY d.activityId")
   java.util.List<Object[]> sumQuantityByProjectGroupedByActivity(@Param("projectId") UUID projectId);
 
+  /** APPROVED-only variant — same as {@link #sumQuantityByProjectGroupedByActivity} but restricted to APPROVED DPRs. */
+  @Query("SELECT d.activityId, COALESCE(SUM(sc.quantity), 0) "
+      + "FROM DprSubContractor sc, DailyProgressReport d "
+      + "WHERE sc.dprId = d.id "
+      + "  AND d.projectId = :projectId "
+      + "  AND d.activityId IS NOT NULL "
+      + "  AND d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED "
+      + "GROUP BY d.activityId")
+  java.util.List<Object[]> sumQuantityByProjectGroupedByActivityApproved(@Param("projectId") UUID projectId);
+
   /**
    * Σ dpr_sub_contractor.quantity for a project, grouped by BOQ item (boq_item_id is on the
    * parent DPR row). Used by ManpowerKpiService.computeLabourCostPerUnit to subtract SC qty
@@ -61,6 +84,16 @@ public interface DprSubContractorRepository extends JpaRepository<DprSubContract
       + "  AND d.boqItemId IS NOT NULL "
       + "GROUP BY d.boqItemId")
   java.util.List<Object[]> sumQuantityByProjectGroupedByBoqItem(@Param("projectId") UUID projectId);
+
+  /** APPROVED-only variant — same as {@link #sumQuantityByProjectGroupedByBoqItem} but restricted to APPROVED DPRs. */
+  @Query("SELECT d.boqItemId, COALESCE(SUM(sc.quantity), 0) "
+      + "FROM DprSubContractor sc, DailyProgressReport d "
+      + "WHERE sc.dprId = d.id "
+      + "  AND d.projectId = :projectId "
+      + "  AND d.boqItemId IS NOT NULL "
+      + "  AND d.approvalStatus = com.bipros.project.domain.model.DprApprovalStatus.APPROVED "
+      + "GROUP BY d.boqItemId")
+  java.util.List<Object[]> sumQuantityByProjectGroupedByBoqItemApproved(@Param("projectId") UUID projectId);
 
   List<DprSubContractor> findByActivitySubContractorAssignmentIdIn(
       Collection<UUID> assignmentIds);

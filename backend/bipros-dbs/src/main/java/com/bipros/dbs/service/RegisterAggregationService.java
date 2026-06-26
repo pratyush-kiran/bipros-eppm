@@ -114,6 +114,7 @@ public class RegisterAggregationService {
             LEFT JOIN resource.equipment_rate_masters erm ON erm.id = eq.role_id
             WHERE d.project_id = cast(:pid as uuid)
               AND d.report_date = :dt
+              AND d.approval_status = 'APPROVED'
               AND eq.equipment_type IS NOT NULL
             """;
         List<Object[]> rows;
@@ -195,6 +196,7 @@ public class RegisterAggregationService {
             JOIN project.daily_progress_reports d ON d.id = mp.dpr_id
             WHERE d.project_id = cast(:pid as uuid)
               AND d.report_date = :dt
+              AND d.approval_status = 'APPROVED'
               AND mp.trade IS NOT NULL
             """;
         List<Object[]> rows;

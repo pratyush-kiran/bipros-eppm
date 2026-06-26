@@ -26,6 +26,7 @@ import {
   categoryLabel,
 } from "./IssueBadges";
 import { DetailTable } from "./DetailTable";
+import { DprApprovalActions } from "./DprApprovalActions";
 
 interface Props {
   row: DprSummaryRow;
@@ -204,26 +205,37 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
           </div>
         </button>
 
-        {/* Edit / delete (revealed on hover) */}
+        {/* Edit / delete — hidden (with tooltip) when APPROVED to mirror backend DPR_LOCKED guard */}
         <div className="flex flex-none items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="rounded-md p-1.5 text-slate hover:bg-ivory hover:text-charcoal"
-            aria-label="Edit work front"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="rounded-md p-1.5 text-slate hover:bg-burgundy/10 hover:text-burgundy"
-            aria-label="Delete work front"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {status === "APPROVED" ? (
+            <span className="rounded-md px-2 py-1 text-xs text-ash" title="View-only — DPR is approved">
+              View-only
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-md p-1.5 text-slate hover:bg-ivory hover:text-charcoal"
+                aria-label="Edit work front"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="rounded-md p-1.5 text-slate hover:bg-burgundy/10 hover:text-burgundy"
+                aria-label="Delete work front"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Approval actions — visible only to users holding DPR.APPROVE, for SUBMITTED/APPROVED */}
+      <DprApprovalActions projectId={projectId} row={row} />
 
       {open && (
         <div className="space-y-3 border-t border-hairline bg-ivory/30 px-3 py-3 md:px-4">
@@ -250,6 +262,14 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
 
           {detail && (
             <>
+              {/* Rejection reason banner — prominent so the supervisor knows what to fix */}
+              {detail.approvalStatus === "REJECTED" && detail.rejectionReason && (
+                <div className="rounded-md border border-burgundy/25 bg-burgundy/8 px-3 py-2 text-xs text-charcoal">
+                  <span className="font-semibold text-burgundy">Rejected: </span>
+                  {detail.rejectionReason}
+                </div>
+              )}
+
               {detail.cumulativeQty != null && (
                 <div className="text-xs text-slate">
                   <span className="font-semibold text-charcoal">Cumulative:</span>{" "}

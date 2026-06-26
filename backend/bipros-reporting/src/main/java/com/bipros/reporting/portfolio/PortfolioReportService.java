@@ -201,12 +201,14 @@ public class PortfolioReportService {
       + "    UNION ALL SELECT dpr_id, line_cost FROM project.dpr_equipment WHERE line_cost IS NOT NULL"
       + "    UNION ALL SELECT dpr_id, line_cost FROM project.dpr_material WHERE line_cost IS NOT NULL) t"
       + "  JOIN project.daily_progress_reports d ON d.id=t.dpr_id"
-      + "  JOIN project.projects p ON p.id=d.project_id WHERE p.archived_at IS NULL GROUP BY p.budget_currency"
+      + "  JOIN project.projects p ON p.id=d.project_id"
+      + "  WHERE p.archived_at IS NULL AND d.approval_status='APPROVED' GROUP BY p.budget_currency"
       + "  UNION ALL"
       + "  SELECT p.budget_currency AS cur, COALESCE(SUM(c.quantity*COALESCE(a.rate_per_unit,0)),0) AS amt"
       + "  FROM project.dpr_sub_contractor c JOIN project.daily_progress_reports d ON d.id=c.dpr_id"
       + "  JOIN resource.activity_sub_contractor_assignments a ON a.id=c.activity_sub_contractor_assignment_id"
-      + "  JOIN project.projects p ON p.id=d.project_id WHERE p.archived_at IS NULL GROUP BY p.budget_currency"
+      + "  JOIN project.projects p ON p.id=d.project_id"
+      + "  WHERE p.archived_at IS NULL AND d.approval_status='APPROVED' GROUP BY p.budget_currency"
       + ") x GROUP BY cur HAVING SUM(amt) > 0 ORDER BY cur").getResultList();
     List<CurrencyBudget> spentByCurrency = new ArrayList<>();
     for (Object[] r : spentRows) {

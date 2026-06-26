@@ -681,6 +681,7 @@ public class CapacityUtilizationReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND a.work_activity_id IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 // Filter by the supervisor who actually filed the DPR. Co-supervisors on a
                 // shared activity each see only their own DPRs — matches the supervisor-dropdown
                 // count semantics. NULL = project-wide.
@@ -722,6 +723,7 @@ public class CapacityUtilizationReportService {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
                 + "  AND a.work_activity_id IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 // Same filer-based filter as the manpower query above.
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
                 + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
@@ -806,6 +808,7 @@ public class CapacityUtilizationReportService {
         "  AND rn.category_id IS NULL AND rn.grade_id IS NULL " +
         "  AND rn.make IS NULL AND rn.model IS NULL " +
         "WHERE d.project_id = :pid AND d.report_date BETWEEN :from AND :to " +
+        "AND d.approval_status = 'APPROVED' " +
         (supervisorUserId == null ? "" : "  AND d.supervisor_user_id = :sup ") +
         "GROUP BY d.id, d.activity_id";
 
@@ -843,6 +846,7 @@ public class CapacityUtilizationReportService {
                 + "JOIN project.dpr_sub_contractor sc ON sc.dpr_id = d.id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
+                + "  AND d.approval_status = 'APPROVED' "
                 + "  AND (CAST(:supervisorUserId AS uuid) IS NULL "
                 + "       OR d.supervisor_user_id = CAST(:supervisorUserId AS uuid)) "
                 + "GROUP BY d.id")
@@ -938,6 +942,7 @@ public class CapacityUtilizationReportService {
                 + "LEFT JOIN " + rateTable + " rate ON rate.id = dr." + variantFkCol + " "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date BETWEEN :fromDate AND :toDate "
+                + "  AND d.approval_status = 'APPROVED' "
                 + "  AND dr.role_id IN :ids "
                 + "GROUP BY dr.role_id")
         .setParameter("projectId", projectId)
@@ -1053,7 +1058,8 @@ public class CapacityUtilizationReportService {
             "SELECT DISTINCT activity_id FROM project.daily_progress_reports "
                 + "WHERE project_id = :pid "
                 + "  AND report_date BETWEEN :from AND :to "
-                + "  AND activity_id IS NOT NULL")
+                + "  AND activity_id IS NOT NULL "
+                + "  AND approval_status = 'APPROVED'")
         .setParameter("pid", projectId)
         .setParameter("from", from)
         .setParameter("to", to)

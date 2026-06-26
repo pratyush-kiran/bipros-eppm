@@ -26,6 +26,7 @@ import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.project.application.service.BoqCalculator;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DailyResourceDeployment;
 import com.bipros.project.domain.model.DailyWeather;
 import com.bipros.project.domain.model.EpsNode;
@@ -887,6 +888,7 @@ public class NhaiRoadProjectSeeder implements CommandLineRunner {
           .boqItemNo(boqItemNo)
           .wbsNodeId(wbsKey != null ? wbs.get(wbsKey) : null)
           .remarks(r.remarks())
+          .approvalStatus(DprApprovalStatus.APPROVED)
           .build();
       saved.add(d);
     }

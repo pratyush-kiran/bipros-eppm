@@ -4,6 +4,7 @@ import com.bipros.project.application.dto.DailyCostReportResponse;
 import com.bipros.project.application.dto.DailyCostReportRow;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
@@ -66,8 +67,9 @@ class DailyCostReportServiceTest {
         .build();
     dpr.setId(UUID.randomUUID());
 
-    when(dprRepo.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-        ArgumentMatchers.eq(projectId), ArgumentMatchers.any(), ArgumentMatchers.any()))
+    when(dprRepo.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+        ArgumentMatchers.eq(projectId), ArgumentMatchers.eq(DprApprovalStatus.APPROVED),
+        ArgumentMatchers.any(), ArgumentMatchers.any()))
         .thenReturn(List.of(dpr));
     when(boqRepo.findByProjectIdOrderByItemNoAsc(projectId)).thenReturn(List.of(boq11));
 
@@ -105,8 +107,9 @@ class DailyCostReportServiceTest {
         .qtyExecuted(new BigDecimal("180")).boqItemNo("3.2").build();
     bc.setId(UUID.randomUUID());
 
-    when(dprRepo.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-        ArgumentMatchers.eq(projectId), ArgumentMatchers.any(), ArgumentMatchers.any()))
+    when(dprRepo.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+        ArgumentMatchers.eq(projectId), ArgumentMatchers.eq(DprApprovalStatus.APPROVED),
+        ArgumentMatchers.any(), ArgumentMatchers.any()))
         .thenReturn(List.of(dbm, bc));
     when(boqRepo.findByProjectIdOrderByItemNoAsc(projectId)).thenReturn(List.of(boq31, boq32));
 
@@ -133,8 +136,9 @@ class DailyCostReportServiceTest {
         .unit("Cum").qtyExecuted(new BigDecimal("100")).build();
     orphan.setId(UUID.randomUUID());
 
-    when(dprRepo.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-        ArgumentMatchers.eq(projectId), ArgumentMatchers.any(), ArgumentMatchers.any()))
+    when(dprRepo.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+        ArgumentMatchers.eq(projectId), ArgumentMatchers.eq(DprApprovalStatus.APPROVED),
+        ArgumentMatchers.any(), ArgumentMatchers.any()))
         .thenReturn(List.of(orphan));
     when(boqRepo.findByProjectIdOrderByItemNoAsc(projectId)).thenReturn(List.of());
 

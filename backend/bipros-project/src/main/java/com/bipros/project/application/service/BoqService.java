@@ -11,6 +11,7 @@ import com.bipros.project.application.dto.UpdateBoqItemRequest;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.model.BoqStatus;
 import com.bipros.project.domain.repository.BoqItemRepository;
+import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class BoqService {
   private final BoqItemRepository boqItemRepository;
   private final ProjectRepository projectRepository;
   private final AuditService auditService;
+  private final DailyProgressReportRepository dprRepository;
 
   /** Cross-schema lookup of {@code activity.activities.name} from {@code activityId}. */
   @PersistenceContext
@@ -156,6 +158,29 @@ public class BoqService {
         next = BigDecimal.ZERO;
       }
       item.setQtyExecutedToDate(next);
+      BoqCalculator.recompute(item);
+      applyAutoStatus(item);
+      boqItemRepository.save(item);
+    });
+  }
+
+  /**
+   * From-scratch approved-only qty recompute for one BOQ item. Sets
+   * {@code qtyExecutedToDate} to the sum of {@code qty_executed} across all APPROVED DPRs linked
+   * to this item, then runs {@link BoqCalculator#recompute} and saves. This eliminates the
+   * delta-accumulation drift class of bugs: every call produces the same result regardless of
+   * prior state.
+   *
+   * <p>Does NOT recompute {@code actualRate} — that is owned by
+   * {@code BoqActualRateRecalcListener} (Workstream B2). No-op when the item no longer exists.
+   * The existing add/subtract path does not check {@code manualOverride}, so this method does
+   * not either (both paths own qty, not rate).
+   */
+  public void recomputeExecutedQtyApproved(UUID projectId, UUID boqItemId) {
+    boqItemRepository.findById(boqItemId).ifPresent(item -> {
+      if (!item.getProjectId().equals(projectId)) return;
+      BigDecimal approvedQty = dprRepository.sumQtyExecutedByBoqItemIdApproved(projectId, boqItemId);
+      item.setQtyExecutedToDate(approvedQty != null ? approvedQty : BigDecimal.ZERO);
       BoqCalculator.recompute(item);
       applyAutoStatus(item);
       boqItemRepository.save(item);

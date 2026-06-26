@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 109-1-dpr-escalated-at
+      author: bipros
+      comment: |
+        Add nullable escalated_at column to project.daily_progress_reports.
+        Set by the SLA scheduler when a submitted DPR has been pending too long;
+        reset to null on each (re)submit so the SLA clock restarts from zero.
+        Dev ddl-auto:update adds the column automatically; this changeset covers prod.
+      changes:
+        - addColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columns:
+              - column:
+                  name: escalated_at
+                  type: TIMESTAMP
+      rollback:
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: escalated_at

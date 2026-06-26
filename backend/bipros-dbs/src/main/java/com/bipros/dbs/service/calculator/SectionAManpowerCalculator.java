@@ -81,6 +81,7 @@ public class SectionAManpowerCalculator {
                 JOIN project.daily_progress_reports d ON d.id = m.dpr_id
                 WHERE d.project_id = cast(:pid as uuid)
                   AND d.report_date = :dt
+                  AND d.approval_status = 'APPROVED'
                   AND (cast(:sup as uuid) IS NULL OR d.supervisor_user_id = cast(:sup as uuid))
                 """;
             List<Object[]> rows = em.createNativeQuery(dprSql)

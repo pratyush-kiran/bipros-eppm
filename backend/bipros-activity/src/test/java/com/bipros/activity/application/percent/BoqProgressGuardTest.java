@@ -22,14 +22,14 @@ class BoqProgressGuardTest {
   @Test
   void isBoqDrivenWhenLinkedBoqQtyPositive() {
     UUID id = UUID.randomUUID();
-    when(dprRepository.sumLinkedBoqQty(id)).thenReturn(new BigDecimal("1000"));
+    when(dprRepository.sumLinkedBoqQtyApproved(id)).thenReturn(new BigDecimal("1000"));
     assertThat(guard.isBoqDriven(id)).isTrue();
   }
 
   @Test
   void notBoqDrivenWhenZeroOrNull() {
     UUID id = UUID.randomUUID();
-    when(dprRepository.sumLinkedBoqQty(id)).thenReturn(BigDecimal.ZERO);
+    when(dprRepository.sumLinkedBoqQtyApproved(id)).thenReturn(BigDecimal.ZERO);
     assertThat(guard.isBoqDriven(id)).isFalse();
   }
 }

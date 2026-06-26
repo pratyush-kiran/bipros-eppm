@@ -136,14 +136,14 @@ public class BoqActualRateRecalcListener {
   }
 
   /**
-   * Sum of {@code qty_executed} across all DPRs whose {@code boq_item_id} matches. We
-   * intentionally ignore approval status here — the BOQ item-level rate is a project-wide
-   * average and must reflect every recorded execution, not just the approved subset.
+   * Sum of {@code qty_executed} across all APPROVED DPRs whose {@code boq_item_id} matches.
+   * Restricted to {@code approval_status = 'APPROVED'} per the DPR approval workflow: only
+   * approved DPRs count toward the BOQ item-level actual rate.
    */
   private BigDecimal sumQtyExecuted(UUID boqItemId) {
     Query q = em.createNativeQuery(
         "SELECT COALESCE(SUM(qty_executed), 0) FROM project.daily_progress_reports "
-            + "WHERE boq_item_id = :boqItemId");
+            + "WHERE boq_item_id = :boqItemId AND approval_status = 'APPROVED'");
     q.setParameter("boqItemId", boqItemId);
     Object o = q.getSingleResult();
     return toBigDecimal(o);
@@ -165,7 +165,7 @@ public class BoqActualRateRecalcListener {
             + "    LEFT JOIN resource.resource_assignments a "
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.manpower_role_rate_id = c.manpower_role_rate_id "
-            + "   WHERE d.boq_item_id = :boqItemId "
+            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
             + "  UNION ALL "
             + "  SELECT (c.nos * COALESCE(a.effective_rate, 0))::numeric "
             + "    FROM project.dpr_equipment c "
@@ -173,7 +173,7 @@ public class BoqActualRateRecalcListener {
             + "    LEFT JOIN resource.resource_assignments a "
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.equipment_role_variant_id = c.equipment_role_variant_id "
-            + "   WHERE d.boq_item_id = :boqItemId "
+            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
             + "  UNION ALL "
             + "  SELECT (c.quantity * COALESCE(a.effective_rate, 0))::numeric "
             + "    FROM project.dpr_material c "
@@ -181,13 +181,14 @@ public class BoqActualRateRecalcListener {
             + "    LEFT JOIN resource.resource_assignments a "
             + "      ON a.activity_id = d.activity_id "
             + "     AND a.material_role_variant_id = c.material_role_variant_id "
-            + "   WHERE d.boq_item_id = :boqItemId "
+            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
             + "  UNION ALL "
             + "  SELECT COALESCE(mcl.line_cost, 0)::numeric "
             + "    FROM resource.material_consumption_logs mcl "
             + "   WHERE mcl.activity_id IN ( "
             + "     SELECT DISTINCT d2.activity_id FROM project.daily_progress_reports d2 "
-            + "      WHERE d2.boq_item_id = :boqItemId AND d2.activity_id IS NOT NULL) "
+            + "      WHERE d2.boq_item_id = :boqItemId AND d2.activity_id IS NOT NULL "
+            + "        AND d2.approval_status = 'APPROVED') "
             + "     AND mcl.line_cost IS NOT NULL "
             + "  UNION ALL "
             + "  SELECT (c.quantity * COALESCE(a.rate_per_unit, 0))::numeric "
@@ -195,7 +196,7 @@ public class BoqActualRateRecalcListener {
             + "    JOIN project.daily_progress_reports d ON c.dpr_id = d.id "
             + "    LEFT JOIN resource.activity_sub_contractor_assignments a "
             + "      ON a.id = c.activity_sub_contractor_assignment_id "
-            + "   WHERE d.boq_item_id = :boqItemId "
+            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
             + ") u";
     Query q = em.createNativeQuery(sql);
     q.setParameter("boqItemId", boqItemId);

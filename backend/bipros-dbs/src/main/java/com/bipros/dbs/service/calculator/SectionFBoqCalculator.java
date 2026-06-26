@@ -78,6 +78,7 @@ public class SectionFBoqCalculator {
                 ) sc ON sc.dpr_id = d.id
                 WHERE d.project_id = cast(:pid as uuid)
                   AND d.report_date = :dt
+                  AND d.approval_status = 'APPROVED'
                   AND (cast(:sup as uuid) IS NULL OR d.supervisor_user_id = cast(:sup as uuid))
                 """;
             // Casts are required so PostgreSQL can infer the parameter type when :sup is null —
@@ -178,6 +179,7 @@ public class SectionFBoqCalculator {
                     JOIN project.boq_items b ON b.id = d.boq_item_id
                     WHERE d.project_id = cast(:pid as uuid)
                       AND d.report_date = :dt
+                      AND d.approval_status = 'APPROVED'
                     """;
             } else {
                 // The supervisor_user_id column is UUID. Use ANY(cast(? as uuid[])) so we can
@@ -194,6 +196,7 @@ public class SectionFBoqCalculator {
                     JOIN project.boq_items b ON b.id = d.boq_item_id
                     WHERE d.project_id = cast(:pid as uuid)
                       AND d.report_date = :dt
+                      AND d.approval_status = 'APPROVED'
                       AND d.supervisor_user_id = ANY (cast(:sups as uuid[]))
                     """;
             }

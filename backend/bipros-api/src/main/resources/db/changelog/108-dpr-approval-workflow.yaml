@@ -1,0 +1,188 @@
+databaseChangeLog:
+  # DPR approval workflow migration.
+  # 1. Adds 8 nullable approval-workflow columns to project.daily_progress_reports.
+  # 2. Creates project.dpr_approval_history table (append-only audit log).
+  # 3. Adds indexes for approval-status queries and history lookups.
+  # 4. Backfills all existing DPRs to APPROVED so downstream filters (DBS/EVM/reports)
+  #    that will gate on approval_status = 'APPROVED' include all pre-workflow data.
+
+  - changeSet:
+      id: 108-1-dpr-approval-columns
+      author: bipros
+      comment: |
+        Add the 8 approval-workflow columns to daily_progress_reports. All are nullable
+        so existing rows (backfilled to APPROVED in changeset 108-4) load without constraint
+        violations and dev ddl-auto:update adds the same columns without conflict.
+      changes:
+        - addColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columns:
+              - column:
+                  name: assigned_approver_user_id
+                  type: UUID
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMP
+              - column:
+                  name: submitted_by_user_id
+                  type: UUID
+              - column:
+                  name: approved_by_user_id
+                  type: UUID
+              - column:
+                  name: approved_at
+                  type: TIMESTAMP
+              - column:
+                  name: rejected_by_user_id
+                  type: UUID
+              - column:
+                  name: rejected_at
+                  type: TIMESTAMP
+              - column:
+                  name: rejection_reason
+                  type: VARCHAR(1000)
+      rollback:
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: assigned_approver_user_id
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: submitted_at
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: submitted_by_user_id
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: approved_by_user_id
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: approved_at
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: rejected_by_user_id
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: rejected_at
+        - dropColumn:
+            schemaName: project
+            tableName: daily_progress_reports
+            columnName: rejection_reason
+
+  - changeSet:
+      id: 108-2-dpr-approval-history-table
+      author: bipros
+      comment: |
+        Append-only audit log of each DPR approval status transition.
+        createdAt (from BaseEntity) records the transition time; updatedAt is present
+        for BaseEntity compatibility but the row is never mutated after insert.
+      changes:
+        - createTable:
+            schemaName: project
+            tableName: dpr_approval_history
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: dpr_id
+                  type: UUID
+                  constraints: { nullable: false }
+              - column:
+                  name: from_status
+                  type: VARCHAR(20)
+              - column:
+                  name: to_status
+                  type: VARCHAR(20)
+                  constraints: { nullable: false }
+              - column:
+                  name: actor_user_id
+                  type: UUID
+              - column:
+                  name: reason
+                  type: VARCHAR(1000)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints: { nullable: false }
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  constraints: { nullable: false }
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: version
+                  type: BIGINT
+        - createIndex:
+            schemaName: project
+            tableName: dpr_approval_history
+            indexName: idx_dpr_approval_history_dpr
+            columns:
+              - column: { name: dpr_id }
+      rollback:
+        - dropTable:
+            schemaName: project
+            tableName: dpr_approval_history
+
+  - changeSet:
+      id: 108-3-dpr-approval-indexes
+      author: bipros
+      comment: |
+        Indexes to accelerate the two most common approval-workflow queries:
+        - Approver inbox: find all DPRs assigned to a given approver with a given status.
+        - Project manager view: filter all DPRs for a project by approval status.
+      changes:
+        - createIndex:
+            schemaName: project
+            tableName: daily_progress_reports
+            indexName: idx_dpr_appr_assignee_status
+            columns:
+              - column: { name: assigned_approver_user_id }
+              - column: { name: approval_status }
+        - createIndex:
+            schemaName: project
+            tableName: daily_progress_reports
+            indexName: idx_dpr_project_status
+            columns:
+              - column: { name: project_id }
+              - column: { name: approval_status }
+      rollback:
+        - dropIndex:
+            schemaName: project
+            tableName: daily_progress_reports
+            indexName: idx_dpr_appr_assignee_status
+        - dropIndex:
+            schemaName: project
+            tableName: daily_progress_reports
+            indexName: idx_dpr_project_status
+
+  - changeSet:
+      id: 108-4-dpr-backfill-approved
+      author: bipros
+      comment: |
+        Backfill all existing DPRs to APPROVED so downstream filters that gate on
+        approval_status = 'APPROVED' continue to include all pre-workflow data.
+        Also sets submitted_at / approved_at from existing audit timestamps so the
+        approval timeline is plausible for historical rows.
+      changes:
+        - sql:
+            dbms: postgresql
+            sql: |
+              UPDATE project.daily_progress_reports
+                 SET approval_status = 'APPROVED',
+                     submitted_at    = COALESCE(submitted_at, created_at),
+                     approved_at     = COALESCE(approved_at, updated_at)
+               WHERE approval_status IS NULL OR approval_status <> 'APPROVED';

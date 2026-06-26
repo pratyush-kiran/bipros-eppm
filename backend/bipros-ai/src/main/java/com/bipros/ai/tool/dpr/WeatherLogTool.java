@@ -5,6 +5,7 @@ import com.bipros.ai.tool.Tool;
 import com.bipros.ai.tool.ToolResult;
 import com.bipros.project.domain.model.DailyProgressReport;
 import com.bipros.project.domain.model.DailyWeather;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.bipros.project.domain.repository.DailyWeatherRepository;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -139,8 +140,8 @@ public class WeatherLogTool implements Tool {
             if (w.getWeatherCondition() != null && !w.getWeatherCondition().isBlank()) withCondition++;
         }
         // Also fold in DPR-reported weather for dates without a DailyWeather row
-        List<DailyProgressReport> dprs = dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-                projectId, dateFrom, dateTo);
+        List<DailyProgressReport> dprs = dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+                projectId, DprApprovalStatus.APPROVED, dateFrom, dateTo);
         java.util.Set<LocalDate> haveWeather = new java.util.HashSet<>();
         for (DailyWeather w : rows) if (w.getLogDate() != null) haveWeather.add(w.getLogDate());
         Map<String, Integer> dprDist = new LinkedHashMap<>();
@@ -183,8 +184,8 @@ public class WeatherLogTool implements Tool {
     private ToolResult opLinkToDpr(UUID projectId, LocalDate dateFrom, LocalDate dateTo) {
         List<DailyWeather> weather = weatherRepository.findByProjectIdAndLogDateBetweenOrderByLogDateAscIdAsc(
                 projectId, dateFrom, dateTo);
-        List<DailyProgressReport> dprs = dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(
-                projectId, dateFrom, dateTo);
+        List<DailyProgressReport> dprs = dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(
+                projectId, DprApprovalStatus.APPROVED, dateFrom, dateTo);
 
         // Group DPRs by date
         Map<LocalDate, List<DailyProgressReport>> dprByDate = new HashMap<>();

@@ -1,0 +1,83 @@
+databaseChangeLog:
+  # Creates the public.user_notifications table — reusable cross-cutting notification
+  # persistence (à la audit_log / scheduled_job_lease). Schema "public" so it is
+  # accessible from all domain modules without a cross-schema dependency.
+
+  - changeSet:
+      id: 110-1-user-notifications-table
+      author: bipros
+      comment: |
+        Create public.user_notifications to persist in-app notifications for individual
+        recipients. BaseEntity columns (id, created_at, updated_at, created_by,
+        updated_by, version) match the dpr_approval_history createTable convention.
+      changes:
+        - createTable:
+            schemaName: public
+            tableName: user_notifications
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints: { primaryKey: true, nullable: false }
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  constraints: { nullable: false }
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  constraints: { nullable: false }
+              - column:
+                  name: created_by
+                  type: VARCHAR(255)
+              - column:
+                  name: updated_by
+                  type: VARCHAR(255)
+              - column:
+                  name: version
+                  type: BIGINT
+              - column:
+                  name: recipient_user_id
+                  type: UUID
+                  constraints: { nullable: false }
+              - column:
+                  name: type
+                  type: VARCHAR(60)
+                  constraints: { nullable: false }
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints: { nullable: false }
+              - column:
+                  name: body
+                  type: VARCHAR(1000)
+                  constraints: { nullable: false }
+              - column:
+                  name: link_url
+                  type: VARCHAR(500)
+              - column:
+                  name: project_id
+                  type: UUID
+              - column:
+                  name: related_entity_id
+                  type: UUID
+              - column:
+                  name: read_at
+                  type: TIMESTAMP
+        - createIndex:
+            schemaName: public
+            tableName: user_notifications
+            indexName: idx_user_notif_recipient_read
+            columns:
+              - column: { name: recipient_user_id }
+              - column: { name: read_at }
+        - createIndex:
+            schemaName: public
+            tableName: user_notifications
+            indexName: idx_user_notif_related
+            columns:
+              - column: { name: related_entity_id }
+      rollback:
+        - dropTable:
+            schemaName: public
+            tableName: user_notifications

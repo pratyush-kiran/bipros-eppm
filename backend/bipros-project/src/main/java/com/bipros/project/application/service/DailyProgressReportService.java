@@ -4,10 +4,13 @@ import com.bipros.common.event.DprMutationType;
 import com.bipros.common.event.DprSubmittedEvent;
 import com.bipros.common.exception.BusinessRuleException;
 import com.bipros.common.exception.ResourceNotFoundException;
+import com.bipros.common.security.ProjectAccessGuard;
 import com.bipros.common.security.SecurityContextHelper;
+import com.bipros.common.security.UserPermissionPort;
 import com.bipros.common.util.AuditService;
 import com.bipros.project.application.dto.CreateDailyProgressReportRequest;
 import com.bipros.project.application.dto.DailyProgressReportResponse;
+import com.bipros.project.application.dto.DprApprovalActionRequest;
 import com.bipros.project.application.dto.DprAttachmentResponse;
 import com.bipros.project.application.dto.DprEquipmentRow;
 import com.bipros.project.application.dto.DprIssueRow;
@@ -20,6 +23,8 @@ import com.bipros.project.application.dto.DprVoiceNoteResponse;
 import com.bipros.project.application.dto.UpdateDailyProgressReportRequest;
 import com.bipros.project.application.util.DprCostFormulas;
 import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalHistory;
+import com.bipros.project.domain.model.DprApprovalStatus;
 import com.bipros.project.domain.model.DprAttachment;
 import com.bipros.project.domain.model.DprEquipment;
 import com.bipros.project.domain.model.DprIssue;
@@ -31,6 +36,7 @@ import com.bipros.project.domain.model.IssueSeverity;
 import com.bipros.project.domain.model.IssueStatus;
 import com.bipros.project.domain.repository.BoqItemRepository;
 import com.bipros.project.domain.repository.DailyProgressReportRepository;
+import com.bipros.project.domain.repository.DprApprovalHistoryRepository;
 import com.bipros.project.domain.repository.DprAttachmentRepository;
 import com.bipros.project.domain.repository.DprEquipmentRepository;
 import com.bipros.project.domain.repository.DprIssueRepository;
@@ -46,6 +52,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,6 +110,10 @@ public class DailyProgressReportService {
   private final ApplicationEventPublisher eventPublisher;
   private final SecurityContextHelper securityContextHelper;
   private final BoqItemRepository boqItemRepository;
+  private final ProjectAccessGuard projectAccessGuard;
+  private final UserPermissionPort userPermissionPort;
+  private final DprApprovalHistoryRepository approvalHistoryRepository;
+  private final ProjectTeamService projectTeamService;
 
   /**
    * The DPR write path snapshots rates and validates assignment ↔ activity ↔ kind via tiny
@@ -167,12 +178,15 @@ public class DailyProgressReportService {
         .startTime(request.startTime())
         .endTime(request.endTime())
         .shift(request.shift())
-        .approvalStatus(request.approvalStatus())
+        .approvalStatus(coerceSubmitStatus(request.approvalStatus()))
         .contractorName(request.contractorName())
         .delayReason(request.delayReason())
         .safetyObservation(request.safetyObservation())
         .safetyIncidentType(request.safetyIncidentType())
         .build();
+
+    // A new row's prior status is effectively DRAFT, so create-as-SUBMITTED triggers the transition.
+    applySubmitTransition(dpr, DprApprovalStatus.DRAFT);
 
     DailyProgressReport saved = dprRepository.save(dpr);
 
@@ -228,12 +242,18 @@ public class DailyProgressReportService {
   public DailyProgressReportResponse update(UUID projectId, UUID id, UpdateDailyProgressReportRequest request) {
     DailyProgressReport dpr = find(projectId, id);
 
+    if (effectiveStatus(dpr) == DprApprovalStatus.APPROVED) {
+      throw new BusinessRuleException("DPR_LOCKED",
+          "Approved DPRs are view-only; revoke the approval before editing or deleting.");
+    }
+
     // Reject DPR updates against a DRAFT activity (same rule as create). Check the activity the
     // DPR will reference AFTER the update — request.activityId() if it changed the link, else
     // the existing DPR's activityId. Either being DRAFT blocks the write.
     UUID targetActivityId = request.activityId() != null ? request.activityId() : dpr.getActivityId();
     rejectIfActivityDraft(targetActivityId);
 
+    DprApprovalStatus oldStatus = effectiveStatus(dpr);
     String oldBoqItemNo = dpr.getBoqItemNo();
     UUID oldBoqItemId = dpr.getBoqItemId();
     BigDecimal oldQty = dpr.getQtyExecuted();
@@ -261,7 +281,8 @@ public class DailyProgressReportService {
     dpr.setStartTime(request.startTime());
     dpr.setEndTime(request.endTime());
     dpr.setShift(request.shift());
-    dpr.setApprovalStatus(request.approvalStatus());
+    dpr.setApprovalStatus(coerceSubmitStatus(request.approvalStatus()));
+    applySubmitTransition(dpr, oldStatus);
     dpr.setContractorName(request.contractorName());
     dpr.setDelayReason(request.delayReason());
     dpr.setSafetyObservation(request.safetyObservation());
@@ -447,7 +468,8 @@ public class DailyProgressReportService {
           equipmentNos.getOrDefault(id, 0L),
           materialCount.getOrDefault(id, 0L).intValue(),
           photoCount.getOrDefault(id, 0L).intValue(),
-          ia[0], ia[1], ia[2] == 1));
+          ia[0], ia[1], ia[2] == 1,
+          r.getAssignedApproverUserId()));
     }
     return out;
   }
@@ -478,6 +500,12 @@ public class DailyProgressReportService {
 
   public void delete(UUID projectId, UUID id) {
     DailyProgressReport dpr = find(projectId, id);
+
+    if (effectiveStatus(dpr) == DprApprovalStatus.APPROVED) {
+      throw new BusinessRuleException("DPR_LOCKED",
+          "Approved DPRs are view-only; revoke the approval before editing or deleting.");
+    }
+
     String oldBoqItemNo = dpr.getBoqItemNo();
     UUID oldBoqItemId = dpr.getBoqItemId();
     BigDecimal oldQty = dpr.getQtyExecuted();
@@ -523,6 +551,196 @@ public class DailyProgressReportService {
     eventPublisher.publishEvent(DprSubmittedEvent.withoutChildren(
         projectId, dprId, reportDate, activityName, null, null, oldBoqItemNo, oldQty,
         DprMutationType.DELETED, dpr.getActivityId(), null, oldBoqItemId));
+  }
+
+  // ─── Approval workflow transitions ────────────────────────────────────────────────────
+
+  /** Transition SUBMITTED → APPROVED. */
+  public DailyProgressReportResponse approve(UUID projectId, UUID id, DprApprovalActionRequest req) {
+    DailyProgressReport dpr = find(projectId, id);
+    requireCanApprove(dpr);
+    DprApprovalStatus prev = effectiveStatus(dpr);
+    requireTransition(prev, DprApprovalStatus.APPROVED);
+
+    UUID me = projectAccessGuard.currentUserId();
+    dpr.setApprovedByUserId(me);
+    dpr.setApprovedAt(Instant.now());
+    dpr.setApprovalStatus(DprApprovalStatus.APPROVED);
+
+    DailyProgressReport saved = dprRepository.saveAndFlush(dpr);
+    appendHistory(saved.getId(), prev, DprApprovalStatus.APPROVED, me, req != null ? req.reason() : null);
+    auditService.logUpdate("DailyProgressReport", saved.getId(), "approvalStatus", prev, DprApprovalStatus.APPROVED);
+    publishRecomputeEvent(saved);
+    return get(projectId, id);
+  }
+
+  /** Transition SUBMITTED → REJECTED. Reason is required. */
+  public DailyProgressReportResponse reject(UUID projectId, UUID id, DprApprovalActionRequest req) {
+    DailyProgressReport dpr = find(projectId, id);
+    requireCanApprove(dpr);
+    DprApprovalStatus prev = effectiveStatus(dpr);
+    requireTransition(prev, DprApprovalStatus.REJECTED);
+
+    if (req == null || req.reason() == null || req.reason().isBlank()) {
+      throw new BusinessRuleException("DPR_REASON_REQUIRED", "A reason is required to reject a DPR");
+    }
+
+    UUID me = projectAccessGuard.currentUserId();
+    dpr.setRejectedByUserId(me);
+    dpr.setRejectedAt(Instant.now());
+    dpr.setRejectionReason(req.reason());
+    dpr.setApprovalStatus(DprApprovalStatus.REJECTED);
+
+    DailyProgressReport saved = dprRepository.saveAndFlush(dpr);
+    appendHistory(saved.getId(), prev, DprApprovalStatus.REJECTED, me, req.reason());
+    auditService.logUpdate("DailyProgressReport", saved.getId(), "approvalStatus", prev, DprApprovalStatus.REJECTED);
+    publishRecomputeEvent(saved);
+    return get(projectId, id);
+  }
+
+  /** Transition APPROVED → REJECTED (revoke). Reason optional; defaults to "Approval revoked". */
+  public DailyProgressReportResponse revoke(UUID projectId, UUID id, DprApprovalActionRequest req) {
+    DailyProgressReport dpr = find(projectId, id);
+    requireCanApprove(dpr);
+    DprApprovalStatus prev = effectiveStatus(dpr);
+    requireRevoke(prev); // revoke specifically requires APPROVED → REJECTED
+
+    String reason = (req != null && req.reason() != null && !req.reason().isBlank())
+        ? req.reason() : "Approval revoked";
+
+    UUID me = projectAccessGuard.currentUserId();
+    dpr.setRejectedByUserId(me);
+    dpr.setRejectedAt(Instant.now());
+    dpr.setRejectionReason(reason);
+    dpr.setApprovalStatus(DprApprovalStatus.REJECTED);
+
+    DailyProgressReport saved = dprRepository.saveAndFlush(dpr);
+    appendHistory(saved.getId(), prev, DprApprovalStatus.REJECTED, me, reason);
+    auditService.logUpdate("DailyProgressReport", saved.getId(), "approvalStatus", prev, DprApprovalStatus.REJECTED);
+    publishRecomputeEvent(saved);
+    return get(projectId, id);
+  }
+
+  // ─── Approval queue queries ────────────────────────────────────────────────────────
+
+  /** DPRs awaiting the CURRENT user's approval on this project (SUBMITTED, assigned to me). */
+  @Transactional(readOnly = true)
+  public List<DprSummaryResponse> listPendingApprovals(UUID projectId) {
+    UUID me = projectAccessGuard.currentUserId();
+    var rows = (me == null) ? List.<DailyProgressReport>of()
+        : dprRepository.findByProjectIdAndApprovalStatusAndAssignedApproverUserIdOrderByReportDateAsc(
+              projectId, DprApprovalStatus.SUBMITTED, me);
+    return toSummaryRows(rows);
+  }
+
+  /** SUBMITTED DPRs with no resolved approver — any DPR.APPROVE holder / admin may action. */
+  @Transactional(readOnly = true)
+  public List<DprSummaryResponse> listUnassignedPending(UUID projectId) {
+    var rows = dprRepository.findByProjectIdAndApprovalStatusAndAssignedApproverUserIdIsNullOrderByReportDateAsc(
+        projectId, DprApprovalStatus.SUBMITTED);
+    return toSummaryRows(rows);
+  }
+
+  /**
+   * Authorization guard for all approval transitions. Admin (null accessible-project-set) may
+   * act on any DPR. Non-admin must hold DPR.APPROVE, must NOT be the submitter (separation of
+   * duties), and must be the assigned approver or the DPR must be unassigned.
+   */
+  private void requireCanApprove(DailyProgressReport dpr) {
+    boolean admin = projectAccessGuard.getAccessibleProjectIdsForCurrentUser() == null;
+    if (admin) return;
+
+    UUID me = projectAccessGuard.currentUserId();
+    if (me == null || !userPermissionPort.hasPermission(me, "DPR.APPROVE")) {
+      throw new AccessDeniedException("DPR approval requires DPR.APPROVE");
+    }
+    if (me.equals(dpr.getSubmittedByUserId())) {
+      throw new AccessDeniedException("Cannot approve your own DPR");
+    }
+    boolean assignedToMe = me.equals(dpr.getAssignedApproverUserId());
+    boolean unassigned   = dpr.getAssignedApproverUserId() == null;
+    if (!assignedToMe && !unassigned) {
+      throw new AccessDeniedException("DPR is assigned to another approver");
+    }
+  }
+
+  /**
+   * State-machine guard for approve (SUBMITTED→APPROVED) and reject (SUBMITTED→REJECTED).
+   * Only SUBMITTED DPRs may be approved or rejected.
+   */
+  private void requireTransition(DprApprovalStatus from, DprApprovalStatus to) {
+    boolean legal = switch (to) {
+      case APPROVED -> from == DprApprovalStatus.SUBMITTED;
+      case REJECTED -> from == DprApprovalStatus.SUBMITTED;
+      default -> false;
+    };
+    if (!legal) {
+      throw new BusinessRuleException("DPR_INVALID_TRANSITION",
+          "Cannot transition to " + to + " a DPR in state " + from);
+    }
+  }
+
+  /** State-machine guard for revoke: APPROVED → REJECTED only. */
+  private void requireRevoke(DprApprovalStatus from) {
+    if (from != DprApprovalStatus.APPROVED) {
+      throw new BusinessRuleException("DPR_INVALID_TRANSITION",
+          "Cannot revoke a DPR in state " + from);
+    }
+  }
+
+  /** Treat null status as DRAFT for guard purposes. */
+  private static DprApprovalStatus effectiveStatus(DailyProgressReport dpr) {
+    return dpr.getApprovalStatus() != null ? dpr.getApprovalStatus() : DprApprovalStatus.DRAFT;
+  }
+
+  /**
+   * Coerce a client-supplied approval status to a legal value for create/update.
+   * Terminal states (APPROVED/REJECTED) can only be reached via the dedicated
+   * approve/reject/revoke endpoints — a client sending those on a plain save gets SUBMITTED.
+   */
+  private DprApprovalStatus coerceSubmitStatus(DprApprovalStatus requested) {
+    if (requested == null) return DprApprovalStatus.DRAFT;
+    if (requested == DprApprovalStatus.APPROVED || requested == DprApprovalStatus.REJECTED)
+      return DprApprovalStatus.SUBMITTED; // terminal states only via approve/reject/revoke endpoints
+    return requested;                     // DRAFT / SUBMITTED pass through
+  }
+
+  /** Call AFTER the dpr's approvalStatus has been set to the coerced value. */
+  private void applySubmitTransition(DailyProgressReport dpr, DprApprovalStatus oldStatus) {
+    if (dpr.getApprovalStatus() == DprApprovalStatus.SUBMITTED
+        && oldStatus != DprApprovalStatus.SUBMITTED) { // transition INTO submitted only
+      dpr.setSubmittedAt(Instant.now());
+      dpr.setSubmittedByUserId(projectAccessGuard.currentUserId());
+      dpr.setEscalatedAt(null);                        // restart SLA clock on (re)submit
+      dpr.setAssignedApproverUserId(
+          projectTeamService.resolveApprover(dpr.getProjectId(), dpr.getSubmittedByUserId())
+              .orElse(null));                          // null = unassigned (never blocks)
+    }
+  }
+
+  /** Append one history row (append-only, no update). */
+  private void appendHistory(UUID dprId, DprApprovalStatus from, DprApprovalStatus to,
+                              UUID actorUserId, String reason) {
+    approvalHistoryRepository.save(DprApprovalHistory.builder()
+        .dprId(dprId)
+        .fromStatus(from)
+        .toStatus(to)
+        .actorUserId(actorUserId)
+        .reason(reason)
+        .build());
+  }
+
+  /** Publish an UPDATED recompute event after a status transition (no resource change). */
+  private void publishRecomputeEvent(DailyProgressReport saved) {
+    List<DprManpower> manpower = manpowerRepository.findByDprIdOrderByTradeAsc(saved.getId());
+    List<DprEquipment> equipment = equipmentRepository.findByDprIdOrderByEquipmentTypeAsc(saved.getId());
+    List<DprMaterial> material = materialRepository.findByDprIdOrderByMaterialNameAsc(saved.getId());
+    List<DprIssue> issues = issueRepository.findByDprIdOrderByOpenedAtAsc(saved.getId());
+    eventPublisher.publishEvent(buildEvent(
+        saved,
+        saved.getBoqItemNo(), saved.getBoqItemId(), saved.getQtyExecuted(),
+        DprMutationType.UPDATED,
+        manpower, equipment, material, issues));
   }
 
   /**
@@ -1117,7 +1335,7 @@ public class DailyProgressReportService {
     for (UUID id : assignmentIds) {
       if (id == null) continue;
       BigDecimal sum = subContractorRepository
-          .sumQuantityByActivitySubContractorAssignmentId(id);
+          .sumQuantityByActivitySubContractorAssignmentIdApproved(id);
       BigDecimal qty = sum != null ? sum : BigDecimal.ZERO;
       @SuppressWarnings("unchecked")
       List<Object> rateRows = em.createNativeQuery(

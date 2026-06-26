@@ -81,6 +81,50 @@ class BoqActualRateRecalcListenerTest {
   }
 
   @Test
+  @DisplayName("sumQtyExecuted SQL filters to APPROVED DPRs only")
+  void sumQtyExecutedSqlFiltersApproved() {
+    BoqItem item = boqItem();
+    when(boqItemRepository.findById(boqItemId)).thenReturn(Optional.of(item));
+    qtyResult = new BigDecimal("100");
+    costResult = new BigDecimal("100000");
+
+    listener.onDprSubmitted(event());
+
+    boolean qtyQueryFiltersApproved = capturedSql.stream().anyMatch(sql ->
+        sql.contains("SUM(qty_executed)")
+            && sql.contains("approval_status = 'APPROVED'"));
+    assertThat(qtyQueryFiltersApproved)
+        .as("qty SQL must restrict to approval_status = 'APPROVED'")
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName("sumActualCost SQL filters every DPR-joined branch to APPROVED")
+  void sumActualCostSqlFiltersApproved() {
+    BoqItem item = boqItem();
+    when(boqItemRepository.findById(boqItemId)).thenReturn(Optional.of(item));
+    qtyResult = new BigDecimal("100");
+    costResult = new BigDecimal("100000");
+
+    listener.onDprSubmitted(event());
+
+    String costSql = capturedSql.stream()
+        .filter(sql -> sql.contains("SUM(u.contrib)"))
+        .findFirst()
+        .orElse("");
+    // Every DPR-joined branch (manpower, equipment, material, sub-contractor, MCL subquery)
+    // must restrict to approved DPRs.
+    assertThat(costSql)
+        .as("cost SQL must contain approval_status = 'APPROVED' filter")
+        .contains("approval_status = 'APPROVED'");
+    // Specifically, the MCL subquery's inner DPR filter must also be approved-only.
+    assertThat(costSql)
+        .as("MCL subquery must also filter DPRs to APPROVED")
+        .contains("material_consumption_logs")
+        .contains("d2.approval_status = 'APPROVED'");
+  }
+
+  @Test
   @DisplayName("sumActualCost SQL contains the sub-contractor UNION branch")
   void sumActualCostSqlIncludesSubContractorBranch() {
     BoqItem item = boqItem();

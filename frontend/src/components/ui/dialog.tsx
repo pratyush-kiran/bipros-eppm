@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -141,9 +142,12 @@ export function DialogContent({ className = "", children, ...props }: DialogCont
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Render into <body> via a portal so the fixed overlay escapes any ancestor
+  // with a `transform`/`filter`/`contain` (which would otherwise trap `position: fixed`
+  // and make the modal render inline inside that ancestor, e.g. a DPR card row).
+  if (!isOpen || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal/40 p-4"
       onClick={() => onOpenChange(false)}
@@ -169,7 +173,8 @@ export function DialogContent({ className = "", children, ...props }: DialogCont
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

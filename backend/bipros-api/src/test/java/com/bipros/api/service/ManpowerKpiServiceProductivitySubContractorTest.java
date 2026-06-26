@@ -83,7 +83,7 @@ class ManpowerKpiServiceProductivitySubContractorTest {
         norm.setUnit("Tonne");
 
         // Service calls findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc
-        when(dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(any(), any(), any()))
+        when(dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(any(), any(), any(), any()))
                 .thenReturn(List.of(dpr));
         when(dprManpowerRepository.findByDprIdIn(any())).thenReturn(List.of(mp));
         // Service calls findAllById for activities
@@ -97,7 +97,7 @@ class ManpowerKpiServiceProductivitySubContractorTest {
         // SC contributed 50 Tonne to this activity
         List<Object[]> scByActivity = new java.util.ArrayList<>();
         scByActivity.add(new Object[]{activityId, new BigDecimal("50")});
-        when(dprSubContractorRepository.sumQuantityByProjectGroupedByActivity(projectId))
+        when(dprSubContractorRepository.sumQuantityByProjectGroupedByActivityApproved(projectId))
                 .thenReturn(scByActivity);
 
         ManpowerKpiService service = new ManpowerKpiService(
@@ -139,7 +139,7 @@ class ManpowerKpiServiceProductivitySubContractorTest {
         boq.setUnit("Tonne");
         boq.setBoqQty(new BigDecimal("500"));
 
-        when(dprRepository.findByProjectIdAndReportDateBetweenOrderByReportDateAscIdAsc(any(), any(), any()))
+        when(dprRepository.findByProjectIdAndApprovalStatusAndReportDateBetweenOrderByReportDateAscIdAsc(any(), any(), any(), any()))
                 .thenReturn(List.of(dpr));
         when(dprManpowerRepository.findByDprIdIn(any())).thenReturn(List.of(mp));
         when(activityRepository.findAllById(any())).thenReturn(List.of());
@@ -149,9 +149,9 @@ class ManpowerKpiServiceProductivitySubContractorTest {
         // SC contributed 50 Tonne to this BOQ item
         List<Object[]> scByBoqItem = new java.util.ArrayList<>();
         scByBoqItem.add(new Object[]{boqItemId, new BigDecimal("50")});
-        when(dprSubContractorRepository.sumQuantityByProjectGroupedByActivity(projectId))
+        when(dprSubContractorRepository.sumQuantityByProjectGroupedByActivityApproved(projectId))
                 .thenReturn(List.of());
-        when(dprSubContractorRepository.sumQuantityByProjectGroupedByBoqItem(projectId))
+        when(dprSubContractorRepository.sumQuantityByProjectGroupedByBoqItemApproved(projectId))
                 .thenReturn(scByBoqItem);
 
         ManpowerKpiService service = new ManpowerKpiService(

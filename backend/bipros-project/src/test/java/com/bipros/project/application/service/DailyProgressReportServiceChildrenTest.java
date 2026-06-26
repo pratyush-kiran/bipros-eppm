@@ -91,7 +91,7 @@ class DailyProgressReportServiceChildrenTest {
         dprRepository, manpowerRepository, equipmentRepository, materialRepository,
         subContractorRepository, attachmentRepository, voiceNoteRepository, issueRepository,
         attachmentStorage, voiceNoteStorage, projectRepository, ledgerService, auditService,
-        eventPublisher, null, boqItemRepository);
+        eventPublisher, null, boqItemRepository, null, null, null, null);
     lenient().when(attachmentRepository.findByDprIdOrderByCreatedAtAsc(any())).thenReturn(java.util.List.of());
     lenient().when(attachmentRepository.findByDprIdIn(any())).thenReturn(java.util.List.of());
     lenient().when(issueRepository.findByDprIdOrderByOpenedAtAsc(any())).thenReturn(java.util.List.of());

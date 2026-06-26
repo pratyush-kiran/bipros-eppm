@@ -3,8 +3,9 @@ package com.bipros.ai.insights.project;
 import com.bipros.ai.insights.InsightDataCollector;
 import com.bipros.ai.insights.charts.EChartsOptions;
 import com.bipros.ai.insights.dto.ChartSpec;
-import com.bipros.project.application.dto.DailyProgressReportResponse;
-import com.bipros.project.application.service.DailyProgressReportService;
+import com.bipros.project.domain.model.DailyProgressReport;
+import com.bipros.project.domain.model.DprApprovalStatus;
+import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -26,15 +27,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DprInsightsCollector implements InsightDataCollector {
 
-    private final DailyProgressReportService dprService;
+    private final DailyProgressReportRepository dprRepository;
     private final ObjectMapper objectMapper;
 
     @Override
     public JsonNode collect(UUID projectId) {
-        List<DailyProgressReportResponse> rows = dprService.list(projectId, null, null, null);
+        List<DailyProgressReport> rows = dprRepository
+                .findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+                        projectId, DprApprovalStatus.APPROVED);
 
-        Map<String, List<DailyProgressReportResponse>> byActivity = rows.stream()
-                .collect(Collectors.groupingBy(DailyProgressReportResponse::activityName));
+        Map<String, List<DailyProgressReport>> byActivity = rows.stream()
+                .filter(r -> r.getActivityName() != null)
+                .collect(Collectors.groupingBy(DailyProgressReport::getActivityName));
 
         ObjectNode root = objectMapper.createObjectNode();
         root.put("projectId", projectId.toString());
@@ -44,9 +48,9 @@ public class DprInsightsCollector implements InsightDataCollector {
         byActivity.entrySet().stream()
                 .map(e -> {
                     String activityName = e.getKey();
-                    List<DailyProgressReportResponse> list = e.getValue();
+                    List<DailyProgressReport> list = e.getValue();
                     BigDecimal totalQty = list.stream()
-                            .map(DailyProgressReportResponse::qtyExecuted)
+                            .map(DailyProgressReport::getQtyExecuted)
                             .filter(q -> q != null)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
                     double avgDailyQty = list.isEmpty() ? 0.0 : totalQty.doubleValue() / list.size();
@@ -62,18 +66,18 @@ public class DprInsightsCollector implements InsightDataCollector {
                 .forEach(activities::add);
 
         BigDecimal overallQty = rows.stream()
-                .map(DailyProgressReportResponse::qtyExecuted)
+                .map(DailyProgressReport::getQtyExecuted)
                 .filter(q -> q != null)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         root.put("overallTotalQtyExecuted", overallQty.doubleValue());
 
         if (!rows.isEmpty()) {
             LocalDate minDate = rows.stream()
-                    .map(DailyProgressReportResponse::reportDate)
+                    .map(DailyProgressReport::getReportDate)
                     .min(Comparator.naturalOrder())
                     .orElse(null);
             LocalDate maxDate = rows.stream()
-                    .map(DailyProgressReportResponse::reportDate)
+                    .map(DailyProgressReport::getReportDate)
                     .max(Comparator.naturalOrder())
                     .orElse(null);
             if (minDate != null) {
@@ -87,7 +91,7 @@ public class DprInsightsCollector implements InsightDataCollector {
         LocalDate today = LocalDate.now();
         LocalDate fourteenDaysAgo = today.minusDays(13);
         long reportedDaysInLast14 = rows.stream()
-                .map(DailyProgressReportResponse::reportDate)
+                .map(DailyProgressReport::getReportDate)
                 .filter(d -> d != null && !d.isBefore(fourteenDaysAgo) && !d.isAfter(today))
                 .distinct()
                 .count();
@@ -96,8 +100,8 @@ public class DprInsightsCollector implements InsightDataCollector {
 
         ArrayNode weatherBreakdown = objectMapper.createArrayNode();
         rows.stream()
-                .filter(r -> r.weatherCondition() != null && !r.weatherCondition().isBlank())
-                .collect(Collectors.groupingBy(DailyProgressReportResponse::weatherCondition, Collectors.counting()))
+                .filter(r -> r.getWeatherCondition() != null && !r.getWeatherCondition().isBlank())
+                .collect(Collectors.groupingBy(DailyProgressReport::getWeatherCondition, Collectors.counting()))
                 .forEach((weather, count) -> {
                     ObjectNode w = objectMapper.createObjectNode();
                     w.put("weather", weather);
@@ -119,15 +123,17 @@ public class DprInsightsCollector implements InsightDataCollector {
             );
         }
 
-        List<DailyProgressReportResponse> rows = dprService.list(projectId, null, null, null);
+        List<DailyProgressReport> rows = dprRepository
+                .findByProjectIdAndApprovalStatusOrderByReportDateAscIdAsc(
+                        projectId, DprApprovalStatus.APPROVED);
         List<ChartSpec> charts = new ArrayList<>();
 
         Map<String, BigDecimal> qtyByActivity = rows.stream()
-                .filter(r -> r.activityName() != null && r.qtyExecuted() != null)
+                .filter(r -> r.getActivityName() != null && r.getQtyExecuted() != null)
                 .collect(Collectors.groupingBy(
-                        DailyProgressReportResponse::activityName,
+                        DailyProgressReport::getActivityName,
                         Collectors.reducing(BigDecimal.ZERO,
-                                DailyProgressReportResponse::qtyExecuted,
+                                DailyProgressReport::getQtyExecuted,
                                 BigDecimal::add)));
         List<Map.Entry<String, BigDecimal>> topActivities = qtyByActivity.entrySet().stream()
                 .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
@@ -141,8 +147,8 @@ public class DprInsightsCollector implements InsightDataCollector {
                 "Top 8 activities by cumulative quantity executed"));
 
         Map<String, Long> weatherBreakdown = rows.stream()
-                .filter(r -> r.weatherCondition() != null && !r.weatherCondition().isBlank())
-                .collect(Collectors.groupingBy(DailyProgressReportResponse::weatherCondition, Collectors.counting()));
+                .filter(r -> r.getWeatherCondition() != null && !r.getWeatherCondition().isBlank())
+                .collect(Collectors.groupingBy(DailyProgressReport::getWeatherCondition, Collectors.counting()));
         charts.add(new ChartSpec("dpr-weather", "Weather Conditions", "donut",
                 EChartsOptions.donut(objectMapper, new LinkedHashMap<>(weatherBreakdown)),
                 "Days reported by weather"));
@@ -150,7 +156,7 @@ public class DprInsightsCollector implements InsightDataCollector {
         LocalDate today = LocalDate.now();
         LocalDate fourteenDaysAgo = today.minusDays(13);
         long reportedDaysInLast14 = rows.stream()
-                .map(DailyProgressReportResponse::reportDate)
+                .map(DailyProgressReport::getReportDate)
                 .filter(d -> d != null && !d.isBefore(fourteenDaysAgo) && !d.isAfter(today))
                 .distinct()
                 .count();

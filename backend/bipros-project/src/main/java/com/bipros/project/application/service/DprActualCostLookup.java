@@ -50,9 +50,9 @@ public class DprActualCostLookup {
      */
     public BigDecimal sumByActivity(UUID projectId, UUID activityId) {
         if (projectId == null || activityId == null) return BigDecimal.ZERO;
-        BigDecimal mp = nz(manpowerRepository.sumLineCostByProjectAndActivity(projectId, activityId));
-        BigDecimal eq = nz(equipmentRepository.sumLineCostByProjectAndActivity(projectId, activityId));
-        BigDecimal mt = nz(materialRepository.sumLineCostByProjectAndActivity(projectId, activityId));
+        BigDecimal mp = nz(manpowerRepository.sumLineCostByProjectAndActivityApproved(projectId, activityId));
+        BigDecimal eq = nz(equipmentRepository.sumLineCostByProjectAndActivityApproved(projectId, activityId));
+        BigDecimal mt = nz(materialRepository.sumLineCostByProjectAndActivityApproved(projectId, activityId));
         BigDecimal sc = nz(sumSubContractorByActivity(projectId, activityId));
         return mp.add(eq).add(mt).add(sc);
     }
@@ -97,6 +97,7 @@ public class DprActualCostLookup {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date IS NOT NULL "
                 + "  AND c.line_cost IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 + "GROUP BY d.report_date";
         List<Object[]> rows = em.createNativeQuery(sql)
                 .setParameter("projectId", projectId)
@@ -113,9 +114,9 @@ public class DprActualCostLookup {
     /** Project-level total — used by {@code CostService.getCostSummary} for the actual rollup. */
     public BigDecimal sumByProject(UUID projectId) {
         if (projectId == null) return BigDecimal.ZERO;
-        BigDecimal mp = nz(manpowerRepository.sumLineCostByProject(projectId));
-        BigDecimal eq = nz(equipmentRepository.sumLineCostByProject(projectId));
-        BigDecimal mt = nz(materialRepository.sumLineCostByProject(projectId));
+        BigDecimal mp = nz(manpowerRepository.sumLineCostByProjectApproved(projectId));
+        BigDecimal eq = nz(equipmentRepository.sumLineCostByProjectApproved(projectId));
+        BigDecimal mt = nz(materialRepository.sumLineCostByProjectApproved(projectId));
         BigDecimal sc = nz(sumSubContractorByProject(projectId));
         return mp.add(eq).add(mt).add(sc);
     }
@@ -131,6 +132,7 @@ public class DprActualCostLookup {
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.activity_id IS NOT NULL "
                 + "  AND c.line_cost IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 + "GROUP BY d.activity_id";
         List<Object[]> rows = em.createNativeQuery(sql)
                 .setParameter("projectId", projectId)
@@ -157,7 +159,8 @@ public class DprActualCostLookup {
                 + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
                 + "JOIN resource.activity_sub_contractor_assignments a "
                 + "       ON a.id = c.activity_sub_contractor_assignment_id "
-                + "WHERE d.project_id = :projectId";
+                + "WHERE d.project_id = :projectId "
+                + "  AND d.approval_status = 'APPROVED'";
         Object raw = em.createNativeQuery(sql)
                 .setParameter("projectId", projectId)
                 .getSingleResult();
@@ -170,7 +173,8 @@ public class DprActualCostLookup {
                 + "JOIN project.daily_progress_reports d ON d.id = c.dpr_id "
                 + "JOIN resource.activity_sub_contractor_assignments a "
                 + "       ON a.id = c.activity_sub_contractor_assignment_id "
-                + "WHERE d.project_id = :projectId AND d.activity_id = :activityId";
+                + "WHERE d.project_id = :projectId AND d.activity_id = :activityId "
+                + "  AND d.approval_status = 'APPROVED'";
         Object raw = em.createNativeQuery(sql)
                 .setParameter("projectId", projectId)
                 .setParameter("activityId", activityId)
@@ -187,6 +191,7 @@ public class DprActualCostLookup {
                 + "       ON a.id = c.activity_sub_contractor_assignment_id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.report_date IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 + "GROUP BY d.report_date";
         List<Object[]> rows = em.createNativeQuery(sql)
                 .setParameter("projectId", projectId)
@@ -209,6 +214,7 @@ public class DprActualCostLookup {
                 + "       ON a.id = c.activity_sub_contractor_assignment_id "
                 + "WHERE d.project_id = :projectId "
                 + "  AND d.activity_id IS NOT NULL "
+                + "  AND d.approval_status = 'APPROVED' "
                 + "GROUP BY d.activity_id";
         List<Object[]> rows = em.createNativeQuery(sql)
                 .setParameter("projectId", projectId)

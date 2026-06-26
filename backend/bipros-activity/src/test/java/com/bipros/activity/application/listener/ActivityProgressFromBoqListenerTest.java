@@ -49,8 +49,8 @@ class ActivityProgressFromBoqListenerTest {
     a.setActualStartDate(LocalDate.of(2026, 4, 1));
     when(activityRepository.findById(id)).thenReturn(Optional.of(a));
     // This activity did 250 of a shared 1000-qty BOQ → 25% (NOT the BOQ's combined 800/1000).
-    when(dprRepository.sumActivityWorkdoneOnBoq(id)).thenReturn(new BigDecimal("250"));
-    when(dprRepository.sumLinkedBoqQty(id)).thenReturn(new BigDecimal("1000"));
+    when(dprRepository.sumActivityWorkdoneOnBoqApproved(id)).thenReturn(new BigDecimal("250"));
+    when(dprRepository.sumLinkedBoqQtyApproved(id)).thenReturn(new BigDecimal("1000"));
 
     newListener().onDprSubmitted(event(id));
 
@@ -67,8 +67,8 @@ class ActivityProgressFromBoqListenerTest {
     a.setId(id);
     a.setActualStartDate(LocalDate.of(2026, 4, 1));
     when(activityRepository.findById(id)).thenReturn(Optional.of(a));
-    when(dprRepository.sumActivityWorkdoneOnBoq(id)).thenReturn(new BigDecimal("1000"));
-    when(dprRepository.sumLinkedBoqQty(id)).thenReturn(new BigDecimal("1000"));
+    when(dprRepository.sumActivityWorkdoneOnBoqApproved(id)).thenReturn(new BigDecimal("1000"));
+    when(dprRepository.sumLinkedBoqQtyApproved(id)).thenReturn(new BigDecimal("1000"));
 
     newListener().onDprSubmitted(event(id));
 
@@ -85,7 +85,7 @@ class ActivityProgressFromBoqListenerTest {
     Activity a = new Activity();
     a.setId(id);
     when(activityRepository.findById(id)).thenReturn(Optional.of(a));
-    when(dprRepository.sumLinkedBoqQty(id)).thenReturn(BigDecimal.ZERO);
+    when(dprRepository.sumLinkedBoqQtyApproved(id)).thenReturn(BigDecimal.ZERO);
 
     newListener().onDprSubmitted(event(id));
 
