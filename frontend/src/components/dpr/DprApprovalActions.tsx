@@ -20,6 +20,8 @@ import {
 interface Props {
   projectId: string;
   row: DprSummaryRow;
+  /** Overrides the buttons-strip wrapper classes (e.g. to render inline rather than as a padded strip below a row). */
+  className?: string;
 }
 
 type ActionKind = "approve" | "reject" | "revoke";
@@ -31,7 +33,7 @@ type ActionKind = "approve" | "reject" | "revoke";
  *
  * Shown inline below the row header so it doesn't break the existing layout.
  */
-export function DprApprovalActions({ projectId, row }: Props) {
+export function DprApprovalActions({ projectId, row, className }: Props) {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canApprove = hasPermission("DPR.APPROVE");
 
@@ -41,7 +43,7 @@ export function DprApprovalActions({ projectId, row }: Props) {
   if (!canApprove) return null;
   if (status !== "SUBMITTED" && status !== "APPROVED") return null;
 
-  return <ApprovalActions projectId={projectId} row={row} status={status} />;
+  return <ApprovalActions projectId={projectId} row={row} status={status} className={className} />;
 }
 
 // ─── Internal action component (separated to keep JSX clean) ──────────────────
@@ -50,9 +52,10 @@ interface InternalProps {
   projectId: string;
   row: DprSummaryRow;
   status: "SUBMITTED" | "APPROVED";
+  className?: string;
 }
 
-function ApprovalActions({ projectId, row, status }: InternalProps) {
+function ApprovalActions({ projectId, row, status, className }: InternalProps) {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<ActionKind | null>(null);
   const [reason, setReason] = useState("");
@@ -147,8 +150,8 @@ function ApprovalActions({ projectId, row, status }: InternalProps) {
 
   return (
     <>
-      {/* Action buttons — inline strip */}
-      <div className="flex items-center gap-1.5 px-3 pb-2 pt-0 md:px-4">
+      {/* Action buttons — inline strip (callers may override the wrapper via className) */}
+      <div className={className ?? "flex items-center gap-1.5 px-3 pb-2 pt-0 md:px-4"}>
         {status === "SUBMITTED" && (
           <>
             <button

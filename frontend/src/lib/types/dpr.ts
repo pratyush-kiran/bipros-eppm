@@ -312,6 +312,8 @@ export interface DprSummaryRow {
   approvalStatus?: DprApprovalStatus | null;
   weatherCondition?: string | null;
   assignedApproverUserId?: string | null;
+  /** User id of whoever submitted this DPR. Used to gate Edit/Delete to the submitter. */
+  submittedByUserId?: string | null;
   manpowerNos: number;
   equipmentNos: number;
   materialCount: number;

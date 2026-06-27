@@ -469,7 +469,8 @@ public class DailyProgressReportService {
           materialCount.getOrDefault(id, 0L).intValue(),
           photoCount.getOrDefault(id, 0L).intValue(),
           ia[0], ia[1], ia[2] == 1,
-          r.getAssignedApproverUserId()));
+          r.getAssignedApproverUserId(),
+          r.getSubmittedByUserId()));
     }
     return out;
   }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, Eye, Calendar, User } from "lucide-react";
 import { dprApi } from "@/lib/api/dprApi";
 import type {
   DailyProgressReportResponse,
@@ -22,7 +22,8 @@ import { DprActivityForm } from "@/components/dpr/DprActivityForm";
 import type { SelectOption } from "@/components/common/SearchableSelect";
 import { DprDayList, DprDaySkeleton } from "@/components/dpr/DprDayList";
 import { DprApprovalActions } from "@/components/dpr/DprApprovalActions";
-import { Badge } from "@/components/ui/badge";
+import { DprDetailModal } from "@/components/dpr/DprDetailModal";
+import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { getErrorMessage } from "@/lib/utils/error";
 import { useStickyMeasure } from "@/hooks/useStickyMeasure";
 import { useAuthStore } from "@/lib/state/store";
@@ -62,6 +63,13 @@ const STATUS_OPTIONS: Array<{ value: DprApprovalStatus | "ALL"; label: string }>
 
 // ─── Approvals queue view ──────────────────────────────────────────────────────
 
+const APPROVAL_STATUS_VARIANT: Record<DprApprovalStatus, BadgeVariant> = {
+  DRAFT: "neutral",
+  SUBMITTED: "info",
+  APPROVED: "success",
+  REJECTED: "danger",
+};
+
 function DprApprovalsView({ projectId }: { projectId: string }) {
   const { data: pendingData, isLoading: pendingLoading } = useQuery({
     queryKey: ["dpr-pending-approvals", projectId],
@@ -94,7 +102,7 @@ function DprApprovalsView({ projectId }: { projectId: string }) {
             No DPRs waiting for your approval.
           </div>
         ) : (
-          <div className="divide-y divide-hairline rounded-lg border border-hairline bg-paper">
+          <div className="space-y-2.5">
             {pendingRows.map((row) => (
               <ApprovalQueueRow key={row.id} projectId={projectId} row={row} />
             ))}
@@ -116,7 +124,7 @@ function DprApprovalsView({ projectId }: { projectId: string }) {
             No unassigned pending DPRs.
           </div>
         ) : (
-          <div className="divide-y divide-hairline rounded-lg border border-hairline bg-paper">
+          <div className="space-y-2.5">
             {unassignedRows.map((row) => (
               <ApprovalQueueRow key={row.id} projectId={projectId} row={row} />
             ))}
@@ -128,28 +136,73 @@ function DprApprovalsView({ projectId }: { projectId: string }) {
 }
 
 function ApprovalQueueRow({ projectId, row }: { projectId: string; row: DprSummaryRow }) {
+  const [open, setOpen] = useState(false);
   const fmt = (n: number | null | undefined) =>
     typeof n === "number" && Number.isFinite(n)
       ? n.toLocaleString(undefined, { maximumFractionDigits: 2 })
       : "—";
+  const status = row.approvalStatus ?? "SUBMITTED";
 
   return (
-    <div className="px-4 py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold text-charcoal">{row.activityName}</div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate">
-            <span>{row.reportDate}</span>
-            {row.supervisorName && <span>· {row.supervisorName}</span>}
+    <div className="group rounded-xl border border-hairline bg-paper px-4 py-3 shadow-[0_1px_2px_rgba(28,28,28,0.04)] transition-all hover:border-gold/30 hover:shadow-[0_4px_16px_-8px_rgba(0,88,202,0.18)]">
+      <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="min-w-0 flex-1 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <span className="truncate font-semibold text-charcoal">{row.activityName}</span>
+            <Badge variant={APPROVAL_STATUS_VARIANT[status]} withDot>
+              {status}
+            </Badge>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate">
+            <span className="inline-flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-gold-deep" /> {row.reportDate}
+            </span>
+            {row.supervisorName && (
+              <span className="inline-flex items-center gap-1">
+                <User className="h-3 w-3 text-gold-deep" /> {row.supervisorName}
+              </span>
+            )}
+            {row.boqItemNo && (
+              <span className="rounded border border-hairline bg-ivory px-1.5 py-0.5 text-[11px] text-charcoal">
+                BOQ {row.boqItemNo}
+              </span>
+            )}
             {row.qtyExecuted != null && (
-              <span>
-                · {fmt(row.qtyExecuted)} {row.unit}
+              <span className="font-display font-semibold tabular-nums text-gold-ink">
+                {fmt(row.qtyExecuted)}
+                <span className="ml-0.5 text-[11px] font-normal text-slate">{row.unit}</span>
               </span>
             )}
           </div>
+        </button>
+        <div className="flex flex-none items-center gap-1.5">
+          {/* Approve / Reject / Revoke — inline on the right (self-hides for non-approvers). */}
+          <DprApprovalActions
+            projectId={projectId}
+            row={row}
+            className="flex items-center gap-1.5"
+          />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="rounded-md p-1.5 text-slate transition-colors hover:bg-ivory hover:text-gold-deep"
+            aria-label="Preview details"
+            title="Preview details"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
         </div>
       </div>
-      <DprApprovalActions projectId={projectId} row={row} />
+      <DprDetailModal
+        projectId={projectId}
+        row={row}
+        open={open}
+        onClose={() => setOpen(false)}
+      />
     </div>
   );
 }
@@ -276,7 +329,13 @@ export default function DprPage() {
   useEffect(() => {
     if (!project || projectDatesSeeded[0]) return;
     const start = project.plannedStartDate ?? fallbackFromIso();
-    const finish = project.plannedFinishDate ?? fallbackToIso();
+    const plannedFinish = project.plannedFinishDate ?? fallbackToIso();
+    // Cap the end of the window at "today" at minimum: on a delayed/overrunning
+    // project the planned finish is already in the past, so seeding TO to it would
+    // hide every DPR filed after that date (including today's). Use the later of
+    // planned-finish and today so current reports are always visible.
+    const today = todayIso();
+    const finish = plannedFinish > today ? plannedFinish : today;
     setFromInput(start);
     setToInput(finish);
     setFrom(start);

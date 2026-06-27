@@ -1,13 +1,12 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { memo, useState } from "react";
 import {
   AlertTriangle,
-  AudioLines,
   Briefcase,
   ChevronDown,
   ChevronRight,
+  Eye,
   HardHat,
   Image as ImageIcon,
   MapPin,
@@ -16,17 +15,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { useAuthStore } from "@/lib/state/store";
 import { ResourceAvatar } from "@/components/resource/supervisor-assign/ResourceAvatar";
 import { chainageLabel } from "@/lib/format/chainage";
-import { dprApi } from "@/lib/api/dprApi";
-import type { DprApprovalStatus, DprSummaryRow, DprVoiceNote } from "@/lib/types/dpr";
-import {
-  SEVERITY_VARIANT,
-  STATUS_VARIANT as ISSUE_STATUS_VARIANT,
-  categoryLabel,
-} from "./IssueBadges";
-import { DetailTable } from "./DetailTable";
+import type { DprApprovalStatus, DprSummaryRow } from "@/lib/types/dpr";
 import { DprApprovalActions } from "./DprApprovalActions";
+import { DprDetailModal } from "./DprDetailModal";
 
 interface Props {
   row: DprSummaryRow;
@@ -66,30 +60,27 @@ const lengthLabel = (from: number | null | undefined, to: number | null | undefi
 /**
  * One work-front (DPR row) inside a Site-Ledger activity card. Renders supervisor
  * avatar + name, chainage, side / status badges, qty, and resource-count chips.
- * Click anywhere on the body to expand the manpower / equipment / material detail
- * panel (the same content that used to live inside the legacy DprActivityCard).
- *
- * <p>Designed for the "Day → Activity → Work fronts" layout: each row answers
- * "who did this stretch of this activity, with what crew?" at a glance.
+ * Click the row or the eye icon to open the read-only {@link DprDetailModal}
+ * (full crew/issue detail + Approve/Reject/Revoke for approvers).
  */
 function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }: Props) {
   const [open, setOpen] = useState(false);
 
-  const {
-    data: detailData,
-    isLoading: detailLoading,
-    isError: detailError,
-    refetch: refetchDetail,
-  } = useQuery({
-    queryKey: ["dpr-detail", projectId, row.id],
-    queryFn: () => dprApi.get(projectId, row.id),
-    enabled: open,
-    staleTime: 1000 * 60 * 5,
-  });
-  const detail = detailData?.data;
-  const liveIssues = (detail?.issues ?? []).filter((i) => i.status !== "CANCELLED");
-
   const status = row.approvalStatus ?? "DRAFT";
+
+  // Only the submitter (or an admin) may edit/delete. Everyone else gets preview +
+  // the approval actions below. APPROVED is locked for all (backend DPR_LOCKED).
+  // Rows with no submitter stamped (legacy/DRAFT) fall back to permission-based access.
+  const userId = useAuthStore((s) => s.user?.id);
+  const isAdmin = useAuthStore((s) => s.isAdmin());
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const isSubmitter = !!row.submittedByUserId && row.submittedByUserId === userId;
+  const canEdit =
+    status !== "APPROVED" &&
+    (isAdmin || isSubmitter || (!row.submittedByUserId && hasPermission("DPR.UPDATE")));
+  const canDelete =
+    status !== "APPROVED" &&
+    (isAdmin || isSubmitter || (!row.submittedByUserId && hasPermission("DPR.DELETE")));
 
   const manpowerCount = row.manpowerNos;
   const equipmentCount = row.equipmentNos;
@@ -117,9 +108,8 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
 
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen(true)}
           className="flex flex-1 items-center gap-3 text-left"
-          aria-expanded={open}
         >
           <span className="flex-none text-slate">
             {open ? (
@@ -205,14 +195,25 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
           </div>
         </button>
 
-        {/* Edit / delete — hidden (with tooltip) when APPROVED to mirror backend DPR_LOCKED guard */}
-        <div className="flex flex-none items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          {status === "APPROVED" ? (
-            <span className="rounded-md px-2 py-1 text-xs text-ash" title="View-only — DPR is approved">
-              View-only
-            </span>
-          ) : (
-            <>
+        {/* Approval actions + preview (always) + edit/delete (submitter or admin only). */}
+        <div className="ml-auto flex flex-none items-center gap-1.5">
+          {/* Approve / Reject / Revoke — inline on the right (self-hides for non-approvers). */}
+          <DprApprovalActions
+            projectId={projectId}
+            row={row}
+            className="flex items-center gap-1.5"
+          />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="rounded-md p-1.5 text-slate hover:bg-ivory hover:text-charcoal"
+            aria-label="Preview details"
+            title="Preview details"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            {canEdit && (
               <button
                 type="button"
                 onClick={onEdit}
@@ -221,6 +222,8 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
               >
                 <Pencil className="h-4 w-4" />
               </button>
+            )}
+            {canDelete && (
               <button
                 type="button"
                 onClick={onDelete}
@@ -229,269 +232,17 @@ function DprWorkFrontRowImpl({ row, projectId, index, total, onEdit, onDelete }:
               >
                 <Trash2 className="h-4 w-4" />
               </button>
-            </>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Approval actions — visible only to users holding DPR.APPROVE, for SUBMITTED/APPROVED */}
-      <DprApprovalActions projectId={projectId} row={row} />
-
-      {open && (
-        <div className="space-y-3 border-t border-hairline bg-ivory/30 px-3 py-3 md:px-4">
-          {detailLoading && (
-            <div className="space-y-2">
-              <div className="h-4 w-40 animate-pulse rounded bg-parchment" />
-              <div className="h-16 animate-pulse rounded bg-parchment/60" />
-              <div className="h-16 animate-pulse rounded bg-parchment/60" />
-            </div>
-          )}
-
-          {detailError && (
-            <div className="flex items-center gap-2 text-xs text-burgundy">
-              Failed to load detail.
-              <button
-                type="button"
-                onClick={() => refetchDetail()}
-                className="rounded border border-burgundy/30 px-2 py-0.5 font-semibold hover:bg-burgundy/10"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {detail && (
-            <>
-              {/* Rejection reason banner — prominent so the supervisor knows what to fix */}
-              {detail.approvalStatus === "REJECTED" && detail.rejectionReason && (
-                <div className="rounded-md border border-burgundy/25 bg-burgundy/8 px-3 py-2 text-xs text-charcoal">
-                  <span className="font-semibold text-burgundy">Rejected: </span>
-                  {detail.rejectionReason}
-                </div>
-              )}
-
-              {detail.cumulativeQty != null && (
-                <div className="text-xs text-slate">
-                  <span className="font-semibold text-charcoal">Cumulative:</span>{" "}
-                  <span className="tabular-nums">
-                    {fmt(detail.cumulativeQty)} {detail.unit}
-                  </span>
-                </div>
-              )}
-              {detail.landmark && (
-                <div className="text-xs text-slate">
-                  <span className="font-semibold text-charcoal">Landmark:</span> {detail.landmark}
-                </div>
-              )}
-              {detail.remarks && (
-                <div className="rounded-md bg-paper/80 p-2 text-xs text-charcoal">
-                  <span className="font-semibold">Remarks: </span>
-                  {detail.remarks}
-                </div>
-              )}
-
-              <DetailTable
-                title="Manpower"
-                empty="No manpower"
-                headers={["Role · Category / Grade", "Nos", "Hours"]}
-                rows={(detail.manpower ?? []).map((m) => [m.trade, fmt(m.nos, 0), fmt(m.workingHours)])}
-                accent="emerald"
-                numericFromIndex={1}
-              />
-              <DetailTable
-                title="Equipment / PMV"
-                empty="No equipment"
-                headers={["Equipment · Make / Model", "Fleet #", "Nos", "Hours"]}
-                rows={(detail.equipment ?? []).map((e) => [
-                  e.equipmentType,
-                  e.fleetNo ?? "—",
-                  fmt(e.nos, 0),
-                  fmt(e.workingHours),
-                ])}
-                accent="bronze"
-                numericFromIndex={1}
-              />
-              <DetailTable
-                title="Material"
-                empty="No material"
-                headers={["Material · Spec / Grade", "Qty"]}
-                rows={(detail.materials ?? []).map((m) => [m.materialName, fmt(m.quantity, 3)])}
-                accent="steel"
-                numericFromIndex={1}
-              />
-              <DetailTable
-                title="Sub-Contractor"
-                empty="No sub-contractor"
-                headers={["Sub-Contractor", "Qty", "Unit", "Rate", "Cost", "Remarks"]}
-                rows={(detail.subContractors ?? []).map((s) => [
-                  s.subContractorName ?? "—",
-                  fmt(s.quantity, 3),
-                  s.unit ?? "—",
-                  fmt(s.ratePerUnit),
-                  fmt(s.lineCost),
-                  s.remarks?.trim() ? s.remarks : "—",
-                ])}
-                accent="slate"
-                numericFromIndex={1}
-              />
-
-              {(detail.voiceNotes ?? []).length > 0 && (
-                <div>
-                  <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate">
-                    <AudioLines className="h-3.5 w-3.5 text-gold" />
-                    Voice notes
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {(detail.voiceNotes ?? []).map((note) => (
-                      <VoiceNotePlayer
-                        key={note.id}
-                        projectId={projectId}
-                        dprId={detail.id}
-                        note={note}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {liveIssues.length > 0 && (
-                <div>
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate">
-                    Issues
-                  </div>
-                  <div className="overflow-x-auto rounded-md border border-hairline">
-                    <table className="w-full text-xs">
-                      <thead className="bg-ivory/60">
-                        <tr>
-                          <th className="px-2 py-1 text-left font-semibold text-slate">Title</th>
-                          <th className="px-2 py-1 text-left font-semibold text-slate">Reason</th>
-                          <th className="px-2 py-1 text-left font-semibold text-slate">Severity</th>
-                          <th className="px-2 py-1 text-left font-semibold text-slate">Status</th>
-                          <th className="px-2 py-1 text-left font-semibold text-slate">Assigned</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {liveIssues.map((i) => (
-                          <tr key={i.id ?? i.title} className="border-t border-hairline">
-                            <td className="px-2 py-1 text-charcoal">{i.title}</td>
-                            <td className="px-2 py-1 text-charcoal">{categoryLabel(i.category)}</td>
-                            <td className="px-2 py-1">
-                              <Badge variant={SEVERITY_VARIANT[i.severity]}>{i.severity}</Badge>
-                            </td>
-                            <td className="px-2 py-1">
-                              <Badge variant={ISSUE_STATUS_VARIANT[i.status]} withDot>
-                                {i.status}
-                              </Badge>
-                            </td>
-                            <td className="px-2 py-1 text-charcoal">{i.assignedToName ?? "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {(detail.delayReason ||
-                detail.safetyObservation ||
-                detail.safetyIncidentType === "INCIDENT" ||
-                detail.safetyIncidentType === "NEAR_MISS") && (
-                <div className="rounded-md border border-burgundy/20 bg-burgundy/5 p-3 text-xs text-charcoal">
-                  <div className="mb-1 font-semibold text-burgundy">Safety & Delay</div>
-                  {detail.safetyIncidentType && detail.safetyIncidentType !== "NONE" && (
-                    <div>Incident: {detail.safetyIncidentType.replace("_", " ")}</div>
-                  )}
-                  {detail.delayReason && <div>Delay: {detail.delayReason}</div>}
-                  {detail.safetyObservation && <div>Observation: {detail.safetyObservation}</div>}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Read-only voice-note player for the admin expand panel. Loads the JWT-protected audio stream
- * through an authenticated fetch + blob URL (mirrors {@code ExistingVoiceNoteTile} in
- * {@code DprVoiceNotesSection}); no delete affordance here.
- */
-function VoiceNotePlayer({
-  projectId,
-  dprId,
-  note,
-}: {
-  projectId: string;
-  dprId: string;
-  note: DprVoiceNote;
-}) {
-  const [src, setSrc] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [playError, setPlayError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let createdUrl: string | null = null;
-    dprApi
-      .fetchVoiceNoteBlobUrl(projectId, dprId, note.id)
-      .then((url) => {
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-        } else {
-          createdUrl = url;
-          setSrc(url);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
-    };
-  }, [projectId, dprId, note.id]);
-
-  return (
-    <div className="overflow-hidden rounded-md border border-hairline bg-paper">
-      <div className="flex items-center gap-1.5 border-b border-hairline px-2 py-1.5 text-xs text-charcoal">
-        <AudioLines className="h-3.5 w-3.5 shrink-0 text-gold" />
-        <span className="truncate" title={note.fileName}>
-          {note.fileName}
-        </span>
-        {note.durationSeconds != null && (
-          <span className="shrink-0 text-slate">· {note.durationSeconds}s</span>
-        )}
-      </div>
-      {src && !failed ? (
-        <>
-          <audio
-            controls
-            src={src}
-            onError={() => setPlayError(true)}
-            className="w-full px-2 py-2"
-          />
-          {playError && (
-            <div className="px-2 pb-2 text-center text-xs text-slate">
-              Your browser can&apos;t play this audio format.{" "}
-              <a href={src} download={note.fileName} className="font-semibold text-gold underline">
-                Download the file
-              </a>{" "}
-              to play it in another app.
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="px-2 py-3 text-center text-xs text-slate">
-          {failed ? "Failed to load" : "Loading…"}
-        </div>
-      )}
-      {note.caption && (
-        <div className="border-t border-hairline px-2 py-1.5 text-xs text-charcoal">
-          <span className="line-clamp-2">{note.caption}</span>
-        </div>
-      )}
+      <DprDetailModal
+        projectId={projectId}
+        row={row}
+        open={open}
+        onClose={() => setOpen(false)}
+      />
     </div>
   );
 }
