@@ -99,3 +99,16 @@ export function StatusBadge({ status, variant = "default" }: StatusBadgeProps) {
     </span>
   );
 }
+
+const BOQ_STATUS_PILL: Record<string, string> = {
+  COMPLETED: "bg-info/15 text-info ring-1 ring-info/20",
+  ACTIVE: "bg-success/20 text-success",
+  ON_HOLD: "bg-warning/20 text-warning",
+  OVERRUN: "bg-danger/15 text-danger ring-1 ring-danger/20",
+  PENDING: "bg-info/15 text-info ring-1 ring-info/20",
+};
+
+export function boqStatusVariant(status: string | null | undefined): string {
+  if (status && BOQ_STATUS_PILL[status]) return BOQ_STATUS_PILL[status];
+  return "bg-slate/15 text-slate";
+}

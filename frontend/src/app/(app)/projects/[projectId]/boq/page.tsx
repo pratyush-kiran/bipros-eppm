@@ -13,6 +13,8 @@ import {
 } from "@/lib/api/boqApi";
 import { TabTip } from "@/components/common/TabTip";
 import { VirtualDataTable } from "@/components/common/VirtualDataTable";
+import { AlertBanner } from "@/components/common/AlertBanner";
+import { boqStatusVariant } from "@/components/common/StatusBadge";
 import { getErrorMessage } from "@/lib/utils/error";
 import { cn } from "@/lib/utils/cn";
 import { unitOptionsWithFallback, STANDARD_UNITS } from "@/lib/constants/units";
@@ -58,22 +60,6 @@ function formatAmount(value: number | null | undefined): string {
 function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
   return (value * 100).toFixed(2) + "%";
-}
-
-function statusPillClass(status: string | null | undefined): string {
-  if (!status) return "";
-  switch (status) {
-    case "COMPLETED":
-      return "bg-blue-500/20 text-blue-300";
-    case "ACTIVE":
-      return "bg-success/20 text-success";
-    case "ON_HOLD":
-      return "bg-amber-500/20 text-warning";
-    case "OVERRUN":
-      return "bg-red-500/30 text-red-200";
-    default:
-      return "bg-slate-500/20 text-slate-300";
-  }
 }
 
 function varianceClass(value: number | null | undefined): string {
@@ -243,7 +229,7 @@ export default function BoqPage() {
         size: 110,
         cell: (info) => {
           const v = info.getValue() as string | null | undefined;
-          return v ? v : <span className="text-ash">—</span>;
+          return v ? v : <span className="text-text-secondary">—</span>;
         },
       },
       {
@@ -263,12 +249,12 @@ export default function BoqPage() {
         size: 110,
         cell: (info) => {
           const status = info.getValue() as string | null | undefined;
-          if (!status) return <span className="text-ash">—</span>;
+          if (!status) return <span className="text-text-secondary">—</span>;
           return (
             <span
               className={cn(
                 "inline-block rounded-full px-2 py-0.5 text-[11px] font-medium",
-                statusPillClass(status)
+                boqStatusVariant(status)
               )}
             >
               {status.replace("_", " ")}
@@ -367,7 +353,7 @@ export default function BoqPage() {
   );
 
   const grandTotalFooter = summary ? (
-    <tr className="text-charcoal dark:text-[#F5F2E8] font-semibold">
+    <tr className="text-text-primary font-semibold">
       <td className="px-4 py-3" colSpan={7}>
         Grand Total
       </td>
@@ -403,33 +389,36 @@ export default function BoqPage() {
         <h1 className="text-3xl font-bold mb-4 text-text-primary">Bill of Quantities</h1>
 
         {overrunCount > 0 && (
-          <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm text-amber-200">
+          <AlertBanner
+            tone="warning"
+            message={
+              <>
                 <strong>{overrunCount}</strong>{" "}
                 {overrunCount === 1 ? "item has" : "items have"} overrun their contracted
                 quantities.{" "}
                 <strong>{money(overrunUnbilled)}</strong>{" "}
                 of work executed cannot be billed until a Variation Order is approved.
-              </div>
-              <div className="flex gap-2">
+              </>
+            }
+            actions={
+              <>
                 <button
                   type="button"
                   onClick={() => setOverrunOnly((v) => !v)}
-                  className="px-3 py-1.5 text-xs rounded border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100"
+                  className="px-3 py-1.5 text-xs rounded border border-warning/40 bg-warning/10 hover:bg-warning/20 text-warning font-medium"
                 >
                   {overrunOnly ? "Show all items" : "Show only overrun"}
                 </button>
                 <button
                   type="button"
                   onClick={() => router.push(`/projects/${projectId}/variation-orders`)}
-                  className="px-3 py-1.5 text-xs rounded bg-amber-500 text-black font-medium hover:bg-amber-400"
+                  className="px-3 py-1.5 text-xs rounded bg-warning text-white font-medium hover:bg-warning/90"
                 >
                   Create VO
                 </button>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
         )}
 
         <button
@@ -539,7 +528,7 @@ export default function BoqPage() {
               <button
                 type="submit"
                 disabled={createMutation.isPending}
-                className="px-4 py-2 bg-green-600 text-text-primary rounded-lg hover:bg-green-600 disabled:opacity-50"
+                className="px-4 py-2 bg-success text-white rounded-lg hover:bg-success/90 disabled:opacity-50"
               >
                 {createMutation.isPending ? "Saving..." : "Save Item"}
               </button>
