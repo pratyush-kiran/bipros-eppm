@@ -3,9 +3,11 @@ package com.bipros.project.application.listener;
 import com.bipros.common.event.DprMutationType;
 import com.bipros.common.event.DprSubmittedEvent;
 import com.bipros.common.event.MaterialConsumptionLoggedEvent;
+import com.bipros.project.application.service.BoqActualCostQuery;
 import com.bipros.project.application.service.BoqCalculator;
 import com.bipros.project.domain.model.BoqItem;
 import com.bipros.project.domain.repository.BoqItemRepository;
+import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
@@ -51,6 +53,8 @@ public class BoqActualRateRecalcListener {
   private static final int RATE_SCALE = 4;
 
   private final BoqItemRepository boqItemRepository;
+  private final DailyProgressReportRepository dprRepository;
+  private final BoqActualCostQuery boqActualCostQuery;
 
   @PersistenceContext
   private EntityManager em;
@@ -118,13 +122,13 @@ public class BoqActualRateRecalcListener {
       return;
     }
 
-    BigDecimal qty = sumQtyExecuted(boqItemId);
+    BigDecimal qty = dprRepository.sumQtyExecutedByBoqItemIdApproved(projectId, boqItemId);
     if (qty == null || qty.signum() == 0) {
       log.debug("[BoqActualRateRecalc] skip zero qty boqItemId={}", boqItemId);
       return;
     }
 
-    BigDecimal cost = sumActualCost(boqItemId);
+    BigDecimal cost = boqActualCostQuery.sumActualCost(projectId, boqItemId);
     if (cost == null) cost = BigDecimal.ZERO;
 
     BigDecimal newRate = cost.divide(qty, RATE_SCALE, RoundingMode.HALF_UP);
@@ -135,78 +139,4 @@ public class BoqActualRateRecalcListener {
         boqItemId, newRate, cost, qty);
   }
 
-  /**
-   * Sum of {@code qty_executed} across all APPROVED DPRs whose {@code boq_item_id} matches.
-   * Restricted to {@code approval_status = 'APPROVED'} per the DPR approval workflow: only
-   * approved DPRs count toward the BOQ item-level actual rate.
-   */
-  private BigDecimal sumQtyExecuted(UUID boqItemId) {
-    Query q = em.createNativeQuery(
-        "SELECT COALESCE(SUM(qty_executed), 0) FROM project.daily_progress_reports "
-            + "WHERE boq_item_id = :boqItemId AND approval_status = 'APPROVED'");
-    q.setParameter("boqItemId", boqItemId);
-    Object o = q.getSingleResult();
-    return toBigDecimal(o);
-  }
-
-  /**
-   * Total actual cost attributed to DPRs that touched this BOQ item. Mirrors the math in
-   * {@code ActivityCostQueryService.sumDprContribFiltered} but pivots on {@code boq_item_id}
-   * instead of {@code activity_id}, so it captures only the DPRs that explicitly point at the
-   * item (not the whole activity). Includes material consumption logs whose linked activity
-   * was the activity of one of those DPRs.
-   */
-  private BigDecimal sumActualCost(UUID boqItemId) {
-    String sql =
-        "SELECT COALESCE(SUM(u.contrib), 0) FROM ( "
-            + "  SELECT (c.nos * COALESCE(a.effective_rate, 0))::numeric AS contrib "
-            + "    FROM project.dpr_manpower c "
-            + "    JOIN project.daily_progress_reports d ON c.dpr_id = d.id "
-            + "    LEFT JOIN resource.resource_assignments a "
-            + "      ON a.activity_id = d.activity_id "
-            + "     AND a.manpower_role_rate_id = c.manpower_role_rate_id "
-            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
-            + "  UNION ALL "
-            + "  SELECT (c.nos * COALESCE(a.effective_rate, 0))::numeric "
-            + "    FROM project.dpr_equipment c "
-            + "    JOIN project.daily_progress_reports d ON c.dpr_id = d.id "
-            + "    LEFT JOIN resource.resource_assignments a "
-            + "      ON a.activity_id = d.activity_id "
-            + "     AND a.equipment_role_variant_id = c.equipment_role_variant_id "
-            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
-            + "  UNION ALL "
-            + "  SELECT (c.quantity * COALESCE(a.effective_rate, 0))::numeric "
-            + "    FROM project.dpr_material c "
-            + "    JOIN project.daily_progress_reports d ON c.dpr_id = d.id "
-            + "    LEFT JOIN resource.resource_assignments a "
-            + "      ON a.activity_id = d.activity_id "
-            + "     AND a.material_role_variant_id = c.material_role_variant_id "
-            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
-            + "  UNION ALL "
-            + "  SELECT COALESCE(mcl.line_cost, 0)::numeric "
-            + "    FROM resource.material_consumption_logs mcl "
-            + "   WHERE mcl.activity_id IN ( "
-            + "     SELECT DISTINCT d2.activity_id FROM project.daily_progress_reports d2 "
-            + "      WHERE d2.boq_item_id = :boqItemId AND d2.activity_id IS NOT NULL "
-            + "        AND d2.approval_status = 'APPROVED') "
-            + "     AND mcl.line_cost IS NOT NULL "
-            + "  UNION ALL "
-            + "  SELECT (c.quantity * COALESCE(a.rate_per_unit, 0))::numeric "
-            + "    FROM project.dpr_sub_contractor c "
-            + "    JOIN project.daily_progress_reports d ON c.dpr_id = d.id "
-            + "    LEFT JOIN resource.activity_sub_contractor_assignments a "
-            + "      ON a.id = c.activity_sub_contractor_assignment_id "
-            + "   WHERE d.boq_item_id = :boqItemId AND d.approval_status = 'APPROVED' "
-            + ") u";
-    Query q = em.createNativeQuery(sql);
-    q.setParameter("boqItemId", boqItemId);
-    return toBigDecimal(q.getSingleResult());
-  }
-
-  private static BigDecimal toBigDecimal(Object o) {
-    if (o == null) return BigDecimal.ZERO;
-    if (o instanceof BigDecimal b) return b;
-    if (o instanceof Number n) return new BigDecimal(n.toString());
-    return new BigDecimal(o.toString());
-  }
 }

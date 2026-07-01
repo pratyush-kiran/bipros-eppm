@@ -127,6 +127,12 @@ export function SupervisorDbsTab({
     enabled: !!projectId && !!supervisorUserId && !!date && periodType !== "DAY",
   });
 
+  const boqSummaryQuery = useQuery({
+    queryKey: ["dbs-boq-summary", projectId, date, periodType, supervisorUserId],
+    queryFn: () => dbsApi.getBoqExecutedSummary(projectId, date, periodType, supervisorUserId),
+    enabled: !!projectId && !!date && !!supervisorUserId,
+  });
+
   const day: DbsSupervisorDayResponse | null =
     periodType === "DAY"
       ? dayQuery.data?.data ?? null
@@ -216,6 +222,8 @@ export function SupervisorDbsTab({
             contribution={day.contribution}
             contributionPct={day.contributionPct * 100}
             currency={currency}
+            boqItemsExecuted={boqSummaryQuery.data?.data?.boqItemsExecuted}
+            boqQtyExecuted={boqSummaryQuery.data?.data?.boqQtyExecuted}
           />
 
           {/* Section accordions — order mirrors the client workbook. */}

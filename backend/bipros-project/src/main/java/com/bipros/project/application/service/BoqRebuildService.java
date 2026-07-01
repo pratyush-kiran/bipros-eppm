@@ -20,9 +20,7 @@ public class BoqRebuildService {
 
   private final BoqItemRepository boqRepo;
   private final DailyProgressReportRepository dprRepo;
-  private final DprManpowerRepository manpowerRepo;
-  private final DprEquipmentRepository equipmentRepo;
-  private final DprMaterialRepository materialRepo;
+  private final BoqActualCostQuery boqActualCostQuery;
 
   @Transactional
   public int rebuildFromDprs(UUID projectId) {
@@ -31,9 +29,7 @@ public class BoqRebuildService {
       if (Boolean.TRUE.equals(item.getManualOverride())) continue;
       UUID boqId = item.getId();
       BigDecimal qty = nz(dprRepo.sumQtyExecutedByBoqItemIdApproved(projectId, boqId));
-      BigDecimal cost = nz(manpowerRepo.sumLineCostByBoqItemIdApproved(projectId, boqId))
-          .add(nz(equipmentRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)))
-          .add(nz(materialRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)));
+      BigDecimal cost = boqActualCostQuery.sumActualCost(projectId, boqId);
       BigDecimal actualRate = qty.signum() == 0
           ? BigDecimal.ZERO
           : cost.divide(qty, 4, RoundingMode.HALF_UP);

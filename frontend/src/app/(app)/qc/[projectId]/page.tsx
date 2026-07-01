@@ -47,7 +47,7 @@ export default function QcPage() {
 
       <TabTip
         title="Quality Control"
-        description="Log field and lab test results against activities. Compare against IRC/MORTH thresholds and track pass/fail/repeat outcomes."
+        description="Log field and lab test results against activities. Compare against OHDS/AASHTO thresholds and track pass/fail/repeat outcomes."
       />
       <div className="mb-6">
         <div className="flex flex-wrap items-end justify-between gap-3">

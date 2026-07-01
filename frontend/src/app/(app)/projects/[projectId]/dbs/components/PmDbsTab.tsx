@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   RefreshCw,
@@ -9,6 +9,7 @@ import {
   ArrowRight,
   FileSpreadsheet,
   FileText,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -116,6 +117,7 @@ export function PmDbsTab({
     hasPermission("DBS.RECOMPUTE") || hasPermission("PROJECT_MEMBER.MANAGE");
 
   const [confirmRecompute, setConfirmRecompute] = useState(false);
+  const [confirmCumulativeRecompute, setConfirmCumulativeRecompute] = useState(false);
   const [rangeOpen, setRangeOpen] = useState(false);
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
@@ -124,6 +126,7 @@ export function PmDbsTab({
   // replaced with a per-CM table (no per-engineer fan-out queries; uses the
   // `/cms` summary endpoint directly).
   const [groupByCm, setGroupByCm] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
 
   const handleExport = async (kind: "xlsx" | "pdf") => {
     if (!projectId || !date) return;
@@ -160,6 +163,12 @@ export function PmDbsTab({
     queryKey: ["dbs-project-period", projectId, date, periodType],
     queryFn: () => dbsApi.getProjectPeriod(projectId, date, periodType),
     enabled: !!projectId && !!date && periodType !== "DAY",
+  });
+
+  const boqSummaryQuery = useQuery({
+    queryKey: ["dbs-boq-summary", projectId, date, periodType],
+    queryFn: () => dbsApi.getBoqExecutedSummary(projectId, date, periodType),
+    enabled: !!projectId && !!date,
   });
 
   const day: DbsProjectDayResponse | null =
@@ -220,23 +229,126 @@ export function PmDbsTab({
     },
   });
 
+  // Invalidate every DBS aggregate this tab (and its children) render, so the
+  // numbers refresh once a recompute finishes. Shared by the completion effect
+  // and the instant-finish path below.
+  const invalidateDbsAggregates = useCallback(() => {
+    for (const key of [
+      "dbs-project-day",
+      "dbs-project-period",
+      "dbs-project-alerts",
+      "dbs-supervisor-day",
+      "dbs-engineer-day",
+      "dbs-boq-summary",
+      "dbs-cms-roster",
+    ]) {
+      qc.invalidateQueries({ queryKey: [key, projectId] });
+    }
+  }, [qc, projectId]);
+
   const recomputeRangeMutation = useMutation({
     mutationFn: () => dbsApi.recomputeRange(projectId, rangeFrom, rangeTo),
-    onSuccess: () => {
-      toast.success(`Recompute queued for ${rangeFrom} → ${rangeTo}.`);
+    onSuccess: (data) => {
+      const job = data.data;
+      const label = `${rangeFrom} → ${rangeTo}`;
       setRangeOpen(false);
       setRangeFrom("");
       setRangeTo("");
-      qc.invalidateQueries({ queryKey: ["dbs-project-day", projectId] });
-      qc.invalidateQueries({ queryKey: ["dbs-project-period", projectId] });
-      qc.invalidateQueries({ queryKey: ["dbs-project-alerts", projectId] });
-      qc.invalidateQueries({ queryKey: ["dbs-supervisor-day", projectId] });
-      qc.invalidateQueries({ queryKey: ["dbs-engineer-day", projectId] });
+      if (!job) return;
+      if (job.status === "QUEUED" || job.status === "RUNNING") {
+        setActiveJobId(job.jobId);
+        toast.success(`Recompute queued — running in the background (${label}).`);
+      } else if (job.status === "SUCCEEDED") {
+        // Instantly done (no days to process) — no background phase.
+        invalidateDbsAggregates();
+        toast.success("DBS recompute completed (nothing to process).");
+      } else {
+        toast.error(job.errorMessage ?? "Range recompute failed");
+      }
     },
     onError: (err: unknown) => {
       toast.error(getErrorMessage(err, "Range recompute failed"));
     },
   });
+
+  const recomputeCumulativeMutation = useMutation({
+    mutationFn: () => dbsApi.recomputeCumulative(projectId),
+    onSuccess: (data) => {
+      const job = data.data;
+      setConfirmCumulativeRecompute(false);
+      if (!job) return;
+      if (job.status === "QUEUED" || job.status === "RUNNING") {
+        setActiveJobId(job.jobId);
+        toast.success("Recompute queued — running in the background.");
+      } else if (job.status === "SUCCEEDED") {
+        // Instantly done (no days to process) — no background phase.
+        invalidateDbsAggregates();
+        toast.success("DBS recompute completed (nothing to process).");
+      } else {
+        toast.error(job.errorMessage ?? "Cumulative recompute failed");
+      }
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, "Cumulative recompute failed"));
+    },
+  });
+
+  // Polling query for the active background recompute job.
+  const jobQuery = useQuery({
+    queryKey: ["dbs-recompute-job", projectId, activeJobId],
+    queryFn: () => dbsApi.getRecomputeJob(projectId, activeJobId!),
+    enabled: !!activeJobId,
+    refetchInterval: (q) => {
+      const s = q.state.data?.data?.status;
+      return s === "QUEUED" || s === "RUNNING" ? 1500 : false;
+    },
+  });
+
+  // Re-attach on mount: if the server still has an active job (navigated away
+  // and back while the server was still running it), resume the progress chip.
+  const latestJobQuery = useQuery({
+    queryKey: ["dbs-latest-recompute-job", projectId],
+    queryFn: () => dbsApi.getLatestRecomputeJob(projectId),
+    enabled: !!projectId,
+  });
+
+  // Seed at most once per mount. The ref is load-bearing for two reasons:
+  // (1) after the job completes and the completion effect clears activeJobId,
+  // re-running this effect would otherwise re-seed from the stale, never-
+  // refetched latestJobQuery snapshot and loop the success toast; (2) a
+  // window-focus refetch of latestJobQuery would re-trigger the same re-seed.
+  const reattachedRef = useRef(false);
+  useEffect(() => {
+    if (reattachedRef.current) return;
+    const job = latestJobQuery.data?.data;
+    if (job && (job.status === "QUEUED" || job.status === "RUNNING")) {
+      reattachedRef.current = true;
+      if (!activeJobId) setActiveJobId(job.jobId);
+    }
+  }, [latestJobQuery.data, activeJobId]);
+
+  // Side-effects on job completion: invalidate DBS queries and notify the user.
+  // Guard: only fires when activeJobId is set, preventing double-fire after clear.
+  useEffect(() => {
+    if (!activeJobId) return;
+    const status = jobQuery.data?.data?.status;
+    if (status === "SUCCEEDED") {
+      invalidateDbsAggregates();
+      toast.success("DBS recompute completed. Refreshing data…");
+      setActiveJobId(null);
+    } else if (status === "FAILED") {
+      toast.error(jobQuery.data?.data?.errorMessage ?? "Recompute failed");
+      setActiveJobId(null);
+    } else if (jobQuery.isSuccess && jobQuery.data?.data == null) {
+      // Job no longer known to the server (e.g. it restarted and lost the
+      // in-memory job). Stop tracking so the chip clears and buttons re-enable.
+      setActiveJobId(null);
+    }
+  }, [jobQuery.data, jobQuery.isSuccess, activeJobId, invalidateDbsAggregates]);
+
+  const activeJob = activeJobId ? (jobQuery.data?.data ?? null) : null;
+  const isJobActive =
+    !!activeJobId && (activeJob?.status === "QUEUED" || activeJob?.status === "RUNNING");
 
   return (
     <div className="space-y-6">
@@ -274,11 +386,27 @@ export function PmDbsTab({
             <button
               type="button"
               onClick={() => setRangeOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover"
+              disabled={isJobActive}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover disabled:opacity-60"
             >
               <Calendar size={14} />
               Recompute range
             </button>
+            <button
+              type="button"
+              onClick={() => setConfirmCumulativeRecompute(true)}
+              disabled={recomputeCumulativeMutation.isPending || isJobActive}
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-text-primary hover:bg-surface-hover disabled:opacity-60"
+            >
+              <RefreshCw size={14} />
+              {recomputeCumulativeMutation.isPending ? "Recomputing…" : "Cumulative recompute"}
+            </button>
+            {isJobActive ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-xs text-sky-700 dark:text-sky-300">
+                <Loader2 size={12} className="animate-spin" />
+                Recomputing… {activeJob?.processedDays ?? 0}/{activeJob?.totalDays ?? 0} days
+              </span>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -393,6 +521,8 @@ export function PmDbsTab({
             contribution={day.contribution}
             contributionPct={day.contributionPct * 100}
             currency={currency}
+            boqItemsExecuted={boqSummaryQuery.data?.data?.boqItemsExecuted}
+            boqQtyExecuted={boqSummaryQuery.data?.data?.boqQtyExecuted}
           />
 
           {/* F. Sub-Contractor — project-level breakdown. Hidden on other tabs
@@ -721,6 +851,17 @@ export function PmDbsTab({
         onCancel={() => setConfirmRecompute(false)}
       />
 
+      <ConfirmDialog
+        open={confirmCumulativeRecompute}
+        title="Cumulative recompute?"
+        message="Recompute the DBS cumulatively from the first DPR through today? This may take a while on long projects."
+        confirmLabel={recomputeCumulativeMutation.isPending ? "Recomputing…" : "Recompute"}
+        cancelLabel="Cancel"
+        variant="warning"
+        onConfirm={() => recomputeCumulativeMutation.mutate()}
+        onCancel={() => setConfirmCumulativeRecompute(false)}
+      />
+
       <Dialog open={rangeOpen} onOpenChange={(o) => !o && setRangeOpen(false)}>
         <DialogContent>
           <DialogHeader>
@@ -777,7 +918,7 @@ export function PmDbsTab({
                 }
                 recomputeRangeMutation.mutate();
               }}
-              disabled={recomputeRangeMutation.isPending}
+              disabled={recomputeRangeMutation.isPending || isJobActive}
               className="rounded-md bg-accent px-3 py-1.5 text-sm text-accent-foreground hover:bg-accent-hover disabled:opacity-60"
             >
               {recomputeRangeMutation.isPending ? "Recomputing…" : "Recompute"}

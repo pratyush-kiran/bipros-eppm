@@ -324,9 +324,39 @@ export interface DbsProjectPeriodResponse {
   dailyRows: DbsProjectDayResponse[];
 }
 
+/** Summary returned by {@code GET /dbs/boq-executed-summary}. */
+export interface BoqExecutedSummary {
+  boqItemsExecuted: number;
+  boqQtyExecuted: number;
+}
+
+/** In-memory recompute job status returned by the async background endpoints. */
+export interface DbsRecomputeJob {
+  jobId: string;
+  kind: string;
+  status: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+  fromDate: string;
+  toDate: string;
+  totalDays: number;
+  processedDays: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  errorMessage: string | null;
+}
+
 const base = (projectId: string) => `/v1/projects/${projectId}/dbs`;
 
+/** App-wide DBS tunables (global, not project-scoped). */
+export interface DbsConfigResponse {
+  /** Decimal fraction, e.g. 0.35 = 35%. Fuel cost = ratio × equipment cost. */
+  fuelMachineryCostRatio: number;
+}
+
 export const dbsApi = {
+  /** Reads global DBS config — used by the DPR totals bar to derive Fuel from equipment cost. */
+  getConfig: () =>
+    apiClient.get<ApiResponse<DbsConfigResponse>>(`/v1/dbs/config`).then((r) => r.data),
+
   getSupervisorDay: (projectId: string, supervisorUserId: string, date: string) =>
     apiClient
       .get<ApiResponse<DbsSupervisorDayResponse>>(
@@ -469,6 +499,19 @@ export const dbsApi = {
       })
       .then((r) => r.data),
 
+  /** BOQ execution summary (items count + qty sum) for a period and optional supervisor scope. */
+  getBoqExecutedSummary: (
+    projectId: string,
+    date: string,
+    period: DbsPeriodType,
+    supervisorUserId?: string,
+  ) =>
+    apiClient
+      .get<ApiResponse<BoqExecutedSummary>>(`${base(projectId)}/boq-executed-summary`, {
+        params: { date, period, ...(supervisorUserId ? { supervisorUserId } : {}) },
+      })
+      .then((r) => r.data),
+
   recompute: (projectId: string, date: string) =>
     apiClient
       .post<ApiResponse<void>>(`${base(projectId)}/recompute`, null, {
@@ -478,9 +521,26 @@ export const dbsApi = {
 
   recomputeRange: (projectId: string, from: string, to: string) =>
     apiClient
-      .post<ApiResponse<void>>(`${base(projectId)}/recompute-range`, null, {
+      .post<ApiResponse<DbsRecomputeJob>>(`${base(projectId)}/recompute-range`, null, {
         params: { from, to },
       })
+      .then((r) => r.data),
+
+  recomputeCumulative: (projectId: string) =>
+    apiClient
+      .post<ApiResponse<DbsRecomputeJob>>(`${base(projectId)}/recompute-cumulative`, null)
+      .then((r) => r.data),
+
+  /** Poll a specific background recompute job. Returns data: null when jobId is unknown. */
+  getRecomputeJob: (projectId: string, jobId: string) =>
+    apiClient
+      .get<ApiResponse<DbsRecomputeJob | null>>(`${base(projectId)}/recompute-jobs/${jobId}`)
+      .then((r) => r.data),
+
+  /** Returns the active QUEUED/RUNNING job for the project, or data: null when none. */
+  getLatestRecomputeJob: (projectId: string) =>
+    apiClient
+      .get<ApiResponse<DbsRecomputeJob | null>>(`${base(projectId)}/recompute-jobs/latest`)
       .then((r) => r.data),
 
   /**

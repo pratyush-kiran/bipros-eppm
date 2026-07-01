@@ -4,6 +4,7 @@ import type { ApiResponse } from "../types";
 export type NcrCategory = "QUALITY" | "SAFETY" | "MATERIAL" | "WORKMANSHIP" | "OTHER";
 export type NcrSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type NcrStatus = "OPEN" | "IN_REVIEW" | "CLOSED" | "REJECTED";
+export type NcrSourceType = "MANUAL" | "QC_TEST_FAIL" | "INSPECTION" | "SNAG" | "OTHER";
 
 export interface NcrResponse {
   id: string;
@@ -21,6 +22,9 @@ export interface NcrResponse {
   correctiveAction: string | null;
   closedBy: string | null;
   closedAt: string | null;
+  sourceType: NcrSourceType;
+  sourceRefId: string | null;
+  activityId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,6 +35,9 @@ export interface CreateNcrRequest {
   category?: NcrCategory | null;
   severity?: NcrSeverity | null;
   assignedTo?: string | null;
+  sourceType?: NcrSourceType | null;
+  sourceRefId?: string | null;
+  activityId?: string | null;
 }
 
 export interface UpdateNcrRequest {

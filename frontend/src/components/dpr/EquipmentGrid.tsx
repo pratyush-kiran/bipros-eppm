@@ -55,7 +55,7 @@ export function EquipmentGrid({ projectId, activityId, rows, onChange }: Props) 
       (a) => a.roleType === "EQUIPMENT" && !a.unplanned,
     );
     const seen = new Set<string>();
-    const out: { value: string; label: string; roleId: string; variantId: string; equipmentType: string }[] = [];
+    const out: { value: string; label: string; roleId: string; variantId: string; equipmentType: string; rate: number | null }[] = [];
     for (const p of planned) {
       if (!p.roleId || !p.variantId) continue;
       const k = optKey(p.roleId, p.variantId);
@@ -67,6 +67,7 @@ export function EquipmentGrid({ projectId, activityId, rows, onChange }: Props) 
         roleId: p.roleId,
         variantId: p.variantId,
         equipmentType: p.roleName ?? "",
+        rate: p.effectiveRate ?? null,
       });
     }
     const book = Array.isArray(bookResp?.data) ? bookResp.data : [];
@@ -81,6 +82,7 @@ export function EquipmentGrid({ projectId, activityId, rows, onChange }: Props) 
         roleId: v.roleId,
         variantId: v.id,
         equipmentType: v.roleName ?? "",
+        rate: v.rate,
       });
     }
     return out;
@@ -101,6 +103,7 @@ export function EquipmentGrid({ projectId, activityId, rows, onChange }: Props) 
       equipmentRoleVariantId: opt.variantId,
       roleId: opt.roleId,
       equipmentType: opt.equipmentType,
+      unitRate: opt.rate ?? null,
     });
   };
 

@@ -22,4 +22,10 @@ public class DbsProperties {
      * Decimal fraction: 0.35 = 35%. Client rule as of 2026-06.
      */
     private BigDecimal fuelMachineryCostRatio = new BigDecimal("0.35");
+
+    /**
+     * Number of days that can be recomputed concurrently by the background recompute job.
+     * Kept below the Hikari max pool size (10) so day workers always get a connection.
+     */
+    private int recomputeConcurrency = 4;
 }

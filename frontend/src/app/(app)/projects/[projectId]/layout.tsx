@@ -109,7 +109,9 @@ function ProjectDetailLayoutInner({
     { label: "Stock Register", href: `/projects/${projectId}/stock-register` },
   ];
 
-  const moreLinks = [
+  const moreLinks: { label: string; href: string; permission?: string }[] = [
+    { label: "Quality", href: `/projects/${projectId}/quality`, permission: "NCR.READ" },
+    { label: "Procurement", href: `/projects/${projectId}/procurement`, permission: "RESOURCE.READ" },
     { label: "EVM", href: `/projects/${projectId}/evm` },
     // Team is now a top-level tab (see allTabs above).
     { label: "Budget Changes", href: `/projects/${projectId}/budget-changes` },
@@ -332,7 +334,9 @@ function ProjectDetailLayoutInner({
 
             {moreDropdownOpen && (
               <div className="absolute right-0 mt-0 w-48 bg-surface border border-border rounded-md shadow-lg z-50">
-                {moreLinks.map((link) => (
+                {moreLinks
+                  .filter((link) => !link.permission || hasPermission(link.permission))
+                  .map((link) => (
                   <button
                     key={link.href}
                     onClick={() => {

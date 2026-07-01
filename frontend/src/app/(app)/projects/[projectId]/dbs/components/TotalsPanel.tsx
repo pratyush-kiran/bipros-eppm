@@ -36,6 +36,10 @@ export interface TotalsPanelProps {
   contribution: number;
   contributionPct: number;
   currency?: string | null;
+  /** Optional count of distinct BOQ items executed in the period. Supervisor + PM tabs only. */
+  boqItemsExecuted?: number;
+  /** Optional sum of qty_executed for BOQ-linked approved DPRs in the period. Units vary. */
+  boqQtyExecuted?: number;
 }
 
 export function TotalsPanel({
@@ -53,6 +57,8 @@ export function TotalsPanel({
   contribution,
   contributionPct,
   currency,
+  boqItemsExecuted,
+  boqQtyExecuted,
 }: TotalsPanelProps) {
   // Profit/loss tone — drives the colour on the contribution tile.
   const contribTone = contribution > 0 ? "success" : contribution < 0 ? "danger" : "default";
@@ -60,7 +66,15 @@ export function TotalsPanel({
   return (
     <div className="space-y-4">
       {/* Top row — P&L totals. Most important numbers, biggest tiles. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${
+          boqItemsExecuted != null && boqQtyExecuted != null
+            ? "lg:grid-cols-6"
+            : boqItemsExecuted != null || boqQtyExecuted != null
+              ? "lg:grid-cols-5"
+              : "lg:grid-cols-4"
+        }`}
+      >
         <KpiTile
           label="Total Expense"
           value={formatCurrency(totalExpense, currency)}
@@ -77,6 +91,22 @@ export function TotalsPanel({
           hint="qty executed × boq_rate"
           tone="accent"
         />
+        {boqItemsExecuted != null && (
+          <KpiTile
+            label="BOQ Items Executed"
+            value={boqItemsExecuted}
+            hint="distinct BOQ items this period"
+            tone="default"
+          />
+        )}
+        {boqQtyExecuted != null && (
+          <KpiTile
+            label="BOQ Qty Executed"
+            value={boqQtyExecuted.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            hint="Σ workdone qty · units vary"
+            tone="default"
+          />
+        )}
         <KpiTile
           label="Contribution"
           value={formatCurrency(contribution, currency)}

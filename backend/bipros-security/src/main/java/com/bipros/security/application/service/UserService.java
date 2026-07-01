@@ -110,6 +110,19 @@ public class UserService {
         return toResponse(user);
     }
 
+    /**
+     * Admin override: set (reset) a user's password by username. No current-password check — this
+     * is a privileged reset path (gated by {@code ADMIN_USER.UPDATE} at the controller). Hashes
+     * with the same {@link PasswordEncoder} used at create time so the new password works for login.
+     */
+    public void setPasswordByUsername(String username, String rawPassword) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", username));
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        userRepository.save(user);
+        log.info("Admin reset password for user '{}' (id={})", user.getUsername(), user.getId());
+    }
+
     /** Create a new user with hashed password and (optionally) assign a profile. */
     public UserResponse createUser(CreateUserRequest req) {
         if (userRepository.existsByUsername(req.username())) {

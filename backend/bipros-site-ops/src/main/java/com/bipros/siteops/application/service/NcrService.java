@@ -11,6 +11,7 @@ import com.bipros.siteops.application.dto.UpdateNcrRequest;
 import com.bipros.siteops.domain.model.Ncr;
 import com.bipros.siteops.domain.model.NcrCategory;
 import com.bipros.siteops.domain.model.NcrSeverity;
+import com.bipros.siteops.domain.model.NcrSourceType;
 import com.bipros.siteops.domain.model.NcrStatus;
 import com.bipros.siteops.domain.repository.NcrRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,9 @@ public class NcrService {
         ncr.setSeverity(req.severity() != null ? req.severity() : NcrSeverity.MEDIUM);
         ncr.setStatus(NcrStatus.OPEN);
         ncr.setAssignedTo(req.assignedTo());
+        ncr.setSourceType(req.sourceType() != null ? req.sourceType() : NcrSourceType.MANUAL);
+        ncr.setSourceRefId(req.sourceRefId());
+        ncr.setActivityId(req.activityId());
         ncr.setRaisedAt(Instant.now());
         try {
             ncr.setRaisedBy(securityContext.getCurrentUserId());
@@ -144,7 +148,10 @@ public class NcrService {
                 ncr.getClosedBy(),
                 ncr.getClosedAt(),
                 ncr.getCreatedAt(),
-                ncr.getUpdatedAt()
+                ncr.getUpdatedAt(),
+                ncr.getSourceType(),
+                ncr.getSourceRefId(),
+                ncr.getActivityId()
         );
     }
 }

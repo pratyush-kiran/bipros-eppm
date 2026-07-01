@@ -155,19 +155,24 @@ export interface CreateRfiRequest {
   subject: string;
   description?: string;
   priority?: string;
-  assignedTo?: string;
-  dueDate?: string;
+  raisedBy: string;
+  assignedTo: string;
+  raisedDate: string;
+  dueDate: string;
 }
 
 export interface UpdateRfiRequest {
-  rfiNumber?: string;
-  subject?: string;
+  rfiNumber: string;
+  subject: string;
   description?: string;
   priority?: string;
-  assignedTo?: string;
-  dueDate?: string;
+  raisedBy: string;
+  assignedTo: string;
+  raisedDate: string;
+  dueDate: string;
   response?: string;
   status?: string;
+  closedDate?: string | null;
 }
 
 export interface CreateDrawingRequest {

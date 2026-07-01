@@ -67,7 +67,7 @@ export default function IssuesDashboardPage() {
     enabled: !!projectId,
   });
 
-  const allRows: DprIssueRow[] = data?.data ?? [];
+  const allRows = useMemo<DprIssueRow[]>(() => data?.data ?? [], [data]);
 
   const rows = useMemo(
     () =>
@@ -80,6 +80,7 @@ export default function IssuesDashboardPage() {
 
   // ── aggregations ──────────────────────────────────────────────────────────
   const totalOpen = rows.filter((r) => r.status === "OPEN" || r.status === "BLOCKED").length;
+  const totalInProgress = rows.filter((r) => r.status === "IN_PROGRESS").length;
   const totalCritical = rows.filter((r) => r.severity === "CRITICAL").length;
   const totalResolved = rows.filter((r) => r.status === "RESOLVED" || r.status === "CLOSED").length;
 
@@ -175,12 +176,13 @@ export default function IssuesDashboardPage() {
         <LoadingBlock label="Loading issue data…" />
       ) : (
         <>
-          {/* KPI row */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {/* KPI row — status tiles reconcile to the total: Open/On Hold + In Progress + Resolved = Total */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             <KpiTile label="Total Issues" value={rows.length} tone="default" />
             <KpiTile label="Open / On Hold" value={totalOpen} tone="warning" />
-            <KpiTile label="Critical" value={totalCritical} tone="danger" />
+            <KpiTile label="In Progress" value={totalInProgress} tone="accent" />
             <KpiTile label="Resolved" value={totalResolved} tone="success" />
+            <KpiTile label="Critical" value={totalCritical} tone="danger" />
           </div>
 
           {/* Bar + Donut row */}

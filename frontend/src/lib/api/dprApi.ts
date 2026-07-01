@@ -89,6 +89,33 @@ export const dprApi = {
       .get<ApiResponse<DailyProgressReportResponse>>(`/v1/projects/${projectId}/dpr/${id}`)
       .then((r) => r.data),
 
+  /**
+   * Downloads the "Daily Activity Costing" workbook for a date range (one sheet per month,
+   * APPROVED DPRs only) and triggers a browser save. The endpoint streams raw .xlsx bytes — not an
+   * {@code ApiResponse} envelope — so we fetch with the JWT ourselves (mirrors fetchPhotoBlobUrl)
+   * and build the download from the blob, taking the filename from Content-Disposition.
+   */
+  downloadMonthlyReport: async (projectId: string, from: string, to: string): Promise<void> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : "";
+    const params = new URLSearchParams({ projectId, from, to });
+    const res = await fetch(`${API_BASE_URL}/v1/reports/dpr/excel?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`report fetch ${res.status}`);
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const match = /filename="?([^";]+)"?/.exec(cd);
+    const fileName = match ? match[1] : `dpr-costing-${from}_${to}.xlsx`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   create: (projectId: string, request: CreateDailyProgressReportRequest) =>
     apiClient
       .post<ApiResponse<DailyProgressReportResponse>>(`/v1/projects/${projectId}/dpr`, request)

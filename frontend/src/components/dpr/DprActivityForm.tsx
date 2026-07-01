@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Briefcase, HardHat, Info, Package, Save, Users, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,8 @@ import { chainageLabel, parseChainage } from "@/lib/format/chainage";
 import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { dprApi, type DprVoicePatch } from "@/lib/api/dprApi";
 import { boqApi, type BoqItemResponse } from "@/lib/api/boqApi";
+import { dbsApi } from "@/lib/api/dbsApi";
+import { productivitySideFromPreview } from "./dprFormulas";
 import type {
   DailyProgressReportResponse,
   DprApprovalStatus,
@@ -220,6 +223,14 @@ export function DprActivityForm({
   onSave,
 }: Props) {
   const { money } = useProjectCurrency();
+  // Global DBS config (fuel/machinery cost ratio) — drives the totals-bar Fuel cell. Cached
+  // app-wide; falls back to 0.35 in DprTotalsBar if this hasn't resolved.
+  const { data: dbsConfigResp } = useQuery({
+    queryKey: ["dbs-config"],
+    queryFn: dbsApi.getConfig,
+    staleTime: Infinity,
+  });
+  const fuelCostRatio = dbsConfigResp?.data?.fuelMachineryCostRatio ?? 0.35;
   const [state, setState] = useState<FormState>(() => {
     const s = initialState(editing, defaultDate, defaultPrefill, supervisorOptions);
     // Editing path: backend may not yet carry activityId on legacy rows. Resolve from name.
@@ -355,6 +366,14 @@ export function DprActivityForm({
     if (!state.boqItemId) return null;
     return activityBoqCandidates.find((b) => b.id === state.boqItemId) ?? null;
   }, [activityBoqCandidates, state.boqItemId]);
+
+  /**
+   * Winning ("bottleneck") side for the totals-bar Productivity cell: the side whose norm-based
+   * expected output equals the "Expected today" value. For BOTH-tracked activities it's the side
+   * whose expected is closest to the bottleneck — which resolves to min (SERIES), max (SUBSTITUTE)
+   * or the larger contributor (PARALLEL). Null when no norm / side can be determined.
+   */
+  const productivitySide = useMemo(() => productivitySideFromPreview(preview), [preview]);
 
   const getVoiceState = useCallback(() => {
     const s = stateRef.current;
@@ -1257,6 +1276,8 @@ export function DprActivityForm({
               subContractors={state.subContractors ?? []}
               qtyExecuted={state.qtyExecuted}
               unit={state.unit}
+              productivitySide={productivitySide}
+              fuelCostRatio={fuelCostRatio}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -1278,7 +1299,7 @@ export function DprActivityForm({
                 ? "Saving…"
                 : editing
                   ? "Save changes"
-                  : "Save DPR"}
+                  : "Submit DPR"}
             </button>
           </div>
         </div>

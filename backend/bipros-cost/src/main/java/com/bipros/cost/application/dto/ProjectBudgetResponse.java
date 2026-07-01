@@ -11,6 +11,7 @@ public record ProjectBudgetResponse(
     BigDecimal approvedAdditions,
     BigDecimal approvedReductions,
     int pendingChangeCount,
+    int approvedChangeCount,
     String budgetCurrency,
     Instant budgetUpdatedAt
 ) {

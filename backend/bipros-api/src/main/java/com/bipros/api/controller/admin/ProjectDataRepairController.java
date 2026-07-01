@@ -3,6 +3,8 @@ package com.bipros.api.controller.admin;
 import com.bipros.api.dto.BudgetCorrectionRequest;
 import com.bipros.api.dto.BudgetCorrectionResponse;
 import com.bipros.api.dto.DataHealthResponse;
+import com.bipros.api.dto.EpsCodeCorrectionRequest;
+import com.bipros.api.dto.EpsCodeCorrectionResponse;
 import com.bipros.api.dto.RepairReport;
 import com.bipros.api.dto.RepairRequest;
 import com.bipros.api.service.ProjectBudgetCorrectionService;
@@ -48,5 +50,19 @@ public class ProjectDataRepairController {
     log.info("POST /v1/admin/projects/{}/budget-correction correctedBudget={} recomputeEvm={}",
         projectId, req.getCorrectedBudget(), req.isRecomputeEvm());
     return ResponseEntity.ok(ApiResponse.ok(budgetCorrectionService.correctBudget(projectId, req)));
+  }
+
+  /**
+   * Data-correction: overwrite an EPS node's code (which is otherwise immutable after create).
+   * The {projectId} in the path is only the admin URL context — the target node and new code are
+   * passed in the body. Admin only.
+   */
+  @PostMapping("/eps-code-correction")
+  public ResponseEntity<ApiResponse<EpsCodeCorrectionResponse>> correctEpsCode(
+      @PathVariable UUID projectId,
+      @RequestBody EpsCodeCorrectionRequest req) {
+    log.info("POST /v1/admin/projects/{}/eps-code-correction epsNodeId={} code={}",
+        projectId, req.getEpsNodeId(), req.getCode());
+    return ResponseEntity.ok(ApiResponse.ok(service.correctEpsCode(req.getEpsNodeId(), req.getCode())));
   }
 }

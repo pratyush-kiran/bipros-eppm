@@ -1,7 +1,8 @@
 package com.bipros.project.application.service;
 
 import com.bipros.project.domain.model.BoqItem;
-import com.bipros.project.domain.repository.*;
+import com.bipros.project.domain.repository.BoqItemRepository;
+import com.bipros.project.domain.repository.DailyProgressReportRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,15 +22,13 @@ class BoqRebuildServiceTest {
 
   @Mock BoqItemRepository boqRepo;
   @Mock DailyProgressReportRepository dprRepo;
-  @Mock DprManpowerRepository manpowerRepo;
-  @Mock DprEquipmentRepository equipmentRepo;
-  @Mock DprMaterialRepository materialRepo;
+  @Mock BoqActualCostQuery boqActualCostQuery;
 
   BoqRebuildService service;
 
   @BeforeEach
   void setUp() {
-    service = new BoqRebuildService(boqRepo, dprRepo, manpowerRepo, equipmentRepo, materialRepo);
+    service = new BoqRebuildService(boqRepo, dprRepo, boqActualCostQuery);
   }
 
   @Test
@@ -43,27 +42,21 @@ class BoqRebuildServiceTest {
 
     when(boqRepo.findByProjectId(projectId)).thenReturn(List.of(item));
     when(dprRepo.sumQtyExecutedByBoqItemIdApproved(projectId, boqId)).thenReturn(new BigDecimal("200"));
-    when(manpowerRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)).thenReturn(new BigDecimal("1500"));
-    when(equipmentRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)).thenReturn(new BigDecimal("500"));
-    when(materialRepo.sumLineCostByBoqItemIdApproved(projectId, boqId)).thenReturn(BigDecimal.ZERO);
+    // shared cost query covers MP + EQ + MAT + SC + MCL (2000 = 1500 MP + 500 EQ + 0 MAT)
+    when(boqActualCostQuery.sumActualCost(projectId, boqId)).thenReturn(new BigDecimal("2000"));
 
     int n = service.rebuildFromDprs(projectId);
 
     assertThat(n).isEqualTo(1);
     assertThat(item.getQtyExecutedToDate()).isEqualByComparingTo("200");
-    assertThat(item.getActualRate()).isEqualByComparingTo("10"); // (1500+500+0)/200
+    assertThat(item.getActualRate()).isEqualByComparingTo("10"); // 2000/200
     assertThat(item.getActualAmount()).isEqualByComparingTo("2000"); // recomputed by BoqCalculator
     verify(boqRepo).save(item);
-    // Assert the approved-only repo methods are invoked (Deliverable 3 assertion)
+    // Assert the shared cost query and approved-only qty method are invoked
     verify(dprRepo).sumQtyExecutedByBoqItemIdApproved(projectId, boqId);
-    verify(manpowerRepo).sumLineCostByBoqItemIdApproved(projectId, boqId);
-    verify(equipmentRepo).sumLineCostByBoqItemIdApproved(projectId, boqId);
-    verify(materialRepo).sumLineCostByBoqItemIdApproved(projectId, boqId);
-    // Non-approved variants must NOT be called
+    verify(boqActualCostQuery).sumActualCost(projectId, boqId);
+    // Non-approved qty variant must NOT be called
     verify(dprRepo, never()).sumQtyExecutedByBoqItemId(any(), any());
-    verify(manpowerRepo, never()).sumLineCostByBoqItemId(any(), any());
-    verify(equipmentRepo, never()).sumLineCostByBoqItemId(any(), any());
-    verify(materialRepo, never()).sumLineCostByBoqItemId(any(), any());
   }
 
   @Test

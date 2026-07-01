@@ -1,6 +1,7 @@
 package com.bipros.dbs.api;
 
 import com.bipros.common.dto.ApiResponse;
+import com.bipros.dbs.api.dto.BoqExecutedSummaryDto;
 import com.bipros.dbs.api.dto.CumulativeDaysResponse;
 import com.bipros.dbs.api.dto.DbsCmDayResponse;
 import com.bipros.dbs.api.dto.DbsCmSummaryDto;
@@ -8,6 +9,7 @@ import com.bipros.dbs.api.dto.DbsEngineerDayResponse;
 import com.bipros.dbs.api.dto.DbsEngineerPeriodResponse;
 import com.bipros.dbs.api.dto.DbsProjectDayResponse;
 import com.bipros.dbs.api.dto.DbsProjectPeriodResponse;
+import com.bipros.dbs.api.dto.DbsRecomputeJobDto;
 import com.bipros.dbs.api.dto.DbsSupervisorDayResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorPeriodResponse;
 import com.bipros.dbs.api.dto.DbsSupervisorSummaryDto;
@@ -19,6 +21,8 @@ import com.bipros.dbs.export.DbsPdfWriter;
 import com.bipros.dbs.service.DbsAggregationService;
 import com.bipros.dbs.service.DbsQueryService;
 import com.bipros.dbs.service.RegisterAggregationService;
+import com.bipros.dbs.service.recompute.DbsRecomputeJob;
+import com.bipros.dbs.service.recompute.DbsRecomputeJobService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -59,6 +63,7 @@ public class DbsController {
     private final DbsExcelWriter excelWriter;
     private final DbsPdfWriter pdfWriter;
     private final RegisterAggregationService registerAggregationService;
+    private final DbsRecomputeJobService jobService;
 
     // ── supervisor ──────────────────────────────────────────────────────────────
 
@@ -173,6 +178,24 @@ public class DbsController {
         return ResponseEntity.ok(ApiResponse.ok(queryService.getAlertsForProjectDay(projectId, date)));
     }
 
+    // ── BOQ execution summary ───────────────────────────────────────────────────
+
+    /**
+     * Count of distinct BOQ items executed and total qty_executed over a period window,
+     * scoped to an optional supervisor. Used by both the Supervisor tab (with a
+     * supervisorUserId) and the PM tab (without) to render the BOQ KPI tiles.
+     */
+    @GetMapping("/boq-executed-summary")
+    public ResponseEntity<ApiResponse<BoqExecutedSummaryDto>> boqExecutedSummary(
+        @PathVariable UUID projectId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @RequestParam(defaultValue = "DAY") String period,
+        @RequestParam(required = false) UUID supervisorUserId) {
+
+        return ResponseEntity.ok(ApiResponse.ok(
+            queryService.boqExecutedSummary(projectId, supervisorUserId, period, date)));
+    }
+
     // ── equipment & manpower register (Phase 5) ─────────────────────────────────
 
     /**
@@ -233,14 +256,44 @@ public class DbsController {
     }
 
     @PostMapping("/recompute-range")
-    public ResponseEntity<ApiResponse<List<DbsDailyProject>>> recomputeRange(
+    public ResponseEntity<ApiResponse<DbsRecomputeJobDto>> recomputeRange(
         @PathVariable UUID projectId,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 
         log.info("Admin recompute-range requested projectId={} from={} to={}", projectId, from, to);
-        List<DbsDailyProject> results = aggregationService.recomputeRange(projectId, from, to);
-        return ResponseEntity.ok(ApiResponse.ok(results));
+        DbsRecomputeJob job = jobService.startRange(projectId, from, to);
+        return ResponseEntity.accepted().body(ApiResponse.ok(toDto(job)));
+    }
+
+    @PostMapping("/recompute-cumulative")
+    public ResponseEntity<ApiResponse<DbsRecomputeJobDto>> recomputeCumulative(
+        @PathVariable UUID projectId) {
+
+        log.info("Admin recompute-cumulative requested projectId={}", projectId);
+        DbsRecomputeJob job = jobService.startCumulative(projectId);
+        return ResponseEntity.accepted().body(ApiResponse.ok(toDto(job)));
+    }
+
+    @GetMapping("/recompute-jobs/{jobId}")
+    public ResponseEntity<ApiResponse<DbsRecomputeJobDto>> getRecomputeJob(
+        @PathVariable UUID projectId,
+        @PathVariable UUID jobId) {
+
+        return jobService.getJob(jobId)
+            .filter(j -> projectId.equals(j.getProjectId()))
+            .map(j -> ResponseEntity.ok(ApiResponse.ok(toDto(j))))
+            .orElseGet(() -> ResponseEntity.ok(ApiResponse.ok(null)));
+    }
+
+    @GetMapping("/recompute-jobs/latest")
+    public ResponseEntity<ApiResponse<DbsRecomputeJobDto>> getLatestRecomputeJob(
+        @PathVariable UUID projectId) {
+
+        DbsRecomputeJobDto dto = jobService.activeJobFor(projectId)
+            .map(this::toDto)
+            .orElse(null);
+        return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     // ── exports ─────────────────────────────────────────────────────────────────
@@ -332,5 +385,20 @@ public class DbsController {
     /** Strip path / disposition-hostile characters so filename headers stay well-formed. */
     private static String sanitiseFilename(String raw) {
         return raw.replaceAll("[\\\\/:*?\"<>|\\r\\n]+", "-");
+    }
+
+    private DbsRecomputeJobDto toDto(DbsRecomputeJob job) {
+        return new DbsRecomputeJobDto(
+            job.getJobId(),
+            job.getKind().name(),
+            job.getStatus().name(),
+            job.getFromDate(),
+            job.getToDate(),
+            job.getTotalDays(),
+            job.getProcessedDays().get(),
+            job.getStartedAt(),
+            job.getFinishedAt(),
+            job.getErrorMessage()
+        );
     }
 }

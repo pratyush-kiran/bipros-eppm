@@ -18,6 +18,9 @@ import { useAuthStore } from "@/lib/state/store";
 import { useProjectCurrencyOptional } from "@/lib/currency/ProjectCurrencyProvider";
 import { chainageLabel } from "@/lib/format/chainage";
 import { dprApi } from "@/lib/api/dprApi";
+import { dbsApi } from "@/lib/api/dbsApi";
+import { DprTotalsBar } from "./DprTotalsBar";
+import { productivitySideFromPreview } from "./dprFormulas";
 import type {
   DailyProgressReportResponse,
   DprApprovalStatus,
@@ -111,6 +114,30 @@ function DprDetailBody({ projectId, row }: { projectId: string; row: DprSummaryR
   });
   const detail = detailData?.data ?? undefined;
 
+  // Inputs for the reused DprTotalsBar summary (Fuel ratio + norm-based productivity side).
+  const { data: dbsConfigResp } = useQuery({
+    queryKey: ["dbs-config"],
+    queryFn: dbsApi.getConfig,
+    staleTime: Infinity,
+  });
+  const fuelCostRatio = dbsConfigResp?.data?.fuelMachineryCostRatio ?? 0.35;
+
+  const { data: previewResp } = useQuery({
+    queryKey: ["dpr-detail-preview", projectId, detail?.id],
+    queryFn: () =>
+      dprApi.productivityPreview(projectId, detail!.activityId!, {
+        manpower: (detail!.manpower ?? []).map((r) => ({ roleId: r.roleId ?? null, nos: r.nos ?? null })),
+        equipment: (detail!.equipment ?? []).map((r) => ({
+          roleId: r.roleId ?? null,
+          nos: r.nos ?? null,
+          workingHours: r.workingHours ?? null,
+        })),
+      }),
+    enabled: !!detail?.activityId,
+    staleTime: 1000 * 60 * 5,
+  });
+  const productivitySide = productivitySideFromPreview(previewResp?.data);
+
   const status = (detail?.approvalStatus ?? row.approvalStatus ?? "DRAFT") as DprApprovalStatus;
   const canApprove = useAuthStore((s) => s.hasPermission)("DPR.APPROVE");
   const showApprovalActions =
@@ -120,7 +147,7 @@ function DprDetailBody({ projectId, row }: { projectId: string; row: DprSummaryR
     <>
       <div className="flex-1 overflow-y-auto">
         <Hero row={row} detail={detail} status={status} />
-        <KpiStrip row={row} detail={detail} money={money} />
+        <KpiStrip row={row} detail={detail} money={money} fuelCostRatio={fuelCostRatio} />
         <DetailCard
           row={row}
           detail={detail}
@@ -130,6 +157,8 @@ function DprDetailBody({ projectId, row }: { projectId: string; row: DprSummaryR
           tab={tab}
           setTab={setTab}
           money={money}
+          productivitySide={productivitySide}
+          fuelCostRatio={fuelCostRatio}
         />
         {detail && (
           <div className="space-y-3 border-t border-hairline px-4 py-4">
@@ -206,14 +235,18 @@ function KpiStrip({
   row,
   detail,
   money,
+  fuelCostRatio,
 }: {
   row: DprSummaryRow;
   detail?: DailyProgressReportResponse;
   money: (n: number | null | undefined) => string;
+  fuelCostRatio: number;
 }) {
   const manpower = detail?.manpower ?? [];
   const workers = sum(manpower.map((m) => m.nos));
   const manHours = sum(manpower.map((m) => (m.nos ?? 0) * (m.workingHours ?? 0)));
+  // Day cost includes derived Fuel = equipment cost × ratio (matches the create-page totals bar).
+  const equipmentCost = sum((detail?.equipment ?? []).map((r) => r.lineCost));
   const dayCost =
     detail &&
     sum([
@@ -221,7 +254,7 @@ function KpiStrip({
       ...(detail.equipment ?? []).map((r) => r.lineCost),
       ...(detail.materials ?? []).map((r) => r.lineCost),
       ...(detail.subContractors ?? []).map((r) => r.lineCost),
-    ]);
+    ]) + equipmentCost * fuelCostRatio;
   const length =
     row.chainageFromM != null && row.chainageToM != null
       ? Math.abs(row.chainageToM - row.chainageFromM)
@@ -319,6 +352,8 @@ function DetailCard({
   tab,
   setTab,
   money,
+  productivitySide,
+  fuelCostRatio,
 }: {
   row: DprSummaryRow;
   detail?: DailyProgressReportResponse;
@@ -328,6 +363,8 @@ function DetailCard({
   tab: TabKey;
   setTab: (t: TabKey) => void;
   money: (n: number | null | undefined) => string;
+  productivitySide: "MANPOWER" | "EQUIPMENT" | null;
+  fuelCostRatio: number;
 }) {
   const liveIssues = (detail?.issues ?? []).filter((i) => i.status !== "CANCELLED");
   const counts: Record<TabKey, number | null> = {
@@ -398,7 +435,14 @@ function DetailCard({
           </div>
         )}
 
-        {tab === "details" && <DetailsTab row={row} detail={detail} money={money} />}
+        {tab === "details" && (
+          <DetailsTab
+            row={row}
+            detail={detail}
+            productivitySide={productivitySide}
+            fuelCostRatio={fuelCostRatio}
+          />
+        )}
         {tab === "manpower" && <ManpowerTab detail={detail} money={money} />}
         {tab === "equipment" && <EquipmentTab detail={detail} money={money} />}
         {tab === "material" && <MaterialTab detail={detail} money={money} />}
@@ -447,26 +491,16 @@ function Grid({ children }: { children: ReactNode }) {
 function DetailsTab({
   row,
   detail,
-  money,
+  productivitySide,
+  fuelCostRatio,
 }: {
   row: DprSummaryRow;
   detail?: DailyProgressReportResponse;
-  money: (n: number | null | undefined) => string;
+  productivitySide: "MANPOWER" | "EQUIPMENT" | null;
+  fuelCostRatio: number;
 }) {
   const d = detail;
-  const manHours = sum((d?.manpower ?? []).map((m) => (m.nos ?? 0) * (m.workingHours ?? 0)));
-  const qty = d?.qtyExecuted ?? row.qtyExecuted ?? 0;
-  const productivity = manHours > 0 ? qty / manHours : null;
-  const dayCost = d
-    ? sum([
-        ...(d.manpower ?? []).map((r) => r.lineCost),
-        ...(d.equipment ?? []).map((r) => r.lineCost),
-        ...(d.materials ?? []).map((r) => r.lineCost),
-        ...(d.subContractors ?? []).map((r) => r.lineCost),
-      ])
-    : null;
   const incidentOk = !d?.safetyIncidentType || d.safetyIncidentType === "NONE";
-  const unit = row.unit ? ` ${row.unit}` : "";
   const times =
     d?.startTime || d?.endTime ? `${d?.startTime || "—"} / ${d?.endTime || "—"}` : null;
   const chainageStr =
@@ -488,24 +522,27 @@ function DetailsTab({
       <Section color="#0FA3A3" title="Location & Activity">
         <Grid>
           <Field label="Activity" value={row.activityName || null} />
-          <Field label="BOQ Item" value={row.boqItemNo || null} mono />
+          <Field label="BOQ Item" value={d?.boqItemDescription || null} />
           <Field label="Chainage" value={chainageStr} mono />
           <Field label="Side" value={row.side ? SIDE_LABEL[row.side] ?? row.side : null} />
           <Field label="Landmark" value={d?.landmark || null} />
         </Grid>
       </Section>
 
-      <Section color="#0F8A4A" title="Progress & Cost">
-        <Grid>
-          <Field label="Qty Executed" value={`${num(qty)}${unit}`} mono />
-          <Field label="Cumulative" value={d ? `${num(d.cumulativeQty)}${unit}` : null} mono />
-          <Field
-            label="Productivity"
-            value={productivity != null ? `${num(productivity)}${unit}/mh` : null}
-            mono
+      <Section color="#0F8A4A" title="Summary">
+        {d && (
+          <DprTotalsBar
+            manpower={d.manpower ?? []}
+            equipment={d.equipment ?? []}
+            materials={d.materials ?? []}
+            subContractors={d.subContractors ?? []}
+            qtyExecuted={d.qtyExecuted ?? row.qtyExecuted ?? 0}
+            unit={row.unit}
+            productivitySide={productivitySide}
+            fuelCostRatio={fuelCostRatio}
+            showDayCost={false}
           />
-          <Field label="Day Cost" value={d ? money(dayCost) : null} mono />
-        </Grid>
+        )}
       </Section>
 
       <Section color="#C2392B" title="Safety, Delay & Remarks">

@@ -4,12 +4,14 @@ import com.bipros.common.dto.ApiResponse;
 import com.bipros.reporting.application.dto.*;
 import com.bipros.reporting.application.service.CapacityUtilizationReportService;
 import com.bipros.reporting.application.service.DailyDeploymentReportService;
+import com.bipros.reporting.application.service.DprCostingReportService;
 import com.bipros.reporting.application.service.DprReportService;
 import com.bipros.reporting.application.service.ReportService;
 import com.bipros.reporting.application.service.SupervisorPerformanceReportService;
 import com.bipros.reporting.domain.model.ReportFormat;
 import com.bipros.reporting.domain.model.ReportType;
 import com.bipros.reporting.infrastructure.export.CapacityUtilizationExcelWriter;
+import com.bipros.reporting.infrastructure.export.DprCostingExcelWriter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.validation.Valid;
@@ -38,6 +40,8 @@ public class ReportController {
   private final DailyDeploymentReportService dailyDeploymentReportService;
   private final DprReportService dprReportService;
   private final CapacityUtilizationExcelWriter capacityUtilizationExcelWriter;
+  private final DprCostingReportService dprCostingReportService;
+  private final DprCostingExcelWriter dprCostingExcelWriter;
   private final SupervisorPerformanceReportService supervisorPerformanceReportService;
 
   @PersistenceContext private EntityManager em;
@@ -275,6 +279,28 @@ public class ReportController {
         plant, manpower, daily, dpr, ym, workDays, projectName);
 
     String fileName = "capacity-utilization-" + ym + ".xlsx";
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .header(HttpHeaders.CONTENT_DISPOSITION,
+            "attachment; filename=\"" + fileName + "\"")
+        .body(bytes);
+  }
+
+  /**
+   * Streams the "Daily Activity Costing" .xlsx for a project and date range — one sheet per
+   * calendar month, APPROVED DPRs only. Mirrors the site teams' DPR-monthwise template.
+   */
+  @GetMapping("/dpr/excel")
+  @PreAuthorize("hasPermission(null, 'DPR.READ')")
+  public ResponseEntity<byte[]> downloadDprCostingExcel(
+      @RequestParam UUID projectId,
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+    var report = dprCostingReportService.build(projectId, from, to);
+    byte[] bytes = dprCostingExcelWriter.generate(report);
+
+    String fileName = "dpr-costing-" + from + "_" + to + ".xlsx";
     return ResponseEntity.ok()
         .contentType(MediaType.parseMediaType(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))

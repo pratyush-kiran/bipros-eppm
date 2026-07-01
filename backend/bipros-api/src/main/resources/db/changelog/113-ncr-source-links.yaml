@@ -1,0 +1,40 @@
+databaseChangeLog:
+  # Adds three nullable source-link columns to ncr.ncrs so that a failed QC test
+  # can raise a traceable NCR (source_type = QC_TEST_FAIL, source_ref_id = QC test
+  # item UUID, activity_id = activity UUID). source_type defaults to MANUAL so all
+  # existing rows keep consistent data. Dev picks this up via Hibernate ddl-auto: update;
+  # prod uses validate, so this changeset is the source of truth.
+
+  - changeSet:
+      id: 113-ncr-source-links
+      author: subrat
+      changes:
+        - addColumn:
+            schemaName: ncr
+            tableName: ncrs
+            columns:
+              - column:
+                  name: source_type
+                  type: VARCHAR(20)
+                  defaultValue: MANUAL
+                  constraints:
+                    nullable: false
+              - column:
+                  name: source_ref_id
+                  type: UUID
+              - column:
+                  name: activity_id
+                  type: UUID
+      rollback:
+        - dropColumn:
+            schemaName: ncr
+            tableName: ncrs
+            columnName: source_type
+        - dropColumn:
+            schemaName: ncr
+            tableName: ncrs
+            columnName: source_ref_id
+        - dropColumn:
+            schemaName: ncr
+            tableName: ncrs
+            columnName: activity_id

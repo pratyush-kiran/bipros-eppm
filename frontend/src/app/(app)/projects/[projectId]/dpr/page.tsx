@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Eye, Calendar, User } from "lucide-react";
+import { Plus, Eye, Calendar, User, Download } from "lucide-react";
 import { dprApi } from "@/lib/api/dprApi";
 import type {
   DailyProgressReportResponse,
@@ -348,6 +348,7 @@ export default function DprPage() {
   const [editing, setEditing] = useState<DailyProgressReportResponse | null>(null);
   const [prefill, setPrefill] = useState<DprPrefill | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("feed");
   const [statusFilter, setStatusFilter] = useState<DprApprovalStatus | "ALL">("ALL");
 
@@ -450,6 +451,20 @@ export default function DprPage() {
     e.preventDefault();
     setFrom(fromInput);
     setTo(toInput);
+  };
+
+  // Generates the monthly "Daily Activity Costing" workbook for the applied date range
+  // (one sheet per month, APPROVED DPRs only) and downloads it.
+  const handleGenerateReport = async () => {
+    setPageError(null);
+    setIsGenerating(true);
+    try {
+      await dprApi.downloadMonthlyReport(projectId, from, to);
+    } catch (err) {
+      setPageError(getErrorMessage(err, "Failed to generate report"));
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const openNew = () => {
@@ -648,6 +663,17 @@ export default function DprPage() {
                   ))}
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={handleGenerateReport}
+                disabled={isGenerating}
+                title="Download the monthly Daily Activity Costing workbook (approved DPRs) for the selected range"
+                className="ml-auto inline-flex items-center gap-2 rounded-md border border-hairline bg-paper px-4 py-2 text-sm font-semibold text-charcoal hover:bg-ivory disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Download className="h-4 w-4" />
+                {isGenerating ? "Generating…" : "Generate Report"}
+              </button>
             </div>
           )}
         </div>

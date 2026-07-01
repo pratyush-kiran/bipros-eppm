@@ -26,6 +26,7 @@ public record DailyProgressReportResponse(
     UUID wbsNodeId,
     UUID boqItemId,
     String boqItemNo,
+    String boqItemDescription,
     String unit,
     BigDecimal qtyExecuted,
     BigDecimal cumulativeQty,
@@ -100,6 +101,24 @@ public record DailyProgressReportResponse(
       List<DprVoiceNoteResponse> voiceNotes,
       List<DprIssueRow> issues,
       List<String> warnings) {
+    return from(r, cumulativeQty, manpower, equipment, materials, subContractors,
+        attachments, voiceNotes, issues, warnings, null);
+  }
+
+  /** Full read-path overload — additionally carries the linked BOQ item's description (resolved by
+   *  the service from {@code BoqItem}). {@code boqItemDescription} is null on write paths. */
+  public static DailyProgressReportResponse from(
+      DailyProgressReport r,
+      BigDecimal cumulativeQty,
+      List<DprManpowerRow> manpower,
+      List<DprEquipmentRow> equipment,
+      List<DprMaterialRow> materials,
+      List<DprSubContractorRow> subContractors,
+      List<DprAttachmentResponse> attachments,
+      List<DprVoiceNoteResponse> voiceNotes,
+      List<DprIssueRow> issues,
+      List<String> warnings,
+      String boqItemDescription) {
     return new DailyProgressReportResponse(
         r.getId(),
         r.getProjectId(),
@@ -113,6 +132,7 @@ public record DailyProgressReportResponse(
         r.getWbsNodeId(),
         r.getBoqItemId(),
         r.getBoqItemNo(),
+        boqItemDescription,
         r.getUnit(),
         r.getQtyExecuted(),
         cumulativeQty,

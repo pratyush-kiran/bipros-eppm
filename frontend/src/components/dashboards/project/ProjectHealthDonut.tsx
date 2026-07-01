@@ -59,7 +59,7 @@ export function ProjectHealthDonut({
                   nameKey="name"
                   innerRadius={60}
                   outerRadius={84}
-                  paddingAngle={3}
+                  paddingAngle={data.length > 1 ? 3 : 0}
                   stroke="#fff"
                   strokeWidth={2}
                   // Slices are clickable too (the legend rows already are): map the clicked
@@ -97,7 +97,7 @@ export function ProjectHealthDonut({
                 className="font-display text-3xl font-semibold leading-none text-emerald"
                 style={{ fontVariationSettings: "'opsz' 144" }}
               >
-                {formatPct(physicalPct, 0)}
+                {formatPct(Math.min(physicalPct, 100), 0)}
               </div>
               <div className="mt-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate">
                 Complete

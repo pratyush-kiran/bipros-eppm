@@ -271,7 +271,7 @@ export function QcSessionForm({
                   <th className="px-3 py-2.5 text-left" style={{ minWidth: 210 }}>Test Type</th>
                   <th className="px-3 py-2.5 text-left" style={{ minWidth: 130 }}>Sample Ref</th>
                   <th className="px-3 py-2.5 text-right" style={{ minWidth: 100 }}>Result</th>
-                  <th className="px-3 py-2.5 text-right" style={{ minWidth: 120 }}>IRC Spec</th>
+                  <th className="px-3 py-2.5 text-right" style={{ minWidth: 120 }}>OHDS Spec</th>
                   <th className="px-3 py-2.5 text-center" style={{ minWidth: 190 }}>Outcome</th>
                   <th className="px-3 py-2.5 text-left" style={{ minWidth: 160 }}>Lab / Inspector</th>
                   <th className="w-10 px-2 py-2.5" />

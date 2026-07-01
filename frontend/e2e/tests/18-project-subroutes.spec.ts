@@ -245,4 +245,53 @@ test.describe('Project Sub-Routes', () => {
       await verifyProjectSubRoute(page, projectId, 'materials');
     });
   });
+
+  test.describe('Quality hub', () => {
+    test('quality hub loads', async ({ authenticatedPage: page }) => {
+      await verifyProjectSubRoute(page, projectId, 'quality');
+    });
+  });
+
+  test.describe('Procurement hub', () => {
+    test('procurement hub loads and both sub-tabs switch', async ({ authenticatedPage: page }) => {
+      if (!projectId) return;
+      await page.goto(`/projects/${projectId}/procurement`);
+      await page.waitForTimeout(2000);
+
+      // Hub heading renders (mirrors the Quality tab's h1 assertion).
+      await expect(
+        page.getByRole('heading', { name: /procurement/i, level: 1 }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // Sub-contractors is the default sub-tab; its tab button is present.
+      await expect(
+        page.getByRole('button', { name: 'Sub-contractors' }),
+      ).toBeVisible();
+
+      // The sub-contractors panel renders either a data table or its empty state.
+      const scContent = await page
+        .locator('table, .border-dashed')
+        .first()
+        .isVisible({ timeout: 10_000 })
+        .catch(() => false);
+      expect(scContent).toBeTruthy();
+
+      // Switch to the Material Vendors sub-tab and confirm its panel header renders.
+      await page.getByRole('button', { name: 'Material Vendors' }).click();
+      await expect(
+        page.getByRole('heading', { name: /material vendors/i }),
+      ).toBeVisible({ timeout: 10_000 });
+
+      // The vendors panel renders either a data table or its empty state.
+      const mvContent = await page
+        .locator('table, .border-dashed')
+        .first()
+        .isVisible({ timeout: 10_000 })
+        .catch(() => false);
+      expect(mvContent).toBeTruthy();
+
+      // No crash / error boundary.
+      await expect(page.locator('body')).not.toHaveText(/something went wrong/i);
+    });
+  });
 });

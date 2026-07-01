@@ -9,6 +9,7 @@ export interface ProjectBudgetResponse {
   approvedAdditions: number;
   approvedReductions: number;
   pendingChangeCount: number;
+  approvedChangeCount: number;
   budgetCurrency: string;
   budgetUpdatedAt: string | null;
 }

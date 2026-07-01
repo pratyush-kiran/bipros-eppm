@@ -24,6 +24,8 @@ import com.bipros.dbs.service.calculator.SubContractorSectionResult;
 import com.bipros.project.application.service.ProjectTeamService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -75,6 +77,9 @@ public class DbsAggregationService {
     private final com.bipros.project.domain.repository.DailyProgressReportRepository dprRepository;
     private final DbsRecomputeLock recomputeLock;
     private final com.bipros.dbs.config.DbsProperties dbsProperties;
+
+    @PersistenceContext
+    private EntityManager em;
 
     /**
      * Recompute the supervisor-day row by running the six section calculators and
@@ -389,6 +394,24 @@ public class DbsAggregationService {
             out.add(recomputeAllTiersForDay(projectId, d));
         }
         return out;
+    }
+
+    /**
+     * Recomputes the DBS cumulatively from the project's first approved DPR date through today.
+     * Resolves {@code from} via {@code MIN(report_date)} and delegates to
+     * {@link #recomputeRange(UUID, LocalDate, LocalDate)}. Safe no-op when no DPRs exist.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public List<DbsDailyProject> recomputeCumulative(UUID projectId) {
+        Object raw = em.createNativeQuery(
+                "SELECT MIN(report_date) FROM project.daily_progress_reports WHERE project_id = :pid")
+            .setParameter("pid", projectId)
+            .getSingleResult();
+        if (raw == null) {
+            return java.util.List.of();
+        }
+        LocalDate from = ((java.sql.Date) raw).toLocalDate();
+        return recomputeRange(projectId, from, LocalDate.now());
     }
 
     /**

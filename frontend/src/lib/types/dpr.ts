@@ -209,6 +209,9 @@ export interface DprBaseFields {
   boqItemId?: string | null;
   /** Legacy back-link by item-number string. New clients should send {@link boqItemId}. */
   boqItemNo?: string | null;
+  /** Read-only: the linked BOQ item's description, resolved by the GET detail endpoint.
+   *  Null on write paths and when no BOQ item is linked. */
+  boqItemDescription?: string | null;
   unit: string;
   qtyExecuted: number;
   weatherCondition?: string | null;

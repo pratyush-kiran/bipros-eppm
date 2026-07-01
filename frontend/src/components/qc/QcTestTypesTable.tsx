@@ -125,7 +125,7 @@ export function QcTestTypesTable({ projectId }: Props) {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate">IRC Threshold</label>
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate">OHDS Threshold</label>
               <input
                 type="number"
                 step="0.0001"
@@ -166,7 +166,7 @@ export function QcTestTypesTable({ projectId }: Props) {
               <tr>
                 <th className="px-4 py-2 text-left font-semibold text-slate">Name</th>
                 <th className="px-4 py-2 text-left font-semibold text-slate">Unit</th>
-                <th className="px-4 py-2 text-left font-semibold text-slate">IRC Threshold</th>
+                <th className="px-4 py-2 text-left font-semibold text-slate">OHDS Threshold</th>
                 <th className="px-4 py-2 text-right font-semibold text-slate">Actions</th>
               </tr>
             </thead>

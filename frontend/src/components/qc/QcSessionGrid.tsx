@@ -8,6 +8,7 @@ interface Props {
   sessions: QcSession[];
   onEdit: (session: QcSession) => void;
   onDelete: (session: QcSession) => void;
+  onRaiseNcr?: (session: QcSession, item: QcTestItemResponse) => void;
 }
 
 const OUTCOME_CLS: Record<string, string> = {
@@ -70,7 +71,7 @@ function flatten(sessions: QcSession[]): FlatRow[] {
   return rows;
 }
 
-export function QcSessionGrid({ sessions, onEdit, onDelete }: Props) {
+export function QcSessionGrid({ sessions, onEdit, onDelete, onRaiseNcr }: Props) {
   if (sessions.length === 0) return null;
 
   const rows = flatten(sessions);
@@ -90,7 +91,7 @@ export function QcSessionGrid({ sessions, onEdit, onDelete }: Props) {
             <th className="px-3 py-3 text-left" style={{ minWidth: 190 }}>Test Type</th>
             <th className="px-3 py-3 text-left" style={{ minWidth: 120 }}>Sample / Test Ref.</th>
             <th className="px-3 py-3 text-right" style={{ minWidth: 90 }}>Result</th>
-            <th className="px-3 py-3 text-right" style={{ minWidth: 110 }}>IRC Spec</th>
+            <th className="px-3 py-3 text-right" style={{ minWidth: 110 }}>OHDS Spec</th>
             <th className="px-3 py-3 text-center" style={{ minWidth: 90 }}>Outcome</th>
             <th className="px-3 py-3 text-left" style={{ minWidth: 150 }}>Lab / Inspector</th>
             <th className="sticky right-0 w-16 bg-charcoal dark:bg-parchment px-3 py-3 shadow-[-4px_0_8px_rgba(0,0,0,0.15)]" />
@@ -191,6 +192,15 @@ export function QcSessionGrid({ sessions, onEdit, onDelete }: Props) {
                   )}>
                     {item.outcome}
                   </span>
+                  {item.outcome === "FAIL" && onRaiseNcr && (
+                    <button
+                      type="button"
+                      onClick={() => onRaiseNcr(session, item)}
+                      className="ml-2 rounded px-1.5 py-0.5 text-[11px] font-semibold text-burgundy ring-1 ring-burgundy/40 hover:bg-burgundy/10"
+                    >
+                      Raise NCR
+                    </button>
+                  )}
                 </td>
 
                 {/* Lab / Inspector */}

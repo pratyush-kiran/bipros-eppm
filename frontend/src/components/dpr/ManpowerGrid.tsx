@@ -60,7 +60,7 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
       (a) => (a.roleType === "MANPOWER" || a.roleType === "LABOR") && !a.unplanned,
     );
     const seen = new Set<string>();
-    const out: { value: string; label: string; roleId: string; variantId: string; trade: string }[] = [];
+    const out: { value: string; label: string; roleId: string; variantId: string; trade: string; rate: number | null }[] = [];
     for (const p of planned) {
       if (!p.roleId || !p.variantId) continue;
       const k = optKey(p.roleId, p.variantId);
@@ -72,6 +72,7 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
         roleId: p.roleId,
         variantId: p.variantId,
         trade: p.roleName ?? "",
+        rate: p.effectiveRate ?? null,
       });
     }
     const book = Array.isArray(bookResp?.data) ? bookResp.data : [];
@@ -86,6 +87,7 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
         roleId: v.roleId,
         variantId: v.id,
         trade: v.roleName ?? "",
+        rate: v.rate,
       });
     }
     return out;
@@ -106,6 +108,7 @@ export function ManpowerGrid({ projectId, activityId, rows, onChange }: Props) {
       manpowerRoleRateId: opt.variantId,
       roleId: opt.roleId,
       trade: opt.trade,
+      unitRate: opt.rate ?? null,
     });
   };
 

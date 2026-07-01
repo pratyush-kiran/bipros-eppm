@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { ListSkeleton } from "@/components/common/Skeleton";
 import type { SelectOption } from "@/components/common/SearchableSelect";
 import { getErrorMessage } from "@/lib/utils/error";
+import { RaiseNcrDialog, type RaiseNcrPrefill } from "@/components/quality/RaiseNcrDialog";
 
 interface Props {
   projectId: string;
@@ -27,6 +28,7 @@ export function QcTestRecordList({ projectId, activityOptions, testTypeOptions }
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<QcSession | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [ncrPrefill, setNcrPrefill] = useState<RaiseNcrPrefill | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["qc-sessions", projectId, activityFilter, outcomeFilter, from, to],
@@ -120,7 +122,19 @@ export function QcTestRecordList({ projectId, activityOptions, testTypeOptions }
           description="No quality control sessions match the current filters. Create a session to log test results against an activity."
         />
       ) : (
-        <QcSessionGrid sessions={sessions} onEdit={openEdit} onDelete={handleDelete} />
+        <QcSessionGrid
+          sessions={sessions}
+          onEdit={openEdit}
+          onDelete={handleDelete}
+          onRaiseNcr={(session, item) =>
+            setNcrPrefill({
+              title: `QC FAIL: ${item.testTypeName} @ ${session.chainageFrom ?? ""}`,
+              description: `Sample ${item.sampleRefNo ?? "—"} result ${item.testResult ?? "—"} vs spec ${item.requiredIrc ?? "—"} (${session.activityName}, ${session.testDate}).`,
+              activityId: session.activityId,
+              sourceRefId: item.id,
+            })
+          }
+        />
       )}
 
       <QcSessionForm
@@ -132,6 +146,10 @@ export function QcTestRecordList({ projectId, activityOptions, testTypeOptions }
         testTypeOptions={testTypeOptions}
         onSave={handleSave}
       />
+
+      {ncrPrefill && (
+        <RaiseNcrDialog projectId={projectId} prefill={ncrPrefill} onClose={() => setNcrPrefill(null)} />
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ interface KpiTileProps {
   icon?: React.ReactNode;
   delta?: { value: string; direction: "up" | "down" | "flat" };
   onClick?: () => void;
+  valueTitle?: string;
 }
 
 const valueToneCls: Record<Tone, string> = {
@@ -58,7 +59,7 @@ const hoverTone: Record<Tone, string> = {
   accent: "hover:shadow-[0_8px_20px_-10px_rgba(212,175,55,0.30)]",
 };
 
-export function KpiTile({ label, value, hint, tone = "default", icon, delta, onClick }: KpiTileProps) {
+export function KpiTile({ label, value, hint, tone = "default", icon, delta, onClick, valueTitle }: KpiTileProps) {
   const interactiveProps = onClick
     ? {
         role: "button" as const,
@@ -100,6 +101,7 @@ export function KpiTile({ label, value, hint, tone = "default", icon, delta, onC
       <div className="relative mt-2 flex items-baseline gap-2">
         <div
           className={`font-display text-[26px] font-semibold leading-none tracking-tight ${valueToneCls[tone]}`}
+          title={valueTitle}
         >
           {value}
         </div>

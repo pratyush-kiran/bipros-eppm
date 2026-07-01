@@ -1,5 +1,6 @@
 package com.bipros.dbs.service;
 
+import com.bipros.dbs.api.dto.BoqExecutedSummaryDto;
 import com.bipros.dbs.api.dto.DbsCmDayResponse;
 import com.bipros.dbs.api.dto.DbsCmSummaryDto;
 import com.bipros.dbs.api.dto.DbsEngineerDayResponse;
@@ -245,7 +246,37 @@ public class DbsQueryService {
         }
 
         DbsProjectDayResponse totals = projectTotals(projectId, from, to, daily);
+
         return new DbsProjectPeriodResponse(normalisePeriod(periodType), from, to, totals, daily);
+    }
+
+    /**
+     * Count of distinct BOQ items executed and sum of {@code qty_executed} across
+     * approved DPRs with a BOQ item linked, scoped to the given period window and
+     * optional supervisor. Null {@code supervisorUserId} → project-wide.
+     */
+    @SuppressWarnings("unchecked")
+    public BoqExecutedSummaryDto boqExecutedSummary(UUID projectId, UUID supervisorUserId,
+                                                    String periodType, LocalDate referenceDate) {
+        LocalDate[] b = boundsFor(periodType, referenceDate);
+        Object[] row = (Object[]) em.createNativeQuery(
+                "SELECT COUNT(DISTINCT boq_item_id) AS items, COALESCE(SUM(qty_executed),0) AS qty" +
+                " FROM project.daily_progress_reports" +
+                " WHERE project_id = cast(:pid as uuid) AND approval_status = 'APPROVED'" +
+                "   AND report_date BETWEEN :from AND :to" +
+                "   AND boq_item_id IS NOT NULL AND COALESCE(qty_executed,0) > 0" +
+                "   AND (cast(:sup as uuid) IS NULL OR supervisor_user_id = cast(:sup as uuid))")
+            .setParameter("pid", projectId.toString())
+            .setParameter("from", b[0])
+            .setParameter("to", b[1])
+            .setParameter("sup", supervisorUserId == null ? null : supervisorUserId.toString())
+            .getSingleResult();
+        Number items = (Number) row[0];
+        Number qty   = (Number) row[1];
+        long itemsLong = items == null ? 0L : items.longValue();
+        BigDecimal qtyBd = qty == null ? BigDecimal.ZERO
+            : (qty instanceof BigDecimal bd ? bd : new BigDecimal(qty.toString()));
+        return new BoqExecutedSummaryDto(itemsLong, qtyBd);
     }
 
     // ── list ────────────────────────────────────────────────────────────────────

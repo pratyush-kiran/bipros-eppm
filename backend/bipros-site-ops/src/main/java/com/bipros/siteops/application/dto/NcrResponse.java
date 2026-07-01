@@ -2,6 +2,7 @@ package com.bipros.siteops.application.dto;
 
 import com.bipros.siteops.domain.model.NcrCategory;
 import com.bipros.siteops.domain.model.NcrSeverity;
+import com.bipros.siteops.domain.model.NcrSourceType;
 import com.bipros.siteops.domain.model.NcrStatus;
 
 import java.time.Instant;
@@ -24,5 +25,8 @@ public record NcrResponse(
         UUID closedBy,
         Instant closedAt,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        NcrSourceType sourceType,
+        UUID sourceRefId,
+        UUID activityId
 ) {}

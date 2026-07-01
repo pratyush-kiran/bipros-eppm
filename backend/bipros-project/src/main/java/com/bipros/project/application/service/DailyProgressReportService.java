@@ -487,6 +487,13 @@ public class DailyProgressReportService {
   public DailyProgressReportResponse get(UUID projectId, UUID id) {
     DailyProgressReport dpr = find(projectId, id);
     BigDecimal cumulative = computeCumulative(dpr.getProjectId(), dpr.getActivityName(), dpr.getReportDate());
+    // Resolve the linked BOQ item's description for display (entity only snapshots id + item no).
+    String boqItemDescription = dpr.getBoqItemId() != null
+        ? boqItemRepository.findById(dpr.getBoqItemId()).map(BoqItem::getDescription).orElse(null)
+        : dpr.getBoqItemNo() != null
+            ? boqItemRepository.findByProjectIdAndItemNo(projectId, dpr.getBoqItemNo())
+                  .map(BoqItem::getDescription).orElse(null)
+            : null;
     return DailyProgressReportResponse.from(
         dpr, cumulative,
         manpowerRepository.findByDprIdOrderByTradeAsc(id).stream().map(DprManpowerRow::from).toList(),
@@ -495,7 +502,9 @@ public class DailyProgressReportService {
         toScResponseRows(subContractorRepository.findByDprIdOrderBySubContractorNameAsc(id)),
         attachmentRepository.findByDprIdOrderByCreatedAtAsc(id).stream().map(DprAttachmentResponse::from).toList(),
         voiceNoteRepository.findByDprIdOrderByCreatedAtAsc(id).stream().map(DprVoiceNoteResponse::from).toList(),
-        issueRepository.findByDprIdOrderByOpenedAtAsc(id).stream().map(DprIssueRow::from).toList()
+        issueRepository.findByDprIdOrderByOpenedAtAsc(id).stream().map(DprIssueRow::from).toList(),
+        List.of(),
+        boqItemDescription
     );
   }
 

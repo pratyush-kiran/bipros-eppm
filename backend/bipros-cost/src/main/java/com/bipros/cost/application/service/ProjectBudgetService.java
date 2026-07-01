@@ -262,6 +262,7 @@ public class ProjectBudgetService {
         BigDecimal approvedAdditions = BigDecimal.ZERO;
         BigDecimal approvedReductions = BigDecimal.ZERO;
         int pendingCount = 0;
+        int approvedCount = 0;
 
         for (BudgetChangeLog c : changes) {
             if (c.getStatus() == ChangeStatus.PENDING) {
@@ -272,6 +273,7 @@ public class ProjectBudgetService {
                     case TRANSFER -> { /* no net effect */ }
                 }
             } else if (c.getStatus() == ChangeStatus.APPROVED) {
+                approvedCount++;
                 switch (c.getChangeType()) {
                     case ADDITION -> approvedAdditions = approvedAdditions.add(c.getAmount());
                     case REDUCTION -> approvedReductions = approvedReductions.add(c.getAmount());
@@ -288,6 +290,7 @@ public class ProjectBudgetService {
             approvedAdditions,
             approvedReductions,
             pendingCount,
+            approvedCount,
             project.getBudgetCurrency(),
             project.getBudgetUpdatedAt()
         );

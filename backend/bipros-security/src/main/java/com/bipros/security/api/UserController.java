@@ -4,6 +4,7 @@ import com.bipros.common.dto.ApiResponse;
 import com.bipros.common.dto.PagedResponse;
 import com.bipros.security.application.dto.AssignProfileRequest;
 import com.bipros.security.application.dto.CreateUserRequest;
+import com.bipros.security.application.dto.SetPasswordRequest;
 import com.bipros.security.application.dto.UpdateUserProfileRequest;
 import com.bipros.security.application.dto.UpdateUserRolesRequest;
 import com.bipros.security.application.dto.UpdateUserStatusRequest;
@@ -106,6 +107,17 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResponse>> createUser(
             @Valid @RequestBody CreateUserRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(userService.createUser(request)));
+    }
+
+    @PostMapping("/set-password")
+    @PreAuthorize("hasPermission(null, 'ADMIN_USER.UPDATE')")
+    @Operation(summary = "Admin set/reset a user's password by username",
+        description = "Sets the given user's password (BCrypt-hashed, same as login). Admin "
+            + "override — no current password required. User identified by exact username.")
+    public ResponseEntity<ApiResponse<String>> setPassword(
+            @Valid @RequestBody SetPasswordRequest request) {
+        userService.setPasswordByUsername(request.username(), request.password());
+        return ResponseEntity.ok(ApiResponse.ok("Password updated for user '" + request.username() + "'"));
     }
 
     @PutMapping("/{id}")

@@ -12,6 +12,7 @@ import type { ProjectResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { KpiRow } from "./KpiRow";
+import { BudgetBand } from "./BudgetBand";
 import { ProjectTimelinePreview } from "./ProjectTimelinePreview";
 import { ProjectHealthDonut } from "./ProjectHealthDonut";
 import { WorkPackageTable } from "./WorkPackageTable";
@@ -207,6 +208,8 @@ export function ProjectDashboardTab({
         onTasksClick={() => setDrill({ kind: "tasks" })}
         onIssuesClick={() => setDrill({ kind: "issues" })}
       />
+
+      <BudgetBand projectId={projectId} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.6fr_1fr]">
         <ProjectTimelinePreview activities={activityRows} />

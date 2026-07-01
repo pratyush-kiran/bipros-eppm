@@ -5,6 +5,7 @@ import com.bipros.activity.domain.model.ActivitySupervisor;
 import com.bipros.activity.domain.repository.ActivityRepository;
 import com.bipros.activity.domain.repository.ActivitySupervisorRepository;
 import com.bipros.api.dto.DataHealthResponse;
+import com.bipros.api.dto.EpsCodeCorrectionResponse;
 import com.bipros.api.dto.RepairReport;
 import com.bipros.api.dto.RepairRequest;
 import com.bipros.dbs.service.DbsAggregationService;
@@ -33,6 +34,10 @@ import com.bipros.resource.domain.repository.WorkActivityRepository;
 import com.bipros.resource.domain.repository.role.EquipmentRoleVariantRepository;
 import com.bipros.resource.domain.repository.role.ManpowerRoleRateRepository;
 import com.bipros.resource.domain.repository.role.MaterialRoleVariantRepository;
+import com.bipros.common.exception.BusinessRuleException;
+import com.bipros.common.exception.ResourceNotFoundException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -80,6 +85,57 @@ public class ProjectDataRepairService {
   @org.springframework.beans.factory.annotation.Autowired
   @org.springframework.context.annotation.Lazy
   ProjectDataRepairService self;
+
+  @PersistenceContext
+  private EntityManager em;
+
+  /**
+   * Data-correction (admin only): directly overwrite an EPS node's {@code code}. The code is
+   * immutable through the normal EPS update API, so this repair path issues the UPDATE directly.
+   * Enforces the same rules as create — non-blank, ≤20 chars, unique.
+   */
+  @Transactional
+  public EpsCodeCorrectionResponse correctEpsCode(UUID epsNodeId, String newCode) {
+    if (epsNodeId == null) {
+      throw new BusinessRuleException("EPS_NODE_ID_REQUIRED", "epsNodeId is required");
+    }
+    if (newCode == null || newCode.isBlank()) {
+      throw new BusinessRuleException("EPS_CODE_REQUIRED", "code is required");
+    }
+    String code = newCode.trim();
+    if (code.length() > 20) {
+      throw new BusinessRuleException("EPS_CODE_TOO_LONG", "code must not exceed 20 characters");
+    }
+
+    List<Object[]> existing = em.createNativeQuery(
+            "SELECT code, name FROM project.eps_nodes WHERE id = :id")
+        .setParameter("id", epsNodeId)
+        .getResultList();
+    if (existing.isEmpty()) {
+      throw new ResourceNotFoundException("EpsNode", epsNodeId);
+    }
+    String oldCode = (String) existing.get(0)[0];
+    String name = (String) existing.get(0)[1];
+
+    Number dupes = (Number) em.createNativeQuery(
+            "SELECT COUNT(*) FROM project.eps_nodes WHERE code = :code AND id <> :id")
+        .setParameter("code", code)
+        .setParameter("id", epsNodeId)
+        .getSingleResult();
+    if (dupes.longValue() > 0) {
+      throw new BusinessRuleException("EPS_CODE_DUPLICATE",
+          "EPS node with code '" + code + "' already exists");
+    }
+
+    int updated = em.createNativeQuery(
+            "UPDATE project.eps_nodes SET code = :code WHERE id = :id")
+        .setParameter("code", code)
+        .setParameter("id", epsNodeId)
+        .executeUpdate();
+
+    log.info("EPS code correction: node={} '{}' -> '{}' ({} row updated)", epsNodeId, oldCode, code, updated);
+    return new EpsCodeCorrectionResponse(epsNodeId, name, oldCode, code, updated);
+  }
 
   @Transactional(readOnly = true)
   public DataHealthResponse diagnose(UUID projectId) {

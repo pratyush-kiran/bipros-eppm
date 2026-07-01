@@ -75,4 +75,14 @@ public class Ncr extends BaseEntity {
 
     @Column(name = "closed_at")
     private Instant closedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", nullable = false, length = 20)
+    private NcrSourceType sourceType = NcrSourceType.MANUAL;
+
+    @Column(name = "source_ref_id")
+    private UUID sourceRefId;
+
+    @Column(name = "activity_id")
+    private UUID activityId;
 }

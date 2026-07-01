@@ -53,7 +53,8 @@ export function KpiRow({
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <KpiTile
         label="Overall Progress"
-        value={`${physicalPct.toFixed(0)}%`}
+        value={`${Math.min(physicalPct, 100).toFixed(0)}%`}
+        valueTitle={physicalPct > 100 ? `Earned ${physicalPct.toFixed(0)}% — capped at 100%` : undefined}
         tone="success"
         icon={<TrendingUp size={14} />}
         delta={formatDelta(physicalPct, deltas?.physicalPctDelta, {

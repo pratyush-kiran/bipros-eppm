@@ -51,7 +51,7 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
       (a) => a.roleType === "MATERIAL" && !a.unplanned,
     );
     const seen = new Set<string>();
-    const out: { value: string; label: string; roleId: string; variantId: string; materialName: string; unit: string | null }[] = [];
+    const out: { value: string; label: string; roleId: string; variantId: string; materialName: string; unit: string | null; rate: number | null }[] = [];
     for (const p of planned) {
       if (!p.roleId || !p.variantId) continue;
       const k = optKey(p.roleId, p.variantId);
@@ -64,6 +64,7 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
         variantId: p.variantId,
         materialName: p.roleName ?? "",
         unit: p.unit ?? null,
+        rate: p.effectiveRate ?? null,
       });
     }
     const book = Array.isArray(bookResp?.data) ? bookResp.data : [];
@@ -79,6 +80,7 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
         variantId: v.id,
         materialName: v.roleName ?? "",
         unit: v.unit ?? null,
+        rate: v.rate,
       });
     }
     return out;
@@ -100,6 +102,7 @@ export function MaterialGrid({ projectId, activityId, rows, onChange }: Props) {
       roleId: opt.roleId,
       materialName: opt.materialName,
       unit: opt.unit,
+      unitRate: opt.rate ?? null,
     });
   };
 
