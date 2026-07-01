@@ -1,6 +1,7 @@
 "use client";
 
 import { KpiTile } from "@/components/common/KpiTile";
+import { useProjectCurrency } from "@/lib/currency/ProjectCurrencyProvider";
 import { formatCurrency, formatPercent } from "@/lib/utils/format";
 
 /**
@@ -60,6 +61,8 @@ export function TotalsPanel({
   boqItemsExecuted,
   boqQtyExecuted,
 }: TotalsPanelProps) {
+  const { moneyCompact } = useProjectCurrency();
+
   // Profit/loss tone — drives the colour on the contribution tile.
   const contribTone = contribution > 0 ? "success" : contribution < 0 ? "danger" : "default";
 
@@ -77,7 +80,8 @@ export function TotalsPanel({
       >
         <KpiTile
           label="Total Expense"
-          value={formatCurrency(totalExpense, currency)}
+          value={moneyCompact(totalExpense)}
+          valueTitle={formatCurrency(totalExpense, currency)}
           hint={
             showSubContractor
               ? "Material + Manpower + Admin + Machinery + Fuel + Sub-Contractor"
@@ -87,7 +91,8 @@ export function TotalsPanel({
         />
         <KpiTile
           label="Total Income"
-          value={formatCurrency(totalIncome, currency)}
+          value={moneyCompact(totalIncome)}
+          valueTitle={formatCurrency(totalIncome, currency)}
           hint="qty executed × boq_rate"
           tone="accent"
         />
@@ -109,7 +114,8 @@ export function TotalsPanel({
         )}
         <KpiTile
           label="Contribution"
-          value={formatCurrency(contribution, currency)}
+          value={moneyCompact(contribution)}
+          valueTitle={formatCurrency(contribution, currency)}
           hint="Income − Expense"
           tone={contribTone}
         />

@@ -98,10 +98,10 @@ export function KpiTile({ label, value, hint, tone = "default", icon, delta, onC
           </div>
         )}
       </div>
-      <div className="relative mt-2 flex items-baseline gap-2">
+      <div className="relative mt-2 flex min-w-0 items-baseline gap-2">
         <div
-          className={`font-display text-[26px] font-semibold leading-none tracking-tight ${valueToneCls[tone]}`}
-          title={valueTitle}
+          className={`min-w-0 truncate font-display text-[24px] font-semibold leading-none tracking-tight ${valueToneCls[tone]}`}
+          title={valueTitle ?? String(value ?? "")}
         >
           {value}
         </div>
