@@ -15,6 +15,8 @@ import {
 } from "@/lib/api/capacityUtilizationApi";
 import { activityApi } from "@/lib/api/activityApi";
 import { TabTip } from "@/components/common/TabTip";
+import { MultiSelect } from "@/components/common/MultiSelect";
+import { SearchableSelect, type SelectOption } from "@/components/common/SearchableSelect";
 import { SupervisorPerformanceSections } from "@/components/capacity-utilization/SupervisorPerformanceSections";
 import { SupervisorComparisonSections } from "@/components/capacity-utilization/SupervisorComparisonSections";
 import { PeriodCell as RolePeriodCellShared } from "@/components/capacity/PeriodCell";
@@ -526,6 +528,14 @@ export default function CapacityUtilizationPage() {
   const totalRows = rows?.length ?? 0;
   const supervisors = supervisorOptions?.data ?? [];
 
+  const supervisorSelectOptions: SelectOption[] = [
+    { value: "", label: "All supervisors (project-wide)" },
+    ...supervisors.map((s) => ({
+      value: s.supervisorUserId,
+      label: `${s.supervisorName} (${s.dprCount} DPRs)`,
+    })),
+  ];
+
   return (
     <div className="p-6">
       <TabTip
@@ -630,42 +640,21 @@ export default function CapacityUtilizationPage() {
                 Supervisor
               </label>
               {compareMode ? (
-                <select
-                  multiple
+                <MultiSelect
+                  options={supervisorSelectOptions}
                   value={compareIds}
-                  onChange={(e) => {
-                    const opts = Array.from(e.target.selectedOptions).map(
-                      (o) => o.value,
-                    );
-                    setCompareIds(opts.slice(0, 6));
-                  }}
-                  className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg h-24"
-                >
-                  {supervisors.map((s) => (
-                    <option
-                      key={s.supervisorUserId}
-                      value={s.supervisorUserId}
-                    >
-                      {s.supervisorName} ({s.dprCount})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(ids) => setCompareIds(ids.slice(0, 6))}
+                  placeholder="Select up to 6 supervisors"
+                  className="w-full"
+                />
               ) : (
-                <select
+                <SearchableSelect
+                  options={supervisorSelectOptions}
                   value={supervisorUserId}
-                  onChange={(e) => setSupervisorUserId(e.target.value)}
-                  className="w-full px-3 py-2 border border-border bg-surface-hover text-text-primary rounded-lg"
-                >
-                  <option value="">All supervisors (project-wide)</option>
-                  {supervisors.map((s) => (
-                    <option
-                      key={s.supervisorUserId}
-                      value={s.supervisorUserId}
-                    >
-                      {s.supervisorName} ({s.dprCount} DPRs)
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSupervisorUserId}
+                  placeholder="All supervisors (project-wide)"
+                  className="w-full"
+                />
               )}
             </div>
             <div>
